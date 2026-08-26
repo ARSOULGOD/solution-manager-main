@@ -1,0 +1,39 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Superpowers / Claude Code session scratch (ephemeral, not design history)
+.superpowers/
+.claude/settings.local.json
+
+# Editors / IDEs
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+*~
+
+# Logs & temp
+*.log
+tmp/
+temp/
+
+# Java / Gradle / Maven (backend)
+target/
+build/
+.gradle/
+
+# Node / frontend
+node_modules/
+dist/
+.env
+.env.local
+
+# Go (agent)
+go-agent/bin/
+
+# Local Postgres scratch used to validate migrations
+pgdata/

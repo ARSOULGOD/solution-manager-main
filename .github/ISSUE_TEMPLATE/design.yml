@@ -1,0 +1,43 @@
+name: Design task
+description: Produce a design doc or resolve a design question
+labels: ["kind:design"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Decisions and rationale live in the repo, not in this thread.** Anything decided here must land in
+        `docs/design/DECISIONS.md` before this issue closes — otherwise the next reader loses the reasoning.
+  - type: input
+    id: honours
+    attributes:
+      label: Decision IDs this must honour
+      description: From docs/design/DECISIONS.md. Reference by ID — never restate a decision here.
+      placeholder: "SM-D20, SM-D23, D3"
+    validations: { required: true }
+  - type: input
+    id: requirement
+    attributes:
+      label: Requirement served
+      placeholder: "REQ-001"
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope — and explicitly what is OUT
+    validations: { required: true }
+  - type: textarea
+    id: executable
+    attributes:
+      label: Executable artifact this will land
+      description: >
+        What can be run rather than asserted — a JSON Schema plus a validating instance, a .proto that compiles,
+        migration DDL with constraint tests. Five review rounds found defects in prose that one migration run caught.
+    validations: { required: true }
+  - type: checkboxes
+    id: gates
+    attributes:
+      label: Before closing
+      options:
+        - label: Passed `docs/checklists/spec-review.md`, including its independent adversarial pass
+        - label: Any decision reached here is recorded in `DECISIONS.md` with an ID
+        - label: External facts verified against vendor docs, not recalled (invariant `I2`)
+        - label: Audited against `HC1` — requires no MI development

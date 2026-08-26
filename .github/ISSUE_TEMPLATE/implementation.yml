@@ -1,0 +1,34 @@
+name: Implementation task
+description: Write code against an approved plan
+labels: ["kind:implementation"]
+body:
+  - type: markdown
+    attributes:
+      value: "**No implementation without an approved plan.** The plan is authoritative; this issue tracks execution."
+  - type: input
+    id: plan
+    attributes:
+      label: Approved plan
+      placeholder: "docs/plans/backend/001-....md"
+    validations: { required: true }
+  - type: input
+    id: honours
+    attributes:
+      label: Decision IDs this must honour
+    validations: { required: true }
+  - type: textarea
+    id: verification
+    attributes:
+      label: How this will be proven to work
+      description: Tests, not assertions. Per `docs/checklists/definition-of-done.md` — evidence before claims.
+    validations: { required: true }
+  - type: checkboxes
+    id: gates
+    attributes:
+      label: Definition of done
+      options:
+        - label: Tests written and passing — output seen, not inferred
+        - label: All SQL uses bind parameters; tenant scope via the central data-access module (`I5`)
+        - label: No secret value in config storage, history, diffs, exports or logs (`I6`)
+        - label: No CP↔DP import crossing; no cross-schema join or FK (`I7`)
+        - label: Design updated if implementation proved it wrong — superseded, not edited in place (`I3`)
