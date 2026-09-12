@@ -116,3 +116,45 @@ func TestRun_OneTargetFails_WritesFailureAndReturnsError(t *testing.T) {
 		t.Fatal("expected bad target to not write latest.json")
 	}
 }
+
+func TestRun_FailedTargetPreservesExistingLatest(t *testing.T) {
+	okSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("original"))
+	}))
+	defer okSrv.Close()
+
+	failSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("fail"))
+	}))
+	defer failSrv.Close()
+
+	dataDir := t.TempDir()
+	targets := []telemetry.Target{
+		{ID: "svc", URL: okSrv.URL},
+	}
+	client := testHTTPClient(5 * time.Second)
+
+	if err := telemetry.Run(context.Background(), dataDir, targets, client, maxBody); err != nil {
+		t.Fatalf("first Run: %v", err)
+	}
+
+	latestPath := filepath.Join(dataDir, "telemetry", "svc", "latest.json")
+	original, err := os.ReadFile(latestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	targets[0].URL = failSrv.URL
+	if err := telemetry.Run(context.Background(), dataDir, targets, client, maxBody); err == nil {
+		t.Fatal("expected error on failed re-collect")
+	}
+
+	after, err := os.ReadFile(latestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != string(original) {
+		t.Fatalf("latest.json changed on failure:\nwas: %s\ngot: %s", original, after)
+	}
+}

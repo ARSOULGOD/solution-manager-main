@@ -23,7 +23,7 @@ func TestScrape_HTTP200_ReturnsValidSample(t *testing.T) {
 	defer srv.Close()
 
 	target := telemetry.Target{ID: "svc1", URL: srv.URL}
-	sample := telemetry.Scrape(context.Background(), testHTTPClient(5*time.Second), target)
+	sample := telemetry.Scrape(context.Background(), testHTTPClient(5*time.Second), target, maxBody)
 
 	if sample.ServiceID != "svc1" {
 		t.Fatalf("service_id = %q, want svc1", sample.ServiceID)
@@ -63,7 +63,7 @@ func TestScrape_HTTP503_NotOKAfterValidate(t *testing.T) {
 	defer srv.Close()
 
 	target := telemetry.Target{ID: "svc1", URL: srv.URL}
-	sample := telemetry.Scrape(context.Background(), testHTTPClient(5*time.Second), target)
+	sample := telemetry.Scrape(context.Background(), testHTTPClient(5*time.Second), target, maxBody)
 
 	if sample.HTTPStatus != http.StatusServiceUnavailable {
 		t.Fatalf("http_status = %d, want 503", sample.HTTPStatus)
@@ -82,7 +82,7 @@ func TestScrape_HTTP503_NotOKAfterValidate(t *testing.T) {
 
 func TestScrape_ConnectionRefused_NotOKAfterValidate(t *testing.T) {
 	target := telemetry.Target{ID: "svc1", URL: "http://127.0.0.1:1/refused"}
-	sample := telemetry.Scrape(context.Background(), testHTTPClient(2*time.Second), target)
+	sample := telemetry.Scrape(context.Background(), testHTTPClient(2*time.Second), target, maxBody)
 
 	if sample.Error == "" {
 		t.Fatal("expected transport error")
@@ -99,6 +99,37 @@ func TestScrape_ConnectionRefused_NotOKAfterValidate(t *testing.T) {
 	}
 }
 
+func TestScrape_OversizeBody_SetsErrorBeforeValidate(t *testing.T) {
+	const limit = 10
+	bigBody := make([]byte, limit+1)
+	for i := range bigBody {
+		bigBody[i] = 'x'
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(bigBody)
+	}))
+	defer srv.Close()
+
+	target := telemetry.Target{ID: "svc1", URL: srv.URL}
+	sample := telemetry.Scrape(context.Background(), testHTTPClient(5*time.Second), target, limit)
+
+	if sample.Error != "body exceeds maximum size" {
+		t.Fatalf("error = %q, want body exceeds maximum size", sample.Error)
+	}
+	if sample.Body != "" {
+		t.Fatal("expected empty body on oversize response")
+	}
+
+	if err := telemetry.Validate(&sample, limit); err == nil {
+		t.Fatal("expected validation error for oversize body")
+	}
+	if sample.OK {
+		t.Fatal("expected OK=false")
+	}
+}
+
 func TestScrape_Timeout_NotOKAfterValidate(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(200 * time.Millisecond)
@@ -108,7 +139,7 @@ func TestScrape_Timeout_NotOKAfterValidate(t *testing.T) {
 	defer srv.Close()
 
 	target := telemetry.Target{ID: "svc1", URL: srv.URL}
-	sample := telemetry.Scrape(context.Background(), testHTTPClient(50*time.Millisecond), target)
+	sample := telemetry.Scrape(context.Background(), testHTTPClient(50*time.Millisecond), target, maxBody)
 
 	if sample.Error == "" {
 		t.Fatal("expected timeout error")

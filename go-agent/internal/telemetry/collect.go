@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 )
 
 const defaultMaxBody = 1024 * 1024
@@ -21,9 +22,10 @@ func Run(ctx context.Context, dataDir string, targets []Target, client *http.Cli
 	var errs []error
 
 	for _, t := range targets {
-		sample := Scrape(ctx, client, t)
+		sample := Scrape(ctx, client, t, maxBody)
 		if err := Validate(&sample, maxBody); err != nil {
 			failed = true
+			fmt.Fprintf(os.Stderr, "collect: target %s: %s\n", t.ID, err)
 			if saveErr := store.SaveFailure(dataDir, sample); saveErr != nil {
 				errs = append(errs, saveErr)
 			}
