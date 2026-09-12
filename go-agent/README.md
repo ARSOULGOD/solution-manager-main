@@ -2,7 +2,56 @@
 
 Agent for the `host-local` locus: enrollment, mTLS, protocol, collectors, runtime version introspection, K8s leader election.
 
-**Stack:** Go · **Status:** no code yet.
+**Stack:** Go · **Status:** scaffold + Docker container lifecycle CLI demo (no DP protocol yet).
+
+## Container lifecycle CLI (demo)
+
+Controls **pre-created** Docker containers by name via the Docker Engine API (not `docker` shell, not JVM PIDs).
+
+```bash
+cd go-agent
+go build -o sm-agent ./cmd/sm-agent
+
+./sm-agent start java1
+./sm-agent stop java1
+./sm-agent restart java1
+./sm-agent status java1
+```
+
+Same for `java2` / `java3`. Prep fixtures: [`../testdata/java-demo/README.md`](../testdata/java-demo/README.md).
+
+No subcommand → existing long-running mode (load config, wait for SIGINT/SIGTERM) is unchanged.
+
+Design: [`../docs/superpowers/specs/2026-09-12-sm-agent-docker-lifecycle-design.md`](../docs/superpowers/specs/2026-09-12-sm-agent-docker-lifecycle-design.md).
+
+## Local telemetry collect (manager demo)
+
+HTTP-scrapes configured targets, validates responses, and writes segregated JSON under
+`$SM_AGENT_DATA_DIR/telemetry/<id>/` (local filesystem only; no DP push).
+
+```bash
+cd go-agent
+go build -o sm-agent ./cmd/sm-agent
+
+# Example services: testdata/java-demo (see that README to build/start java1/2/3)
+./sm-agent collect --targets ../testdata/java-demo/targets.yaml --data-dir /tmp/sm-demo-data
+
+find /tmp/sm-demo-data/telemetry -type f | sort
+cat /tmp/sm-demo-data/telemetry/java1/latest.json
+```
+
+Each successful target gets `telemetry/<id>/latest.json` plus a timestamped copy under
+`telemetry/<id>/history/`. Failures go to `telemetry/_failures/<id>-<timestamp>.json` without
+overwriting the previous `latest.json`. Exit code is non-zero if any target fails.
+
+**Docker lifecycle CLI is separate** — this proof does not require `sm-agent start|stop|…`; any
+process serving the URLs in the targets file is enough (compose, lifecycle CLI, or manual
+`docker start`).
+
+To show partial failure: stop one service (e.g. `docker stop java2`), re-run `collect`, confirm
+java1/java3 `latest.json` refresh and java2 lands under `_failures/`.
+
+Design: [`../docs/superpowers/specs/2026-09-12-sm-agent-local-telemetry-collect-design.md`](../docs/superpowers/specs/2026-09-12-sm-agent-local-telemetry-collect-design.md).
 
 ## Before writing code here
 

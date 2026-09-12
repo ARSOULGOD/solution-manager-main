@@ -258,12 +258,12 @@ and pushed with gap markers; control HA on K8s; no secret values in logs.
 
 | # | Item | Blocks |
 |---|---|---|
-| A | Agent↔DP **`.proto` + transport state machine** (open item 6) | all agent implementation |
-| B | Exact lease renewal **backoff/jitter** and **persisted-state file layout** (`AG-D2`) | crash-safe apply / renew |
+| A | Agent↔DP **`.proto` + transport state machine** (open item 6). Working **ASSUMED** sketch: [`p2-wire-assumptions.md`](p2-wire-assumptions.md) (non-binding until `contracts/`) | all agent implementation |
+| B | Exact lease renewal **backoff/jitter** and **persisted-state file layout** (`AG-D2`) — **drafted** in [`p3-mechanism-gaps.md`](p3-mechanism-gaps.md) (ASSUMED) | crash-safe apply / renew |
 | C | Solace **Go API maturity** for `solace_event` (open item 14) | host-local broker collector only |
 | D | Ratification of `SM-D7` / `SM-D24` / `SM-D28` (and the set) | treating this design as baseline |
 | E | K8s GitOps writer model with customers (SM-D25 / open item 4) | K8s `additional-location` usability |
-| F | Per-MI introspection recipes (Cache first) without violating `I1` | version accuracy |
+| F | Per-MI introspection recipes (Cache first) without violating `I1` — **drafted** in [`p3-mechanism-gaps.md`](p3-mechanism-gaps.md) §7 | version accuracy |
 
 Non-goals until later: HTTP/1.1 fallback, auto cert rotation, fleet self-upgrade, dual-collector redundancy,
 `scheduled` workload support.
@@ -272,7 +272,7 @@ Non-goals until later: HTTP/1.1 fallback, auto cert rotation, fleet self-upgrade
 
 ## 13. What this document deliberately does not specify
 
-- Wire message schemas and RPC names — **UNSPECIFIED** until the contract is written.
+- Authoritative wire message schemas and RPC names — **UNSPECIFIED** until the contract is written under `contracts/`. A non-binding ASSUMED sketch for go-agent planning lives in [`p2-wire-assumptions.md`](p2-wire-assumptions.md); the real `.proto` supersedes it.
 - DP-side lease store — backend sub-spec.
 - `dp-remote` apply protocol — separate open item; not this component.
 - Solution Package / telemetry contract field lists — common contracts + backend/dynamic-ui.

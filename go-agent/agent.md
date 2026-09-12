@@ -4,9 +4,9 @@
 > Update on explicit session wrap-up only (skill: `agent-md-context`).
 
 ## Snapshot
-- **Date:** 2026-08-26
+- **Date:** 2026-09-02
 - **Baseline:** UNBASELINED — `SM-D*` PROPOSED; do not implement as ratified
-- **Focus:** go-agent design/workplan; no agent product code until walking skeleton accepted
+- **Focus:** P2 surrogate wire = `go-agent/docs/p2-wire-assumptions.md` until backend `contracts/`; no product Go code until walking skeleton
 
 ## Project in one paragraph
 Solution Manager is a config/governance plane for Solace managed integrations (not a deploy plane). Thin CP governs; DP owns config-of-record and telemetry. Loci: `dp-remote` (DP holds host credentials) and `host-local` (outbound Go agent). Customer CI/CD owns artifacts; SM writes external config + restart. v1 walking skeleton is Docker + `dp-remote` first; host-local agent is step 2. Agent↔DP wire protocol does not exist yet (open item 6).
@@ -28,7 +28,7 @@ Solution Manager is a config/governance plane for Solace managed integrations (n
 |---|---|---|
 | Walking skeleton (Docker + `dp-remote`) | Platform gate; not go-agent-owned | Accept E2E before any go-agent code |
 | go-agent docs | DRAFT design + `AG-D1`…`AG-D6` + contract-spine workplan | P0 Pass 1 self-review; P1 adversarial; P2 `.proto` with backend |
-| Agent↔DP protocol | Authority model SM-D24/SM-D28; wire **unspecified** | Joint `.proto` + state machine (blocks all agent impl) |
+| Agent↔DP protocol | **Surrogate in force** — `go-agent/docs/p2-wire-assumptions.md` via `p2-baseline.md` until backend `contracts/` | Backend replaces; open item 6 still formally open |
 | Implementation plan 001 | Not started | After P1–P3; then `docs/plans/go-agent/001-host-local-vertical-slice.md` |
 
 ## Blocking open items (agent-relevant)

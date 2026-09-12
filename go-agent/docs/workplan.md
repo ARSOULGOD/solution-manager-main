@@ -34,9 +34,9 @@
 |---|---|---|---|
 | **P0 — Spec harden** | Pass 1 self-review of `go-agent/docs/*` via [`docs/checklists/spec-review.md`](../../docs/checklists/spec-review.md); fix gaps; open GitHub Issues linked to SM-D24 / SM-D28 / `AG-D*` | — | Pass 1 checked; holes listed, not silent |
 | **P1 — Adversarial review** | Brief independent reviewer (Pass 2); triage: fix now / route / accept as limit | Reviewer | Dispositions recorded; design still DRAFT but review-clean |
-| **P2 — Wire contract** | Co-author agent↔DP phases + message kinds with backend; land versioned `.proto` under contracts; encode SM-D28 states and B/D16 safety (generations, idempotency, crash-safe resume) | Backend DP owner | Protocol **specified** (not merely authority-model-decided); compatibility tooling ready |
-| **P3 — Mechanism gaps** | Close `AG-D2` (persist layout, renew backoff/jitter) against the proto; Cache introspection recipe without `I1` breach | P2 | `AG-D2` layout decided; open item F sketched for Cache |
-| **P4 — Implementation plan** | Write `docs/plans/go-agent/001-host-local-vertical-slice.md` via `superpowers:writing-plans` | P1–P3 (skeleton may still be in flight) | Plan **APPROVED**; checkable tasks; explicit out-of-scope |
+| **P2 — Wire contract** | **Surrogate wire in force:** [`p2-baseline.md`](p2-baseline.md) treats [`p2-wire-assumptions.md`](p2-wire-assumptions.md) as the working `.proto` stand-in until backend publishes under `contracts/`. Audit: [`p2-wire-assumptions-audit.md`](p2-wire-assumptions-audit.md). Real protocol still **unspecified** in contracts tree | Backend DP owner (to replace) | Authoritative `.proto` in `contracts/`; baseline superseded |
+| **P3 — Mechanism gaps** | Close `AG-D2` (persist layout, renew backoff/jitter) against surrogate wire; Cache introspection recipe without `I1` breach. **Doc:** [`p3-mechanism-gaps.md`](p3-mechanism-gaps.md) | Surrogate P2 in force ([`p2-baseline.md`](p2-baseline.md)) | `AG-D2` layout decided (ASSUMED); open item F sketched for Cache |
+| **P4 — Implementation plan** | Write [`docs/plans/go-agent/001-host-local-vertical-slice.md`](../../docs/plans/go-agent/001-host-local-vertical-slice.md) via writing-plans | P1–P3 (skeleton may still be in flight) | Plan **APPROVED**; checkable tasks; explicit out-of-scope. **Status now: DRAFT written** |
 | **P5 — Code** | Execute 001: scaffold → enroll/session/lease → apply/report → HTTP collector | **Skeleton accepted** + P4 approved + contracts consumable | Design §11 success criteria for this slice |
 
 **Parallel (not go-agent-owned, blocks later work):** platform walking skeleton; `SM-D*` ratification; K8s GitOps writer model (SM-D25) — needed before deep K8s apply, **not** before Docker host-local 001.
@@ -92,10 +92,9 @@ skeleton ──────────────────┴→ P5 (code)
 
 ### Immediate next actions (this week)
 
-1. **P0** — Pass 1 self-review of `design.md` + `decisions.md`.
-2. Create/link GitHub Issues for adversarial review (P1) and agent↔DP `.proto` (P2).
-3. Book backend for a proto working session (CA/enroll = CP; session/lease/generations = DP).
-4. Do **not** scaffold the Go module yet.
+1. Review [`p3-mechanism-gaps.md`](p3-mechanism-gaps.md) (P3).
+2. Review/approve [`docs/plans/go-agent/001-host-local-vertical-slice.md`](../../docs/plans/go-agent/001-host-local-vertical-slice.md) (P4 DRAFT).
+3. Do **not** execute P5 / scaffold until walking skeleton accepted + plan APPROVED.
 
 ---
 
@@ -103,7 +102,7 @@ skeleton ──────────────────┴→ P5 (code)
 
 - Not a replacement for [`design.md`](design.md) (component architecture).
 - Not an implementation plan — that is P4 (`docs/plans/go-agent/001-…`).
-- Not the `.proto` — that is P2 with backend.
+- Not the authoritative `.proto` — surrogate is P2 ([`p2-baseline.md`](p2-baseline.md)); real contract is backend `contracts/`.
 
 ---
 
@@ -112,3 +111,4 @@ skeleton ──────────────────┴→ P5 (code)
 | Date | Change |
 |---|---|
 | 2026-08-26 | Initial contract-spine workplan from brainstorming (goal C, parallelism B, approach 1). |
+| 2026-09-02 | P2 surrogate wire; P3 [`p3-mechanism-gaps.md`](p3-mechanism-gaps.md) drafted. |

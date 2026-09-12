@@ -8,14 +8,16 @@ alongside `D*`, `B/D*`, `SM-D*`, and other per-component families (`BE-D*` / `FE
 Cross-cutting authority (lease machine, session home, enrollment routing) lives in `DECISIONS.md`
 (`SM-D24`, `SM-D28`, `B/D16`, …). **Do not re-decide those here.** This file records only agent-local choices.
 
-⚠️ The agent↔DP **wire protocol is still unspecified**. No `AG-D*` below invents message schemas or RPC names.
+⚠️ The agent↔DP **authoritative** wire under `contracts/` is still unspecified. Go-agent uses the **surrogate** in
+[`p2-wire-assumptions.md`](p2-wire-assumptions.md) ([`p2-baseline.md`](p2-baseline.md)). Persist layout is specified in
+[`p3-mechanism-gaps.md`](p3-mechanism-gaps.md). No `AG-D*` invents message schemas owned by backend.
 
 ---
 
 | ID | Decision | Status |
 |---|---|---|
 | `AG-D1` | One binary; control and telemetry roles independently enabled at startup | PROPOSED |
-| `AG-D2` | Host-local durable state is file-backed; exact layout deferred until the wire contract exists | PROPOSED |
+| `AG-D2` | Host-local durable state is file-backed; **layout + renew backoff in `p3-mechanism-gaps.md`** (ASSUMED vs surrogate wire) | PROPOSED |
 | `AG-D3` | Kubernetes control-role HA uses client-go leader election (Lease); one active control per Target/cluster | PROPOSED |
 | `AG-D4` | Config writes are write-temp-then-rename with canonical-path + symlink-escape refusal | PROPOSED |
 | `AG-D5` | v1 Cache collector surface is HTTP/`local-collector` only; Go `solace_event` is phase 2 | PROPOSED |
@@ -37,16 +39,16 @@ the reverse). Same process is allowed; shared-fate bugs are not.
 
 ---
 
-## `AG-D2` — File-backed durable state; layout TBD
+## `AG-D2` — File-backed durable state; layout specified (ASSUMED)
 
-The agent persists on the host at least: current lease material needed for crash restart, monotonic generation /
-idempotency / in-flight apply state (B/D16 crash-safe apply), and the telemetry buffer needed for Detect+Recover
-(B/D2). Storage is **local files** under a configured data directory (permissions restricted to the agent service
-account).
+The agent persists on the host at least: lease/authority material, generation / idempotency / in-flight apply cursor
+(B/D16 crash-safe apply), and the telemetry buffer (B/D2 Detect+Recover). Storage is **local files** under
+`$SM_AGENT_DATA_DIR` (default `/var/lib/sm-agent`), mode `0700` / files `0600`.
 
-**Exact file layout, fsync rules, and renewal backoff/jitter are not decided here.** SM-D28 lists them as remaining
-agent sub-spec mechanism work, gated on the `.proto`. Inventing a layout before the wire contract would force a
-rewrite.
+**Layout, fsync, resume rules, and renew backoff/jitter** are recorded in [`p3-mechanism-gaps.md`](p3-mechanism-gaps.md)
+against the surrogate wire. They remain **ASSUMED** until an authoritative `contracts/` proto forces a rename.
+
+**Rationale.** Surrogate P2 unblocked closing the “TBD layout” gap without inventing a fake contracts proto.
 
 ---
 
@@ -102,3 +104,4 @@ are churn once the `.proto` and persist layout exist.
 | Date | Change |
 |---|---|
 | 2026-08-26 | Initial `AG-D1`…`AG-D6` from rewrite of the 2026-08-13 draft, kept under `go-agent/docs/`. Corrected false “dp-remote out of v1”, incomplete lease machine, and premature library locks. |
+| 2026-09-02 | `AG-D2` layout + renew backoff closed in [`p3-mechanism-gaps.md`](p3-mechanism-gaps.md) against surrogate P2 wire. |
