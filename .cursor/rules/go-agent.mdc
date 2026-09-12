@@ -1,0 +1,52 @@
+---
+description: go-agent workstream — surrogate wire, workplan gates, 001 plan, distribution image
+globs: go-agent/**/*,docs/plans/go-agent/**/*,docs/superpowers/specs/*go-agent*
+alwaysApply: false
+---
+
+# go-agent
+
+## Canonical docs (read in order)
+
+1. `go-agent/docs/design.md` + `go-agent/docs/decisions.md` (`AG-D*`)
+2. `go-agent/docs/workplan.md` (contract-spine P0–P5)
+3. Wire stand-in: `go-agent/docs/p2-baseline.md` → `go-agent/docs/p2-wire-assumptions.md` (ASSUMED until backend `contracts/`)
+4. Audit/dispositions: `go-agent/docs/p2-wire-assumptions-audit.md`
+5. Persist/introspection: `go-agent/docs/p3-mechanism-gaps.md`
+6. Implementation plan: `docs/plans/go-agent/001-host-local-vertical-slice.md` (**DRAFT** until APPROVED)
+7. Distribution image: `docs/superpowers/specs/2026-09-10-go-agent-dockerfile-design.md` · plan `docs/plans/go-agent/002-distribution-dockerfile.md`
+
+## Hard gates
+
+- **Surrogate `.proto`:** use assumptions doc as working wire; never invent authoritative files under `contracts/` without backend ownership. Backend-published contract **supersedes**.
+- **Parallelism B:** paper/docs OK now; **no product Go code** until walking skeleton (Docker + `dp-remote`) is accepted — unless the user explicitly waives the gate.
+- **001 plan:** do not execute Tasks 1–N until plan Status is **APPROVED** and skeleton gate is cleared (or user explicitly waives). Prefer a feature branch/worktree, not silent commits on `main`.
+- **Out of 001:** K8s leader election, DaemonSet, multi-replica barriers, `solace_event`, auto cert rotation, HTTP/1.1 fallback.
+
+## Distribution image (shipped)
+
+- **Path:** `go-agent/Dockerfile` + `go-agent/.dockerignore` (build context = `go-agent/` only)
+- **Shape:** multi-stage → static binary (`CGO_ENABLED=0`) → `gcr.io/distroless/static-debian13:nonroot`
+- **Builder:** `golang:1.26.4` with BuildKit `TARGETOS`/`TARGETARCH`; platforms `linux/amd64` + `linux/arm64` via `docker buildx`
+- **Runtime contract:** volume at `/var/lib/sm-agent` (`SM_AGENT_DATA_DIR`); mount docker.sock; operator must `group_add` host docker GID (nonroot — do not run as root)
+- **Config:** CLI flags + `SM_AGENT_DATA_DIR` / `SM_AGENT_ENROLL_TOKEN`; never bake secrets into image layers (`I6`)
+- **Docs:** operator build/run section in `go-agent/README.md`
+- **Out of packaging slice:** `runtime/` compose, registry/CI push, Helm/DaemonSet, new `AG-D*`/`RT-D*`
+
+```dockerfile
+# Keep vector ENTRYPOINT — distroless has no shell
+ENTRYPOINT ["/usr/local/bin/sm-agent"]
+```
+
+## When coding (after gates)
+
+- One binary, roles `control` + `telemetry` (`AG-D1`)
+- Persist under `$SM_AGENT_DATA_DIR` per `p3-mechanism-gaps.md` (`AG-D2`)
+- Atomic config write + symlink refusal (`AG-D4`); Cache HTTP collector only (`AG-D5`)
+- Never log secrets, report bearer, or private keys (`I6`)
+- `ADMISSION_BLOCKED` is an **ApplyProgress** status, not an authority state
+- Telemetry/report on a **separate** channel from lease/control (ASSUMED)
+
+## Session wrap-up
+
+On explicit “update agent.md” / “session wrap-up”, use skill `agent-md-context` and update `go-agent/agent.md`.
