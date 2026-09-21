@@ -1,5 +1,16 @@
 # Go-agent decisions — `AG-D*`
 
+> ⛔ **PRECEDENCE RULING (2026-09-21).** [`../../docs/design/backend/agent-gateway/`](../../docs/design/backend/agent-gateway/)
+> — `design.md`, `decisions.md` (`AGW-D1`–`AGW-D16`), `lease-and-registry-sketch.md` — is **authoritative** for
+> the agent↔Data-Plane wire, session and lease model, command delivery, reports and telemetry ingest. **Where any
+> decision below collides with it, the gateway design overrules.** That design was written against the baseline
+> `AG-D*` family in [`../../docs/design/go-agent/decisions.md`](../../docs/design/go-agent/decisions.md)
+> (`AG-D1`–`AG-D12`); its "Fork inventory" records that `AG-D2`–`AG-D6` below carry **different meanings** from
+> the baseline IDs. Do not cite the IDs below as authority for anything the gateway design or the baseline family
+> covers; cite `AGW-D*` or the baseline `AG-D*`. What survives here is what the gateway design credits as a
+> genuine addition — `AG-D4`'s symlink-escape refusal — pending a governance decision on retirement, rebase or
+> selective port (gateway design §13 `AGW-7`).
+
 Decisions arising from [`design.md`](design.md). **All are `PROPOSED`.** None is ratified.
 
 **ID discipline (`I3`):** IDs are immutable and never renumbered. `AG-D*` is the go-agent component family
@@ -105,3 +116,4 @@ are churn once the `.proto` and persist layout exist.
 |---|---|
 | 2026-08-26 | Initial `AG-D1`…`AG-D6` from rewrite of the 2026-08-13 draft, kept under `go-agent/docs/`. Corrected false “dp-remote out of v1”, incomplete lease machine, and premature library locks. |
 | 2026-09-02 | `AG-D2` layout + renew backoff closed in [`p3-mechanism-gaps.md`](p3-mechanism-gaps.md) against surrogate P2 wire. |
+| 2026-09-21 | **Precedence ruling** (banner above): the agent-gateway design overrules any colliding decision here; the surrogate P2 wire and the `p3-mechanism-gaps.md` layout are superseded by gateway `design.md` §4 and the baseline `AG-D4` journal. |
