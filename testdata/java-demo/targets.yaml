@@ -1,7 +1,7 @@
 targets:
   - id: java1
-    url: http://127.0.0.1:8081/hello
+    url: http://127.0.0.1:8081/metrics
   - id: java2
-    url: http://127.0.0.1:8082/hello
+    url: http://127.0.0.1:8082/metrics
   - id: java3
-    url: http://127.0.0.1:8083/hello
+    url: http://127.0.0.1:8083/metrics

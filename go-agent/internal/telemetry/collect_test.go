@@ -62,7 +62,7 @@ func TestRun_TwoTargets_WritesSegregatedLatest(t *testing.T) {
 	}
 }
 
-func TestRun_OneTargetFails_WritesFailureAndReturnsError(t *testing.T) {
+func TestRun_OneTargetFails_WritesFailureAndAllowsPartialSuccess(t *testing.T) {
 	okSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("ok"))
 	}))
@@ -82,8 +82,8 @@ func TestRun_OneTargetFails_WritesFailureAndReturnsError(t *testing.T) {
 	client := testHTTPClient(5 * time.Second)
 
 	err := telemetry.Run(context.Background(), dataDir, targets, client, maxBody)
-	if err == nil {
-		t.Fatal("expected error when any target fails")
+	if err != nil {
+		t.Fatalf("expected partial success to be accepted, got: %v", err)
 	}
 
 	goodLatest := filepath.Join(dataDir, "telemetry", "good", "latest.json")
@@ -117,6 +117,24 @@ func TestRun_OneTargetFails_WritesFailureAndReturnsError(t *testing.T) {
 	}
 }
 
+func TestRun_AllTargetsFail_ReturnsError(t *testing.T) {
+	failSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("fail"))
+	}))
+	defer failSrv.Close()
+
+	dataDir := t.TempDir()
+	targets := []telemetry.Target{
+		{ID: "svc", URL: failSrv.URL},
+	}
+	client := testHTTPClient(5 * time.Second)
+
+	if err := telemetry.Run(context.Background(), dataDir, targets, client, maxBody); err == nil {
+		t.Fatal("expected error when all targets fail")
+	}
+}
+
 func TestRun_FailedTargetPreservesExistingLatest(t *testing.T) {
 	okSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("original"))
@@ -147,7 +165,7 @@ func TestRun_FailedTargetPreservesExistingLatest(t *testing.T) {
 
 	targets[0].URL = failSrv.URL
 	if err := telemetry.Run(context.Background(), dataDir, targets, client, maxBody); err == nil {
-		t.Fatal("expected error on failed re-collect")
+		t.Fatal("expected error when all targets fail")
 	}
 
 	after, err := os.ReadFile(latestPath)

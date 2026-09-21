@@ -18,13 +18,13 @@ func Run(ctx context.Context, dataDir string, targets []Target, client *http.Cli
 	}
 
 	store := Store{}
-	var failed bool
+	var failedTargets int
 	var errs []error
 
 	for _, t := range targets {
 		sample := Scrape(ctx, client, t, maxBody)
 		if err := Validate(&sample, maxBody); err != nil {
-			failed = true
+			failedTargets++
 			fmt.Fprintf(os.Stderr, "collect: target %s: %s\n", t.ID, err)
 			if saveErr := store.SaveFailure(dataDir, sample); saveErr != nil {
 				errs = append(errs, saveErr)
@@ -32,7 +32,7 @@ func Run(ctx context.Context, dataDir string, targets []Target, client *http.Cli
 			continue
 		}
 		if err := store.SaveSuccess(dataDir, sample); err != nil {
-			failed = true
+			failedTargets++
 			errs = append(errs, err)
 		}
 	}
@@ -40,8 +40,8 @@ func Run(ctx context.Context, dataDir string, targets []Target, client *http.Cli
 	if len(errs) > 0 {
 		return errors.Join(errs...)
 	}
-	if failed {
-		return fmt.Errorf("one or more targets failed")
+	if failedTargets == len(targets) && len(targets) > 0 {
+		return fmt.Errorf("all targets failed")
 	}
 	return nil
 }
