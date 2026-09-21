@@ -1,0 +1,298 @@
+/* ============================================================
+   SOLUTION MANAGER — DESIGN TOKENS
+
+   Source: Solace Agent Mesh Design System (colors_and_type.css)
+   + console layer overrides (theme.css)
+
+   Tokens are extracted from the checked-in reference files:
+   docs/design/frontend/reference/_ds/solace-agent-mesh-design-system-…/colors_and_type.css
+   docs/design/frontend/reference/theme.css
+
+   Fonts are SELF-HOSTED (see PROVENANCE.md for substitution rationale).
+   ============================================================ */
+
+@font-face {
+  font-family: 'Rubik';
+  font-style: normal;
+  font-weight: 300;
+  src: url('/fonts/Rubik-Light.woff2') format('woff2'),
+       url('/fonts/Rubik-Light.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'Rubik';
+  font-style: normal;
+  font-weight: 400;
+  src: url('/fonts/Rubik-Regular.woff2') format('woff2'),
+       url('/fonts/Rubik-Regular.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'Rubik';
+  font-style: normal;
+  font-weight: 500;
+  src: url('/fonts/Rubik-Medium.woff2') format('woff2'),
+       url('/fonts/Rubik-Medium.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'Rubik';
+  font-style: normal;
+  font-weight: 600;
+  src: url('/fonts/Rubik-SemiBold.woff2') format('woff2'),
+       url('/fonts/Rubik-SemiBold.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'Rubik';
+  font-style: normal;
+  font-weight: 700;
+  src: url('/fonts/Rubik-Bold.woff2') format('woff2'),
+       url('/fonts/Rubik-Bold.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  src: url('/fonts/Inter-Regular.woff2') format('woff2'),
+       url('/fonts/Inter-Regular.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  src: url('/fonts/Inter-Medium.woff2') format('woff2'),
+       url('/fonts/Inter-Medium.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  src: url('/fonts/Inter-SemiBold.woff2') format('woff2'),
+       url('/fonts/Inter-SemiBold.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  src: url('/fonts/Inter-Bold.woff2') format('woff2'),
+       url('/fonts/Inter-Bold.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  src: url('/fonts/JetBrainsMono-Regular.woff2') format('woff2'),
+       url('/fonts/JetBrainsMono-Regular.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 500;
+  src: url('/fonts/JetBrainsMono-Medium.woff2') format('woff2'),
+       url('/fonts/JetBrainsMono-Medium.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 600;
+  src: url('/fonts/JetBrainsMono-SemiBold.woff2') format('woff2'),
+       url('/fonts/JetBrainsMono-SemiBold.woff') format('woff');
+}
+
+:root {
+  /* ---------- BRAND ---------- */
+  --brand-wMain: #00C895;    /* signature Solace green */
+  --brand-w100: #00AD93;     /* darker green for hover/active */
+  --brand-w60:  #66DEBF;
+  --brand-w30:  #B3EFDF;
+  --brand-w10:  #E6FAF4;
+
+  /* ---------- PRIMARY (deep navy blue) ---------- */
+  --primary-w100: #01374E;
+  --primary-w90:  #014968;
+  --primary-wMain:#015B82;
+  --primary-w60:  #679DB4;
+  --primary-w40:  #99BDCD;
+  --primary-w20:  #CCDEE6;
+  --primary-w10:  #E6EFF2;
+
+  --primary-text-wMain: #273749;
+  --primary-text-w100:  #000000;
+  --primary-text-w10:   #FFFFFF;
+
+  /* ---------- SECONDARY (neutrals) ---------- */
+  --secondary-w100: #000000;
+  --secondary-w80:  #354E62;
+  --secondary-w70:  #536574;
+  --secondary-wMain:#8790A0;
+  --secondary-w40:  #CFD3D9;
+  --secondary-w20:  #E7E9EC;
+  --secondary-w10:  #F3F4F6;
+  --secondary-text-wMain: #647481;
+  --secondary-text-w50:   #B1B9C0;
+
+  /* ---------- BACKGROUND ---------- */
+  --background-w100: #021B2F;  /* darkest navy */
+  --background-wMain:#03223B;  /* dark surface */
+  --background-w20:  #F7F8F9;  /* light panel */
+  --background-w10:  #FFFFFF;  /* light default */
+
+  /* ---------- SEMANTIC ---------- */
+  --info-wMain:    #0591D3;   --info-w100:    #2B71B1;
+  --info-w30:      #B4DEF2;   --info-w10:     #E6F4FB;
+  --error-wMain:   #E94C4E;   --error-w100:   #C33135;
+  --error-w30:     #F8C9CA;   --error-w10:    #FDEDED;
+  --warning-wMain: #FF8E2B;   --warning-w100: #E1681F;
+  --warning-w30:   #FFDDBF;   --warning-w10:  #FFF4EA;
+  --success-wMain: #009A80;   --success-w100: #006B53;
+  --success-w30:   #B3E1D9;   --success-w10:  #E6F5F2;
+
+  /* ---------- ACCENTS (for charts, tags, chips) ---------- */
+  --accent-blue:   #3C69E1;  --accent-blue-10:   #ECF0FC;
+  --accent-indigo: #3A4880;  --accent-indigo-10: #EBEDF2;
+  --accent-teal:   #009193;  --accent-teal-10:   #E6F4F4;
+  --accent-purple: #7841A8;  --accent-purple-10: #F2ECF6;
+  --accent-magenta:#CB1AA5;
+  --accent-coral:  #F66651;
+  --accent-orange: #FCA829;
+  --accent-sky:    #7CD3F6;
+  --accent-slate:  #86939E;
+  --accent-red:    #DA162D;
+
+  /* ---------- STATE LAYER (overlays) ---------- */
+  --stateLayer-w10: #03223B1a;
+  --stateLayer-w20: #03223B33;
+
+  /* ---------- DARK SURFACE (e.g. nav sidebar on light theme) ---------- */
+  --darkSurface-bg:           #03223B;
+  --darkSurface-bgHover:      #021B2F;
+  --darkSurface-text:         #F5F5F5;
+  --darkSurface-textMuted:    #ACBAC2;
+  --darkSurface-brandMain:    #00C895;
+  --darkSurface-border:       #536574;
+
+  /* ---------- TYPOGRAPHY ---------- */
+  --font-sans:    "Rubik", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Rubik", "Inter", system-ui, sans-serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --fs-xs:   12px;   --lh-xs:   16px;
+  --fs-sm:   13px;   --lh-sm:   18px;
+  --fs-base: 14px;   --lh-base: 20px;  /* app baseline — see index.css body 14px */
+  --fs-md:   16px;   --lh-md:   24px;
+  --fs-lg:   18px;   --lh-lg:   26px;
+  --fs-xl:   20px;   --lh-xl:   28px;   /* Header title */
+  --fs-2xl:  24px;   --lh-2xl:  32px;
+  --fs-3xl:  30px;   --lh-3xl:  38px;
+  --fs-4xl:  36px;   --lh-4xl:  44px;
+  --fs-5xl:  48px;   --lh-5xl:  56px;
+
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-semibold: 600;   /* buttons are semibold */
+  --fw-bold:     700;
+
+  /* ---------- SPACING (4px base) ---------- */
+  --space-1: 4px;   --space-2: 8px;   --space-3: 12px;
+  --space-4: 16px;  --space-5: 20px;  --space-6: 24px;
+  --space-8: 32px;  --space-10: 40px; --space-12: 48px;
+  --space-16: 64px; --space-20: 80px;
+
+  /* ---------- RADII ---------- */
+  --radius:    0.5rem;  /* 8px — base */
+  --radius-xs: 2px;     /* inputs   */
+  --radius-sm: 4px;     /* small buttons, chips */
+  --radius-md: 6px;
+  --radius-lg: 8px;     /* cards */
+  --radius-xl: 12px;
+  --radius-full: 9999px;
+
+  /* ---------- SHADOWS ---------- */
+  --shadow-xs:     0px 1px 2px 0px rgba(3, 34, 59, 0.06);
+  --shadow-card:   0px 1px 4px 0px rgba(3, 34, 59, 0.10);   /* card-surface */
+  --shadow-hover:  0px 4px 12px 0px rgba(3, 34, 59, 0.10);  /* card-surface-hover */
+  --shadow-popover:0px 8px 24px 0px rgba(3, 34, 59, 0.14);
+  --shadow-modal:  0px 16px 40px 0px rgba(3, 34, 59, 0.18);
+
+  /* ---------- MOTION ---------- */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-enter:    cubic-bezier(0, 0, 0.2, 1);
+  --ease-exit:     cubic-bezier(0.4, 0, 1, 1);
+  --dur-fast:   120ms;
+  --dur-base:   200ms;
+  --dur-slow:   320ms;
+
+  /* ---------- CONSOLE LAYER (from theme.css) ---------- */
+  /* MUI-structured component layer shortcuts & aliases */
+  --primary: #015B82;       /* alias for primary-wMain */
+  --primary-d: #014968;     /* alias for primary-w90 (dark/hover) */
+  --primary-dd: #01374E;    /* alias for primary-w100 (darkest/active) */
+  --primary-050: rgba(1, 91, 130, 0.055);
+  --primary-100: rgba(1, 91, 130, 0.12);
+  --primary-160: rgba(1, 91, 130, 0.16);
+  --accent: #00C895;        /* alias for brand-wMain */
+  --navy: #03223B;          /* alias for background-wMain */
+  --line: #CFD3D9;          /* alias for secondary-w40 */
+  --line-soft: #E7E9EC;     /* alias for secondary-w20 */
+
+  /* Elevation shadows (MUI e1, e2, e4, e8) */
+  --e1: 0 1px 3px rgba(3, 34, 59, 0.12), 0 1px 2px rgba(3, 34, 59, 0.07);
+  --e2: 0 2px 6px rgba(3, 34, 59, 0.10), 0 1px 3px rgba(3, 34, 59, 0.07);
+  --e4: 0 6px 16px rgba(3, 34, 59, 0.12);
+  --e8: 0 14px 34px rgba(3, 34, 59, 0.20);
+
+  /* Layout dimensions */
+  --appbar-h: 64px;
+  --drawer-w: 256px;
+  /* Collapsed drawer rail (FE-111): icon + hit target + rail padding. */
+  --drawer-w-rail: 76px;
+
+  /* Breakpoints (FE-D29 / G16). Numeric source of truth is
+     breakpoints.ts — tokens.test.ts asserts these CSS values match.
+     --bp-xs is MUI's 0-floor; --bp-floor is the supported reflow
+     width (320px), which is not an MUI key. */
+  --bp-floor: 320px;
+  --bp-xs: 0px;
+  --bp-sm: 600px;
+  --bp-md: 905px;
+  --bp-lg: 1240px;
+  --bp-xl: 1560px;
+
+  /* Motion (console overrides) */
+  --dur: 0.18s;             /* standard duration */
+  --dur-s: 0.12s;           /* short duration */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);  /* standard easing */
+
+  /* ---------- PRIMITIVE SEMANTIC MAPPINGS (shorthand) ---------- */
+  --fg1: var(--primary-text-wMain);
+  --fg2: var(--secondary-text-wMain);
+  --fg-muted: var(--secondary-text-w50);
+  --fg-brand: var(--brand-wMain);
+  --bg1: var(--background-w10);
+  --bg2: var(--background-w20);
+  --bg-dark: var(--background-wMain);
+  --border-default: var(--secondary-w40);
+  --border-subtle: var(--secondary-w20);
+}
+
+/* ============================ DARK THEME OVERRIDES (from theme.css) ============================ */
+[data-theme="dark"] {
+  --line: #2b4358;
+  --line-soft: #213546;
+  --primary-surface-bg: #03223B;    /* dark backgrounds */
+  --primary-surface-card: #0a2c47;  /* card/surface in dark mode */
+  --primary-surface-input: #0e344f; /* input/control backgrounds */
+  --primary-surface-text: #c9d4dd;  /* primary text in dark mode */
+  --primary-surface-text-strong: #eaf1f6; /* heading/strong text */
+  --primary-surface-text-muted: #8ea9bd;  /* muted/secondary text */
+  --primary-surface-border: #2b4358; /* borders in dark mode */
+  --primary-surface-grid-border: #1c344a; /* grid/chart borders */
+}

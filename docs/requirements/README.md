@@ -79,3 +79,4 @@ be written up so the trace runs both ways:
 | `REQ-007` | Metrics retained and queryable for 6 months | `SM-D8` — note this is a **minimum**, not a maximum, and is gated on the sizing model |
 | `REQ-008` | Some customers will not host any footprint in their runtime | drives the `dp-remote` locus and the whole two-axis Target model |
 | `REQ-009` | No development work may be required from the MI/MDK team | hard constraint `HC1` / `SM-D16` |
+| `REQ-012` | Live console state with bounded, honest staleness; degradation stated, never silent | backend architecture direction, 2026-08-27 — `REQ-010`/`REQ-011` stay reserved for the requests recorded in `traceability.md` |

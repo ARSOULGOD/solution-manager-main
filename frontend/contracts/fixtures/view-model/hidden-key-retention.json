@@ -1,0 +1,71 @@
+{
+  "name": "hidden-key-retention",
+  "package": {
+    "solution": "file-mesh",
+    "packageVersion": [1],
+    "appliesTo": ">=1.0 <2.0",
+    "provenance": { "author": "solace", "signature": "test-fixture" },
+    "authoring": { "reviewedRows": 2, "totalRows": 2 },
+    "components": [
+      {
+        "type": "source-grid",
+        "cardinality": "one-of-many",
+        "configPath": "source-grid",
+        "loggerPrefix": "com.solace.solutions.filemesh.source",
+        "fields": [
+          { "key": "ACTION", "type": "enum", "options": ["download", "deploy"], "discriminator": true },
+          { "key": "DEPLOYMENT_MODE", "type": "enum", "options": ["standalone", "highavailable"], "when": { "ACTION": "deploy" } }
+        ]
+      }
+    ]
+  },
+  "componentSelection": [{ "type": "source-grid", "instanceId": "source-1" }],
+  "draftValues": {
+    "source-1": {
+      "ACTION": "download",
+      "DEPLOYMENT_MODE": "highavailable"
+    }
+  },
+  "observedState": { "health": "healthy", "versionState": "ok", "configState": "in_sync" },
+  "expected": {
+    "sections": [
+      {
+        "title": "General",
+        "order": 0,
+        "fields": [
+          {
+            "key": "ACTION",
+            "label": "ACTION",
+            "renderedPath": "source-grid.ACTION",
+            "discriminator": true,
+            "controlKind": "select",
+            "value": { "kind": "value", "value": "download", "source": "draft" },
+            "options": ["download", "deploy"],
+            "enabled": true,
+            "visible": true,
+            "masked": false,
+            "advanced": false,
+            "validations": []
+          },
+          {
+            "key": "DEPLOYMENT_MODE",
+            "label": "DEPLOYMENT_MODE",
+            "renderedPath": "source-grid.DEPLOYMENT_MODE",
+            "discriminator": false,
+            "controlKind": "select",
+            "value": { "kind": "value", "value": "highavailable", "source": "draft" },
+            "options": ["standalone", "highavailable"],
+            "enabled": true,
+            "visible": false,
+            "masked": false,
+            "advanced": false,
+            "validations": []
+          }
+        ],
+        "actions": []
+      }
+    ],
+    "graphs": [],
+    "status": { "health": "healthy", "versionState": "ok", "configState": "in_sync" }
+  }
+}

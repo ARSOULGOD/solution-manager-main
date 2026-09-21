@@ -1,0 +1,73 @@
+{
+  "name": "version-scoped-component-excluded",
+  "package": {
+    "solution": "cache",
+    "packageVersion": [1, 2],
+    "appliesTo": ">=2.2 <2.5",
+    "provenance": { "author": "solace", "signature": "test-fixture" },
+    "authoring": { "reviewedRows": 2, "totalRows": 2 },
+    "components": [
+      {
+        "type": "cache-engine",
+        "cardinality": "exactly-one",
+        "version": [1, 2],
+        "configPath": "cache-engine",
+        "loggerPrefix": "com.solace.solutions.cache",
+        "fields": [
+          { "key": "provider", "type": "enum", "version": [1, 2], "options": ["caffeine", "redis"], "default": "caffeine" }
+        ]
+      },
+      {
+        "type": "telemetry-otlp",
+        "cardinality": "exactly-one",
+        "version": [2],
+        "configPath": "telemetry-otlp",
+        "loggerPrefix": "com.solace.solutions.cache.otlp",
+        "fields": [{ "key": "endpoint", "type": "string", "version": [2], "default": "http://localhost:4318" }],
+        "actions": [{ "key": "TEST_OTLP_ENDPOINT", "kind": "test-connection" }],
+        "metrics": [
+          {
+            "name": "otlp.exported",
+            "metricType": "counter",
+            "unit": "spans",
+            "source": { "kind": "http_json", "path": "/actuator/metrics", "onUnavailable": "degrade" }
+          }
+        ]
+      }
+    ]
+  },
+  "componentSelection": [
+    { "type": "cache-engine", "instanceId": "cache-1" },
+    { "type": "telemetry-otlp", "instanceId": "otlp-1" }
+  ],
+  "draftValues": { "cache-1": {}, "otlp-1": {} },
+  "observedState": { "health": "healthy", "versionState": "ok", "configState": "in_sync" },
+  "packageVersion": 1,
+  "expected": {
+    "sections": [
+      {
+        "title": "General",
+        "order": 0,
+        "fields": [
+          {
+            "key": "provider",
+            "label": "provider",
+            "renderedPath": "cache-engine.provider",
+            "discriminator": false,
+            "controlKind": "select",
+            "value": { "kind": "value", "value": "caffeine", "source": "default" },
+            "options": ["caffeine", "redis"],
+            "enabled": true,
+            "visible": true,
+            "masked": false,
+            "advanced": false,
+            "validations": []
+          }
+        ],
+        "actions": []
+      }
+    ],
+    "graphs": [],
+    "status": { "health": "healthy", "versionState": "ok", "configState": "in_sync" }
+  }
+}

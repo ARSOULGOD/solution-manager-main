@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sm/events/v1/notify-events",
+  "title": "SM v1 notify event catalog (design §3 event catalog + identity scoping)",
+  "description": "Six v1 events keyed by `event` + `entity.kind`. Payloads are identifier-only (I6): `additionalProperties: false` everywhere, closed enums copied from the canonical vocabularies (UI-D14) — never redefined here. Health enum = the SCREAMING rollup keys plus the four NOTFOUND sub-states as distinct keys, per STATE-VOCABULARY.md §2 and §5. Version enum = contracts/view-models/src/types.ts VersionState.",
+  "allOf": [{ "$ref": "sm/events/v1/envelope" }],
+  "oneOf": [
+    { "properties": { "event": { "const": "instance.health" },
+        "entity": { "required": ["kind","instanceId","placementId"], "properties": { "kind": { "const": "placement" } } },
+        "payload": {
+        "type": "object", "required": ["state"], "additionalProperties": false,
+        "properties": { "state": { "enum": ["GREEN","RED","RESTART_EXPECTED","INACTIVE_REPLICA",
+          "NOT_APPLICABLE","unreachable","not_exposed","missing","bootstrap"] } } } } },
+    { "properties": { "event": { "const": "instance.config-state" },
+        "entity": { "required": ["kind","instanceId"], "properties": { "kind": { "const": "instance" } },
+          "not": { "required": ["placementId"] } },
+        "payload": {
+        "type": "object", "required": ["reached"], "additionalProperties": false,
+        "properties": { "reached": { "enum": ["desired","rendered","persisted",
+          "restart-observed","effective-verified"] } } } } },
+    { "properties": { "event": { "const": "instance.version" },
+        "entity": { "required": ["kind","instanceId"], "properties": { "kind": { "const": "instance" } },
+          "not": { "required": ["placementId"] } },
+        "payload": {
+        "type": "object", "required": ["state"], "additionalProperties": false,
+        "properties": { "state": { "enum": ["OK","VERSION_DRIFT","VERSION_UNKNOWN","VERSION_UNVERIFIED"] } } } } },
+    { "properties": { "event": { "const": "instance.rollout" },
+        "entity": { "required": ["kind","instanceId","placementId"], "properties": { "kind": { "const": "placement" } } },
+        "payload": {
+        "type": "object", "required": ["applyId","replicaId","step"], "additionalProperties": false,
+        "properties": { "applyId": {"type":"string"}, "replicaId": {"type":"string"},
+          "step": { "enum": ["staged","restart-requested","restart-observed"] } } } } },
+    { "properties": { "event": { "const": "catalog.package" },
+        "entity": { "required": ["kind","solution"], "properties": { "kind": { "const": "solution" } },
+          "not": { "anyOf": [ { "required": ["instanceId"] }, { "required": ["placementId"] } ] } },
+        "payload": {
+        "type": "object", "required": ["solution","packageVersion"], "additionalProperties": false,
+        "properties": { "solution": {"type":"string"}, "packageVersion": {} } } } },
+    { "properties": { "event": { "const": "metrics.quarantine" },
+        "entity": { "required": ["kind","instanceId"], "properties": { "kind": { "const": "instance" } } },
+        "payload": {
+        "type": "object", "required": ["count"], "additionalProperties": false,
+        "properties": { "count": { "type": "integer", "minimum": 1,
+          "maximum": 9223372036854775807 } } } } }
+  ]
+}

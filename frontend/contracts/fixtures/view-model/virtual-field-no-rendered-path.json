@@ -1,0 +1,72 @@
+{
+  "name": "virtual-field-no-rendered-path",
+  "package": {
+    "solution": "file-mesh",
+    "packageVersion": [1],
+    "appliesTo": ">=1.0 <2.0",
+    "provenance": { "author": "solace", "signature": "test-fixture" },
+    "authoring": { "reviewedRows": 2, "totalRows": 2 },
+    "components": [
+      {
+        "type": "source-grid",
+        "cardinality": "one-of-many",
+        "configPath": "source-grid",
+        "loggerPrefix": "com.solace.solutions.filemesh.source",
+        "fields": [
+          {
+            "key": "SELECT_BROKER",
+            "type": "enum",
+            "options": ["broker-east", "broker-west"],
+            "virtual": true,
+            "label": "SELECT_BROKER"
+          },
+          { "key": "AUTO_CREATE_TOPIC", "type": "bool", "virtual": true, "default": false }
+        ]
+      }
+    ]
+  },
+  "componentSelection": [{ "type": "source-grid", "instanceId": "source-1" }],
+  "draftValues": { "source-1": {} },
+  "observedState": { "health": "healthy", "versionState": "ok", "configState": "in_sync" },
+  "expected": {
+    "sections": [
+      {
+        "title": "General",
+        "order": 0,
+        "fields": [
+          {
+            "key": "SELECT_BROKER",
+            "label": "SELECT_BROKER",
+            "renderedPath": null,
+            "discriminator": false,
+            "controlKind": "select",
+            "value": { "kind": "unset" },
+            "options": ["broker-east", "broker-west"],
+            "enabled": true,
+            "visible": true,
+            "masked": false,
+            "advanced": false,
+            "validations": []
+          },
+          {
+            "key": "AUTO_CREATE_TOPIC",
+            "label": "AUTO_CREATE_TOPIC",
+            "renderedPath": null,
+            "discriminator": false,
+            "controlKind": "toggle",
+            "value": { "kind": "value", "value": false, "source": "default" },
+            "options": [],
+            "enabled": true,
+            "visible": true,
+            "masked": false,
+            "advanced": false,
+            "validations": []
+          }
+        ],
+        "actions": []
+      }
+    ],
+    "graphs": [],
+    "status": { "health": "healthy", "versionState": "ok", "configState": "in_sync" }
+  }
+}

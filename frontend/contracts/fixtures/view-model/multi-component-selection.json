@@ -1,0 +1,134 @@
+{
+  "name": "multi-component-selection",
+  "package": {
+    "solution": "file-mesh",
+    "packageVersion": [1],
+    "appliesTo": ">=1.0 <2.0",
+    "provenance": { "author": "solace", "signature": "test-fixture" },
+    "authoring": { "reviewedRows": 3, "totalRows": 3 },
+    "components": [
+      {
+        "type": "source-grid",
+        "cardinality": "one-of-many",
+        "configPath": "source-grid",
+        "loggerPrefix": "com.solace.solutions.filemesh.source",
+        "fields": [
+          { "key": "ALLOW_SEMP", "type": "bool", "default": false },
+          {
+            "key": "SELECT_BROKER",
+            "type": "enum",
+            "optionsSource": { "kind": "sm-catalog", "entity": "broker" },
+            "when": { "ALLOW_SEMP": true }
+          }
+        ],
+        "actions": [
+          {
+            "key": "TEST_CONNECTION",
+            "kind": "test-connection",
+            "inputs": ["solace.host", "solace.vpn"],
+            "when": { "ALLOW_SEMP": true }
+          }
+        ]
+      }
+    ]
+  },
+  "componentSelection": [
+    { "type": "source-grid", "instanceId": "source-1" },
+    { "type": "source-grid", "instanceId": "source-2" }
+  ],
+  "draftValues": {
+    "source-1": { "ALLOW_SEMP": true },
+    "source-2": { "ALLOW_SEMP": false }
+  },
+  "observedState": { "health": "healthy", "versionState": "ok", "configState": "in_sync" },
+  "expected": {
+    "sections": [
+      {
+        "title": "General",
+        "order": 0,
+        "fields": [
+          {
+            "key": "ALLOW_SEMP",
+            "label": "ALLOW_SEMP",
+            "renderedPath": "source-grid.ALLOW_SEMP",
+            "discriminator": false,
+            "controlKind": "toggle",
+            "value": { "kind": "value", "value": true, "source": "draft" },
+            "options": [],
+            "enabled": true,
+            "visible": true,
+            "masked": false,
+            "advanced": false,
+            "validations": []
+          },
+          {
+            "key": "SELECT_BROKER",
+            "label": "SELECT_BROKER",
+            "renderedPath": "source-grid.SELECT_BROKER",
+            "discriminator": false,
+            "controlKind": "select",
+            "value": { "kind": "unset" },
+            "options": [],
+            "enabled": true,
+            "visible": true,
+            "masked": false,
+            "advanced": false,
+            "validations": []
+          }
+        ],
+        "actions": [
+          {
+            "key": "TEST_CONNECTION",
+            "kind": "test-connection",
+            "enabled": true,
+            "inputs": ["solace.host", "solace.vpn"]
+          }
+        ]
+      },
+      {
+        "title": "General",
+        "order": 1,
+        "fields": [
+          {
+            "key": "ALLOW_SEMP",
+            "label": "ALLOW_SEMP",
+            "renderedPath": "source-grid.ALLOW_SEMP",
+            "discriminator": false,
+            "controlKind": "toggle",
+            "value": { "kind": "value", "value": false, "source": "draft" },
+            "options": [],
+            "enabled": true,
+            "visible": true,
+            "masked": false,
+            "advanced": false,
+            "validations": []
+          },
+          {
+            "key": "SELECT_BROKER",
+            "label": "SELECT_BROKER",
+            "renderedPath": "source-grid.SELECT_BROKER",
+            "discriminator": false,
+            "controlKind": "select",
+            "value": { "kind": "unset" },
+            "options": [],
+            "enabled": true,
+            "visible": false,
+            "masked": false,
+            "advanced": false,
+            "validations": []
+          }
+        ],
+        "actions": [
+          {
+            "key": "TEST_CONNECTION",
+            "kind": "test-connection",
+            "enabled": false,
+            "inputs": ["solace.host", "solace.vpn"]
+          }
+        ]
+      }
+    ],
+    "graphs": [],
+    "status": { "health": "healthy", "versionState": "ok", "configState": "in_sync" }
+  }
+}

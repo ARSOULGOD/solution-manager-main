@@ -1,11 +1,11 @@
 # Subsystem A — Solution Package contract, registry and renderer
 
-**Tracking:** issue `#5` · **Status:** DRAFT, R1 review findings applied · **Date:** 2026-08-11
+**Tracking:** issue `#5` · **Status:** DRAFT — R1 findings applied; **fixtures built and passing** · **Date:** 2026-08-18
 **Relationship to `architecture.md` §14:** this document **supersedes** §14's treatment of config-driven UI
 and its custom-UI escape hatch. §14 must be reconciled to it, not read alongside it.
 **Entry point:** [`BRIEF.md`](BRIEF.md) — carries an errata header; where the two disagree, this document wins.
 
-Decisions live in [`decisions.md`](decisions.md) as `UI-D1`…`UI-D23`.
+Decisions live in [`decisions.md`](decisions.md) as `UI-D1`…`UI-D24`.
 
 > **Revision note.** An independent adversarial review of the first draft returned 5 CRITICAL, 10 MAJOR and
 > 3 MINOR findings. All are applied here. Three of the criticals were cases where the correct answer was
@@ -189,7 +189,7 @@ every such field is a closed set:
 > - `when:` operators — `==`, `allOf`
 > - `type` — `string, int, bool, enum, duration, list, map, table, yaml, secret`
 > - `optionsSource.kind` — `sm-catalog` (§3.5)
-> - `action.kind` — `test-connection, browse-remote-path, refresh-catalog` (§3.5)
+> - `action.kind` — `test-connection, manage-catalog-entry` (§3.5)
 > - `source.kind` — **transport mechanisms only**, canonically spelled as in `architecture.md` §10:
 >   `http_json`, `prometheus`, `solace_event`, `exec`, `jdbc_query`. **Never a solution name.**
 >   `kind: cache-stats` is the failure mode
@@ -235,18 +235,60 @@ actions:
     when: { solace.enabled: true }
 ```
 
-`action.kind` is closed at `test-connection · browse-remote-path · refresh-catalog`. Each is
-**SM-implemented**; the package requests it and names its inputs.
+`action.kind` is closed at **`test-connection · manage-catalog-entry`**. Each is **SM-implemented**; the
+package requests it and names its inputs.
+
+⚠️ **These two are what the evidence supports; the first draft's guesses were wrong.** Of the **16 distinct
+buttons across all 1,989 rows**, exactly **one** — `TEST_CONNECTION` — is api-backed. Five
+(`ADD_OR_EDIT_BROKER`, `ADD_BROKER`, `ADD_SERVER`, `ADD_OR_EDIT_SERVER`, `ADD_PATH`) manage catalog entries.
+The remaining ten are **not declarations at all**:
+
+| Buttons | Disposition |
+|---|---|
+| `BACK`, `REFRESH`, `SAVE`, `SAVE_DATA_PLANE`, `SAVE_MANAGEMENT_PLANE`, `SAVE_PROJECT_CONFIG`, `SAVE_RESOURCE_CONFIG`, `SAVE_SOURCE_FILE_CONFIGURATION` | **Renderer chrome.** SM's shell owns navigation and submit; a package must not declare them |
+| `DEPLOY_CONNECTOR`, `DOWNLOAD_BINARY` | **Out of SM scope per `I1`** — the customer's CI/CD deploys artifacts; SM owns configuration |
+
+`browse-remote-path` and `refresh-catalog`, proposed in the first draft, have **zero supporting evidence in
+1,989 rows** and are dropped.
 
 ⚠️ **`I6` consequence, load-bearing.** `test-connection`'s inputs include a `secretRef`. The action must
 execute **server-side only**, resolving the secret at render time, and its response must carry a verdict and
 never the credential. A client-side connection test would require shipping the resolved secret to the
 browser, which `I6` forbids outright.
 
+⚠️ **Gate 6 was too narrow, and the Cache fixture caught it.** `solace.enabled` is a **boolean**
+discriminator gating the whole broker subtree — entirely natural, and File Mesh has one too
+(`{"CONFIG_JAVA_RUNTIME": true}`). The intent was *enumerable domain*, not *`enum` type*; `bool` has one, so
+gate 6 now accepts `enum | bool`.
+
 **`type: table`** covers File Mesh's 16 repeatable-record fields, declaring its own `columns` — each column
 a field declaration restricted to scalar types. `list` and `map` remain for the simple cases Cache needs.
 
-### 3.6 `yaml` fields are a bounded tunnel (`UI-D23`)
+### 3.6 Virtual fields (`UI-D24`)
+
+A field declares `virtual: true` when it drives the form and predicates but is **never written to the config
+file**. It is stored in the instance draft so the choice persists, and it is **outside T-KEYS**, because it
+does not exist in the MI.
+
+```yaml
+  - key: SERVER_TYPE
+    type: enum
+    virtual: true                  # a UI-only discriminator; the MI never sees it
+    options: [FTP, SFTP]
+    discriminator: true
+```
+
+⚠️ **Without this the contract cannot express File Mesh applicability at all.** Every one of the **11** fields
+referenced by a File Mesh predicate — `ACTION`, `SERVER_TYPE`, `ALLOW_SSL`, `ALLOW_SEMP`, `DEPLOYMENT_MODE`,
+`DEPLOYMENT_FORM_FACTOR`, `DEPLOY_TYPE`, `DOWNLOAD_LOCATION`, `GIT_CONFIGURATION`, `CONFIG_JAVA_RUNTIME`,
+`fileFormat` — has **no `CONFIGURATION_PATH`**. Since `field.key` *is* the config property path, none could be
+a field, so gate 4 would reject **every File Mesh predicate**. The generated fixture carries **54 virtual
+fields** across its four components.
+
+This is the permanent form of what `UI-D4` does temporarily: an inactive branch is retained in the draft and
+not rendered; a virtual field is retained in the draft and *never* rendered.
+
+### 3.7 `yaml` fields are a bounded tunnel (`UI-D23`)
 
 `type: yaml` exists because File Mesh has 12 such fields. Its content is **not** a set of package fields, so
 three guarantees do not extend into it: T-KEYS never sees its inner keys, `secret: true` masking cannot mask
@@ -359,7 +401,11 @@ So a metric whose `when:` is false is **not collected**. Two things must be stat
 first draft left both implicit:
 
 **Which state gates collection.** Applicability for **collection** evaluates against the last
-**`restart-observed`** configuration — never the draft, and never `desired`. §6.5's obligation that `when:`
+**`restart-observed`** configuration **unioned with the instance's persisted `virtual` field values**, and
+never against the draft or `desired`. ⚠️ The union clause is load-bearing: `virtual` fields (§3.6) never reach
+a config file by construction, so a File Mesh metric declared `when: {SERVER_TYPE: FTP}` would have **no
+evaluable state at all** without it. Those values live beside the config values in `sm_data` (§6.3), marked
+`virtual`. Cache is unaffected — `provider` is a real config field — so this bites in Phase 2, not v1. §6.5's obligation that `when:`
 evaluates against the draft applies **to the form only**. This divergence is correct and deliberate: restart
 is manual by default (`SM-D15`), so an operator can save `provider: redis` and not restart for hours. Gating
 collection on the draft would stop collecting valid metrics from a still-running Caffeine instance — and
@@ -384,11 +430,17 @@ it holds end to end:
 4. **No counter delta is computed across a gap.** A restart produces a gap *and* resets the counter; a delta
    across it yields a large negative or, with naive reset-handling, a large **false spike**.
 
-⚠️ **Rule 4 needs a threshold, or it is unimplementable.** A gap is declared when the interval since the
-previous sample exceeds **2 × the declared scrape interval** (`architecture.md:650` supplies the basis —
-expected sample count from the declared interval — but no multiplier). The multiplier lives in the
-**contract**, not in either implementation, and the §6.5 fixture suite must carry gap cases: without it the
-Java rollup and the TypeScript chart will disagree about where a line breaks.
+⚠️ **Rule 4 needs a threshold, and `DM-D16` decides who applies it.** A gap is declared when the interval
+since the previous sample exceeds **2 × the declared scrape interval** (`architecture.md:650` supplies the
+basis — expected sample count from the declared interval — but no multiplier). The multiplier stays
+**contractual**.
+
+> **`DM-D16` supersedes this decision's evaluation model.** The first draft had the multiplier "in the contract,
+> not in either implementation" and required `project()`'s fixture suite to carry gap cases. `DM-D16` makes the
+> **server the single evaluator**, shipping `gaps[]` and `gapThresholdSeconds` in the query response — *"they
+> cannot disagree, because only one of them decides."* That is strictly stronger, so it wins: the renderer
+> breaks the line **where the response declares a gap**, and the gap cases belong to `projectSeries`'s suite,
+> not `project()`'s, because `project()` never sees a time series.
 
 ## 5. Governance and logs
 
@@ -570,57 +622,104 @@ The registry **rejects on upload**, never fails at render:
 | 4 | every `when:` key names a field in the same component |
 | 5 | every `when:` key is **reachable** under the same ancestor chain |
 | **5b** | every `when:` **value** is type-compatible with, and for enums a **member of**, the referenced field's `options` |
-| 6 | every discriminator is an `enum` — free text cannot drive a subtree |
+| 6 | every discriminator has an **enumerable domain** — `enum` **or** `bool`. Free text cannot drive a subtree |
 | 7 | every metric declares `metricType`, `unit` **and** `source.onUnavailable` |
 | 8 | every `type`, `optionsSource.kind`, `action.kind`, `source.kind` and `mark` is a member of its closed vocabulary |
 | **9** | **field keys, metric names and action keys are each unique within a component** |
-| **10** | no `yaml` field's declared subtree collides with a declared field key in the same `configPath` (§3.6) |
+| **10** | no `yaml` field's declared subtree collides with a declared field key in the same `configPath` (§3.7) |
 | **11** | a field declares `options` **or** `optionsSource`, never both |
+| **12** | a **discriminator referenced by any `when:`** either declares a `default` or has every option operator-settable. Without this a predicate is false on every fresh draft — the defect the File Mesh fixture exposed in `ALLOW_SEMP`/`ALLOW_SSL` (`options: ["yes"]`, no default, `ui.readOnly`) |
+| **13** | secrecy is declared **one way**: `secret: true` on a typed field. `type: 'secret'` is accepted for compatibility but normalized at load, so `type: 'secret'` with `secret: false` cannot exist |
 
-Gates 5b, 9, 10 and 11 were absent from the first draft. Gate 9 matters most: two declared metrics sharing a
+Gates 5b and 9–11 were absent from the first draft; 12 and 13 came from building the fixtures. Gate 9 matters most: two declared metrics sharing a
 name passed load and merged silently.
 
 ### 6.5 The renderer's obligations (`UI-D15`)
 
 Specifiable while issue `#9` is open because the **view model is separated from the components**.
 
-```
-viewModel = project(package, componentSelection, draftValues, observedState)
+⚠️ **The first draft's sketch was wrong in five ways, all found by reconciling it against `DM-D*` and `FE-D*`
+and against the schema itself.** It emitted `graphs`, `mark`, `transform`, `resolution` and `thresholds` — **none
+of which exist anywhere in the contract** (zero occurrences in `solution-package.schema.json` or either
+fixture). `mark` and `thresholds` live in the server-stored widget config (`DM-D12`); `transform` and
+`resolution` are **server-decided** from `metricType` and the requested range (`DM-D11`, `DM-D23`). It also
+omitted the `rendered` set that `FE-D17` requires, which made `FE-D17` unimplementable against it. Corrected:
 
-  -> sections[ { title, order,
-                 fields[ { key, controlKind, value, options, enabled, visible,
-                           masked, advanced, helperText, validations[] } ],
-                 actions[ { key, kind, enabled } ] } ]
-     graphs[  { metric, mark, transform, resolution, thresholds } ]
-     status   { health: green|red|restart_expected|inactive_replica, versionState, configState }
+```
+viewModel = project(package, componentSelection, draftValues, observedState, catalog?)
+
+  -> components[ { instanceKey, type, role,
+                   sections[ { title, order,
+                               fields[ { key, renderedPath, controlKind, value, options,
+                                         visible, enabled, virtual, advanced, masked,
+                                         helperText, validations[], hiddenBy[] } ],
+                               actions[ { key, kind, enabled, inputs[] } ] } ] } ]
+     rendered   [ { renderedPath, value } ]        // the save/diff/hash payload — FE-D17
+     excluded   [ { key, reason: hidden|virtual|action|orphan } ]
+     metrics    [ { name, metricType, unit, collectionState } ]   // declaration only; no mark/transform/resolution
+     status     { version: {...}, config: {...structured, five states...},
+                  replicas[], healthRollup, healthAvailability }
+     diagnostics[ ... ]
 ```
 
-`project` is data in, data out — no DOM, no component library, no HTTP. It is therefore the brief's third
-deliverable in executable form.
+`project` is data in, data out — no DOM, no component library, no HTTP, **no RBAC** (`FE-D22` overlays after).
+It is the brief's third deliverable in executable form.
 
 | Obligation | Why it is load-bearing |
 |---|---|
-| `when:` evaluated against **defaults-applied draft values** for the **form** | §3.3 — raw draft breaks `matchIfMissing` fields |
-| **Collection** applicability evaluated against **`restart-observed`**, not the draft | §4.3 — the divergence is deliberate |
-| Hidden branches keep draft values; **only visible fields render into config** | §3.3 |
+| `when:` evaluated against **defaults-applied** draft values | §3.3 — raw draft breaks `matchIfMissing` fields |
 | Changing a discriminator **re-evaluates all descendants** | File Mesh's chains are three deep |
-| `advanced: true` behind a toggle | **all 1,989** File Mesh rows carry the flag; a 132-field FTP component is unusable without it |
-| `secret: true` masked in form, **diff, export and history** | `I6` |
+| Hidden branches keep draft values; **only visible, non-`virtual` fields enter `rendered`** | §3.3, §3.6 |
+| **`rendered` is emitted, not derived by consumers** | A client-side filter sits outside the shared fixture suite, so its drift fails no build (`FE-D17`) |
+| `renderedPath = configPath === "" ? key : configPath + "." + key` | All four File Mesh components declare `configPath: ""`; Cache declares `cache-engine`. The join rule must be stated, not left to `join` |
+| A `virtual` field is `visible` with `renderedPath: null` | §3.6 — it drives the form and predicates and reaches no config file |
+| `enabled = !ui.readOnly && !versionBlocks` | `ui.readOnly` is in the schema and used by four File Mesh fields; a read-only field **stays in `rendered`** — it has a value the MI needs |
+| `advanced` is **disclosure, never visibility** — it affects neither `visible` nor `rendered` | Excluding it would drop 31 of `COMP_SOURCE_FTP`'s 65 fields from the payload |
+| A secret's `value` is a union with **no arm that can carry a resolved value**; `masked` is a rendering hint | `I6`, `FE-D23` — masking is not a boundary, not sending is |
+| Masking applies when `field.secret === true` **or** `field.type === 'secret'` | The schema permits both spellings; one guarantee, two spellings is the `source.kind` failure repeating |
 | `test-connection` executes **server-side only** | §3.5 — client-side would ship the resolved secret |
 | **Bind-tier validation blocks; semantic-tier warns** | §7.5 |
 | `VERSION_DRIFT`/`UNKNOWN` block; **`UNVERIFIED` does not** | §6.1 |
-| Counters render as **rate or delta**, never a raw monotonic climb | `SM-D26` |
-| Gaps break the line at **> 2 × declared scrape interval**; no zero-fill, no connect-across | §4.4 |
-| Resolution tier chosen automatically (≤7d raw · 7–90d hourly · >90d daily) | User picks metric and mark, never the tier |
-| Health green/red **plus `RESTART_EXPECTED` and `INACTIVE_REPLICA`** | §5.1 |
-| Canvas layout excluded from the config hash | §5.4 |
+| `status.config` is **structured**, never a scalar | `architecture.md` §6.1 — the five config states must not be collapsed, and collapsing them is the error the previous revision recorded |
+| Health is **`replicas[]` + a rollup**, not a scalar | `INACTIVE_REPLICA` is per-replica; both replicas share identical config (§5.1) |
+| No `health` block declared → `healthAvailability: not-declared` → **not red** | All four File Mesh components declare none. `REQ-009`/`I1`: degrade with a stated reason |
+| Canvas layout excluded from `rendered` and from the hash | §5.4 |
 | `restart-observed` is **never** presented as convergence | `SM-D22` |
+| **`project` computes no transform, no resolution, no gap, and no RBAC** | `DM-D11`, `DM-D16`, `DM-D23`, `FE-D22` — each is decided elsewhere, and computing it twice is how two implementations disagree |
+| **Section order is the declaration index of a section's first member**, not any field's `ui.order` | `ui.order` is a *within-section* order that restarts at 1 per section. Using it for the section ties every section and falls through to a tiebreak, which silently reordered the flagship package's whole form |
+| **Every ordering is by code point**, never locale collation | The Java implementation sorts with `String.compareTo`, which is ordinal. `localeCompare` disagrees in both directions and would make the fixtures demand ICU collation from Java |
+| **A declared value the operator did not override is written** | One generic rule, no solution knowledge. Whether a declared value is *correct* is a package-authoring concern governed by `UI-D17` and the contract tests — never an engine concern |
+| **A secret field accepts only a `secretRef://` reference**; a literal blocks and is excluded from `rendered` | `I6` enforced in code, not by convention. The union's arm names look right either way, so a literal would otherwise flow verbatim into the payload |
+| `hashInput` **canonicalizes recursively** — object keys sorted, non-finite numbers nulled | `JSON.stringify` preserves key insertion order, so a `map` re-entered in a different order would hash differently and report a phantom config change |
+
+**Value normalization, which is part of the contract because two implementations must agree on it.**
+Applied to draft values **and** to `restartObservedValues` (which arrive from a properties file, so `'true'`
+is a string where a draft holds a boolean — one grammar must not have two value domains):
+
+| Declared type | Accepted | Rejected (bind tier blocks) |
+|---|---|---|
+| `bool` | `true`/`false`, `"true"`/`"false"` | `"yes"`, `1`, `"1"` — `UI-D2` is strict equality, and coercing truthy-looking strings is how a predicate starts lying |
+| `int` | an integer, or a string of digits | non-integers, and anything outside the exactly-representable range (beyond 2^53 SM would write a number it did not read) |
+| `duration` | Spring simple form (`120m`, `5`), or ISO-8601 with **at least one section** — and at least one after `T` | bare `P`, bare `PT`. Java's `Duration.parse` rejects both, so accepting them green-lights a config that stops the MI starting |
+| everything else | passed through unchanged | — |
+
+`undefined`, `null` and `""` are all treated as **unset**, so a field's default reapplies. Consequence worth
+stating: an operator cannot clear a defaulted field to empty.
+
+⚠️ **Validation `code`s are contract; `message` prose is not.** The fixture comparison is byte-exact, which
+would otherwise freeze English sentences — including punctuation — as the contract between two
+implementations. Compare `severity` and `code`; treat `message` as advisory.
 
 **The divergence guard.** `project` must exist in Java and TypeScript. The contract ships a **shared fixture
-suite** — `(package, draftValues) → expected viewModel` cases in JSON — that both implementations must pass
-in their own CI. It must include **gap cases** (§4.4) and **defaults-applied predicate cases** (§3.3), the two
-places the implementations are most likely to diverge. The suite's own design must pin JSON number
-formatting and key ordering, or the comparison itself becomes the divergence.
+suite** — `(package, selection, draft, observed) → expected viewModel` cases in JSON — that both
+implementations must pass in their own CI. It must include **defaults-applied predicate cases** (§3.3),
+**virtual-excluded-from-`rendered`** cases (§3.6), **deterministic `rendered` ordering** cases, and
+**multi-key predicate** cases — the places the implementations are most likely to diverge. A single-key
+predicate passes under both a correct and an incorrect collectability comparison, so a suite without a
+multi-key case lets a wrong Java implementation pass everything. Where the two real packages cannot reach a
+behaviour, a clearly-labelled **synthetic** package supplies it rather than distorting a real one. Gap cases belong to `projectSeries`, not here — `project` never
+sees a time series. The suite must pin JSON number formatting and key ordering, or the comparison itself
+becomes the divergence.
 
 ## 7. Validation and the authoring pipeline
 
@@ -630,7 +729,7 @@ Cache declares **no accept/reject rules at all** (§2), so the concept splits:
 
 | Tier | What it is | Can SM prevent it? |
 |---|---|---|
-| **Bind-time** | `max-size: abc`, bad enum, malformed `Duration` — Spring's binder fails, **app will not start** | **Yes, with certainty.** Derivable from the Java type. **Except inside a `yaml` field** (§3.6) |
+| **Bind-time** | `max-size: abc`, bad enum, malformed `Duration` — Spring's binder fails, **app will not start** | **Yes, with certainty.** Derivable from the Java type. **Except inside a `yaml` field** (§3.7) |
 | **Semantic** | `max-size: -1`, unreachable `host`, a JSON Pointer to a nonexistent field | **No.** Binds fine; fails at runtime or misbehaves silently |
 
 ### 7.2 The sheet: provenance is a property of the column (`UI-D17`)
@@ -638,7 +737,7 @@ Cache declares **no accept/reject rules at all** (§2), so the concept splits:
 | Group | Columns | Reviewer's job |
 |---|---|---|
 | **Derived + test-verified** | `component`, `key`, `type` | **Don't touch.** Locked. Guaranteed by CI forever (§7.4) |
-| **Derived suggestion** | `options`, `default`, `when`, `secret`, `discriminator`, `optionsSource` | **Confirm.** Machine-proposed, not machine-guaranteed |
+| **Derived suggestion** | `options`, `default`, `when`, `secret`, `discriminator`, `optionsSource`, `virtual` | **Confirm.** Machine-proposed, not machine-guaranteed. `virtual` is derivable — the File Mesh adapter sets it from a null `CONFIGURATION_PATH` |
 | **Authored** | `helperText`, `section`, `order`, `advanced`, `required`, `min`, `max`, `pattern` | **Write.** Nothing can derive these |
 
 One `reviewed` flag per row. The package records `authoring: { reviewedRows, totalRows }` so a package
@@ -676,7 +775,7 @@ Four rules, three of them corrections:
 
 | Test | Asserts |
 |---|---|
-| **T-KEYS** (`SM-D20`, existing) | bidirectional: every package key exists in the MI; every MI property has a package field or an explicit exclusion with a reason. **Does not extend inside `yaml` fields** (§3.6) |
+| **T-KEYS** (`SM-D20`, existing) | bidirectional: every package key exists in the MI; every MI property has a package field or an explicit exclusion with a reason. **Does not extend inside `yaml` fields** (§3.7) |
 | **T-TYPES** (new) | every field's declared `type` **binds** to the MI's actual property type |
 
 ⚠️ **"Binds", not "equals".** Cache's `provider` is a Java `String`, and it is also Cache's natural
@@ -702,18 +801,43 @@ objection", not "the MI will accept this".
 
 ### 8.1 Artifacts
 
-| Artifact | Proves |
-|---|---|
-| `evidence/extract-fm-vocabulary.py` + `vocabulary.txt` | §2's File Mesh figures are re-derivable, not recalled. **Exists** |
-| `contracts/solution-package.schema.json` | the contract is expressible, not merely describable |
-| `contracts/fixtures/cache-2.4.package.json` | the **real** Cache surface validates — `Duration`, `List<String>`, `Map<String,String>`, two-level nesting, four enums, a secret, a `String` discriminator |
-| `contracts/fixtures/filemesh-ftp-solace.package.json` | it generalizes — **`COMP_SOURCE_FTP` (132 fields) + `COMP_SINK_SOLACE` (90 fields, 14 buttons, 8 api-sourced)**, the three-level chain, `type: table` |
-| `contracts/fixtures/viewmodel/*.json` | `project()` is deterministic, and Java and TypeScript agree — including gap and defaults-applied cases |
-| `backend/.../V002__metric_pending.sql` + `V002_constraints_test.sql` | quarantine, daily partitions, promotion, the source discriminator |
+Run everything with `contracts/run-checks.sh`. **Status: all checks passing.**
 
-⚠️ **The File Mesh fixture is the gate on §3.5, and should be attempted before ratification.** The first
-draft's vocabulary could not express `COMP_SINK_SOLACE` at all; §3.5 is the fix, and only building the
-fixture proves the fix is sufficient. Prose has now been wrong about this once.
+| Artifact | Proves | State |
+|---|---|---|
+| `evidence/extract-fm-vocabulary.py` + `vocabulary.txt` | §2's figures are re-derivable, not recalled; 0 unparsed rows | **built** |
+| `contracts/solution-package.schema.json` | the contract is expressible, not merely describable | **built** |
+| `contracts/validation/validate-package.py` | gates 2, 3, 4, 5, 5b, 9, 10 (1, 6, 7, 8, 11 live in the schema) | **built** |
+| `contracts/validation/fixtures/cache-2.4.package.json` | the real Cache surface — `Duration`, `List`, `Map`, four enums, a secret, two-level nesting, a `String` discriminator. 26 fields, 1 action, 5 metrics | **built, passing** |
+| `contracts/validation/adapters/filemesh-adapter.py` | the File Mesh source adapter (`SM-D20`), emitting a package **and** a coverage report | **built** |
+| `contracts/validation/fixtures/filemesh-ftp-solace.package.json` | it generalizes — **4 components, 206 fields (54 virtual), 6 actions**, generated from the real 1,989 rows | **built, passing** |
+| `contracts/validation/negative/` | 13 deliberately-invalid packages, one per gate, **generated by mutating the Cache fixture** | **built, all rejected** |
+| `contracts/view-models/src/project.ts` + `contracts/view-models/fixtures/viewmodel/*.json` | `project()` is deterministic — **21 cases, 30 assertions**, including 8 invariants asserted across *every* case (no virtual or hidden field reaches `rendered`; no resolved secret anywhere; no transform/resolution/mark/gap; no RBAC; `rendered` deterministically ordered; layout excluded from the hash) | **built, passing** |
+| `backend/.../V002__metric_pending.sql` | quarantine, daily partitions, promotion, the source discriminator | not built |
+| A **Java** `project()` passing `fixtures/viewmodel/*.json` | the two implementations agree (`UI-D15`, `FE-D12`, `DM-D20`) | not built — backend plan work |
+
+### 8.4 What building the fixtures changed
+
+The fixtures were built to test the contract and **falsified three parts of it**, which is what they were
+for. Prose had been wrong about all three:
+
+| Found | Consequence |
+|---|---|
+| **All 11** predicate-referenced File Mesh fields have no config path | **`UI-D24`** — without `virtual: true`, gate 4 rejects **every** File Mesh predicate. The contract could not express File Mesh applicability at all |
+| Of **16 distinct buttons** in 1,989 rows, exactly **one** is api-backed | **`UI-D22` corrected** — `action.kind` is `test-connection` + `manage-catalog-entry`; `browse-remote-path` and `refresh-catalog` had zero evidence and are dropped. Ten buttons are renderer chrome or `I1`-excluded |
+| `solace.enabled` is a **boolean** discriminator | **Gate 6 widened** to `enum \| bool`. Corroborated by File Mesh's `{"CONFIG_JAVA_RUNTIME": true}` |
+
+Two further findings needed **no** vocabulary change, which is the more reassuring result:
+
+- **`FILE_PROCESS_CONFIGURATION` is a variant axis** — `FILETOFILE` vs `FILEEVENTS`, differing in **58 of 65**
+  `COMP_SOURCE_FTP` fields. Expressible as separate component types under `UI-D1` as written.
+- **`CONFIGURATION_FIELD` is a label, not a key** — 57 collisions, **all** resolved by `SECTION`+`PATH`, none
+  irreducible. `field.key` is the config path; the FM name becomes `ui.label`. Gate 9 passes cleanly, and
+  would have caught the collisions had they been keys.
+
+**Coverage: 212 of 222 rows (95.5%).** The 10 dropped rows are all renderer chrome. Roughly 20 `autocomplete`
+fields degrade to `string` because their options live in File Mesh's frontend code rather than its data —
+a **curation gap for tier-3 authoring** (`UI-D17`), not a vocabulary gap; the adapter flags each one.
 
 ### 8.2 The negative fixtures matter more than the positive ones
 
@@ -767,7 +891,9 @@ Remaining open:
 | 6 | **File Mesh logger prefixes** — whether FM's logger names align with its `COMPONENT_TYPE` decomposition is unverified. If not, per-component log control degrades for FM |
 | 7 | **Cache's built `MANIFEST.MF`** — `UI-D12`'s "not observable" premise is verified for `/actuator/info` and the pom, but the packaged jar was not inspected. Settled by `mvn package && unzip -p target/*.jar META-INF/MANIFEST.MF`. If `Implementation-Version` appears, the VM/SSH path gains a corroboration source; declared-first survives regardless |
 | 8 | **`architecture.md` reconciliation** — §14 (config-driven UI, escape hatch, render-against-observed) and §10 (`source.kind` primitives) both contradict this document and must be updated or pointed at it |
-| 9 | **`action.kind` completeness** — three kinds cover File Mesh's observed buttons by category, but 160 buttons were not individually classified. A miss means a vocabulary addition, i.e. an SM release |
+| 9 | ~~`action.kind` completeness~~ — **closed.** All 16 distinct buttons across 1,989 rows are now classified (§3.5): 1 `test-connection`, 5 `manage-catalog-entry`, 8 renderer chrome, 2 `I1`-excluded |
+| 10 | ⚠️ **Catalog selection that populates fields** — File Mesh's `SELECT_BROKER` fills `solace/java/msg-vpn`, `client-username`, `client-password` and `host` from a chosen catalog entry; **42 rows** in `COMP_SINK_SOLACE` are broker attributes with no config path of their own. The contract can declare the selector (`optionsSource`) and the target fields, but **not the population**. Needs a decision: a `valueFrom: {entity, attribute}` on the target field, a `populates:` map on the selector, or treating it as an SM platform feature outside the package contract |
+| 11 | **`autocomplete` options that live in code** — ~20 File Mesh fields are enums whose option lists are in the frontend, not the template. They degrade to `string`. Tier-3 curation, tracked per-field by the adapter's notes |
 
 ## 10. R1 review audit trail
 
@@ -785,7 +911,7 @@ An independent adversarial review of the first draft (commit `0db4b4d`) returned
 | Series identity lacks a source discriminator; no uniqueness gate; a constraint test cannot catch a merge | MAJOR | §4.2, §6.4 gate 9, §8.3 |
 | Gates validate `when:` keys but never values | MAJOR | §6.4 gate 5b |
 | `UI-D9` contradicts `RESTART_EXPECTED`, open item 15's `INACTIVE_REPLICA`, and `B/D14` | MAJOR | §5.1 |
-| `type: yaml` unvalidated — an `I6` and bind-tier hole | MAJOR | **§3.6 (new)**, §6.4 gate 10, §7.1, §7.4 |
+| `type: yaml` unvalidated — an `I6` and bind-tier hole | MAJOR | **§3.7 (new)**, §6.4 gate 10, §7.1, §7.4 |
 | `source.kind` defined differently here and in `architecture.md` §10; `onUnavailable` omitted | MAJOR | §3.4, §4.1, §9 item 8 |
 | `CONNECTOR_DESIGN` mischaracterized as layout | MAJOR | §2, §5.4 |
 | `BRIEF.md` contradicts this document with no errata | MAJOR | `BRIEF.md` header |

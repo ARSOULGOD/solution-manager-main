@@ -37,3 +37,14 @@ go-agent/bin/
 
 # Local Postgres scratch used to validate migrations
 pgdata/
+
+# Python bytecode (evidence/adapter scripts)
+__pycache__/
+*.pyc
+
+# Design screen mockups — rendered PNGs + their viewer HTML. Kept out of git
+# history because they are large binaries that regenerate from the spec; the
+# spec, not the screenshot, is the reviewable artifact.
+# Path-scoped deliberately: a bare `screens/` would also ignore a React
+# `frontend/src/screens/`, which is a standard convention and is v1 scope.
+docs/design/*/screens/

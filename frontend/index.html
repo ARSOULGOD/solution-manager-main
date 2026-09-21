@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!--
+      Content-Security-Policy — FE-100, design §21, REQ-003 (air-gap).
+
+      This tag is the SINGLE SOURCE OF TRUTH for the policy.
+      `scripts/verify-csp.mjs` parses it and fails the build if any directive
+      carries a source other than `'self'` / `'none'` without a matching,
+      reasoned entry in `csp-exceptions.json` — so a relaxation (an
+      `'unsafe-eval'`, a CDN host, an analytics origin) can only land as a
+      recorded exception, never silently.
+
+      SM packaging should serve the identical policy as a response header and
+      add `frame-ancestors 'none'`, which a <meta> delivery ignores (the
+      header-only directives are listed in `frontend/README.md`).
+
+      The Vite DEV server strips this tag (see `vite.config.ts`): the dev
+      preamble is an inline script and HMR talks `ws:`, neither of which the
+      production policy permits. The dev delta is handled by removing the
+      policy from a build that never ships, not by loosening the policy of
+      the one that does.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'; connect-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; frame-src 'none'; worker-src 'none'"
+    />
+    <title>Solution Manager</title>
+  </head>
+  <body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <div id="root"></div>
+    <script type="module" src="/src/app/main.tsx"></script>
+  </body>
+</html>

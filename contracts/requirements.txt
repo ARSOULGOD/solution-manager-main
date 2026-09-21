@@ -1,0 +1,9 @@
+# Python packages the contract gates import directly: validation/validate-package.py (jsonschema)
+# and events/validate-events.py (jsonschema, referencing, PyYAML). run-checks.sh
+# preflights all three and fails if any is missing. Floors are the versions this repo's checks
+# were last run green against (read from the installed distributions, not from memory — I2);
+# `>=` because nothing here pins behaviour, and a lockfile for three read-only validators would
+# be more machinery than the risk warrants.
+jsonschema>=4.25.1
+referencing>=0.36.2
+PyYAML>=6.0.3

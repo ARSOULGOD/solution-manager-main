@@ -1,0 +1,4 @@
+{
+  "health-transition.json": "sm/v2/acme/notify/instance/cache-prod-01/health",
+  "rollout-step.json":      "sm/v1/acme/notify/instance/cache-prod-01/rollout"
+}

@@ -1,0 +1,20 @@
+{
+  "name": "sm-spike-mesh-authz",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Gate-G1 broker-authorization spike. Throwaway harness — never reused in shipping code.",
+  "type": "module",
+  "license": "UNLICENSED",
+  "scripts": {
+    "certs": "./setup-certs.sh",
+    "provision": "./provision.sh",
+    "issuer": "node issuer/issuer.mjs",
+    "test": "./run-tests.sh"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.9"
+  },
+  "dependencies": {
+    "solace-webapp-sdk": "file:../../../../RapidPilot/webAppSDK"
+  }
+}

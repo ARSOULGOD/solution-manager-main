@@ -1,0 +1,55 @@
+### [OK] (t) OWNER CONTROL: owner CAN write apply_scope identity on a dependency-free row  (container=main role=sm_dp_migrator db=smdb)
+--- SQL ---
+SET ROLE sm_dp_owner;
+BEGIN;
+UPDATE sm_data.apply_scope SET tenant_id='44444444-4444-4444-8444-444444444444' WHERE tenant_id='33333333-3333-4333-8333-333333333333' AND instance_id='a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2';
+SELECT 'owner re-tenanted rows='||count(*) FROM sm_data.apply_scope WHERE tenant_id='44444444-4444-4444-8444-444444444444' AND instance_id='a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2';
+UPDATE sm_data.apply_scope SET instance_id='a9a9a9a9-9999-4999-8999-a9a9a9a9a9a9' WHERE tenant_id='44444444-4444-4444-8444-444444444444' AND instance_id='a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2';
+SELECT 'owner re-instanced rows='||count(*) FROM sm_data.apply_scope WHERE instance_id='a9a9a9a9-9999-4999-8999-a9a9a9a9a9a9';
+ROLLBACK;
+--- RESULT ---
+?column?
+--------------------------
+ owner re-tenanted rows=0
+(1 row)
+
+         ?column?
+---------------------------
+ owner re-instanced rows=0
+(1 row)
+
+### [REFUSED] (t) MATCHING NEGATIVE on the same row: runtime refused  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_scope SET tenant_id='44444444-4444-4444-8444-444444444444' WHERE tenant_id='33333333-3333-4333-8333-333333333333' AND instance_id='a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2';
+--- RESULT ---
+ERROR:  42501: permission denied for table apply_scope
+LOCATION:  aclcheck_error, aclchk.c:3452
+
+### [OK] (t) OWNER CONTROL: owner CAN re-key placement_watermark and DELETE from both  (container=main role=sm_dp_migrator db=smdb)
+--- SQL ---
+SET ROLE sm_dp_owner;
+BEGIN;
+UPDATE sm_data.placement_watermark SET placement_id='b3b3b3b3-3333-4333-8333-b3b3b3b3b3b3' WHERE tenant_id='11111111-1111-4111-8111-111111111111' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1' AND placement_id='b1b1b1b1-1111-4111-8111-b1b1b1b1b1b1';
+SELECT 'owner re-keyed placement rows='||count(*) FROM sm_data.placement_watermark WHERE placement_id='b3b3b3b3-3333-4333-8333-b3b3b3b3b3b3';
+DELETE FROM sm_data.placement_watermark WHERE tenant_id='11111111-1111-4111-8111-111111111111' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1';
+SELECT 'owner deleted placement rows ok' AS r;
+ROLLBACK;
+--- RESULT ---
+?column?
+---------------------------------
+ owner re-keyed placement rows=1
+(1 row)
+
+                r
+---------------------------------
+ owner deleted placement rows ok
+(1 row)
+
+### [REFUSED] (t) the monotonic guard binds the OWNER too (trigger, not grant)  (container=main role=sm_dp_migrator db=smdb)
+--- SQL ---
+SET ROLE sm_dp_owner;
+UPDATE sm_data.apply_scope SET instance_watermark=1 WHERE tenant_id='11111111-1111-4111-8111-111111111111' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1';
+--- RESULT ---
+ERROR:  P0001: instance watermark may not decrease (10 -> 1)
+CONTEXT:  PL/pgSQL function sm_data.instance_watermark_only_rises() line 4 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3857

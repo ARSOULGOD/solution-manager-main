@@ -1,0 +1,59 @@
+{
+  "name": "version-state-unverified-allows",
+  "package": {
+    "solution": "cache",
+    "packageVersion": [1],
+    "appliesTo": ">=2.2 <2.5",
+    "provenance": { "author": "solace", "signature": "test-fixture" },
+    "authoring": { "reviewedRows": 1, "totalRows": 1 },
+    "components": [
+      {
+        "type": "cache-engine",
+        "cardinality": "exactly-one",
+        "configPath": "cache-engine",
+        "loggerPrefix": "com.solace.solutions.cache",
+        "fields": [{ "key": "provider", "type": "enum", "options": ["caffeine", "redis"], "default": "caffeine" }]
+      }
+    ]
+  },
+  "componentSelection": [{ "type": "cache-engine", "instanceId": "cache-1" }],
+  "draftValues": { "cache-1": {} },
+  "observedState": {
+    "health": "healthy",
+    "versionState": "unverified",
+    "configState": "in_sync",
+    "declaredVersion": "2.4.0"
+  },
+  "expected": {
+    "sections": [
+      {
+        "title": "General",
+        "order": 0,
+        "fields": [
+          {
+            "key": "provider",
+            "label": "provider",
+            "renderedPath": "cache-engine.provider",
+            "discriminator": false,
+            "controlKind": "select",
+            "value": { "kind": "value", "value": "caffeine", "source": "default" },
+            "options": ["caffeine", "redis"],
+            "enabled": true,
+            "visible": true,
+            "masked": false,
+            "advanced": false,
+            "validations": []
+          }
+        ],
+        "actions": []
+      }
+    ],
+    "graphs": [],
+    "status": {
+      "health": "healthy",
+      "versionState": "unverified",
+      "configState": "in_sync",
+      "declaredVersion": "2.4.0"
+    }
+  }
+}

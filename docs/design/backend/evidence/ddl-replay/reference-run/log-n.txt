@@ -1,0 +1,85 @@
+### [OK] (n) SETUP: build watermarks the way admission does — upsert then RAISE  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_scope(tenant_id,instance_id) VALUES ('44444444-4444-4444-8444-444444444444','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1') ON CONFLICT DO NOTHING;
+UPDATE sm_data.apply_scope SET instance_watermark=10 WHERE tenant_id='44444444-4444-4444-8444-444444444444' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1';
+INSERT INTO sm_data.placement_watermark(tenant_id,instance_id,placement_id,generation) VALUES ('44444444-4444-4444-8444-444444444444','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b1b1b1b1-1111-4111-8111-b1b1b1b1b1b1',12);
+UPDATE sm_data.placement_watermark SET generation=20 WHERE tenant_id='44444444-4444-4444-8444-444444444444' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1' AND placement_id='b1b1b1b1-1111-4111-8111-b1b1b1b1b1b1';
+SELECT (SELECT instance_watermark FROM sm_data.apply_scope WHERE tenant_id='44444444-4444-4444-8444-444444444444' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1') AS instance_wm,
+       (SELECT generation FROM sm_data.placement_watermark WHERE tenant_id='44444444-4444-4444-8444-444444444444' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1' AND placement_id='b1b1b1b1-1111-4111-8111-b1b1b1b1b1b1') AS p1_wm;
+--- RESULT ---
+instance_wm | p1_wm
+-------------+-------
+          10 |    20
+(1 row)
+
+### [OK] (n) THE ADMISSION COMPARISON: all four refuse-directions + the legal admit  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+WITH wm AS (SELECT s.tenant_id,s.instance_id,s.instance_watermark,
+      (SELECT max(generation) FROM sm_data.placement_watermark p WHERE p.tenant_id=s.tenant_id AND p.instance_id=s.instance_id) AS any_p,
+      (SELECT generation FROM sm_data.placement_watermark p WHERE p.tenant_id=s.tenant_id AND p.instance_id=s.instance_id AND p.placement_id='b1b1b1b1-1111-4111-8111-b1b1b1b1b1b1') AS own_p1
+    FROM sm_data.apply_scope s WHERE s.tenant_id='44444444-4444-4444-8444-444444444444' AND s.instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1'),
+cases(direction,scope,g,bar) AS (
+  SELECT '1 placement-scoped apply <= INSTANCE watermark','placement P2',10::bigint,
+    GREATEST(w.instance_watermark, coalesce((SELECT generation FROM sm_data.placement_watermark WHERE tenant_id='44444444-4444-4444-8444-444444444444' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1' AND placement_id='b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2'),0)) FROM wm w
+  UNION ALL SELECT '2 placement-scoped apply <= its OWN placement watermark','placement P1',15, GREATEST(w.instance_watermark, coalesce(w.own_p1,0)) FROM wm w
+  UNION ALL SELECT '3 instance-wide apply <= INSTANCE watermark','instance-wide',10, GREATEST(w.instance_watermark,0) FROM wm w
+  UNION ALL SELECT '4 instance-wide apply <= ANY placement watermark','instance-wide',15, GREATEST(w.instance_watermark, coalesce(w.any_p,0)) FROM wm w
+  UNION ALL SELECT '5 LEGAL: G strictly above every bar','instance-wide',21, GREATEST(w.instance_watermark, coalesce(w.any_p,0)) FROM wm w)
+SELECT direction, scope, g AS "G", bar, CASE WHEN g <= bar THEN 'REFUSE' ELSE 'ADMIT' END AS verdict FROM cases ORDER BY 1;
+--- RESULT ---
+direction                        |     scope     | G  | bar | verdict
+---------------------------------------------------------+---------------+----+-----+---------
+ 1 placement-scoped apply <= INSTANCE watermark          | placement P2  | 10 |  10 | REFUSE
+ 2 placement-scoped apply <= its OWN placement watermark | placement P1  | 15 |  20 | REFUSE
+ 3 instance-wide apply <= INSTANCE watermark             | instance-wide | 10 |  10 | REFUSE
+ 4 instance-wide apply <= ANY placement watermark        | instance-wide | 15 |  20 | REFUSE
+ 5 LEGAL: G strictly above every bar                     | instance-wide | 21 |  20 | ADMIT
+(5 rows)
+
+### [OK] (n) SETUP: T4/IN2 scope + APPLY_INDETERMINATE request at G=30  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_scope(tenant_id,instance_id) VALUES ('44444444-4444-4444-8444-444444444444','a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2') ON CONFLICT DO NOTHING;
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state)
+VALUES ('70000001-0000-4000-8000-000000000001','44444444-4444-4444-8444-444444444444','a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2','00000000-0000-0000-0000-000000000000','apply',30,'rolling-health-gated','op:n',now(),'APPLY_INDETERMINATE');
+--- RESULT ---
+
+
+### [OK] (n) RESOLVE 'applied' AND RAISE the watermark in ONE transaction, then compare in-txn  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+BEGIN;
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res',
+  resolution_outcome='applied', resolution_observed='{"stagedGeneration": 30, "replicas": [{"ref": "r0", "restarted": true, "observedHash": null}]}'::jsonb
+ WHERE apply_id='70000001-0000-4000-8000-000000000001';
+UPDATE sm_data.apply_scope SET instance_watermark=30 WHERE tenant_id='44444444-4444-4444-8444-444444444444' AND instance_id='a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2';
+SELECT g AS "candidate_G", s.instance_watermark AS bar,
+       CASE WHEN g <= s.instance_watermark THEN 'REFUSE' ELSE 'ADMIT' END AS verdict
+  FROM sm_data.apply_scope s, (VALUES (29::bigint),(30::bigint),(31::bigint)) v(g)
+ WHERE s.tenant_id='44444444-4444-4444-8444-444444444444' AND s.instance_id='a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2' ORDER BY g;
+COMMIT;
+--- RESULT ---
+candidate_G | bar | verdict
+-------------+-----+---------
+          29 |  30 | REFUSE
+          30 |  30 | REFUSE
+          31 |  30 | ADMIT
+(3 rows)
+
+### [OK] (n) DURABILITY after COMMIT: resolution and watermark both persisted, comparison unchanged  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+SELECT state, resolution_outcome, generation FROM sm_data.apply_request WHERE apply_id='70000001-0000-4000-8000-000000000001';
+SELECT g AS "candidate_G", s.instance_watermark AS bar,
+       CASE WHEN g <= s.instance_watermark THEN 'REFUSE' ELSE 'ADMIT' END AS verdict
+  FROM sm_data.apply_scope s, (VALUES (29::bigint),(30::bigint),(31::bigint)) v(g)
+ WHERE s.tenant_id='44444444-4444-4444-8444-444444444444' AND s.instance_id='a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2' ORDER BY g;
+--- RESULT ---
+state          | resolution_outcome | generation
+------------------------+--------------------+------------
+ INDETERMINATE_RESOLVED | applied            |         30
+(1 row)
+
+ candidate_G | bar | verdict
+-------------+-----+---------
+          29 |  30 | REFUSE
+          30 |  30 | REFUSE
+          31 |  30 | ADMIT
+(3 rows)

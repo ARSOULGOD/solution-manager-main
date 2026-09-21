@@ -1,0 +1,792 @@
+### [REFUSED] (j) REFUSE: MISSING resolved_by  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolution_outcome='applied', resolution_observed='{"stagedGeneration": 1, "replicas": [{"ref": "r0", "restarted": true, "observedHash": null}, {"ref": "r1", "restarted": true, "observedHash": null}]}'::jsonb WHERE apply_id='c0000001-0000-4000-8000-000000000001';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000001-0000-4000-8000-000000000001, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 1, rolling-health-gated, null, op:alice, 2026-09-09 15:00:38.869485+00, INDETERMINATE_RESOLVED, 2026-09-09 15:00:56.458603+00, null, applied, {"replicas": [{"ref": "r0", "restarted": true, "observedHash": n..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: resolution_observed = '{}'::jsonb  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{}'::jsonb WHERE apply_id='c0000001-0000-4000-8000-000000000001';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000001-0000-4000-8000-000000000001, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 1, rolling-health-gated, null, op:alice, 2026-09-09 15:00:38.869485+00, INDETERMINATE_RESOLVED, 2026-09-09 15:00:56.5602+00, op:res, applied, {}, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: resolution_observed = JSON null  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='null'::jsonb WHERE apply_id='c0000001-0000-4000-8000-000000000001';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000001-0000-4000-8000-000000000001, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 1, rolling-health-gated, null, op:alice, 2026-09-09 15:00:38.869485+00, INDETERMINATE_RESOLVED, 2026-09-09 15:00:56.667251+00, op:res, applied, null, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: {stagedGeneration:null, replicas:[]} (present keys, worthless values)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": null, "replicas": []}'::jsonb WHERE apply_id='c0000001-0000-4000-8000-000000000001';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000001-0000-4000-8000-000000000001, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 1, rolling-health-gated, null, op:alice, 2026-09-09 15:00:38.869485+00, INDETERMINATE_RESOLVED, 2026-09-09 15:00:56.768567+00, op:res, applied, {"replicas": [], "stagedGeneration": null}, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: stagedGeneration as a STRING  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": "7", "replicas": [{"ref": "r0", "restarted": true, "observedHash": null}]}'::jsonb WHERE apply_id='c0000001-0000-4000-8000-000000000001';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000001-0000-4000-8000-000000000001, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 1, rolling-health-gated, null, op:alice, 2026-09-09 15:00:38.869485+00, INDETERMINATE_RESOLVED, 2026-09-09 15:00:56.880307+00, op:res, applied, {"replicas": [{"ref": "r0", "restarted": true, "observedHash": n..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: replicas as a NUMBER (not an array), stagedGeneration MATCHING generation — also, unavoidably, refuses via the element-type-check and well-formedness predicates: any non-array, non-object scalar auto-wraps under lax mode into one non-object element, so a NUMBER can never isolate jsonb_typeof(replicas)='array' alone (structural, not a fixable fixture defect)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 1, "replicas": 3}'::jsonb WHERE apply_id='c0000001-0000-4000-8000-000000000001';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000001-0000-4000-8000-000000000001, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 1, rolling-health-gated, null, op:alice, 2026-09-09 15:00:38.869485+00, INDETERMINATE_RESOLVED, 2026-09-09 15:00:56.998498+00, op:res, applied, {"replicas": 3, "stagedGeneration": 1}, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: replicas EMPTY array, stagedGeneration MATCHING generation (BE-D17: isolates the array clause, not the equality clause — corrected from a stagedGeneration filler that confounded the two; now duplicates the adjacent 'isolates the array clause' leg's proof)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 1, "replicas": []}'::jsonb WHERE apply_id='c0000001-0000-4000-8000-000000000001';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000001-0000-4000-8000-000000000001, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 1, rolling-health-gated, null, op:alice, 2026-09-09 15:00:38.869485+00, INDETERMINATE_RESOLVED, 2026-09-09 15:00:57.10484+00, op:res, applied, {"replicas": [], "stagedGeneration": 1}, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: bogus resolution_outcome -> resolution_known  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='maybe', resolution_observed='{"stagedGeneration": 1, "replicas": [{"ref": "r0", "restarted": true, "observedHash": null}, {"ref": "r1", "restarted": true, "observedHash": null}]}'::jsonb WHERE apply_id='c0000001-0000-4000-8000-000000000001';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_known"
+DETAIL:  Failing row contains (c0000001-0000-4000-8000-000000000001, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 1, rolling-health-gated, null, op:alice, 2026-09-09 15:00:38.869485+00, INDETERMINATE_RESOLVED, 2026-09-09 15:00:57.218083+00, op:res, maybe, {"replicas": [{"ref": "r0", "restarted": true, "observedHash": n..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_known
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: non-null resolution field on state APPLIED -> resolution_only_when_resolved  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at,resolved_by)
+VALUES ('f0000010-0000-4000-8000-000000000010','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','apply',9,'manual','op:x',now(),'APPLIED',now(),'op:sneaky');
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_only_when_resolved"
+DETAIL:  Failing row contains (f0000010-0000-4000-8000-000000000010, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2, apply, 9, manual, null, op:x, 2026-09-09 15:00:57.32294+00, APPLIED, 2026-09-09 15:00:57.32294+00, op:sneaky, null, null, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_only_when_resolved
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j/I6) REFUSE: the LEGAL resolution UPDATE also writing resolution_note — runtime has no column grant (42501, not a CHECK)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 1, "replicas": [{"ref": "r0", "restarted": true, "observedHash": null}, {"ref": "r1", "restarted": true, "observedHash": null}]}'::jsonb, resolution_note='pasted: token=SNTL-note-9d2e' WHERE apply_id='c0000001-0000-4000-8000-000000000001';
+--- RESULT ---
+ERROR:  42501: permission denied for table apply_request
+LOCATION:  aclcheck_error, aclchk.c:3452
+
+### [REFUSED] (j/I6) REFUSE: resolution_note alone, even to NULL — the column privilege itself is absent  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET resolution_note = NULL WHERE apply_id='c0000001-0000-4000-8000-000000000001';
+--- RESULT ---
+ERROR:  42501: permission denied for table apply_request
+LOCATION:  aclcheck_error, aclchk.c:3452
+
+### [OK] (j/I6) POS control: the OWNER may write resolution_note (row still APPLY_INDETERMINATE, note stays NULL)  (container=main role=sm_dp_migrator db=smdb)
+--- SQL ---
+SET ROLE sm_dp_owner;
+UPDATE sm_data.apply_request SET resolution_note = NULL WHERE apply_id='c0000001-0000-4000-8000-000000000001';
+SELECT state, resolution_note IS NULL AS note_null FROM sm_data.apply_request WHERE apply_id='c0000001-0000-4000-8000-000000000001';
+--- RESULT ---
+state        | note_null
+---------------------+-----------
+ APPLY_INDETERMINATE | t
+(1 row)
+
+### [OK] (j/I6) row unchanged by the two refusals: still APPLY_INDETERMINATE, no note  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+SELECT state, resolution_note, resolved_by FROM sm_data.apply_request WHERE apply_id='c0000001-0000-4000-8000-000000000001';
+--- RESULT ---
+state        | resolution_note | resolved_by
+---------------------+-----------------+-------------
+ APPLY_INDETERMINATE |                 |
+(1 row)
+
+### [OK] (j/I6) SETUP: scope row for an otherwise-unused tenant T5 (request_has_scope)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_scope(tenant_id,instance_id) VALUES ('55555555-5555-4555-8555-555555555555','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1') ON CONFLICT DO NOTHING;
+--- RESULT ---
+
+
+### [REFUSED] (j/I6) REFUSE: a row BORN INDETERMINATE_RESOLVED with a resolution_note — runtime lacks the INSERT column grant (42501)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at,resolved_by,resolution_outcome,resolution_observed,resolution_note) VALUES ('f0000090-0000-4000-8000-000000000090','55555555-5555-4555-8555-555555555555','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b3b3b3b3-3333-4333-8333-b3b3b3b3b3b3','apply',3,'manual','op:born',now(),'INDETERMINATE_RESOLVED',now(),'op:res','applied','{"stagedGeneration": 3, "replicas": [{"ref": "r0", "restarted": true, "observedHash": null}]}'::jsonb,'pasted: token=SNTL-born-4c7a');
+--- RESULT ---
+ERROR:  42501: permission denied for table apply_request
+LOCATION:  aclcheck_error, aclchk.c:3452
+
+### [REFUSED] (j/I6) REFUSE: the same INSERT naming resolution_note even as NULL — the column privilege itself is absent  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at,resolved_by,resolution_outcome,resolution_observed,resolution_note) VALUES ('f0000090-0000-4000-8000-000000000090','55555555-5555-4555-8555-555555555555','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b3b3b3b3-3333-4333-8333-b3b3b3b3b3b3','apply',3,'manual','op:born',now(),'INDETERMINATE_RESOLVED',now(),'op:res','applied','{"stagedGeneration": 3, "replicas": [{"ref": "r0", "restarted": true, "observedHash": null}]}'::jsonb,NULL);
+--- RESULT ---
+ERROR:  42501: permission denied for table apply_request
+LOCATION:  aclcheck_error, aclchk.c:3452
+
+### [OK] (j/I6) POS control: the OWNER may insert the row naming resolution_note  (container=main role=sm_dp_migrator db=smdb)
+--- SQL ---
+SET ROLE sm_dp_owner;
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at,resolved_by,resolution_outcome,resolution_observed,resolution_note) VALUES ('f0000090-0000-4000-8000-000000000090','55555555-5555-4555-8555-555555555555','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b3b3b3b3-3333-4333-8333-b3b3b3b3b3b3','apply',3,'manual','op:born',now(),'INDETERMINATE_RESOLVED',now(),'op:res','applied','{"stagedGeneration": 3, "replicas": [{"ref": "r0", "restarted": true, "observedHash": null}]}'::jsonb,NULL);
+--- RESULT ---
+
+
+### [OK] (j/I6) POS control: the runtime's OWN insert of a resolved row succeeds WITHOUT naming the column  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at,resolved_by,resolution_outcome,resolution_observed) VALUES ('f0000091-0000-4000-8000-000000000091','55555555-5555-4555-8555-555555555555','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b3b3b3b3-3333-4333-8333-b3b3b3b3b3b3','apply',3,'manual','op:born',now(),'INDETERMINATE_RESOLVED',now(),'op:res','applied','{"stagedGeneration": 3, "replicas": [{"ref": "r0", "restarted": true, "observedHash": null}]}'::jsonb);
+--- RESULT ---
+
+
+### [REFUSED] (j) REFUSE: apply resolution with a MISMATCHED stagedGeneration, otherwise fully evidenced (BE-D17, rejection class ii)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 99, "replicas": [{"ref": "r0", "restarted": true, "observedHash": null}, {"ref": "r1", "restarted": true, "observedHash": null}]}'::jsonb WHERE apply_id='c0000001-0000-4000-8000-000000000001';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000001-0000-4000-8000-000000000001, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 1, rolling-health-gated, null, op:alice, 2026-09-09 15:00:38.869485+00, INDETERMINATE_RESOLVED, 2026-09-09 15:00:58.429662+00, op:res, applied, {"replicas": [{"ref": "r0", "restarted": true, "observedHash": n..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: apply resolution, replicas EMPTY array, stagedGeneration MATCHING generation (BE-D17: isolates the array clause, not the equality clause)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 1, "replicas": []}'::jsonb WHERE apply_id='c0000001-0000-4000-8000-000000000001';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000001-0000-4000-8000-000000000001, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 1, rolling-health-gated, null, op:alice, 2026-09-09 15:00:38.869485+00, INDETERMINATE_RESOLVED, 2026-09-09 15:00:58.53988+00, op:res, applied, {"replicas": [], "stagedGeneration": 1}, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: apply resolution, replicas NOT an array, stagedGeneration MATCHING generation (BE-D17: isolates the array clause, not the equality clause; replicas is a well-formed OBJECT rather than a bare scalar, because a scalar also trips the element-type/well-formedness predicates under lax-mode auto-wrap)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 1, "replicas": {"ref": "r1", "restarted": true, "observedHash": null}}'::jsonb WHERE apply_id='c0000001-0000-4000-8000-000000000001';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000001-0000-4000-8000-000000000001, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 1, rolling-health-gated, null, op:alice, 2026-09-09 15:00:38.869485+00, INDETERMINATE_RESOLVED, 2026-09-09 15:00:58.656684+00, op:res, applied, {"replicas": {"ref": "r1", "restarted": true, "observedHash": nu..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [OK] (j) POS: a FULLY-EVIDENCED INDETERMINATE_RESOLVED succeeds  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 1, "replicas": [{"ref": "r0", "restarted": true, "observedHash": null}, {"ref": "r1", "restarted": true, "observedHash": null}]}'::jsonb WHERE apply_id='c0000001-0000-4000-8000-000000000001';
+--- RESULT ---
+
+
+### [OK] (j) SETUP: a RESTART request and a second APPLY request, both APPLY_INDETERMINATE (BE-D17 restart-branch fixtures)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,strategy,requested_by,requested_at,state) VALUES ('c0000031-0000-4000-8000-000000000031','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','00000000-0000-0000-0000-000000000000','restart','rolling-health-gated','op:res-setup',now(),'APPLY_INDETERMINATE');
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state) VALUES ('c0000032-0000-4000-8000-000000000032','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b4b4b4b4-4444-4444-8444-b4b4b4b4b4b4','apply',1,'rolling-health-gated','op:res-setup',now(),'APPLY_INDETERMINATE');
+--- RESULT ---
+
+
+### [REFUSED] (j) REFUSE: restart resolution with an INVENTED stagedGeneration — refused by the key's mere presence, and unavoidably also by the top-level key-set predicate, since any stagedGeneration key is itself a disallowed top-level key on a restart resolution (BE-D17, rejection class iv; the restart mirror of the already-documented permanently-subsumed NOT jsonb_exists(...) situation — the two clauses cannot be isolated from each other for this input)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 1, "restartsObserved": [{"ref": "r1", "restarted": true}]}'::jsonb WHERE apply_id='c0000031-0000-4000-8000-000000000031';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000031-0000-4000-8000-000000000031, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, restart, null, rolling-health-gated, null, op:res-setup, 2026-09-09 15:00:58.899026+00, INDETERMINATE_RESOLVED, 2026-09-09 15:00:59.011997+00, op:res, applied, {"restartsObserved": [{"ref": "r1", "restarted": true}], "staged..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: restart resolution with NO restartsObserved key at all (BE-D17, rejection class iii)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{}'::jsonb WHERE apply_id='c0000031-0000-4000-8000-000000000031';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000031-0000-4000-8000-000000000031, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, restart, null, rolling-health-gated, null, op:res-setup, 2026-09-09 15:00:58.899026+00, INDETERMINATE_RESOLVED, 2026-09-09 15:00:59.107148+00, op:res, applied, {}, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: restart resolution, restartsObserved EMPTY array (BE-D17, rejection class iii)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"restartsObserved": []}'::jsonb WHERE apply_id='c0000031-0000-4000-8000-000000000031';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000031-0000-4000-8000-000000000031, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, restart, null, rolling-health-gated, null, op:res-setup, 2026-09-09 15:00:58.899026+00, INDETERMINATE_RESOLVED, 2026-09-09 15:00:59.214649+00, op:res, applied, {"restartsObserved": []}, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: restart resolution, restartsObserved NOT an array (BE-D17, rejection class iii; restartsObserved is a well-formed OBJECT rather than a bare scalar, because a scalar also trips the element-type/well-formedness predicates under lax-mode auto-wrap)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"restartsObserved": {"ref": "r1", "restarted": true}}'::jsonb WHERE apply_id='c0000031-0000-4000-8000-000000000031';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000031-0000-4000-8000-000000000031, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, restart, null, rolling-health-gated, null, op:res-setup, 2026-09-09 15:00:58.899026+00, INDETERMINATE_RESOLVED, 2026-09-09 15:00:59.314173+00, op:res, applied, {"restartsObserved": {"ref": "r1", "restarted": true}}, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: apply-shaped evidence (stagedGeneration + replicas) resolving a RESTART request (BE-D17, rejection class i, direction 1)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 1, "replicas": [{"ref": "r1", "restarted": true}]}'::jsonb WHERE apply_id='c0000031-0000-4000-8000-000000000031';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000031-0000-4000-8000-000000000031, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, restart, null, rolling-health-gated, null, op:res-setup, 2026-09-09 15:00:58.899026+00, INDETERMINATE_RESOLVED, 2026-09-09 15:00:59.425843+00, op:res, applied, {"replicas": [{"ref": "r1", "restarted": true}], "stagedGenerati..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: restart-shaped evidence (restartsObserved, no stagedGeneration) resolving an APPLY request (BE-D17, rejection class i, direction 2)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"restartsObserved": [{"ref": "r1", "restarted": true}]}'::jsonb WHERE apply_id='c0000032-0000-4000-8000-000000000032';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000032-0000-4000-8000-000000000032, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b4b4b4b4-4444-4444-8444-b4b4b4b4b4b4, apply, 1, rolling-health-gated, null, op:res-setup, 2026-09-09 15:00:58.900308+00, INDETERMINATE_RESOLVED, 2026-09-09 15:00:59.54067+00, op:res, applied, {"restartsObserved": [{"ref": "r1", "restarted": true}]}, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [OK] (j) POS: a FULLY-EVIDENCED restart INDETERMINATE_RESOLVED succeeds (BE-D17's own positive control)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"restartsObserved": [{"ref": "r1", "restarted": true}]}'::jsonb WHERE apply_id='c0000031-0000-4000-8000-000000000031';
+--- RESULT ---
+
+
+### [OK] (j) SETUP: two fresh APPLY_INDETERMINATE fixtures for BE-D18's per-element predicates (apply c0000041 gen=5, restart c0000042)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state) VALUES ('c0000041-0000-4000-8000-000000000041','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','00000000-0000-0000-0000-000000000000','apply',5,'rolling-health-gated','op:d18-setup',now(),'APPLY_INDETERMINATE');
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,strategy,requested_by,requested_at,state) VALUES ('c0000042-0000-4000-8000-000000000042','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b6b6b6b6-6666-4666-8666-b6b6b6b6b6b6','restart','rolling-health-gated','op:d18-setup',now(),'APPLY_INDETERMINATE');
+--- RESULT ---
+
+
+### [REFUSED] (j) REFUSE: BE-D18 apply replicas element that is itself an EMPTY ARRAY (lax-mode unwrap escape)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 5, "replicas": [[]]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000041-0000-4000-8000-000000000041, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 5, rolling-health-gated, null, op:d18-setup, 2026-09-09 15:00:59.752789+00, INDETERMINATE_RESOLVED, 2026-09-09 15:00:59.866162+00, op:res, applied, {"replicas": [[]], "stagedGeneration": 5}, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D18 apply replicas element wrapping an otherwise WELL-FORMED object in an array  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 5, "replicas": [[{"ref": "r1", "restarted": true, "observedHash": null}]]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000041-0000-4000-8000-000000000041, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 5, rolling-health-gated, null, op:d18-setup, 2026-09-09 15:00:59.752789+00, INDETERMINATE_RESOLVED, 2026-09-09 15:00:59.972829+00, op:res, applied, {"replicas": [[{"ref": "r1", "restarted": true, "observedHash": ..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D18 apply replicas element is an EMPTY OBJECT  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 5, "replicas": [{}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000041-0000-4000-8000-000000000041, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 5, rolling-health-gated, null, op:d18-setup, 2026-09-09 15:00:59.752789+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:00.083844+00, op:res, applied, {"replicas": [{}], "stagedGeneration": 5}, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D18 apply replicas element is JSON NULL  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 5, "replicas": [null]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000041-0000-4000-8000-000000000041, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 5, rolling-health-gated, null, op:d18-setup, 2026-09-09 15:00:59.752789+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:00.193049+00, op:res, applied, {"replicas": [null], "stagedGeneration": 5}, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D18 apply replicas element MISSING ref  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 5, "replicas": [{"restarted": true, "observedHash": null}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000041-0000-4000-8000-000000000041, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 5, rolling-health-gated, null, op:d18-setup, 2026-09-09 15:00:59.752789+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:00.315252+00, op:res, applied, {"replicas": [{"restarted": true, "observedHash": null}], "stage..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D18 apply replicas element BLANK ref  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 5, "replicas": [{"ref": "   ", "restarted": true, "observedHash": null}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000041-0000-4000-8000-000000000041, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 5, rolling-health-gated, null, op:d18-setup, 2026-09-09 15:00:59.752789+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:00.435249+00, op:res, applied, {"replicas": [{"ref": "   ", "restarted": true, "observedHash": ..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D18 apply replicas element NON-STRING ref  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 5, "replicas": [{"ref": 7, "restarted": true, "observedHash": null}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000041-0000-4000-8000-000000000041, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 5, rolling-health-gated, null, op:d18-setup, 2026-09-09 15:00:59.752789+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:00.549995+00, op:res, applied, {"replicas": [{"ref": 7, "restarted": true, "observedHash": null..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D18 apply replicas element MISSING restarted  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 5, "replicas": [{"ref": "r1", "observedHash": null}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000041-0000-4000-8000-000000000041, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 5, rolling-health-gated, null, op:d18-setup, 2026-09-09 15:00:59.752789+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:00.668855+00, op:res, applied, {"replicas": [{"ref": "r1", "observedHash": null}], "stagedGener..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D18 apply replicas element NON-BOOLEAN restarted  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 5, "replicas": [{"ref": "r1", "restarted": "yes", "observedHash": null}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000041-0000-4000-8000-000000000041, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 5, rolling-health-gated, null, op:d18-setup, 2026-09-09 15:00:59.752789+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:00.780646+00, op:res, applied, {"replicas": [{"ref": "r1", "restarted": "yes", "observedHash": ..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D18 apply replicas element observedHash key ABSENT entirely (distinct from present null)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 5, "replicas": [{"ref": "r1", "restarted": true}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000041-0000-4000-8000-000000000041, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 5, rolling-health-gated, null, op:d18-setup, 2026-09-09 15:00:59.752789+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:00.871148+00, op:res, applied, {"replicas": [{"ref": "r1", "restarted": true}], "stagedGenerati..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D18 apply replicas element carries an UNEXPECTED KEY  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 5, "replicas": [{"ref": "r1", "restarted": true, "observedHash": null, "extra": 1}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000041-0000-4000-8000-000000000041, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 5, rolling-health-gated, null, op:d18-setup, 2026-09-09 15:00:59.752789+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:00.970525+00, op:res, applied, {"replicas": [{"ref": "r1", "extra": 1, "restarted": true, "obse..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D18 apply resolution carries an UNEXPECTED TOP-LEVEL KEY  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 5, "replicas": [{"ref": "r1", "restarted": true, "observedHash": null}], "extra": 1}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000041-0000-4000-8000-000000000041, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 5, rolling-health-gated, null, op:d18-setup, 2026-09-09 15:00:59.752789+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:01.061705+00, op:res, applied, {"extra": 1, "replicas": [{"ref": "r1", "restarted": true, "obse..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D18 apply observedHash with NO algorithm-colon-hex shape at all  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 5, "replicas": [{"ref": "r1", "restarted": true, "observedHash": "nope"}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000041-0000-4000-8000-000000000041, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 5, rolling-health-gated, null, op:d18-setup, 2026-09-09 15:00:59.752789+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:01.164225+00, op:res, applied, {"replicas": [{"ref": "r1", "restarted": true, "observedHash": "..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D18 apply observedHash NON-STRING (numeric)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 5, "replicas": [{"ref": "r1", "restarted": true, "observedHash": 7}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000041-0000-4000-8000-000000000041, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 5, rolling-health-gated, null, op:d18-setup, 2026-09-09 15:00:59.752789+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:01.258278+00, op:res, applied, {"replicas": [{"ref": "r1", "restarted": true, "observedHash": 7..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D18 apply observedHash 15-HEX, one short of the {16,128} floor  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 5, "replicas": [{"ref": "r1", "restarted": true, "observedHash": "sha256:012345678901234"}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000041-0000-4000-8000-000000000041, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 5, rolling-health-gated, null, op:d18-setup, 2026-09-09 15:00:59.752789+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:01.359199+00, op:res, applied, {"replicas": [{"ref": "r1", "restarted": true, "observedHash": "..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D18 apply observedHash 129-HEX, one past the {16,128} cap  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 5, "replicas": [{"ref": "r1", "restarted": true, "observedHash": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0"}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000041-0000-4000-8000-000000000041, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 5, rolling-health-gated, null, op:d18-setup, 2026-09-09 15:00:59.752789+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:01.456418+00, op:res, applied, {"replicas": [{"ref": "r1", "restarted": true, "observedHash": "..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D18 apply observedHash UPPERCASE — the grammar is lowercase-only  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 5, "replicas": [{"ref": "r1", "restarted": true, "observedHash": "SHA256:0123456789ABCDEF"}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000041-0000-4000-8000-000000000041, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 5, rolling-health-gated, null, op:d18-setup, 2026-09-09 15:00:59.752789+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:01.561399+00, op:res, applied, {"replicas": [{"ref": "r1", "restarted": true, "observedHash": "..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D18 apply observedHash that is itself an EMPTY ARRAY (lax-mode unwrap escape)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 5, "replicas": [{"ref": "r1", "restarted": true, "observedHash": []}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000041-0000-4000-8000-000000000041, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 5, rolling-health-gated, null, op:d18-setup, 2026-09-09 15:00:59.752789+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:01.676318+00, op:res, applied, {"replicas": [{"ref": "r1", "restarted": true, "observedHash": [..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D18 apply observedHash as an ARRAY holding an otherwise-valid hash string  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 5, "replicas": [{"ref": "r1", "restarted": true, "observedHash": ["sha256:0123456789abcdef"]}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000041-0000-4000-8000-000000000041, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 5, rolling-health-gated, null, op:d18-setup, 2026-09-09 15:00:59.752789+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:01.787434+00, op:res, applied, {"replicas": [{"ref": "r1", "restarted": true, "observedHash": [..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [OK] (j) POS: BE-D18 apply fixture resolves cleanly once well-formed (proves the 19 refusals above test the malformation, not a broken row)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 5, "replicas": [{"ref": "r1", "restarted": true, "observedHash": null}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';
+--- RESULT ---
+
+
+### [REFUSED] (j) REFUSE: BE-D18 restart restartsObserved element that is itself an EMPTY ARRAY (lax-mode unwrap escape)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"restartsObserved": [[]]}'::jsonb WHERE apply_id='c0000042-0000-4000-8000-000000000042';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000042-0000-4000-8000-000000000042, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b6b6b6b6-6666-4666-8666-b6b6b6b6b6b6, restart, null, rolling-health-gated, null, op:d18-setup, 2026-09-09 15:00:59.75467+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:02.004857+00, op:res, applied, {"restartsObserved": [[]]}, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D18 restart restartsObserved element wrapping an otherwise WELL-FORMED object in an array  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"restartsObserved": [[{"ref": "r1", "restarted": true}]]}'::jsonb WHERE apply_id='c0000042-0000-4000-8000-000000000042';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000042-0000-4000-8000-000000000042, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b6b6b6b6-6666-4666-8666-b6b6b6b6b6b6, restart, null, rolling-health-gated, null, op:d18-setup, 2026-09-09 15:00:59.75467+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:02.123375+00, op:res, applied, {"restartsObserved": [[{"ref": "r1", "restarted": true}]]}, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D18 restart restartsObserved element is an EMPTY OBJECT  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"restartsObserved": [{}]}'::jsonb WHERE apply_id='c0000042-0000-4000-8000-000000000042';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000042-0000-4000-8000-000000000042, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b6b6b6b6-6666-4666-8666-b6b6b6b6b6b6, restart, null, rolling-health-gated, null, op:d18-setup, 2026-09-09 15:00:59.75467+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:02.236926+00, op:res, applied, {"restartsObserved": [{}]}, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D18 restart restartsObserved element is JSON NULL — the exact escape BE-D18 exists to close  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"restartsObserved": [null]}'::jsonb WHERE apply_id='c0000042-0000-4000-8000-000000000042';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000042-0000-4000-8000-000000000042, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b6b6b6b6-6666-4666-8666-b6b6b6b6b6b6, restart, null, rolling-health-gated, null, op:d18-setup, 2026-09-09 15:00:59.75467+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:02.336757+00, op:res, applied, {"restartsObserved": [null]}, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D18 restart restartsObserved element MISSING ref  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"restartsObserved": [{"restarted": true}]}'::jsonb WHERE apply_id='c0000042-0000-4000-8000-000000000042';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000042-0000-4000-8000-000000000042, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b6b6b6b6-6666-4666-8666-b6b6b6b6b6b6, restart, null, rolling-health-gated, null, op:d18-setup, 2026-09-09 15:00:59.75467+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:02.446453+00, op:res, applied, {"restartsObserved": [{"restarted": true}]}, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D18 restart restartsObserved element BLANK ref  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"restartsObserved": [{"ref": "  ", "restarted": true}]}'::jsonb WHERE apply_id='c0000042-0000-4000-8000-000000000042';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000042-0000-4000-8000-000000000042, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b6b6b6b6-6666-4666-8666-b6b6b6b6b6b6, restart, null, rolling-health-gated, null, op:d18-setup, 2026-09-09 15:00:59.75467+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:02.554191+00, op:res, applied, {"restartsObserved": [{"ref": "  ", "restarted": true}]}, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D18 restart restartsObserved element NON-STRING ref  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"restartsObserved": [{"ref": 7, "restarted": true}]}'::jsonb WHERE apply_id='c0000042-0000-4000-8000-000000000042';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000042-0000-4000-8000-000000000042, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b6b6b6b6-6666-4666-8666-b6b6b6b6b6b6, restart, null, rolling-health-gated, null, op:d18-setup, 2026-09-09 15:00:59.75467+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:02.663079+00, op:res, applied, {"restartsObserved": [{"ref": 7, "restarted": true}]}, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D18 restart restartsObserved element MISSING restarted  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"restartsObserved": [{"ref": "r1"}]}'::jsonb WHERE apply_id='c0000042-0000-4000-8000-000000000042';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000042-0000-4000-8000-000000000042, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b6b6b6b6-6666-4666-8666-b6b6b6b6b6b6, restart, null, rolling-health-gated, null, op:d18-setup, 2026-09-09 15:00:59.75467+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:02.772535+00, op:res, applied, {"restartsObserved": [{"ref": "r1"}]}, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D18 restart restartsObserved element NON-BOOLEAN restarted  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"restartsObserved": [{"ref": "r1", "restarted": "yes"}]}'::jsonb WHERE apply_id='c0000042-0000-4000-8000-000000000042';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000042-0000-4000-8000-000000000042, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b6b6b6b6-6666-4666-8666-b6b6b6b6b6b6, restart, null, rolling-health-gated, null, op:d18-setup, 2026-09-09 15:00:59.75467+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:02.888718+00, op:res, applied, {"restartsObserved": [{"ref": "r1", "restarted": "yes"}]}, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D18 restart restartsObserved element carries observedHash — no such key exists for a restart element  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"restartsObserved": [{"ref": "r1", "restarted": true, "observedHash": null}]}'::jsonb WHERE apply_id='c0000042-0000-4000-8000-000000000042';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000042-0000-4000-8000-000000000042, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b6b6b6b6-6666-4666-8666-b6b6b6b6b6b6, restart, null, rolling-health-gated, null, op:d18-setup, 2026-09-09 15:00:59.75467+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:02.997252+00, op:res, applied, {"restartsObserved": [{"ref": "r1", "restarted": true, "observed..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D18 restart resolution carries an UNEXPECTED TOP-LEVEL KEY  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"restartsObserved": [{"ref": "r1", "restarted": true}], "extra": 1}'::jsonb WHERE apply_id='c0000042-0000-4000-8000-000000000042';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000042-0000-4000-8000-000000000042, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b6b6b6b6-6666-4666-8666-b6b6b6b6b6b6, restart, null, rolling-health-gated, null, op:d18-setup, 2026-09-09 15:00:59.75467+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:03.109578+00, op:res, applied, {"extra": 1, "restartsObserved": [{"ref": "r1", "restarted": tru..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [OK] (j) POS: BE-D18 restart fixture resolves cleanly once well-formed (proves the 11 refusals above test the malformation, not a broken row)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"restartsObserved": [{"ref": "r1", "restarted": true}]}'::jsonb WHERE apply_id='c0000042-0000-4000-8000-000000000042';
+--- RESULT ---
+
+
+### [OK] (j) POS: BE-D18 apply positive control — a valid 16-hex observedHash (the {16,128} floor)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at,resolved_by,resolution_outcome,resolution_observed) VALUES ('f0000100-0000-4000-8000-000000000100','55555555-5555-4555-8555-555555555555','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b3b3b3b3-3333-4333-8333-b3b3b3b3b3b3','apply',7,'rolling-health-gated','op:d18-pos',now(),'INDETERMINATE_RESOLVED',now(),'op:res','applied','{"stagedGeneration": 7, "replicas": [{"ref": "r1", "restarted": true, "observedHash": "sha256:0123456789abcdef"}]}'::jsonb);
+--- RESULT ---
+
+
+### [OK] (j) POS: BE-D18 apply positive control — a valid 128-hex observedHash (the {16,128} cap)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at,resolved_by,resolution_outcome,resolution_observed) VALUES ('f0000101-0000-4000-8000-000000000101','55555555-5555-4555-8555-555555555555','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b3b3b3b3-3333-4333-8333-b3b3b3b3b3b3','apply',7,'rolling-health-gated','op:d18-pos',now(),'INDETERMINATE_RESOLVED',now(),'op:res','applied','{"stagedGeneration": 7, "replicas": [{"ref": "r1", "restarted": true, "observedHash": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}]}'::jsonb);
+--- RESULT ---
+
+
+### [OK] (j) POS: BE-D18 apply positive control — several replicas, one present-null observedHash and one present-hash  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at,resolved_by,resolution_outcome,resolution_observed) VALUES ('f0000102-0000-4000-8000-000000000102','55555555-5555-4555-8555-555555555555','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b3b3b3b3-3333-4333-8333-b3b3b3b3b3b3','apply',7,'rolling-health-gated','op:d18-pos',now(),'INDETERMINATE_RESOLVED',now(),'op:res','applied','{"stagedGeneration": 7, "replicas": [{"ref": "r1", "restarted": true, "observedHash": null}, {"ref": "r2", "restarted": false, "observedHash": "sha256:0123456789abcdef"}]}'::jsonb);
+--- RESULT ---
+
+
+### [OK] (j) POS: BE-D18 restart positive control — several restartsObserved elements  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,strategy,requested_by,requested_at,state,terminal_at,resolved_by,resolution_outcome,resolution_observed) VALUES ('f0000103-0000-4000-8000-000000000103','55555555-5555-4555-8555-555555555555','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b3b3b3b3-3333-4333-8333-b3b3b3b3b3b3','restart','rolling-health-gated','op:d18-pos',now(),'INDETERMINATE_RESOLVED',now(),'op:res','applied','{"restartsObserved": [{"ref": "r1", "restarted": true}, {"ref": "r2", "restarted": false}]}'::jsonb);
+--- RESULT ---
+
+
+### [OK] (j) SETUP: fresh APPLY_INDETERMINATE apply/restart fixtures dedicated to BE-D19's ref-grammar legs (apply c0000051 gen=6, restart c0000052)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state) VALUES ('c0000051-0000-4000-8000-000000000051','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','00000000-0000-0000-0000-000000000000','apply',6,'rolling-health-gated','op:d19-setup',now(),'APPLY_INDETERMINATE');
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,strategy,requested_by,requested_at,state) VALUES ('c0000052-0000-4000-8000-000000000052','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b9b9b9b9-9999-4999-8999-b9b9b9b9b9b9','restart','rolling-health-gated','op:d19-setup',now(),'APPLY_INDETERMINATE');
+--- RESULT ---
+
+
+### [REFUSED] (j) REFUSE: BE-D19 apply replicas[0].ref is a lone U+001C control character (the write-direction gap BE-D19 exists to close)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 6, "replicas": [{"ref": "\u001c", "restarted": true, "observedHash": null}]}'::jsonb WHERE apply_id='c0000051-0000-4000-8000-000000000051';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000051-0000-4000-8000-000000000051, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 6, rolling-health-gated, null, op:d19-setup, 2026-09-09 15:01:03.772197+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:03.886888+00, op:res, applied, {"replicas": [{"ref": "\u001c", "restarted": true, "observedHash..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D19 apply replicas[0].ref is a lone U+001F control character  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 6, "replicas": [{"ref": "\u001f", "restarted": true, "observedHash": null}]}'::jsonb WHERE apply_id='c0000051-0000-4000-8000-000000000051';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000051-0000-4000-8000-000000000051, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 6, rolling-health-gated, null, op:d19-setup, 2026-09-09 15:01:03.772197+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:04.002343+00, op:res, applied, {"replicas": [{"ref": "\u001f", "restarted": true, "observedHash..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D19 apply replicas[0].ref carries quotes, a backslash, a space, '=' and an accented letter (the hostile-ref control literal that flips accepted->refused under REPLICA_REF)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 6, "replicas": [{"ref": "r1 \"q\" \\ = café", "restarted": true, "observedHash": null}]}'::jsonb WHERE apply_id='c0000051-0000-4000-8000-000000000051';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000051-0000-4000-8000-000000000051, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 6, rolling-health-gated, null, op:d19-setup, 2026-09-09 15:01:03.772197+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:04.119205+00, op:res, applied, {"replicas": [{"ref": "r1 \"q\" \\ = café", "restarted": true, ..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D19 apply replicas[0].ref carries an embedded newline (the literal that flips accepted->refused under REPLICA_REF)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 6, "replicas": [{"ref": "r1\nwith-a-newline", "restarted": true, "observedHash": null}]}'::jsonb WHERE apply_id='c0000051-0000-4000-8000-000000000051';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000051-0000-4000-8000-000000000051, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 6, rolling-health-gated, null, op:d19-setup, 2026-09-09 15:01:03.772197+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:04.232423+00, op:res, applied, {"replicas": [{"ref": "r1\nwith-a-newline", "restarted": true, "..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D19 apply replicas[0].ref is the empty string  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 6, "replicas": [{"ref": "", "restarted": true, "observedHash": null}]}'::jsonb WHERE apply_id='c0000051-0000-4000-8000-000000000051';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000051-0000-4000-8000-000000000051, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 6, rolling-health-gated, null, op:d19-setup, 2026-09-09 15:01:03.772197+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:04.34753+00, op:res, applied, {"replicas": [{"ref": "", "restarted": true, "observedHash": nul..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D19 apply replicas[0].ref is a CJK string  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 6, "replicas": [{"ref": "日本語", "restarted": true, "observedHash": null}]}'::jsonb WHERE apply_id='c0000051-0000-4000-8000-000000000051';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000051-0000-4000-8000-000000000051, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 6, rolling-health-gated, null, op:d19-setup, 2026-09-09 15:01:03.772197+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:04.464563+00, op:res, applied, {"replicas": [{"ref": "日本語", "restarted": true, "observedH..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D19 apply replicas[0].ref is 256 characters, one past the REPLICA_REF {1,255} length boundary  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 6, "replicas": [{"ref": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "restarted": true, "observedHash": null}]}'::jsonb WHERE apply_id='c0000051-0000-4000-8000-000000000051';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000051-0000-4000-8000-000000000051, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, 00000000-0000-0000-0000-000000000000, apply, 6, rolling-health-gated, null, op:d19-setup, 2026-09-09 15:01:03.772197+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:04.581098+00, op:res, applied, {"replicas": [{"ref": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa..., null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [OK] (j) POS: BE-D19 apply fixture resolves cleanly once well-formed, closing the REFUSE chain above (proves the refusals test the ref content, not a broken row)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"stagedGeneration": 6, "replicas": [{"ref": "cache-engine-1", "restarted": true, "observedHash": null}]}'::jsonb WHERE apply_id='c0000051-0000-4000-8000-000000000051';
+--- RESULT ---
+
+
+### [OK] (j) POS: BE-D19 apply positive control — a 200-character Kubernetes-shaped ref, past the withdrawn VALUE grammar's 128 cap, accepted under REPLICA_REF  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at,resolved_by,resolution_outcome,resolution_observed) VALUES ('f0000110-0000-4000-8000-000000000110','55555555-5555-4555-8555-555555555555','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b3b3b3b3-3333-4333-8333-b3b3b3b3b3b3','apply',7,'rolling-health-gated','op:d19-pos',now(),'INDETERMINATE_RESOLVED',now(),'op:res','applied','{"stagedGeneration": 7, "replicas": [{"ref": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "restarted": true, "observedHash": null}]}'::jsonb);
+--- RESULT ---
+
+
+### [OK] (j) POS: BE-D19 apply positive control — a systemd-escaped-name fragment carrying one literal backslash, accepted under REPLICA_REF  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at,resolved_by,resolution_outcome,resolution_observed) VALUES ('f0000111-0000-4000-8000-000000000111','55555555-5555-4555-8555-555555555555','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b3b3b3b3-3333-4333-8333-b3b3b3b3b3b3','apply',7,'rolling-health-gated','op:d19-pos',now(),'INDETERMINATE_RESOLVED',now(),'op:res','applied','{"stagedGeneration": 7, "replicas": [{"ref": "foo\\x2dbar.mount", "restarted": true, "observedHash": null}]}'::jsonb);
+--- RESULT ---
+
+
+### [OK] (j) POS: BE-D19 apply positive control — a ref of exactly 255 characters (the REPLICA_REF length boundary)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at,resolved_by,resolution_outcome,resolution_observed) VALUES ('f0000112-0000-4000-8000-000000000112','55555555-5555-4555-8555-555555555555','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b3b3b3b3-3333-4333-8333-b3b3b3b3b3b3','apply',7,'rolling-health-gated','op:d19-pos',now(),'INDETERMINATE_RESOLVED',now(),'op:res','applied','{"stagedGeneration": 7, "replicas": [{"ref": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "restarted": true, "observedHash": null}]}'::jsonb);
+--- RESULT ---
+
+
+### [REFUSED] (j) REFUSE: BE-D19 restart restartsObserved[0].ref is a lone U+001C control character  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"restartsObserved": [{"ref": "\u001c", "restarted": true}]}'::jsonb WHERE apply_id='c0000052-0000-4000-8000-000000000052';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000052-0000-4000-8000-000000000052, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b9b9b9b9-9999-4999-8999-b9b9b9b9b9b9, restart, null, rolling-health-gated, null, op:d19-setup, 2026-09-09 15:01:03.773484+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:05.138235+00, op:res, applied, {"restartsObserved": [{"ref": "\u001c", "restarted": true}]}, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (j) REFUSE: BE-D19 restart restartsObserved[0].ref is a lone U+001F control character  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"restartsObserved": [{"ref": "\u001f", "restarted": true}]}'::jsonb WHERE apply_id='c0000052-0000-4000-8000-000000000052';
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "resolution_is_evidence"
+DETAIL:  Failing row contains (c0000052-0000-4000-8000-000000000052, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b9b9b9b9-9999-4999-8999-b9b9b9b9b9b9, restart, null, rolling-health-gated, null, op:d19-setup, 2026-09-09 15:01:03.773484+00, INDETERMINATE_RESOLVED, 2026-09-09 15:01:05.245353+00, op:res, applied, {"restartsObserved": [{"ref": "\u001f", "restarted": true}]}, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  resolution_is_evidence
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [OK] (j) POS: BE-D19 restart fixture resolves cleanly once well-formed, closing the REFUSE chain above  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{"restartsObserved": [{"ref": "cache-engine-2", "restarted": true}]}'::jsonb WHERE apply_id='c0000052-0000-4000-8000-000000000052';
+--- RESULT ---

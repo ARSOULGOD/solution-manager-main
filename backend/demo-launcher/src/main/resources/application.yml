@@ -1,0 +1,18 @@
+server:
+  port: 8080
+  error:
+    include-message: never
+    include-stacktrace: never
+spring:
+  datasource:
+    url: jdbc:postgresql://127.0.0.1:55433/sm_demo
+    username: sm_demo
+    password: sm_demo_local_only
+  flyway:
+    schemas: demo_control
+    locations: classpath:db/migration/demo_control
+    create-schemas: true
+  servlet:
+    multipart:
+      max-file-size: 2MB
+      max-request-size: 2MB

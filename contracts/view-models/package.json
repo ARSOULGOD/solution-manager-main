@@ -1,0 +1,39 @@
+{
+  "name": "@solution-manager/view-models",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pure, dependency-free view-model engine for the Solution Package contract (UI-D15). Data in, data out \u2014 no React, no DOM, no HTTP.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/index.d.ts",
+  "main": "./dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.typecheck.json",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "fixtures:gen": "tsc -p tsconfig.json && node dist/generate-fixtures.js",
+    "excerpts:gen": "tsc -p tsconfig.json && node dist/generate-excerpts.js",
+    "inline:gen": "tsc -p tsconfig.json && node dist/generate-inline-samples.js"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10"
+  }
+}

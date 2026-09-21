@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1280" />
+<title>Solace · Solution Manager</title>
+
+<link rel="stylesheet" href="../_ds/solace-agent-mesh-design-system-659eb3ca-3eea-42ce-afd4-72a265693d75/colors_and_type.css" />
+<link rel="stylesheet" href="theme.css" />
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="app/icons.jsx"></script>
+<script type="text/babel" src="app/data.jsx"></script>
+<script type="text/babel" src="app/designer_data.jsx"></script>
+<script type="text/babel" src="app/kit.jsx"></script>
+<script type="text/babel" src="app/grid.jsx"></script>
+<script type="text/babel" src="app/charts.jsx"></script>
+<script type="text/babel" src="app/designer_fields.jsx"></script>
+<script type="text/babel" src="app/designer_panels.jsx"></script>
+<script type="text/babel" src="app/instance.jsx"></script>
+<script type="text/babel" src="app/shell.jsx"></script>
+<script type="text/babel" src="app/login.jsx"></script>
+<script type="text/babel" src="app/home.jsx"></script>
+<script type="text/babel" src="app/solutions.jsx"></script>
+<script type="text/babel" src="app/instances.jsx"></script>
+<script type="text/babel" src="app/designer.jsx"></script>
+<script type="text/babel" src="app/governance.jsx"></script>
+<script type="text/babel" src="app/explore.jsx"></script>
+<script type="text/babel" src="app/dashboards.jsx"></script>
+<script type="text/babel" src="app/deferred.jsx"></script>
+<script type="text/babel" src="app/admin_data.jsx"></script>
+<script type="text/babel" src="app/admin_iam.jsx"></script>
+<script type="text/babel" src="app/admin.jsx"></script>
+</head>
+<body>
+<a href="#main" class="skip-link">Skip to main content</a>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, createContext, useContext, useCallback } = React;
+const LS = { get:(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}}, set:(k,v)=>localStorage.setItem(k,JSON.stringify(v)) };
+window.LS = LS;
+
+// ---- Demo state (the "state toggle" the reviewer asked for) ----
+const DemoCtx = createContext(null);
+window.DemoCtx = DemoCtx;
+window.useDemo = () => useContext(DemoCtx);
+
+// ---- tiny hash router so a selection lives in the URL, not local state ----
+function useHashRoute() {
+  const parse = () => {
+    const h = (location.hash || "#/home").replace(/^#/, "");
+    const [path, query] = h.split("?");
+    const parts = path.split("/").filter(Boolean); // e.g. ["solutions","cache","instances"]
+    const params = new URLSearchParams(query || "");
+    return { parts, params, path };
+  };
+  const [route, setRoute] = useState(parse);
+  useEffect(() => {
+    const on = () => setRoute(parse());
+    window.addEventListener("hashchange", on);
+    return () => window.removeEventListener("hashchange", on);
+  }, []);
+  const nav = useCallback((path) => { location.hash = path; }, []);
+  return [route, nav];
+}
+
+function App() {
+  const [authed, setAuthed] = useState(() => LS.get("smv2_authed", false));
+  const [demo, setDemo] = useState(() => LS.get("smv2_demo", "populated"));
+  const [route, nav] = useHashRoute();
+  useEffect(() => LS.set("smv2_authed", authed), [authed]);
+  useEffect(() => LS.set("smv2_demo", demo), [demo]);
+  useEffect(() => { if (authed && (!location.hash || location.hash === "#/")) location.hash = "/home"; }, [authed]);
+
+  if (!authed) return <LoginScreen onAuthed={() => { setAuthed(true); location.hash = "/home"; }} />;
+
+  const { parts } = route;
+  let screen = "home";
+  if (parts[0] === "solutions") {
+    if (parts[4] === "designer") screen = "designer";
+    else if (parts[4] === "governance") screen = "governance";
+    else if (parts[4] === "monitoring") screen = parts[5] === "explore" ? "explore" : "monitoring";
+    else if (parts[2] === "instances") screen = "instances";
+    else screen = "solutions";
+  } else if (parts[0] === "targets") screen = "targets";
+  else if (parts[0] === "admin") screen = "admin";
+  else if (parts[0] === "home") screen = "home";
+
+  let body;
+  if (screen === "home") body = <HomeScreen nav={nav} route={route} />;
+  else if (screen === "solutions") body = <SolutionsScreen nav={nav} route={route} />;
+  else if (screen === "instances") body = <InstancesScreen nav={nav} route={route} />;
+  else if (screen === "designer") body = <DesignerScreen nav={nav} route={route} />;
+  else if (screen === "governance") body = <GovernanceScreen nav={nav} route={route} />;
+  else if (screen === "monitoring") body = <DashboardsScreen nav={nav} route={route} />;
+  else if (screen === "explore") body = <ExploreScreen nav={nav} route={route} />;
+  else if (screen === "targets") body = <TargetsScreen nav={nav} route={route} />;
+  else if (screen === "admin") body = <AdminScreen nav={nav} route={route} />;
+  else body = <HomeScreen nav={nav} route={route} />;
+
+  return (
+    <DemoCtx.Provider value={{ demo, setDemo }}>
+      <AppShell screen={screen} route={route} nav={nav} onSignOut={() => { setAuthed(false); location.hash = ""; }}>
+        {body}
+      </AppShell>
+    </DemoCtx.Provider>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+
+<template id="__bundler_thumbnail">
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+<rect width="100" height="100" fill="#03223B"/>
+<circle cx="34" cy="40" r="7" fill="#00C895"/><circle cx="66" cy="40" r="7" fill="#015B82"/><circle cx="50" cy="64" r="7" fill="#00C895"/>
+<path d="M37 44 47 59M63 44 53 59" stroke="#8aa0b2" stroke-width="2"/>
+</svg>
+</template>
+</body>
+</html>

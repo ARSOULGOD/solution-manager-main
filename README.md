@@ -17,7 +17,7 @@ A console — "the AWS/Azure Console for Solace's custom solutions" — to onboa
 | Operate the system | [`docs/runbooks/`](docs/runbooks/) |
 | See what is being worked on | the **GitHub Project "Solution Manager"** — status and assignment live there, not in this repo |
 
-⚠️ **Decisions in the `SM-D*` family are PROPOSED, not ratified.** Where one conflicts with a `LOCKED` decision, the locked decision stands — flag the conflict, don't resolve it silently.
+⚠️ **`SM-D*`, `UI-D*`, `DM-D*` and `FE-D*` are all PROPOSED, not ratified** — only `D*` and `B/D*` are binding. Where a proposal conflicts with a `LOCKED` decision, the locked decision stands: flag the conflict, don't resolve it silently. The families must also ratify **in order** — see the ratification matrix in [`docs/design/DECISIONS.md`](docs/design/DECISIONS.md).
 
 ## Layout
 
@@ -25,19 +25,29 @@ A console — "the AWS/Azure Console for Solace's custom solutions" — to onboa
 docs/                 ALL documentation lives here
   requirements/       every requirement, with an ID and a trace to what satisfies it
   design/
-    DECISIONS.md      the decision register (all families, status, ratification matrix)
-    architecture.md   the overall architecture
+    DECISIONS.md      the decision register + the ratification matrix, which is the ONLY
+                      authority on status — for every family, including those below
+    architecture.md   the overall architecture (§14 superseded by dynamic-ui/)
     common/           contract design · convention rationale · cross-cutting lessons
-                      (per-component design.md + decisions.md land here when written)
+    dynamic-ui/       Subsystem A — config-driven UI, Solution Package   (UI-D*)
+    dynamic-metrics/  query API, widgets, dashboards, chart contract     (DM-D*)
+    frontend/         the console                                        (FE-D*)
+    go-agent/         the host-local agent                               (AG-D*, none yet)
+                      backend/ and runtime/ are not created yet          (BE-D*, RT-D*)
   plans/              APPROVED implementation plans (created when written)
   runbooks/           operational procedures, for operators
   checklists/         spec review · plan review · definition of done · new module
   tasks/              lessons.md · codex-review-triage.md  (work tracking lives in the Project)
 
+contracts/            MACHINE-READABLE contracts + fixtures + gate validator (run-checks.sh)
+
 backend/  frontend/  go-agent/  runtime/    CODE — READMEs only; no code yet
 ```
 
-**`contracts/`** will hold machine-readable contracts (`.proto`, OpenAPI, JSON Schema) at the root when they exist — build inputs for three toolchains, not documentation. Design and rationale stay in [`docs/design/common/contracts/`](docs/design/common/contracts/). Not created yet: an empty folder in a plausible location invites misfiling.
+**Design and decisions sit together, per folder.** A subsystem's `design.md` and `decisions.md` live in
+`docs/design/<folder>/` — never in `common/`, which holds only what more than one of them shares.
+
+**[`contracts/`](contracts/)** holds machine-readable contracts — build inputs for three toolchains, not documentation. It now contains the **Solution Package schema**, its load-time gate validator, the File Mesh source adapter, two working fixtures and 13 negative fixtures. Run `./contracts/run-checks.sh`. Design and rationale stay in [`docs/design/dynamic-ui/`](docs/design/dynamic-ui/) and [`docs/design/common/contracts/`](docs/design/common/contracts/).
 
 ## Components
 

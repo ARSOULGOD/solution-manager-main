@@ -1,0 +1,222 @@
+{
+  "solution": "db-designer",
+  "packageVersion": [
+    1
+  ],
+  "appliesTo": ">=1.0 <2.0",
+  "provenance": {
+    "author": "solace",
+    "signature": "example-not-signed"
+  },
+  "authoring": {
+    "reviewedRows": 11,
+    "totalRows": 11
+  },
+  "components": [
+    {
+      "type": "db-connector",
+      "cardinality": "exactly-one",
+      "version": [
+        1
+      ],
+      "role": "none",
+      "configPath": "db-connector",
+      "loggerPrefix": "com.solace.solutions.dbdesigner.connector",
+      "fields": [
+        {
+          "key": "DB_VENDOR",
+          "type": "enum",
+          "version": [
+            1
+          ],
+          "options": [
+            "postgres",
+            "mysql",
+            "oracle"
+          ],
+          "default": "postgres",
+          "discriminator": true,
+          "required": true,
+          "ui": {
+            "label": "Database vendor",
+            "section": "Connection",
+            "order": 0,
+            "helperText": "Selects which vendor-specific fields below apply."
+          }
+        },
+        {
+          "key": "JDBC_URL",
+          "type": "string",
+          "version": [
+            1
+          ],
+          "required": true,
+          "pattern": "^jdbc:[a-z0-9]+://.+$",
+          "ui": {
+            "label": "JDBC URL",
+            "section": "Connection",
+            "order": 1
+          }
+        },
+        {
+          "key": "USERNAME",
+          "type": "string",
+          "version": [
+            1
+          ],
+          "required": true,
+          "ui": {
+            "label": "Username",
+            "section": "Connection",
+            "order": 2
+          }
+        },
+        {
+          "key": "PASSWORD",
+          "type": "secret",
+          "version": [
+            1
+          ],
+          "secret": true,
+          "required": true,
+          "ui": {
+            "label": "Password",
+            "section": "Connection",
+            "order": 3,
+            "helperText": "Stored as a secretRef; the value never reaches config storage (I6)."
+          }
+        },
+        {
+          "key": "SCHEMA",
+          "type": "string",
+          "version": [
+            1
+          ],
+          "default": "public",
+          "when": {
+            "DB_VENDOR": "postgres"
+          },
+          "ui": {
+            "label": "Schema",
+            "section": "Connection",
+            "order": 4
+          }
+        },
+        {
+          "key": "SERVICE_NAME",
+          "type": "string",
+          "version": [
+            1
+          ],
+          "when": {
+            "DB_VENDOR": "oracle"
+          },
+          "ui": {
+            "label": "Service name",
+            "section": "Connection",
+            "order": 4
+          }
+        },
+        {
+          "key": "POOL_MAX_SIZE",
+          "type": "int",
+          "version": [
+            1
+          ],
+          "default": 10,
+          "min": 1,
+          "max": 100,
+          "ui": {
+            "label": "Max pool size",
+            "section": "Pool",
+            "order": 0,
+            "advanced": true
+          }
+        },
+        {
+          "key": "QUERY_TIMEOUT",
+          "type": "duration",
+          "version": [
+            1
+          ],
+          "default": "30s",
+          "ui": {
+            "label": "Query timeout",
+            "section": "Pool",
+            "order": 1,
+            "advanced": true
+          }
+        },
+        {
+          "key": "TABLES",
+          "type": "table",
+          "version": [
+            1
+          ],
+          "ui": {
+            "label": "Managed tables",
+            "section": "Mapping",
+            "order": 0
+          },
+          "columns": [
+            {
+              "key": "TABLE_NAME",
+              "type": "string",
+              "label": "Table"
+            },
+            {
+              "key": "TOPIC",
+              "type": "string",
+              "label": "Solace topic"
+            },
+            {
+              "key": "ENABLED",
+              "type": "bool",
+              "label": "Enabled"
+            }
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "key": "TEST_CONNECTION",
+          "kind": "test-connection",
+          "inputs": [
+            "JDBC_URL",
+            "USERNAME",
+            "PASSWORD"
+          ]
+        }
+      ],
+      "metrics": [
+        {
+          "name": "db.pool.active",
+          "metricType": "gauge",
+          "unit": "connections",
+          "source": {
+            "kind": "http_json",
+            "path": "/actuator/metrics/hikaricp.connections.active",
+            "port": 8081,
+            "pointer": "/measurements/0/value",
+            "onUnavailable": "degrade"
+          },
+          "layer": "package-baseline"
+        },
+        {
+          "name": "db.query.count",
+          "metricType": "counter",
+          "unit": "queries",
+          "source": {
+            "kind": "jdbc_query",
+            "pointer": "/count",
+            "onUnavailable": "degrade"
+          },
+          "when": {
+            "DB_VENDOR": "postgres"
+          },
+          "layer": "package-baseline"
+        }
+      ]
+    }
+  ]
+}

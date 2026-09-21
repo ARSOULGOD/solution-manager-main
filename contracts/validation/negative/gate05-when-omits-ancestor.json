@@ -1,0 +1,511 @@
+{
+  "solution": "cache",
+  "packageVersion": [
+    1
+  ],
+  "appliesTo": ">=2.2 <2.5",
+  "provenance": {
+    "author": "solace",
+    "signature": "SIG-PLACEHOLDER-T-KEYS+T-TYPES-PASSED"
+  },
+  "authoring": {
+    "reviewedRows": 26,
+    "totalRows": 26,
+    "source": "CacheEngineProperties.java field initializers + @ConditionalOnProperty matchIfMissing (curated, SM-D20). Never the shipped application.yml (UI-D17)."
+  },
+  "components": [
+    {
+      "type": "cache-engine",
+      "cardinality": "exactly-one",
+      "role": "none",
+      "configPath": "cache-engine",
+      "configFile": "/config/application.yml",
+      "loggerPrefix": "com.solace.solutions.cache",
+      "fields": [
+        {
+          "key": "mode",
+          "type": "enum",
+          "options": [
+            "READ",
+            "READ_WRITE",
+            "ADMIN"
+          ],
+          "default": "READ",
+          "ui": {
+            "label": "Mode",
+            "section": "General",
+            "order": 1,
+            "advanced": false,
+            "helperText": "READ_WRITE exposes the write endpoint; ADMIN additionally exposes delete and invalidate. NOTE: the MI's @ConditionalOnProperty guards sit on handler methods and are INERT - the routes exist in every mode."
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "default": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "provider",
+          "type": "enum",
+          "options": [
+            "caffeine",
+            "redis",
+            "jcache"
+          ],
+          "default": "caffeine",
+          "discriminator": true,
+          "ui": {
+            "label": "Provider",
+            "section": "General",
+            "order": 2,
+            "advanced": false,
+            "helperText": "Only caffeine reports stats and size. Java type is String, not an enum - T-TYPES asserts the declared type BINDS (UI-D18). Default comes from matchIfMissing=true, not a field initializer (UI-D2)."
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "default": "suggested",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "namespace",
+          "type": "string",
+          "required": true,
+          "ui": {
+            "label": "Namespace",
+            "section": "General",
+            "order": 3,
+            "advanced": false
+          }
+        },
+        {
+          "key": "key-source",
+          "type": "enum",
+          "options": [
+            "TOPIC",
+            "PAYLOAD",
+            "HEADER",
+            "COMPOSITE"
+          ],
+          "discriminator": true,
+          "ui": {
+            "label": "Key source",
+            "section": "Keying",
+            "order": 1,
+            "advanced": false
+          },
+          "required": true
+        },
+        {
+          "key": "payload-key-json-pointer",
+          "type": "string",
+          "when": {
+            "key-source": "PAYLOAD"
+          },
+          "ui": {
+            "label": "Payload key JSON pointer",
+            "section": "Keying",
+            "order": 2,
+            "advanced": false,
+            "helperText": "Comma-separated JSON Pointers, e.g. /phone_no,/data/PHONE_NUMBER"
+          }
+        },
+        {
+          "key": "topic-key-levels",
+          "type": "string",
+          "when": {
+            "key-source": "TOPIC"
+          },
+          "ui": {
+            "label": "Topic key levels",
+            "section": "Keying",
+            "order": 3,
+            "advanced": false,
+            "helperText": "Java type is String, not int, and there is no field initializer - the value 3 came from the shipped sample yml, which UI-D17 forbids as a default source."
+          }
+        },
+        {
+          "key": "expiry-header-key-pointer",
+          "type": "string",
+          "ui": {
+            "label": "Expiry header key pointer",
+            "section": "Expiry",
+            "order": 1,
+            "advanced": true
+          }
+        },
+        {
+          "key": "expiry-payload-key-pointer",
+          "type": "string",
+          "ui": {
+            "label": "Expiry payload key pointer",
+            "section": "Expiry",
+            "order": 2,
+            "advanced": true
+          }
+        },
+        {
+          "key": "cache-eligible-key-pointer",
+          "type": "string",
+          "ui": {
+            "label": "Cache-eligible key pointer",
+            "section": "Expiry",
+            "order": 3,
+            "advanced": true
+          }
+        },
+        {
+          "key": "max-size",
+          "type": "int",
+          "min": 1,
+          "max": 1000000,
+          "ui": {
+            "label": "Max entries",
+            "section": "Sizing",
+            "order": 1,
+            "advanced": false,
+            "helperText": "No MI default: Java `int maxSize` is 0, which evicts everything. The operator must choose. The 1..1,000,000 range is a Solace recommendation, overridable with a recorded reason (UI-D16)."
+          },
+          "required": true
+        },
+        {
+          "key": "ttl",
+          "type": "duration",
+          "ui": {
+            "label": "TTL",
+            "section": "Sizing",
+            "order": 2,
+            "advanced": false,
+            "helperText": "Spring Duration syntax, e.g. 120m or PT2H. No MI default: Java `Duration ttl` is null, and absent means entries never expire. Declaring this `string` would pass T-KEYS and fail at MI startup - the gap T-TYPES closes."
+          }
+        },
+        {
+          "key": "cache-hit-topic",
+          "type": "string",
+          "ui": {
+            "label": "Cache hit topic",
+            "section": "Topics",
+            "order": 1,
+            "advanced": true
+          }
+        },
+        {
+          "key": "cache-miss-topic",
+          "type": "string",
+          "ui": {
+            "label": "Cache miss topic",
+            "section": "Topics",
+            "order": 2,
+            "advanced": false
+          }
+        },
+        {
+          "key": "cache-hit-response.template-key-topic-position",
+          "type": "string",
+          "ui": {
+            "label": "Template key topic position",
+            "section": "Hit response",
+            "order": 1,
+            "advanced": true,
+            "helperText": "Java type is String, not int - declaring it `int` was a T-TYPES violation in this fixture. No MI default."
+          }
+        },
+        {
+          "key": "cache-hit-response.template-mappings",
+          "type": "map",
+          "ui": {
+            "label": "Template mappings",
+            "section": "Hit response",
+            "order": 2,
+            "advanced": true,
+            "helperText": "Map<String,String>. The MI's own sample ships an absolute path to a developer laptop; no validation caught it."
+          }
+        },
+        {
+          "key": "solace.enabled",
+          "type": "bool",
+          "default": false,
+          "discriminator": true,
+          "ui": {
+            "label": "Solace enabled",
+            "section": "Broker",
+            "order": 1,
+            "advanced": false,
+            "helperText": "Java default is false (no field initializer), so an instance does not consume from the broker until this is set. The shipped sample yml says true; UI-D17 forbids sourcing a default from that file."
+          }
+        },
+        {
+          "key": "solace.host",
+          "type": "string",
+          "when": {
+            "solace.enabled": true
+          },
+          "required": true,
+          "ui": {
+            "label": "Host",
+            "section": "Broker",
+            "order": 2,
+            "advanced": false
+          }
+        },
+        {
+          "key": "solace.vpn",
+          "type": "string",
+          "when": {
+            "solace.enabled": true
+          },
+          "ui": {
+            "label": "Message VPN",
+            "section": "Broker",
+            "order": 3,
+            "advanced": false
+          }
+        },
+        {
+          "key": "solace.username",
+          "type": "string",
+          "when": {
+            "solace.enabled": true
+          },
+          "ui": {
+            "label": "Username",
+            "section": "Broker",
+            "order": 4,
+            "advanced": false
+          }
+        },
+        {
+          "key": "solace.password",
+          "type": "string",
+          "secret": true,
+          "when": {
+            "solace.enabled": true
+          },
+          "ui": {
+            "label": "Password",
+            "section": "Broker",
+            "order": 5,
+            "advanced": false,
+            "helperText": "secretRef. Masked in form, diff, export and history (I6)."
+          }
+        },
+        {
+          "key": "solace.queues",
+          "type": "list",
+          "when": {
+            "solace.enabled": true
+          },
+          "ui": {
+            "label": "Queues",
+            "section": "Broker",
+            "order": 6,
+            "advanced": false
+          }
+        },
+        {
+          "key": "solace.topics",
+          "type": "list",
+          "when": {
+            "solace.enabled": true
+          },
+          "ui": {
+            "label": "Topics",
+            "section": "Broker",
+            "order": 7,
+            "advanced": false
+          }
+        },
+        {
+          "key": "solace.messaging-mode",
+          "type": "enum",
+          "options": [
+            "MESSAGING",
+            "GATEWAY"
+          ],
+          "default": "MESSAGING",
+          "when": {
+            "solace.enabled": true
+          },
+          "ui": {
+            "label": "Messaging mode",
+            "section": "Broker",
+            "order": 8,
+            "advanced": true,
+            "helperText": "Field initializer is MESSAGING; the shipped sample yml says GATEWAY. Defaults come from the initializer (UI-D17)."
+          }
+        },
+        {
+          "key": "solace.management.enabled",
+          "type": "bool",
+          "default": false,
+          "discriminator": true,
+          "when": {
+            "solace.enabled": true
+          },
+          "ui": {
+            "label": "Management plane enabled",
+            "section": "Management",
+            "order": 1,
+            "advanced": true
+          }
+        },
+        {
+          "key": "solace.management.management-queue",
+          "type": "string",
+          "when": {
+            "solace.management.enabled": true
+          },
+          "ui": {
+            "label": "Management queue",
+            "section": "Management",
+            "order": 2,
+            "advanced": true,
+            "helperText": "Two-level nesting, and the predicate carries the full ancestor chain (UI-D3)."
+          }
+        },
+        {
+          "key": "solace.management.leader-election",
+          "type": "enum",
+          "options": [
+            "STANDALONE",
+            "ACTIVE_STANDBY"
+          ],
+          "default": "STANDALONE",
+          "when": {
+            "solace.enabled": true,
+            "solace.management.enabled": true
+          },
+          "ui": {
+            "label": "Leader election",
+            "section": "Management",
+            "order": 3,
+            "advanced": true,
+            "helperText": "ACTIVE_STANDBY means a standby reports health UP while processing nothing - see INACTIVE_REPLICA in UI-D9."
+          }
+        }
+      ],
+      "actions": [
+        {
+          "key": "TEST_BROKER_CONNECTION",
+          "kind": "test-connection",
+          "inputs": [
+            "solace.host",
+            "solace.vpn",
+            "solace.username",
+            "solace.password"
+          ],
+          "when": {
+            "solace.enabled": true
+          },
+          "ui": {
+            "label": "Test connection",
+            "section": "Broker"
+          }
+        }
+      ],
+      "metrics": [
+        {
+          "name": "cache.hit_rate",
+          "metricType": "gauge",
+          "unit": "ratio",
+          "layer": "package-baseline",
+          "when": {
+            "provider": "caffeine"
+          },
+          "source": {
+            "kind": "http_json",
+            "path": "/api/cache/stats",
+            "port": 8081,
+            "pointer": "/hitRate",
+            "onUnavailable": "degrade"
+          }
+        },
+        {
+          "name": "cache.hit_count",
+          "metricType": "counter",
+          "unit": "events",
+          "layer": "package-baseline",
+          "when": {
+            "provider": "caffeine"
+          },
+          "source": {
+            "kind": "http_json",
+            "path": "/api/cache/stats",
+            "port": 8081,
+            "pointer": "/hitCount",
+            "onUnavailable": "degrade"
+          }
+        },
+        {
+          "name": "cache.miss_count",
+          "metricType": "counter",
+          "unit": "events",
+          "layer": "package-baseline",
+          "when": {
+            "provider": "caffeine"
+          },
+          "source": {
+            "kind": "http_json",
+            "path": "/api/cache/stats",
+            "port": 8081,
+            "pointer": "/missCount",
+            "onUnavailable": "degrade"
+          }
+        },
+        {
+          "name": "cache.eviction_count",
+          "metricType": "counter",
+          "unit": "events",
+          "layer": "package-baseline",
+          "when": {
+            "provider": "caffeine"
+          },
+          "source": {
+            "kind": "http_json",
+            "path": "/api/cache/stats",
+            "port": 8081,
+            "pointer": "/evictionCount",
+            "onUnavailable": "degrade"
+          }
+        },
+        {
+          "name": "cache.size",
+          "metricType": "gauge",
+          "unit": "entries",
+          "layer": "package-baseline",
+          "when": {
+            "provider": "caffeine"
+          },
+          "source": {
+            "kind": "http_json",
+            "path": "/api/cache/size",
+            "port": 8081,
+            "onUnavailable": "degrade"
+          }
+        }
+      ],
+      "health": {
+        "probe": {
+          "kind": "actuator-health",
+          "path": "/actuator/health",
+          "port": 8081
+        }
+      },
+      "logs": {
+        "logfile": {
+          "path": "/actuator/logfile"
+        },
+        "baselineExposure": [
+          "health",
+          "info",
+          "metrics"
+        ],
+        "requiresConfig": [
+          "logging.file.name"
+        ]
+      }
+    }
+  ]
+}

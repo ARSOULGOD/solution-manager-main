@@ -1,0 +1,66 @@
+{
+  "name": "label-authored-and-fallback",
+  "package": {
+    "solution": "cache",
+    "packageVersion": [1],
+    "appliesTo": ">=2.2 <2.5",
+    "provenance": { "author": "solace", "signature": "test-fixture" },
+    "authoring": { "reviewedRows": 2, "totalRows": 2 },
+    "components": [
+      {
+        "type": "cache-engine",
+        "cardinality": "exactly-one",
+        "configPath": "cache-engine",
+        "loggerPrefix": "com.solace.solutions.cache",
+        "fields": [
+          { "key": "max-size", "type": "int", "label": "Max entries", "default": 0 },
+          { "key": "namespace", "type": "string" }
+        ]
+      }
+    ]
+  },
+  "componentSelection": [{ "type": "cache-engine", "instanceId": "cache-1" }],
+  "draftValues": { "cache-1": {} },
+  "observedState": { "health": "healthy", "versionState": "ok", "configState": "in_sync" },
+  "expected": {
+    "sections": [
+      {
+        "title": "General",
+        "order": 0,
+        "fields": [
+          {
+            "key": "max-size",
+            "label": "Max entries",
+            "renderedPath": "cache-engine.max-size",
+            "discriminator": false,
+            "controlKind": "number",
+            "value": { "kind": "value", "value": 0, "source": "default" },
+            "options": [],
+            "enabled": true,
+            "visible": true,
+            "masked": false,
+            "advanced": false,
+            "validations": []
+          },
+          {
+            "key": "namespace",
+            "label": "namespace",
+            "renderedPath": "cache-engine.namespace",
+            "discriminator": false,
+            "controlKind": "text",
+            "value": { "kind": "unset" },
+            "options": [],
+            "enabled": true,
+            "visible": true,
+            "masked": false,
+            "advanced": false,
+            "validations": []
+          }
+        ],
+        "actions": []
+      }
+    ],
+    "graphs": [],
+    "status": { "health": "healthy", "versionState": "ok", "configState": "in_sync" }
+  }
+}

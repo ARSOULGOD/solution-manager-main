@@ -1,0 +1,1284 @@
+{
+  "solution": "file-mesh",
+  "packageVersion": [
+    1
+  ],
+  "appliesTo": ">=1.0 <2.0",
+  "provenance": {
+    "author": "solace",
+    "signature": "fe9c…7d21"
+  },
+  "authoring": {
+    "reviewedRows": 0,
+    "totalRows": 103
+  },
+  "components": [
+    {
+      "type": "COMP_SOURCE_FTP@FILETOFILE",
+      "cardinality": "one-of-many",
+      "role": "source",
+      "configPath": "file.source",
+      "loggerPrefix": "com.solace.connector.filemesh.source",
+      "fields": [
+        {
+          "key": "SELECT_BROKER",
+          "type": "enum",
+          "label": "SELECT_BROKER",
+          "ui": {
+            "section": "FILE MESH MANAGER",
+            "order": 0
+          },
+          "options": [
+            "broker-east",
+            "broker-west"
+          ],
+          "advanced": true,
+          "virtual": true,
+          "required": true
+        },
+        {
+          "key": "FILE_MESH_MANAGER_1",
+          "type": "int",
+          "label": "FILE_MESH_MANAGER_1",
+          "ui": {
+            "section": "FILE MESH MANAGER",
+            "order": 0
+          },
+          "default": 100,
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "advanced": true
+        },
+        {
+          "key": "FILE_MESH_MANAGER_2",
+          "type": "bool",
+          "label": "FILE_MESH_MANAGER_2",
+          "ui": {
+            "section": "FILE MESH MANAGER",
+            "order": 0
+          },
+          "default": true,
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "FILE_MESH_MANAGER_3",
+          "type": "enum",
+          "label": "FILE_MESH_MANAGER_3",
+          "ui": {
+            "section": "FILE MESH MANAGER",
+            "order": 0
+          },
+          "options": [
+            "OPTION_A",
+            "OPTION_B",
+            "OPTION_C"
+          ],
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "FILE_MESH_MANAGER_4",
+          "type": "duration",
+          "label": "FILE_MESH_MANAGER_4",
+          "ui": {
+            "section": "FILE MESH MANAGER",
+            "order": 0
+          },
+          "default": "30s",
+          "advanced": true,
+          "virtual": true
+        },
+        {
+          "key": "FILE_MESH_MANAGER_5",
+          "type": "list",
+          "label": "FILE_MESH_MANAGER_5",
+          "ui": {
+            "section": "FILE MESH MANAGER",
+            "order": 0
+          },
+          "default": "value_5",
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "AUTO_CREATE_TOPIC",
+          "type": "bool",
+          "label": "AUTO_CREATE_TOPIC",
+          "ui": {
+            "section": "SOLACE LVQ",
+            "order": 1
+          },
+          "virtual": true
+        },
+        {
+          "key": "AUTO_CREATE_QUEUE",
+          "type": "bool",
+          "label": "AUTO_CREATE_QUEUE",
+          "ui": {
+            "section": "SOLACE LVQ",
+            "order": 1
+          },
+          "virtual": true
+        },
+        {
+          "key": "SOLACE_LVQ_2",
+          "type": "list",
+          "label": "SOLACE_LVQ_2",
+          "ui": {
+            "section": "SOLACE LVQ",
+            "order": 1
+          },
+          "default": "value_2",
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "SOLACE_LVQ_3",
+          "type": "map",
+          "label": "SOLACE_LVQ_3",
+          "ui": {
+            "section": "SOLACE LVQ",
+            "order": 1
+          },
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "SOLACE_LVQ_4",
+          "type": "string",
+          "label": "SOLACE_LVQ_4",
+          "ui": {
+            "section": "SOLACE LVQ",
+            "order": 1
+          },
+          "default": "value_4",
+          "advanced": true,
+          "virtual": true
+        },
+        {
+          "key": "SOLACE_LVQ_5",
+          "type": "int",
+          "label": "SOLACE_LVQ_5",
+          "ui": {
+            "section": "SOLACE LVQ",
+            "order": 1
+          },
+          "default": 500,
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "SOLACE_LVQ_6",
+          "type": "enum",
+          "label": "SOLACE_LVQ_6",
+          "ui": {
+            "section": "SOLACE LVQ",
+            "order": 1
+          },
+          "options": [
+            "OPTION_A",
+            "OPTION_B",
+            "OPTION_C"
+          ],
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "required": true
+        },
+        {
+          "key": "SOLACE_LVQ_7",
+          "type": "string",
+          "label": "SOLACE_LVQ_7",
+          "ui": {
+            "section": "SOLACE LVQ",
+            "order": 1
+          },
+          "default": "value_7",
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "advanced": true
+        },
+        {
+          "key": "directory-replication.enabled",
+          "type": "bool",
+          "label": "ENABLED",
+          "ui": {
+            "section": "DIRECTORY REPLICATION",
+            "order": 2
+          },
+          "helperText": "0 -> disabled, 1 -> enabled — replicate the source directory tree.",
+          "virtual": true
+        },
+        {
+          "key": "DIRECTORY_REPLICATION_1",
+          "type": "string",
+          "label": "DIRECTORY_REPLICATION_1",
+          "ui": {
+            "section": "DIRECTORY REPLICATION",
+            "order": 2
+          },
+          "default": "value_1",
+          "advanced": true,
+          "virtual": true
+        },
+        {
+          "key": "DIRECTORY_REPLICATION_2",
+          "type": "int",
+          "label": "DIRECTORY_REPLICATION_2",
+          "ui": {
+            "section": "DIRECTORY REPLICATION",
+            "order": 2
+          },
+          "default": 200,
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "DIRECTORY_REPLICATION_3",
+          "type": "enum",
+          "label": "DIRECTORY_REPLICATION_3",
+          "ui": {
+            "section": "DIRECTORY REPLICATION",
+            "order": 2
+          },
+          "options": [
+            "OPTION_A",
+            "OPTION_B",
+            "OPTION_C"
+          ],
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "DIRECTORY_REPLICATION_4",
+          "type": "string",
+          "label": "DIRECTORY_REPLICATION_4",
+          "ui": {
+            "section": "DIRECTORY REPLICATION",
+            "order": 2
+          },
+          "default": "value_4",
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "advanced": true
+        },
+        {
+          "key": "DIRECTORY_REPLICATION_5",
+          "type": "int",
+          "label": "DIRECTORY_REPLICATION_5",
+          "ui": {
+            "section": "DIRECTORY REPLICATION",
+            "order": 2
+          },
+          "default": 500,
+          "virtual": true
+        },
+        {
+          "key": "DIRECTORY_REPLICATION_6",
+          "type": "bool",
+          "label": "DIRECTORY_REPLICATION_6",
+          "ui": {
+            "section": "DIRECTORY REPLICATION",
+            "order": 2
+          },
+          "default": true,
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "required": true
+        },
+        {
+          "key": "DIRECTORY_REPLICATION_7",
+          "type": "enum",
+          "label": "DIRECTORY_REPLICATION_7",
+          "ui": {
+            "section": "DIRECTORY REPLICATION",
+            "order": 2
+          },
+          "default": "OPTION_A",
+          "options": [
+            "OPTION_A",
+            "OPTION_B",
+            "OPTION_C"
+          ],
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "advanced": true
+        },
+        {
+          "key": "DIRECTORY_REPLICATION_8",
+          "type": "duration",
+          "label": "DIRECTORY_REPLICATION_8",
+          "ui": {
+            "section": "DIRECTORY REPLICATION",
+            "order": 2
+          },
+          "default": "30s",
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "ftp-settings.enabled",
+          "type": "bool",
+          "label": "ENABLED",
+          "ui": {
+            "section": "FTP_SETTINGS",
+            "order": 3
+          },
+          "helperText": "Enable the FTP transport for this source.",
+          "virtual": true
+        },
+        {
+          "key": "FTP_SETTINGS_1",
+          "type": "string",
+          "label": "FTP_SETTINGS_1",
+          "ui": {
+            "section": "FTP_SETTINGS",
+            "order": 3
+          },
+          "default": "value_1",
+          "advanced": true,
+          "virtual": true
+        },
+        {
+          "key": "FTP_SETTINGS_2",
+          "type": "int",
+          "label": "FTP_SETTINGS_2",
+          "ui": {
+            "section": "FTP_SETTINGS",
+            "order": 3
+          },
+          "default": 200,
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "FTP_SETTINGS_3",
+          "type": "bool",
+          "label": "FTP_SETTINGS_3",
+          "ui": {
+            "section": "FTP_SETTINGS",
+            "order": 3
+          },
+          "default": false,
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "FTP_SETTINGS_4",
+          "type": "enum",
+          "label": "FTP_SETTINGS_4",
+          "ui": {
+            "section": "FTP_SETTINGS",
+            "order": 3
+          },
+          "default": "OPTION_A",
+          "options": [
+            "OPTION_A",
+            "OPTION_B",
+            "OPTION_C"
+          ],
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "advanced": true
+        },
+        {
+          "key": "FTP_SETTINGS_5",
+          "type": "duration",
+          "label": "FTP_SETTINGS_5",
+          "ui": {
+            "section": "FTP_SETTINGS",
+            "order": 3
+          },
+          "default": "30s",
+          "virtual": true
+        },
+        {
+          "key": "FTP_SETTINGS_6",
+          "type": "list",
+          "label": "FTP_SETTINGS_6",
+          "ui": {
+            "section": "FTP_SETTINGS",
+            "order": 3
+          },
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "required": true
+        },
+        {
+          "key": "FTP_SETTINGS_7",
+          "type": "map",
+          "label": "FTP_SETTINGS_7",
+          "ui": {
+            "section": "FTP_SETTINGS",
+            "order": 3
+          },
+          "default": "value_7",
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "advanced": true
+        },
+        {
+          "key": "FTP_SETTINGS_8",
+          "type": "string",
+          "label": "FTP_SETTINGS_8",
+          "ui": {
+            "section": "FTP_SETTINGS",
+            "order": 3
+          },
+          "default": "value_8",
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "FTP_SETTINGS_9",
+          "type": "int",
+          "label": "FTP_SETTINGS_9",
+          "ui": {
+            "section": "FTP_SETTINGS",
+            "order": 3
+          },
+          "virtual": true
+        },
+        {
+          "key": "FTP_SETTINGS_10",
+          "type": "enum",
+          "label": "FTP_SETTINGS_10",
+          "ui": {
+            "section": "FTP_SETTINGS",
+            "order": 3
+          },
+          "default": "OPTION_A",
+          "options": [
+            "OPTION_A",
+            "OPTION_B",
+            "OPTION_C"
+          ],
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "advanced": true
+        },
+        {
+          "key": "FTP_SETTINGS_11",
+          "type": "string",
+          "label": "FTP_SETTINGS_11",
+          "ui": {
+            "section": "FTP_SETTINGS",
+            "order": 3
+          },
+          "default": "value_11",
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "file.source.command_center.enabled",
+          "type": "string",
+          "label": "ENABLED",
+          "ui": {
+            "section": "GENERAL",
+            "order": 4
+          },
+          "default": "1",
+          "helperText": "0 -> disabled, 1 -> enabled, sends data to Command Center.",
+          "virtual": true
+        },
+        {
+          "key": "file.source.command_center.useoutputdestinationsolacecredentials",
+          "type": "string",
+          "label": "USEOUTPUTDESTINATIONSOLACECREDENTIALS",
+          "ui": {
+            "section": "GENERAL",
+            "order": 4
+          },
+          "default": "true",
+          "helperText": "true -> uses output destination solace credentials, false -> uses its own.",
+          "advanced": true,
+          "virtual": true
+        },
+        {
+          "key": "file.source.command_center.solace_base_publish_topic",
+          "type": "string",
+          "label": "SOLACE_BASE_PUBLISH_TOPIC",
+          "ui": {
+            "section": "GENERAL",
+            "order": 4
+          },
+          "helperText": "base publish topic for command center event.",
+          "virtual": true
+        },
+        {
+          "key": "GENERAL_3",
+          "type": "list",
+          "label": "GENERAL_3",
+          "ui": {
+            "section": "GENERAL",
+            "order": 4
+          },
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "GENERAL_4",
+          "type": "map",
+          "label": "GENERAL_4",
+          "ui": {
+            "section": "GENERAL",
+            "order": 4
+          },
+          "default": "value_4",
+          "advanced": true,
+          "virtual": true
+        },
+        {
+          "key": "GENERAL_5",
+          "type": "string",
+          "label": "GENERAL_5",
+          "ui": {
+            "section": "GENERAL",
+            "order": 4
+          },
+          "default": "value_5",
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "GENERAL_6",
+          "type": "int",
+          "label": "GENERAL_6",
+          "ui": {
+            "section": "GENERAL",
+            "order": 4
+          },
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "required": true
+        },
+        {
+          "key": "GENERAL_7",
+          "type": "enum",
+          "label": "GENERAL_7",
+          "ui": {
+            "section": "GENERAL",
+            "order": 4
+          },
+          "default": "OPTION_A",
+          "options": [
+            "OPTION_A",
+            "OPTION_B",
+            "OPTION_C"
+          ],
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "advanced": true
+        },
+        {
+          "key": "GENERAL_8",
+          "type": "string",
+          "label": "GENERAL_8",
+          "ui": {
+            "section": "GENERAL",
+            "order": 4
+          },
+          "default": "value_8",
+          "virtual": true
+        },
+        {
+          "key": "GENERAL_9",
+          "type": "int",
+          "label": "GENERAL_9",
+          "ui": {
+            "section": "GENERAL",
+            "order": 4
+          },
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "INFO_0",
+          "type": "list",
+          "label": "INFO_0",
+          "ui": {
+            "section": "INFO",
+            "order": 5
+          },
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "required": true
+        },
+        {
+          "key": "INFO_1",
+          "type": "map",
+          "label": "INFO_1",
+          "ui": {
+            "section": "INFO",
+            "order": 5
+          },
+          "default": "value_1",
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "advanced": true
+        },
+        {
+          "key": "INFO_2",
+          "type": "string",
+          "label": "INFO_2",
+          "ui": {
+            "section": "INFO",
+            "order": 5
+          },
+          "default": "value_2",
+          "virtual": true
+        },
+        {
+          "key": "INFO_3",
+          "type": "int",
+          "label": "INFO_3",
+          "ui": {
+            "section": "INFO",
+            "order": 5
+          },
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "INFO_4",
+          "type": "enum",
+          "label": "INFO_4",
+          "ui": {
+            "section": "INFO",
+            "order": 5
+          },
+          "default": "OPTION_A",
+          "options": [
+            "OPTION_A",
+            "OPTION_B",
+            "OPTION_C"
+          ],
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "advanced": true
+        },
+        {
+          "key": "DIRECTORY_WILDCARD_0",
+          "type": "int",
+          "label": "DIRECTORY_WILDCARD_0",
+          "ui": {
+            "section": "DIRECTORY WILDCARD",
+            "order": 6
+          },
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "required": true
+        },
+        {
+          "key": "DIRECTORY_WILDCARD_1",
+          "type": "enum",
+          "label": "DIRECTORY_WILDCARD_1",
+          "ui": {
+            "section": "DIRECTORY WILDCARD",
+            "order": 6
+          },
+          "default": "OPTION_A",
+          "options": [
+            "OPTION_A",
+            "OPTION_B",
+            "OPTION_C"
+          ],
+          "advanced": true,
+          "virtual": true
+        },
+        {
+          "key": "DIRECTORY_WILDCARD_2",
+          "type": "string",
+          "label": "DIRECTORY_WILDCARD_2",
+          "ui": {
+            "section": "DIRECTORY WILDCARD",
+            "order": 6
+          },
+          "default": "value_2",
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "DIRECTORY_WILDCARD_3",
+          "type": "int",
+          "label": "DIRECTORY_WILDCARD_3",
+          "ui": {
+            "section": "DIRECTORY WILDCARD",
+            "order": 6
+          },
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "DIRECTORY_WILDCARD_4",
+          "type": "bool",
+          "label": "DIRECTORY_WILDCARD_4",
+          "ui": {
+            "section": "DIRECTORY WILDCARD",
+            "order": 6
+          },
+          "default": true,
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "advanced": true
+        },
+        {
+          "key": "DIRECTORY_WILDCARD_5",
+          "type": "enum",
+          "label": "DIRECTORY_WILDCARD_5",
+          "ui": {
+            "section": "DIRECTORY WILDCARD",
+            "order": 6
+          },
+          "default": "OPTION_A",
+          "options": [
+            "OPTION_A",
+            "OPTION_B",
+            "OPTION_C"
+          ],
+          "virtual": true
+        },
+        {
+          "key": "DIRECTORY_WILDCARD_6",
+          "type": "duration",
+          "label": "DIRECTORY_WILDCARD_6",
+          "ui": {
+            "section": "DIRECTORY WILDCARD",
+            "order": 6
+          },
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "required": true
+        },
+        {
+          "key": "scheduler.enabled",
+          "type": "bool",
+          "label": "ENABLED",
+          "ui": {
+            "section": "SCHEDULER",
+            "order": 7
+          },
+          "default": false,
+          "helperText": "Run this source on a schedule.",
+          "virtual": true
+        },
+        {
+          "key": "SCHEDULER_1",
+          "type": "bool",
+          "label": "SCHEDULER_1",
+          "ui": {
+            "section": "SCHEDULER",
+            "order": 7
+          },
+          "default": false,
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "advanced": true
+        },
+        {
+          "key": "SCHEDULER_2",
+          "type": "enum",
+          "label": "SCHEDULER_2",
+          "ui": {
+            "section": "SCHEDULER",
+            "order": 7
+          },
+          "default": "OPTION_A",
+          "options": [
+            "OPTION_A",
+            "OPTION_B",
+            "OPTION_C"
+          ],
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "SCHEDULER_3",
+          "type": "duration",
+          "label": "SCHEDULER_3",
+          "ui": {
+            "section": "SCHEDULER",
+            "order": 7
+          },
+          "virtual": true
+        },
+        {
+          "key": "SCHEDULER_4",
+          "type": "list",
+          "label": "SCHEDULER_4",
+          "ui": {
+            "section": "SCHEDULER",
+            "order": 7
+          },
+          "default": "value_4",
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "advanced": true
+        },
+        {
+          "key": "SCHEDULER_5",
+          "type": "map",
+          "label": "SCHEDULER_5",
+          "ui": {
+            "section": "SCHEDULER",
+            "order": 7
+          },
+          "default": "value_5",
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "SCHEDULER_6",
+          "type": "string",
+          "label": "SCHEDULER_6",
+          "ui": {
+            "section": "SCHEDULER",
+            "order": 7
+          },
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "required": true
+        },
+        {
+          "key": "SCHEDULER_7",
+          "type": "int",
+          "label": "SCHEDULER_7",
+          "ui": {
+            "section": "SCHEDULER",
+            "order": 7
+          },
+          "default": 700,
+          "advanced": true,
+          "virtual": true
+        }
+      ]
+    },
+    {
+      "type": "COMP_SINK_SOLACE@FILETOFILE",
+      "cardinality": "one-of-many",
+      "role": "sink",
+      "configPath": "file.sink",
+      "loggerPrefix": "com.solace.connector.filemesh.sink",
+      "fields": [
+        {
+          "key": "SELECT_BROKER",
+          "type": "enum",
+          "label": "SELECT_BROKER",
+          "ui": {
+            "section": "BROKER_LIST",
+            "order": 0
+          },
+          "options": [
+            "broker-east",
+            "broker-west"
+          ],
+          "advanced": true,
+          "virtual": true,
+          "required": true
+        },
+        {
+          "key": "BROKER_LIST_1",
+          "type": "int",
+          "label": "BROKER_LIST_1",
+          "ui": {
+            "section": "BROKER_LIST",
+            "order": 0
+          },
+          "default": 100,
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "advanced": true
+        },
+        {
+          "key": "BROKER_LIST_2",
+          "type": "bool",
+          "label": "BROKER_LIST_2",
+          "ui": {
+            "section": "BROKER_LIST",
+            "order": 0
+          },
+          "default": true,
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "BROKER_LIST_3",
+          "type": "enum",
+          "label": "BROKER_LIST_3",
+          "ui": {
+            "section": "BROKER_LIST",
+            "order": 0
+          },
+          "options": [
+            "OPTION_A",
+            "OPTION_B",
+            "OPTION_C"
+          ],
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "BROKER_LIST_4",
+          "type": "duration",
+          "label": "BROKER_LIST_4",
+          "ui": {
+            "section": "BROKER_LIST",
+            "order": 0
+          },
+          "default": "30s",
+          "advanced": true,
+          "virtual": true
+        },
+        {
+          "key": "BROKER_LIST_5",
+          "type": "list",
+          "label": "BROKER_LIST_5",
+          "ui": {
+            "section": "BROKER_LIST",
+            "order": 0
+          },
+          "default": "value_5",
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "BROKER_LIST_6",
+          "type": "map",
+          "label": "BROKER_LIST_6",
+          "ui": {
+            "section": "BROKER_LIST",
+            "order": 0
+          },
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "required": true
+        },
+        {
+          "key": "BROKER_LIST_7",
+          "type": "string",
+          "label": "BROKER_LIST_7",
+          "ui": {
+            "section": "BROKER_LIST",
+            "order": 0
+          },
+          "default": "value_7",
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "advanced": true
+        },
+        {
+          "key": "BROKER_LIST_8",
+          "type": "int",
+          "label": "BROKER_LIST_8",
+          "ui": {
+            "section": "BROKER_LIST",
+            "order": 0
+          },
+          "default": 800,
+          "virtual": true
+        },
+        {
+          "key": "BROKER_LIST_9",
+          "type": "enum",
+          "label": "BROKER_LIST_9",
+          "ui": {
+            "section": "BROKER_LIST",
+            "order": 0
+          },
+          "options": [
+            "OPTION_A",
+            "OPTION_B",
+            "OPTION_C"
+          ],
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "data-plane.enabled",
+          "type": "bool",
+          "label": "ENABLED",
+          "ui": {
+            "section": "DATA_PLANE",
+            "order": 1
+          },
+          "helperText": "Enable the data-plane connection to the broker.",
+          "virtual": true
+        },
+        {
+          "key": "DATA_PLANE_1",
+          "type": "duration",
+          "label": "DATA_PLANE_1",
+          "ui": {
+            "section": "DATA_PLANE",
+            "order": 1
+          },
+          "default": "30s",
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "advanced": true
+        },
+        {
+          "key": "DATA_PLANE_2",
+          "type": "list",
+          "label": "DATA_PLANE_2",
+          "ui": {
+            "section": "DATA_PLANE",
+            "order": 1
+          },
+          "default": "value_2",
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "DATA_PLANE_3",
+          "type": "map",
+          "label": "DATA_PLANE_3",
+          "ui": {
+            "section": "DATA_PLANE",
+            "order": 1
+          },
+          "virtual": true
+        },
+        {
+          "key": "DATA_PLANE_4",
+          "type": "string",
+          "label": "DATA_PLANE_4",
+          "ui": {
+            "section": "DATA_PLANE",
+            "order": 1
+          },
+          "default": "value_4",
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "advanced": true
+        },
+        {
+          "key": "DATA_PLANE_5",
+          "type": "int",
+          "label": "DATA_PLANE_5",
+          "ui": {
+            "section": "DATA_PLANE",
+            "order": 1
+          },
+          "default": 500,
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "DATA_PLANE_6",
+          "type": "enum",
+          "label": "DATA_PLANE_6",
+          "ui": {
+            "section": "DATA_PLANE",
+            "order": 1
+          },
+          "options": [
+            "OPTION_A",
+            "OPTION_B",
+            "OPTION_C"
+          ],
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "required": true
+        },
+        {
+          "key": "DATA_PLANE_7",
+          "type": "string",
+          "label": "DATA_PLANE_7",
+          "ui": {
+            "section": "DATA_PLANE",
+            "order": 1
+          },
+          "default": "value_7",
+          "advanced": true,
+          "virtual": true
+        },
+        {
+          "key": "DATA_PLANE_8",
+          "type": "int",
+          "label": "DATA_PLANE_8",
+          "ui": {
+            "section": "DATA_PLANE",
+            "order": 1
+          },
+          "default": 800,
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "DATA_PLANE_9",
+          "type": "bool",
+          "label": "DATA_PLANE_9",
+          "ui": {
+            "section": "DATA_PLANE",
+            "order": 1
+          },
+          "default": false,
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "DATA_PLANE_10",
+          "type": "enum",
+          "label": "DATA_PLANE_10",
+          "ui": {
+            "section": "DATA_PLANE",
+            "order": 1
+          },
+          "default": "OPTION_A",
+          "options": [
+            "OPTION_A",
+            "OPTION_B",
+            "OPTION_C"
+          ],
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "advanced": true
+        },
+        {
+          "key": "DATA_PLANE_11",
+          "type": "duration",
+          "label": "DATA_PLANE_11",
+          "ui": {
+            "section": "DATA_PLANE",
+            "order": 1
+          },
+          "default": "30s",
+          "virtual": true
+        },
+        {
+          "key": "DATA_PLANE_12",
+          "type": "list",
+          "label": "DATA_PLANE_12",
+          "ui": {
+            "section": "DATA_PLANE",
+            "order": 1
+          },
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "required": true
+        },
+        {
+          "key": "DATA_PLANE_13",
+          "type": "map",
+          "label": "DATA_PLANE_13",
+          "ui": {
+            "section": "DATA_PLANE",
+            "order": 1
+          },
+          "default": "value_13",
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "advanced": true
+        },
+        {
+          "key": "DATA_PLANE_14",
+          "type": "string",
+          "label": "DATA_PLANE_14",
+          "ui": {
+            "section": "DATA_PLANE",
+            "order": 1
+          },
+          "default": "value_14",
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "DATA_PLANE_15",
+          "type": "int",
+          "label": "DATA_PLANE_15",
+          "ui": {
+            "section": "DATA_PLANE",
+            "order": 1
+          },
+          "virtual": true
+        },
+        {
+          "key": "management-plane.enabled",
+          "type": "bool",
+          "label": "ENABLED",
+          "ui": {
+            "section": "MANAGEMENT_PLANE",
+            "order": 2
+          },
+          "helperText": "Enable the management-plane connection.",
+          "virtual": true
+        },
+        {
+          "key": "MANAGEMENT_PLANE_1",
+          "type": "string",
+          "label": "MANAGEMENT_PLANE_1",
+          "ui": {
+            "section": "MANAGEMENT_PLANE",
+            "order": 2
+          },
+          "default": "value_1",
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "advanced": true
+        },
+        {
+          "key": "MANAGEMENT_PLANE_2",
+          "type": "int",
+          "label": "MANAGEMENT_PLANE_2",
+          "ui": {
+            "section": "MANAGEMENT_PLANE",
+            "order": 2
+          },
+          "default": 200,
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "MANAGEMENT_PLANE_3",
+          "type": "enum",
+          "label": "MANAGEMENT_PLANE_3",
+          "ui": {
+            "section": "MANAGEMENT_PLANE",
+            "order": 2
+          },
+          "options": [
+            "OPTION_A",
+            "OPTION_B",
+            "OPTION_C"
+          ],
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "MANAGEMENT_PLANE_4",
+          "type": "string",
+          "label": "MANAGEMENT_PLANE_4",
+          "ui": {
+            "section": "MANAGEMENT_PLANE",
+            "order": 2
+          },
+          "default": "value_4",
+          "advanced": true,
+          "virtual": true
+        },
+        {
+          "key": "MANAGEMENT_PLANE_5",
+          "type": "int",
+          "label": "MANAGEMENT_PLANE_5",
+          "ui": {
+            "section": "MANAGEMENT_PLANE",
+            "order": 2
+          },
+          "default": 500,
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "MANAGEMENT_PLANE_6",
+          "type": "bool",
+          "label": "MANAGEMENT_PLANE_6",
+          "ui": {
+            "section": "MANAGEMENT_PLANE",
+            "order": 2
+          },
+          "default": true,
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "required": true
+        },
+        {
+          "key": "MANAGEMENT_PLANE_7",
+          "type": "enum",
+          "label": "MANAGEMENT_PLANE_7",
+          "ui": {
+            "section": "MANAGEMENT_PLANE",
+            "order": 2
+          },
+          "default": "OPTION_A",
+          "options": [
+            "OPTION_A",
+            "OPTION_B",
+            "OPTION_C"
+          ],
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "advanced": true
+        },
+        {
+          "key": "MANAGEMENT_PLANE_8",
+          "type": "duration",
+          "label": "MANAGEMENT_PLANE_8",
+          "ui": {
+            "section": "MANAGEMENT_PLANE",
+            "order": 2
+          },
+          "default": "30s",
+          "virtual": true
+        },
+        {
+          "key": "MANAGEMENT_PLANE_9",
+          "type": "list",
+          "label": "MANAGEMENT_PLANE_9",
+          "ui": {
+            "section": "MANAGEMENT_PLANE",
+            "order": 2
+          },
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        },
+        {
+          "key": "MANAGEMENT_PLANE_10",
+          "type": "map",
+          "label": "MANAGEMENT_PLANE_10",
+          "ui": {
+            "section": "MANAGEMENT_PLANE",
+            "order": 2
+          },
+          "default": "value_10",
+          "helperText": "Package-declared field; value written to the MI under its rendered path.",
+          "advanced": true
+        },
+        {
+          "key": "MANAGEMENT_PLANE_11",
+          "type": "string",
+          "label": "MANAGEMENT_PLANE_11",
+          "ui": {
+            "section": "MANAGEMENT_PLANE",
+            "order": 2
+          },
+          "default": "value_11",
+          "helperText": "Package-declared field; value written to the MI under its rendered path."
+        }
+      ]
+    }
+  ]
+}

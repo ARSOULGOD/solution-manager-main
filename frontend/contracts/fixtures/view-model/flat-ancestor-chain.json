@@ -1,0 +1,132 @@
+{
+  "name": "flat-ancestor-chain",
+  "package": {
+    "solution": "file-mesh",
+    "packageVersion": [1],
+    "appliesTo": ">=1.0 <2.0",
+    "provenance": { "author": "solace", "signature": "test-fixture" },
+    "authoring": { "reviewedRows": 5, "totalRows": 5 },
+    "components": [
+      {
+        "type": "source-grid",
+        "cardinality": "one-of-many",
+        "configPath": "source-grid",
+        "loggerPrefix": "com.solace.solutions.filemesh.source",
+        "fields": [
+          { "key": "ACTION", "type": "enum", "options": ["download", "deploy"], "discriminator": true, "ui": { "section": "Action", "order": 1 } },
+          { "key": "DOWNLOAD_LOCATION", "type": "enum", "options": ["GIT", "LOCAL"], "discriminator": true, "when": { "ACTION": "download" }, "ui": { "section": "Action", "order": 2 } },
+          { "key": "GIT_CONFIGURATION", "type": "enum", "options": ["CLOUD", "ONPREM"], "discriminator": true, "when": { "ACTION": "download", "DOWNLOAD_LOCATION": "GIT" }, "ui": { "section": "Git", "order": 1 } },
+          { "key": "GIT_CLOUD_TOKEN", "type": "string", "secret": true, "when": { "ACTION": "download", "DOWNLOAD_LOCATION": "GIT", "GIT_CONFIGURATION": "CLOUD" } },
+          { "key": "DEPLOYMENT_MODE", "type": "enum", "options": ["standalone", "highavailable"], "when": { "ACTION": "deploy" } }
+        ]
+      }
+    ]
+  },
+  "componentSelection": [{ "type": "source-grid", "instanceId": "source-1" }],
+  "draftValues": {
+    "source-1": {
+      "ACTION": "download",
+      "DOWNLOAD_LOCATION": "GIT",
+      "GIT_CONFIGURATION": "CLOUD",
+      "GIT_CLOUD_TOKEN": "ghp_super_secret"
+    }
+  },
+  "observedState": { "health": "healthy", "versionState": "ok", "configState": "in_sync" },
+  "expected": {
+    "sections": [
+      {
+        "title": "Action",
+        "order": 1,
+        "fields": [
+          {
+            "key": "ACTION",
+            "label": "ACTION",
+            "renderedPath": "source-grid.ACTION",
+            "discriminator": true,
+            "controlKind": "select",
+            "value": { "kind": "value", "value": "download", "source": "draft" },
+            "options": ["download", "deploy"],
+            "enabled": true,
+            "visible": true,
+            "masked": false,
+            "advanced": false,
+            "validations": []
+          },
+          {
+            "key": "DOWNLOAD_LOCATION",
+            "label": "DOWNLOAD_LOCATION",
+            "renderedPath": "source-grid.DOWNLOAD_LOCATION",
+            "discriminator": true,
+            "controlKind": "select",
+            "value": { "kind": "value", "value": "GIT", "source": "draft" },
+            "options": ["GIT", "LOCAL"],
+            "enabled": true,
+            "visible": true,
+            "masked": false,
+            "advanced": false,
+            "validations": []
+          }
+        ],
+        "actions": []
+      },
+      {
+        "title": "Git",
+        "order": 1,
+        "fields": [
+          {
+            "key": "GIT_CONFIGURATION",
+            "label": "GIT_CONFIGURATION",
+            "renderedPath": "source-grid.GIT_CONFIGURATION",
+            "discriminator": true,
+            "controlKind": "select",
+            "value": { "kind": "value", "value": "CLOUD", "source": "draft" },
+            "options": ["CLOUD", "ONPREM"],
+            "enabled": true,
+            "visible": true,
+            "masked": false,
+            "advanced": false,
+            "validations": []
+          }
+        ],
+        "actions": []
+      },
+      {
+        "title": "General",
+        "order": 2,
+        "fields": [
+          {
+            "key": "GIT_CLOUD_TOKEN",
+            "label": "GIT_CLOUD_TOKEN",
+            "renderedPath": "source-grid.GIT_CLOUD_TOKEN",
+            "discriminator": false,
+            "controlKind": "secret",
+            "value": { "kind": "secretUnset" },
+            "options": [],
+            "enabled": true,
+            "visible": true,
+            "masked": true,
+            "advanced": false,
+            "validations": []
+          },
+          {
+            "key": "DEPLOYMENT_MODE",
+            "label": "DEPLOYMENT_MODE",
+            "renderedPath": "source-grid.DEPLOYMENT_MODE",
+            "discriminator": false,
+            "controlKind": "select",
+            "value": { "kind": "unset" },
+            "options": ["standalone", "highavailable"],
+            "enabled": true,
+            "visible": false,
+            "masked": false,
+            "advanced": false,
+            "validations": []
+          }
+        ],
+        "actions": []
+      }
+    ],
+    "graphs": [],
+    "status": { "health": "healthy", "versionState": "ok", "configState": "in_sync" }
+  }
+}

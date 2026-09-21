@@ -1,0 +1,690 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://solace.com/solution-manager/solution-package.schema.json",
+  "title": "Solution Package",
+  "description": "The contract by which a solution declares its components, fields, actions, metrics, health and logs. Canonical home of every closed vocabulary (UI-D14). See docs/design/dynamic-ui/design.md.",
+  "type": "object",
+  "required": [
+    "solution",
+    "packageVersion",
+    "appliesTo",
+    "components"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "solution": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "packageVersion": {
+      "type": "array",
+      "description": "Ordered, non-empty package schema versions served by this one document.",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/packageVersionId"
+      }
+    },
+    "appliesTo": {
+      "type": "string",
+      "description": "semver range of observed MI versions this package serves (UI-D11)"
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "author": {
+          "enum": [
+            "solace",
+            "dev-mode"
+          ]
+        },
+        "signature": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "author"
+      ]
+    },
+    "authoring": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "UI-D17 \u2014 makes an unreviewed extraction visible in the registry",
+      "properties": {
+        "reviewedRows": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "totalRows": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source": {
+          "type": "string"
+        }
+      }
+    },
+    "components": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/component"
+      }
+    }
+  },
+  "$defs": {
+    "packageVersionId": {
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 1
+        },
+        {
+          "type": "string",
+          "minLength": 1
+        }
+      ]
+    },
+    "predicate": {
+      "description": "UI-D2 \u2014 an object of field:literal, implicitly AND-ed. No OR, no comparison, no negation. Evaluated over defaults-applied values.",
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number",
+          "boolean"
+        ]
+      }
+    },
+    "component": {
+      "type": "object",
+      "required": [
+        "type",
+        "cardinality",
+        "configPath"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "version": {
+          "type": "array",
+          "description": "Package versions containing this component. Omitted means every declared package version.",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/packageVersionId"
+          }
+        },
+        "cardinality": {
+          "enum": [
+            "exactly-one",
+            "one-of-many",
+            "zero-or-more"
+          ]
+        },
+        "role": {
+          "enum": [
+            "source",
+            "sink",
+            "none"
+          ]
+        },
+        "configPath": {
+          "type": "string",
+          "description": "property prefix SM writes under"
+        },
+        "configFile": {
+          "type": "string"
+        },
+        "loggerPrefix": {
+          "type": "string"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/field"
+          }
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/action"
+          }
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/metric"
+          }
+        },
+        "health": {
+          "$ref": "#/$defs/health"
+        },
+        "logs": {
+          "$ref": "#/$defs/logs"
+        }
+      }
+    },
+    "field": {
+      "type": "object",
+      "required": [
+        "key",
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "the config property path; NOT a display label (see the File Mesh adapter note)"
+        },
+        "type": {
+          "description": "UI-D14 closed vocabulary",
+          "enum": [
+            "string",
+            "int",
+            "bool",
+            "enum",
+            "duration",
+            "list",
+            "map",
+            "table",
+            "yaml",
+            "secret"
+          ]
+        },
+        "version": {
+          "type": "array",
+          "description": "Package versions containing this field. Omitted means every version containing its component.",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/packageVersionId"
+          }
+        },
+        "virtual": {
+          "type": "boolean",
+          "description": "UI-D24 - a declared field that drives the form and predicates but is NEVER written to the config file and is outside T-KEYS. Every File Mesh discriminator is one."
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          },
+          "minItems": 1
+        },
+        "optionsSource": {
+          "$ref": "#/$defs/optionsSource"
+        },
+        "columns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/column"
+          },
+          "description": "type: table only"
+        },
+        "default": {
+          "type": [
+            "string",
+            "number",
+            "boolean",
+            "null"
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "secret": {
+          "type": "boolean"
+        },
+        "discriminator": {
+          "type": "boolean"
+        },
+        "when": {
+          "$ref": "#/$defs/predicate"
+        },
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "pattern": {
+          "type": "string"
+        },
+        "yamlSubtree": {
+          "type": "string",
+          "description": "UI-D23 \u2014 the isolated subtree a yaml field renders into"
+        },
+        "ui": {
+          "$ref": "#/$defs/ui"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenanceTiers"
+        }
+      },
+      "allOf": [
+        {
+          "description": "gate 11 \u2014 options XOR optionsSource",
+          "not": {
+            "required": [
+              "options",
+              "optionsSource"
+            ]
+          }
+        },
+        {
+          "description": "an enum must say where its options come from",
+          "if": {
+            "properties": {
+              "type": {
+                "const": "enum"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "anyOf": [
+              {
+                "required": [
+                  "options"
+                ]
+              },
+              {
+                "required": [
+                  "optionsSource"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "description": "gate 6 - a discriminator must have an ENUMERABLE domain: enum or bool. Free text cannot drive a subtree. (Corrected by the Cache fixture: solace.enabled is a boolean discriminator, as is File Mesh's CONFIG_JAVA_RUNTIME.)",
+          "if": {
+            "properties": {
+              "discriminator": {
+                "const": true
+              }
+            },
+            "required": [
+              "discriminator"
+            ]
+          },
+          "then": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "enum",
+                  "bool"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "description": "a table declares its columns",
+          "if": {
+            "properties": {
+              "type": {
+                "const": "table"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "columns"
+            ]
+          }
+        },
+        {
+          "description": "UI-D23 \u2014 a yaml field must name its isolated subtree",
+          "if": {
+            "properties": {
+              "type": {
+                "const": "yaml"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "yamlSubtree"
+            ]
+          }
+        }
+      ]
+    },
+    "column": {
+      "type": "object",
+      "required": [
+        "key",
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "string",
+            "int",
+            "bool",
+            "enum",
+            "duration",
+            "secret"
+          ]
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          }
+        },
+        "label": {
+          "type": "string"
+        }
+      }
+    },
+    "optionsSource": {
+      "type": "object",
+      "required": [
+        "kind",
+        "entity"
+      ],
+      "additionalProperties": false,
+      "description": "UI-D22 \u2014 a package names an SM-owned entity. It can never supply a URL.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "sm-catalog"
+          ]
+        },
+        "entity": {
+          "enum": [
+            "broker",
+            "environment",
+            "connection",
+            "instance",
+            "metric"
+          ]
+        }
+      }
+    },
+    "action": {
+      "type": "object",
+      "required": [
+        "key",
+        "kind"
+      ],
+      "additionalProperties": false,
+      "description": "UI-D22 \u2014 actions hold no value and appear in no config file.",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "test-connection",
+            "manage-catalog-entry"
+          ]
+        },
+        "entity": {
+          "enum": [
+            "broker",
+            "environment",
+            "connection",
+            "instance",
+            "metric"
+          ]
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "when": {
+          "$ref": "#/$defs/predicate"
+        },
+        "ui": {
+          "$ref": "#/$defs/ui"
+        }
+      },
+      "allOf": [
+        {
+          "description": "catalog management must say which entity it manages",
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "manage-catalog-entry"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "entity"
+            ]
+          }
+        },
+        {
+          "description": "a connection test must name the inputs it tests",
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "test-connection"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "inputs"
+            ]
+          }
+        }
+      ]
+    },
+    "ui": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "section": {
+          "type": "string"
+        },
+        "subSection": {
+          "type": "string"
+        },
+        "order": {
+          "type": "integer"
+        },
+        "advanced": {
+          "type": "boolean"
+        },
+        "helperText": {
+          "type": "string"
+        },
+        "readOnly": {
+          "type": "boolean"
+        }
+      }
+    },
+    "provenanceTiers": {
+      "type": "object",
+      "additionalProperties": {
+        "enum": [
+          "derived",
+          "suggested",
+          "authored"
+        ]
+      },
+      "description": "UI-D17 \u2014 provenance is a property of the column, carried per field for audit"
+    },
+    "metric": {
+      "type": "object",
+      "required": [
+        "name",
+        "metricType",
+        "unit",
+        "source"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "metricType": {
+          "enum": [
+            "counter",
+            "gauge",
+            "histogram"
+          ]
+        },
+        "unit": {
+          "type": "string"
+        },
+        "layer": {
+          "enum": [
+            "package-baseline",
+            "user-extension"
+          ]
+        },
+        "when": {
+          "$ref": "#/$defs/predicate"
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "kind",
+        "onUnavailable"
+      ],
+      "additionalProperties": false,
+      "description": "UI-D14 \u2014 transport mechanisms only, never a solution name. Canonical list lives here.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "http_json",
+            "prometheus",
+            "solace_event",
+            "exec",
+            "jdbc_query"
+          ]
+        },
+        "path": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer"
+        },
+        "pointer": {
+          "type": "string"
+        },
+        "topicPattern": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        },
+        "onUnavailable": {
+          "enum": [
+            "degrade",
+            "error"
+          ]
+        }
+      }
+    },
+    "health": {
+      "type": "object",
+      "required": [
+        "probe"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "probe": {
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "actuator-health",
+                "http-status",
+                "broker-heartbeat"
+              ]
+            },
+            "path": {
+              "type": "string"
+            },
+            "port": {
+              "type": "integer"
+            }
+          }
+        }
+      }
+    },
+    "logs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "logfile": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string"
+            }
+          }
+        },
+        "baselineExposure": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "UI-D10 \u2014 the union base; SM cannot read the effective value"
+        },
+        "requiresConfig": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

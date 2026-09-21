@@ -1,0 +1,22 @@
+asyncapi: 3.0.0
+info: { title: SM mesh events, version: 1.0.0, description: "Topics per design §4; payloads per the JSON Schemas in this folder. v1 in the topic is load-bearing (BE-D4)." }
+channels:
+  instanceNotify:
+    address: sm/v1/{tenant}/notify/instance/{instanceId}/{aspect}
+    # `quarantine` is in this enum because `metrics.quarantine` derives
+    # sm/v1/<tenant>/notify/instance/<instanceId>/quarantine (design §3 event catalog +
+    # fixtures/expected-topics.json). BE-D4's taxonomy block does not list it — flagged.
+    parameters: { tenant: {}, instanceId: {}, aspect: { enum: [health, config-state, version, quarantine] } }
+    messages: { notify: { payload: { $ref: ./notify-events.schema.json } } }
+  rolloutNotify:
+    address: sm/v1/{tenant}/notify/instance/{instanceId}/rollout/{applyId}
+    parameters: { tenant: {}, instanceId: {}, applyId: {} }
+    messages: { notify: { payload: { $ref: ./notify-events.schema.json } } }
+  catalogNotify:
+    address: sm/v1/{tenant}/notify/catalog/package
+    parameters: { tenant: {} }
+    messages: { notify: { payload: { $ref: ./notify-events.schema.json } } }
+  stream:
+    address: sm/v1/{tenant}/stream/{grantId}/{seriesKey}
+    parameters: { tenant: {}, grantId: {}, seriesKey: {} }
+    messages: { point: { payload: { type: object, description: "normalized point + series identity; schema lands with BE-D6 phase 2" } } }

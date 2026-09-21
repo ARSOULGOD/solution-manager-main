@@ -1,0 +1,537 @@
+{
+  "solution": "cache",
+  "packageVersion": [
+    6,
+    7
+  ],
+  "appliesTo": ">=2.2 <2.5",
+  "provenance": {
+    "author": "solace",
+    "signature": "3af9…c210"
+  },
+  "authoring": {
+    "reviewedRows": 1494,
+    "totalRows": 1494
+  },
+  "components": [
+    {
+      "type": "cache-engine",
+      "cardinality": "exactly-one",
+      "version": [
+        6,
+        7
+      ],
+      "configPath": "cache-engine",
+      "loggerPrefix": "com.solace.solutions.cache",
+      "fields": [
+        {
+          "key": "mode",
+          "type": "enum",
+          "version": [
+            6,
+            7
+          ],
+          "options": [
+            "READ",
+            "READ_WRITE",
+            "ADMIN"
+          ],
+          "default": "READ",
+          "label": "Mode",
+          "helperText": "READ_WRITE exposes the write endpoint; ADMIN additionally exposes admin operations.",
+          "ui": {
+            "section": "General",
+            "order": 0
+          }
+        },
+        {
+          "key": "provider",
+          "type": "enum",
+          "version": [
+            6,
+            7
+          ],
+          "options": [
+            "caffeine",
+            "redis",
+            "jcache"
+          ],
+          "default": "caffeine",
+          "discriminator": true,
+          "label": "Provider",
+          "helperText": "Only caffeine reports stats and size. Java type is String, no enum validation.",
+          "ui": {
+            "section": "General",
+            "order": 0
+          }
+        },
+        {
+          "key": "namespace",
+          "type": "string",
+          "version": [
+            6,
+            7
+          ],
+          "required": true,
+          "label": "Namespace",
+          "ui": {
+            "section": "General",
+            "order": 0
+          }
+        },
+        {
+          "key": "key-source",
+          "type": "enum",
+          "version": [
+            6,
+            7
+          ],
+          "options": [
+            "TOPIC",
+            "PAYLOAD",
+            "HEADER",
+            "COMPOSITE"
+          ],
+          "discriminator": true,
+          "required": true,
+          "label": "Key source",
+          "ui": {
+            "section": "Keying",
+            "order": 1
+          }
+        },
+        {
+          "key": "topic-key-levels",
+          "type": "string",
+          "version": [
+            6,
+            7
+          ],
+          "when": {
+            "key-source": "TOPIC"
+          },
+          "label": "Topic key levels",
+          "helperText": "Java type is String, not int, and there is no field initializer.",
+          "ui": {
+            "section": "Keying",
+            "order": 1
+          }
+        },
+        {
+          "key": "payload-key-json-pointer",
+          "type": "string",
+          "version": [
+            6,
+            7
+          ],
+          "when": {
+            "key-source": "PAYLOAD"
+          },
+          "label": "Payload key JSON pointer",
+          "ui": {
+            "section": "Keying",
+            "order": 1
+          }
+        },
+        {
+          "key": "ttl",
+          "type": "duration",
+          "version": [
+            6,
+            7
+          ],
+          "advanced": true,
+          "label": "TTL",
+          "helperText": "Spring Duration syntax, e.g. 120m or PT2H. No MI default.",
+          "ui": {
+            "section": "Expiry",
+            "order": 2
+          }
+        },
+        {
+          "key": "expiry-header-key-pointer",
+          "type": "string",
+          "version": [
+            7
+          ],
+          "advanced": true,
+          "label": "Expiry header key pointer",
+          "ui": {
+            "section": "Expiry",
+            "order": 2
+          }
+        },
+        {
+          "key": "expiry-header-format",
+          "type": "enum",
+          "version": [
+            7
+          ],
+          "options": [
+            "ISO_8601",
+            "EPOCH_MS"
+          ],
+          "advanced": true,
+          "label": "Expiry header format",
+          "ui": {
+            "section": "Expiry",
+            "order": 2
+          }
+        },
+        {
+          "key": "max-size",
+          "type": "int",
+          "version": [
+            6,
+            7
+          ],
+          "required": true,
+          "label": "Max entries",
+          "helperText": "No MI default: Java int maxSize is 0, which evicts everything.",
+          "ui": {
+            "section": "Sizing",
+            "order": 3
+          }
+        },
+        {
+          "key": "max-size-bytes",
+          "type": "int",
+          "version": [
+            6
+          ],
+          "default": 67108864,
+          "label": "Max size (bytes)",
+          "helperText": "Byte-bound cache size. Superseded by weight-based bounding (Max weight) in v7.",
+          "ui": {
+            "section": "Sizing",
+            "order": 3
+          }
+        },
+        {
+          "key": "max-weight",
+          "type": "int",
+          "version": [
+            7
+          ],
+          "default": 536870912,
+          "label": "Max weight",
+          "helperText": "Weight-based bound, replacing v6's byte-count field; leave empty to bound by entry count only.",
+          "ui": {
+            "section": "Sizing",
+            "order": 3
+          }
+        },
+        {
+          "key": "topic-subscriptions",
+          "type": "list",
+          "version": [
+            6,
+            7
+          ],
+          "label": "Topic subscriptions",
+          "ui": {
+            "section": "Topics",
+            "order": 4
+          }
+        },
+        {
+          "key": "topic-prefix",
+          "type": "string",
+          "version": [
+            6,
+            7
+          ],
+          "label": "Topic prefix",
+          "ui": {
+            "section": "Topics",
+            "order": 4
+          }
+        },
+        {
+          "key": "cache-hit-response.template-mappings",
+          "type": "map",
+          "version": [
+            6,
+            7
+          ],
+          "advanced": true,
+          "label": "Template mappings",
+          "helperText": "Map<String,String>. The MI's own sample ships an absolute path.",
+          "ui": {
+            "section": "Hit response",
+            "order": 5
+          }
+        },
+        {
+          "key": "cache-hit-response.include-metadata",
+          "type": "bool",
+          "version": [
+            6,
+            7
+          ],
+          "default": false,
+          "advanced": true,
+          "label": "Include metadata",
+          "ui": {
+            "section": "Hit response",
+            "order": 5
+          }
+        },
+        {
+          "key": "solace.enabled",
+          "type": "bool",
+          "version": [
+            6,
+            7
+          ],
+          "discriminator": true,
+          "label": "Solace enabled",
+          "helperText": "Java default is false (no field initializer), so an instance is disconnected unless enabled.",
+          "ui": {
+            "section": "Broker",
+            "order": 6
+          }
+        },
+        {
+          "key": "solace.host",
+          "type": "string",
+          "version": [
+            6,
+            7
+          ],
+          "required": true,
+          "label": "Host",
+          "ui": {
+            "section": "Broker",
+            "order": 6
+          }
+        },
+        {
+          "key": "solace.vpn",
+          "type": "string",
+          "version": [
+            6,
+            7
+          ],
+          "default": "default",
+          "label": "Message VPN",
+          "ui": {
+            "section": "Broker",
+            "order": 6
+          }
+        },
+        {
+          "key": "solace.username",
+          "type": "string",
+          "version": [
+            6,
+            7
+          ],
+          "label": "Username",
+          "ui": {
+            "section": "Broker",
+            "order": 6
+          }
+        },
+        {
+          "key": "solace.password",
+          "type": "secret",
+          "version": [
+            6,
+            7
+          ],
+          "secret": true,
+          "label": "Password",
+          "helperText": "secretRef. Masked in form, diff, export and history.",
+          "ui": {
+            "section": "Broker",
+            "order": 6
+          }
+        },
+        {
+          "key": "solace.port",
+          "type": "int",
+          "version": [
+            6,
+            7
+          ],
+          "default": 55555,
+          "label": "Port",
+          "ui": {
+            "section": "Broker",
+            "order": 6
+          }
+        },
+        {
+          "key": "solace.tls",
+          "type": "bool",
+          "version": [
+            6,
+            7
+          ],
+          "label": "Use TLS",
+          "ui": {
+            "section": "Broker",
+            "order": 6
+          }
+        },
+        {
+          "key": "solace.messaging-mode",
+          "type": "enum",
+          "version": [
+            6,
+            7
+          ],
+          "options": [
+            "MESSAGING",
+            "PERSISTENT"
+          ],
+          "label": "Messaging mode",
+          "ui": {
+            "section": "Broker",
+            "order": 6
+          }
+        },
+        {
+          "key": "solace.management.enabled",
+          "type": "bool",
+          "version": [
+            6,
+            7
+          ],
+          "discriminator": true,
+          "advanced": true,
+          "label": "Management plane enabled",
+          "ui": {
+            "section": "Management",
+            "order": 7
+          }
+        },
+        {
+          "key": "solace.management.management-queue",
+          "type": "string",
+          "version": [
+            6,
+            7
+          ],
+          "advanced": true,
+          "label": "Management queue",
+          "helperText": "Two-level nesting; the predicate carries the full ancestor chain.",
+          "ui": {
+            "section": "Management",
+            "order": 7
+          }
+        },
+        {
+          "key": "solace.management.leader-election",
+          "type": "enum",
+          "version": [
+            6,
+            7
+          ],
+          "options": [
+            "STANDALONE",
+            "ACTIVE_PASSIVE"
+          ],
+          "advanced": true,
+          "label": "Leader election",
+          "ui": {
+            "section": "Management",
+            "order": 7
+          }
+        }
+      ],
+      "actions": [
+        {
+          "key": "TEST_BROKER_CONNECTION",
+          "kind": "test-connection",
+          "inputs": [
+            "solace.host",
+            "solace.vpn",
+            "solace.username",
+            "solace.password"
+          ]
+        }
+      ],
+      "metrics": [
+        {
+          "name": "cache.hit_rate",
+          "metricType": "gauge",
+          "unit": "ratio",
+          "source": {
+            "kind": "http_json",
+            "path": "/api/cache/stats",
+            "port": 8081,
+            "pointer": "/hitRate",
+            "onUnavailable": "degrade"
+          },
+          "when": {
+            "provider": "caffeine"
+          },
+          "layer": "package-baseline"
+        },
+        {
+          "name": "cache.miss_count",
+          "metricType": "counter",
+          "unit": "misses",
+          "source": {
+            "kind": "http_json",
+            "path": "/api/cache/stats",
+            "port": 8081,
+            "pointer": "/missCount",
+            "onUnavailable": "degrade"
+          },
+          "when": {
+            "provider": "caffeine"
+          },
+          "layer": "package-baseline"
+        },
+        {
+          "name": "cache.evictions",
+          "metricType": "counter",
+          "unit": "evictions",
+          "source": {
+            "kind": "http_json",
+            "path": "/api/cache/stats",
+            "port": 8081,
+            "pointer": "/evictionCount",
+            "onUnavailable": "degrade"
+          },
+          "when": {
+            "provider": "caffeine"
+          },
+          "layer": "package-baseline"
+        },
+        {
+          "name": "cache.size",
+          "metricType": "gauge",
+          "unit": "entries",
+          "source": {
+            "kind": "http_json",
+            "path": "/api/cache/size",
+            "port": 8081,
+            "pointer": "",
+            "onUnavailable": "degrade"
+          },
+          "when": {
+            "provider": "caffeine"
+          },
+          "layer": "package-baseline"
+        },
+        {
+          "name": "jvm.memory.used",
+          "metricType": "gauge",
+          "unit": "bytes",
+          "source": {
+            "kind": "http_json",
+            "path": "/actuator/metrics/jvm.memory.used",
+            "port": 8081,
+            "pointer": "/measurements/0/value",
+            "onUnavailable": "degrade"
+          },
+          "layer": "package-baseline"
+        }
+      ]
+    }
+  ]
+}

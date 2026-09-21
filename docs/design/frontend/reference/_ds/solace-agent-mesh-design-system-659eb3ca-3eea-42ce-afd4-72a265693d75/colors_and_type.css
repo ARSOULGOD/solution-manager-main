@@ -1,0 +1,175 @@
+/* ============================================================
+   SOLACE AGENT MESH — CORE DESIGN TOKENS
+   Extracted from client/webui/frontend/src/lib/providers/themes/palettes/
+   Tokens follow the {color}-{w100|wMain|w60|w40|w20|w10} naming
+   where wMain is the canonical color and w100 = darkest.
+   ============================================================ */
+
+@import url("https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
+:root {
+  /* ---------- BRAND ---------- */
+  --brand-wMain: #00C895;    /* signature Solace green */
+  --brand-w100: #00AD93;     /* darker green for hover/active */
+  --brand-w60:  #66DEBF;
+  --brand-w30:  #B3EFDF;
+  --brand-w10:  #E6FAF4;
+
+  /* ---------- PRIMARY (deep navy blue) ---------- */
+  --primary-w100: #01374E;
+  --primary-w90:  #014968;
+  --primary-wMain:#015B82;
+  --primary-w60:  #679DB4;
+  --primary-w40:  #99BDCD;
+  --primary-w20:  #CCDEE6;
+  --primary-w10:  #E6EFF2;
+
+  --primary-text-wMain: #273749;
+  --primary-text-w100:  #000000;
+  --primary-text-w10:   #FFFFFF;
+
+  /* ---------- SECONDARY (neutrals) ---------- */
+  --secondary-w100: #000000;
+  --secondary-w80:  #354E62;
+  --secondary-w70:  #536574;
+  --secondary-wMain:#8790A0;
+  --secondary-w40:  #CFD3D9;
+  --secondary-w20:  #E7E9EC;
+  --secondary-w10:  #F3F4F6;
+  --secondary-text-wMain: #647481;
+  --secondary-text-w50:   #B1B9C0;
+
+  /* ---------- BACKGROUND ---------- */
+  --background-w100: #021B2F;  /* darkest navy */
+  --background-wMain:#03223B;  /* dark surface */
+  --background-w20:  #F7F8F9;  /* light panel */
+  --background-w10:  #FFFFFF;  /* light default */
+
+  /* ---------- SEMANTIC ---------- */
+  --info-wMain:    #0591D3;   --info-w100:    #2B71B1;
+  --info-w30:      #B4DEF2;   --info-w10:     #E6F4FB;
+  --error-wMain:   #E94C4E;   --error-w100:   #C33135;
+  --error-w30:     #F8C9CA;   --error-w10:    #FDEDED;
+  --warning-wMain: #FF8E2B;   --warning-w100: #E1681F;
+  --warning-w30:   #FFDDBF;   --warning-w10:  #FFF4EA;
+  --success-wMain: #009A80;   --success-w100: #006B53;
+  --success-w30:   #B3E1D9;   --success-w10:  #E6F5F2;
+
+  /* ---------- ACCENTS (for charts, tags, chips) ---------- */
+  --accent-blue:   #3C69E1;  --accent-blue-10:   #ECF0FC;
+  --accent-indigo: #3A4880;  --accent-indigo-10: #EBEDF2;
+  --accent-teal:   #009193;  --accent-teal-10:   #E6F4F4;
+  --accent-purple: #7841A8;  --accent-purple-10: #F2ECF6;
+  --accent-magenta:#CB1AA5;
+  --accent-coral:  #F66651;
+  --accent-orange: #FCA829;
+  --accent-sky:    #7CD3F6;
+  --accent-slate:  #86939E;
+  --accent-red:    #DA162D;
+
+  /* ---------- STATE LAYER (overlays) ---------- */
+  --stateLayer-w10: #03223B1a;
+  --stateLayer-w20: #03223B33;
+
+  /* ---------- DARK SURFACE (e.g. nav sidebar on light theme) ---------- */
+  --darkSurface-bg:           #03223B;
+  --darkSurface-bgHover:      #021B2F;
+  --darkSurface-text:         #F5F5F5;
+  --darkSurface-textMuted:    #ACBAC2;
+  --darkSurface-brandMain:    #00C895;
+  --darkSurface-border:       #536574;
+
+  /* ---------- TYPOGRAPHY ---------- */
+  --font-sans:    "Rubik", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Rubik", "Inter", system-ui, sans-serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --fs-xs:   12px;   --lh-xs:   16px;
+  --fs-sm:   13px;   --lh-sm:   18px;
+  --fs-base: 14px;   --lh-base: 20px;  /* app baseline — see index.css body 14px */
+  --fs-md:   16px;   --lh-md:   24px;
+  --fs-lg:   18px;   --lh-lg:   26px;
+  --fs-xl:   20px;   --lh-xl:   28px;   /* Header title */
+  --fs-2xl:  24px;   --lh-2xl:  32px;
+  --fs-3xl:  30px;   --lh-3xl:  38px;
+  --fs-4xl:  36px;   --lh-4xl:  44px;
+  --fs-5xl:  48px;   --lh-5xl:  56px;
+
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-semibold: 600;   /* buttons are semibold */
+  --fw-bold:     700;
+
+  /* ---------- SPACING (4px base) ---------- */
+  --space-1: 4px;   --space-2: 8px;   --space-3: 12px;
+  --space-4: 16px;  --space-5: 20px;  --space-6: 24px;
+  --space-8: 32px;  --space-10: 40px; --space-12: 48px;
+  --space-16: 64px; --space-20: 80px;
+
+  /* ---------- RADII ---------- */
+  --radius:    0.5rem;  /* 8px — base */
+  --radius-xs: 2px;     /* inputs   */
+  --radius-sm: 4px;     /* small buttons, chips */
+  --radius-md: 6px;
+  --radius-lg: 8px;     /* cards */
+  --radius-xl: 12px;
+  --radius-full: 9999px;
+
+  /* ---------- SHADOWS ---------- */
+  --shadow-xs:     0px 1px 2px 0px rgba(3, 34, 59, 0.06);
+  --shadow-card:   0px 1px 4px 0px rgba(3, 34, 59, 0.10);   /* card-surface */
+  --shadow-hover:  0px 4px 12px 0px rgba(3, 34, 59, 0.10);  /* card-surface-hover */
+  --shadow-popover:0px 8px 24px 0px rgba(3, 34, 59, 0.14);
+  --shadow-modal:  0px 16px 40px 0px rgba(3, 34, 59, 0.18);
+
+  /* ---------- MOTION ---------- */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-enter:    cubic-bezier(0, 0, 0.2, 1);
+  --ease-exit:     cubic-bezier(0.4, 0, 1, 1);
+  --dur-fast:   120ms;
+  --dur-base:   200ms;
+  --dur-slow:   320ms;
+}
+
+/* ============================================================
+   SEMANTIC TYPE STYLES
+   ============================================================ */
+
+html { font-family: var(--font-sans); }
+body {
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
+  color: var(--primary-text-wMain);
+  background: var(--background-w10);
+  -webkit-font-smoothing: antialiased;
+}
+
+.text-display  { font-size: var(--fs-5xl); line-height: var(--lh-5xl); font-weight: var(--fw-semibold); letter-spacing: -0.02em; }
+.text-h1       { font-size: var(--fs-4xl); line-height: var(--lh-4xl); font-weight: var(--fw-semibold); letter-spacing: -0.01em; }
+.text-h2       { font-size: var(--fs-3xl); line-height: var(--lh-3xl); font-weight: var(--fw-semibold); }
+.text-h3       { font-size: var(--fs-2xl); line-height: var(--lh-2xl); font-weight: var(--fw-semibold); }
+.text-h4       { font-size: var(--fs-xl);  line-height: var(--lh-xl);  font-weight: var(--fw-medium); }
+.text-lead     { font-size: var(--fs-md);  line-height: var(--lh-md);  font-weight: var(--fw-regular); color: var(--primary-text-wMain); }
+.text-body     { font-size: var(--fs-base);line-height: var(--lh-base);font-weight: var(--fw-regular); }
+.text-small    { font-size: var(--fs-sm);  line-height: var(--lh-sm);  font-weight: var(--fw-regular); color: var(--secondary-text-wMain); }
+.text-caption  { font-size: var(--fs-xs);  line-height: var(--lh-xs);  font-weight: var(--fw-medium); color: var(--secondary-text-wMain); text-transform: uppercase; letter-spacing: 0.04em; }
+.text-code     { font-family: var(--font-mono); font-size: var(--fs-sm); background: var(--secondary-w10); padding: 1px 6px; border-radius: var(--radius-sm); }
+
+.text-muted    { color: var(--secondary-text-wMain); }
+.text-brand    { color: var(--brand-wMain); }
+.text-error    { color: var(--error-wMain); }
+.text-success  { color: var(--success-wMain); }
+
+/* Primitive semantic mappings for shorthand use (fg1, fg2, bg1, etc) */
+:root {
+  --fg1: var(--primary-text-wMain);
+  --fg2: var(--secondary-text-wMain);
+  --fg-muted: var(--secondary-text-w50);
+  --fg-brand: var(--brand-wMain);
+  --bg1: var(--background-w10);
+  --bg2: var(--background-w20);
+  --bg-dark: var(--background-wMain);
+  --border-default: var(--secondary-w40);
+  --border-subtle: var(--secondary-w20);
+}

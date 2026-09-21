@@ -1,0 +1,1146 @@
+openapi: 3.1.0
+
+# The authenticated console surface — the normative contract between the
+# frontend and the backend.
+#
+# Authority: docs/design/common/contracts/console-integration.md §5 maps every
+# as-built operation to its permission and resource scope; this document is the
+# machine-readable half of that map for the subset plans 006/007 build.
+#
+# Two rules bind every operation below, and check 11 enforces both:
+#   1. `x-sm-permission` names a verb from the ratified 38-member catalog
+#      (docs/design/D10-G2-APPROVAL-2026-09-15.md §1.1 + §1.7), or one of the
+#      three declared non-catalog values. An operation needing an unapproved
+#      verb MUST NOT appear here: it answers 501, never 403 (§5.6 rule 5).
+#   2. `x-sm-scope` names a level of the FIVE-level grant hierarchy
+#      (ruling OR-16), or `self` / `derived` / `install`. ⛔ `placement` is NOT
+#      a grant level — a placement-targeted operation authorizes through its
+#      owning instance.
+
+info:
+  title: Solution Manager — console API
+  version: 0.1.0
+  description: |
+    The authenticated surface. Not yet implemented: see
+    `contracts/openapi/ENDPOINT-INVENTORY.md` for what exists, what is planned
+    and what answers 501.
+
+    **Every response that carries server state carries `stateVersion`.** It is
+    the only ordering signal (`BE-D4`); clients refetch when a mesh notice
+    reports a higher one, and compare nothing else. Timestamps are not ordering.
+
+    **REST is authoritative** (`BE-D1`, ruling `OR-3`). Events are refetch
+    notices and never become state. Polling is a declared degraded mode, not
+    the architecture.
+
+servers:
+  - url: /api
+    description: Same-origin. The browser learns this from `/config.json`'s `apiBasePath`.
+
+tags:
+  - name: auth
+    description: Session lifecycle. Cookie-based, durable and revocable, CSRF-protected.
+  - name: hierarchy
+    description: The scope tree the caller can see, pruned to their bindings.
+  - name: catalog
+    description: Solutions and packages.
+  - name: targets
+    description: Deployment targets.
+  - name: instances
+    description: Instance inventory and lifecycle.
+  - name: designer
+    description: Configuration authoring, staging and history.
+  - name: apply
+    description: The apply path — submission, observation, rollback, stop.
+  - name: governance
+    description: Health, the configuration ladder and logs.
+
+security:
+  - sessionCookie: []
+
+paths:
+
+  # ── auth ──────────────────────────────────────────────────────────────────
+
+  /cp/auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      summary: Establish a session
+      description: |
+        Establishes the session, so it requires no verb. Rate-limited and
+        lockout-protected. On success the response sets the session cookie and
+        returns the CSRF token the client must echo on every mutation.
+
+        ⚠️ A principal whose `mustRotate` is set receives a session that
+        authorizes **only** `/cp/auth/identity`, `/cp/auth/logout` and
+        `/cp/auth/credential` until the credential is rotated.
+      security: []
+      x-sm-permission: none.establishesSession
+      x-sm-scope: self
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, credential]
+              properties:
+                username: { type: string, minLength: 1, maxLength: 256 }
+                credential: { type: string, minLength: 1, format: password }
+      responses:
+        '200':
+          description: Session established.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Identity' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '429':
+          description: Rate-limited or locked out. The body never distinguishes which.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /cp/auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: Revoke the current session
+      description: Authentication only. Available while `mustRotate` is set.
+      x-sm-permission: none.authenticationOnly
+      x-sm-scope: self
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      responses:
+        '204': { description: Session revoked. Idempotent. }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/CsrfRejected' }
+
+  /cp/auth/identity:
+    get:
+      tags: [auth]
+      operationId: getIdentity
+      summary: The current principal and its effective permissions
+      description: |
+        ⚠️ **Authentication only — no verb** (ruling `OR-15`). Requiring
+        `authz.introspect.self` here would make a role created without it
+        render an empty permission overlay for a principal who can nonetheless
+        act. `authz.introspect.any` still guards reading *another* principal.
+      x-sm-permission: none.authenticationOnly
+      x-sm-scope: self
+      responses:
+        '200':
+          description: The caller's identity.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Identity' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /cp/auth/credential:
+    post:
+      tags: [auth]
+      operationId: rotateOwnCredential
+      summary: Rotate the caller's own credential
+      description: |
+        ⛔ **Not a catalog verb.** `LocalOperation.ROTATE_OWN_CREDENTIAL` is
+        cp-core-local: the catalog has 38 members and none of them is this.
+        Verifies the current credential, and clears `mustRotate` on success.
+      x-sm-permission: local.rotateOwnCredential
+      x-sm-scope: self
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentCredential, newCredential]
+              properties:
+                currentCredential: { type: string, format: password }
+                newCredential: { type: string, format: password, minLength: 12 }
+      responses:
+        '204': { description: Rotated. `mustRotate` is cleared and every other session for this principal is revoked. }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/CsrfRejected' }
+
+  # ── hierarchy ─────────────────────────────────────────────────────────────
+
+  /cp/hierarchy/organizations:
+    get:
+      tags: [hierarchy]
+      operationId: listOrganizations
+      summary: The organizations the caller can see
+      description: Authentication only; the result is derived from the caller's bindings.
+      x-sm-permission: none.authenticationOnly
+      x-sm-scope: derived
+      responses:
+        '200':
+          description: Visible organizations.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScopeNodeList' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /cp/hierarchy/organizations/{organizationId}/sub-orgs:
+    parameters: [{ $ref: '#/components/parameters/OrganizationId' }]
+    get:
+      tags: [hierarchy]
+      operationId: listSubOrganizations
+      summary: Sub-organizations of one organization
+      x-sm-permission: none.authenticationOnly
+      x-sm-scope: derived
+      responses:
+        '200':
+          description: Visible sub-organizations.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScopeNodeList' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+
+  /cp/hierarchy/organizations/{organizationId}/sub-orgs/{subOrganizationId}/environments:
+    parameters:
+      - { $ref: '#/components/parameters/OrganizationId' }
+      - { $ref: '#/components/parameters/SubOrganizationId' }
+    get:
+      tags: [hierarchy]
+      operationId: listEnvironments
+      summary: Environments of one sub-organization
+      x-sm-permission: none.authenticationOnly
+      x-sm-scope: derived
+      responses:
+        '200':
+          description: Visible environments.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScopeNodeList' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+
+  # ── catalog ───────────────────────────────────────────────────────────────
+
+  /cp/solutions:
+    get:
+      tags: [catalog]
+      operationId: listSolutions
+      summary: Solutions visible to the caller
+      x-sm-permission: solution.view
+      x-sm-scope: organization
+      responses:
+        '200':
+          description: Solutions, filtered to the caller's scopes.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SolutionList' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /cp/solutions/load:
+    post:
+      tags: [catalog]
+      operationId: loadPackage
+      summary: Load a solution package
+      description: |
+        ⚠️ **Organization-scoped** (ruling `OR-14`), not install-scoped. A
+        multi-organization install must not need an install-wide grant to load
+        a package. High-consequence and audited.
+      x-sm-permission: package.load
+      x-sm-scope: organization
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [organizationId, package]
+              properties:
+                organizationId: { type: string, format: uuid }
+                package:
+                  description: A Solution Package conforming to contracts/solution-package.schema.json.
+                  type: object
+                  additionalProperties: true
+      responses:
+        '202':
+          description: Accepted for validation and registration.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Versioned' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422':
+          description: The package failed a load-time gate. The body names the gate.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  # ── targets ───────────────────────────────────────────────────────────────
+
+  /cp/targets:
+    get:
+      tags: [targets]
+      operationId: listTargets
+      summary: Deployment targets visible to the caller
+      description: |
+        ⚠️ Targets are **not** in the ownership tree (`SM-D23`); each carries
+        its own `ownership_scope` path.
+      x-sm-permission: target.view
+      x-sm-scope: organization
+      responses:
+        '200':
+          description: Targets.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TargetList' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ── instances ─────────────────────────────────────────────────────────────
+
+  /dp/solutions/{solutionId}/instances:
+    parameters: [{ $ref: '#/components/parameters/SolutionId' }]
+    get:
+      tags: [instances]
+      operationId: listInstances
+      summary: Instances of one solution
+      x-sm-permission: instance.view
+      x-sm-scope: solution
+      responses:
+        '200':
+          description: Instances, filtered to the caller's scopes.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InstanceList' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+    post:
+      tags: [instances]
+      operationId: declareInstance
+      summary: Declare an instance
+      description: |
+        Requires `instance.create` at the environment **and** `instance.bindTarget`
+        plus `target.use` for the target being bound — `D10`'s two-sided rule.
+      x-sm-permission: instance.create
+      x-sm-permission-also: [instance.bindTarget, target.use]
+      x-sm-scope: environment
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [environmentId, name, targetId]
+              properties:
+                environmentId: { type: string, format: uuid }
+                name: { type: string, minLength: 1, maxLength: 128 }
+                targetId: { type: string, format: uuid }
+      responses:
+        '201':
+          description: Declared.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Instance' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /dp/instances/{instanceId}:
+    parameters: [{ $ref: '#/components/parameters/InstanceId' }]
+    get:
+      tags: [instances]
+      operationId: getInstance
+      summary: One instance
+      x-sm-permission: instance.view
+      x-sm-scope: instance
+      responses:
+        '200':
+          description: The instance.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Instance' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+
+  # ── designer ──────────────────────────────────────────────────────────────
+
+  /dp/instances/{instanceId}/designer:
+    parameters: [{ $ref: '#/components/parameters/InstanceId' }]
+    get:
+      tags: [designer]
+      operationId: getDesigner
+      summary: The config-driven designer view model
+      description: |
+        ⛔ **`I6`: no resolved secret value is ever returned.** Fields marked
+        `secretRef` carry the reference and a presence flag, never the value.
+      x-sm-permission: config.view
+      x-sm-scope: instance
+      responses:
+        '200':
+          description: The designer view model.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Designer' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+
+  /dp/instances/{instanceId}/config:
+    parameters: [{ $ref: '#/components/parameters/InstanceId' }]
+    post:
+      tags: [designer]
+      operationId: stageConfig
+      summary: Save and stage a configuration change
+      description: Staging writes nothing to the host. Only apply does.
+      x-sm-permission: config.edit
+      x-sm-scope: instance
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [values, baseStateVersion]
+              properties:
+                values: { type: object, additionalProperties: true }
+                baseStateVersion:
+                  $ref: '#/components/schemas/StateVersion'
+      responses:
+        '200':
+          description: Staged.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StagedConfig' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: A newer `stateVersion` exists. Refetch and re-stage.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /dp/instances/{instanceId}/config/history:
+    parameters: [{ $ref: '#/components/parameters/InstanceId' }]
+    get:
+      tags: [designer]
+      operationId: getConfigHistory
+      summary: Configuration history
+      description: "⛔ **`I6`: history is redacted at the same boundary as the designer.**"
+      x-sm-permission: config.view
+      x-sm-scope: instance
+      responses:
+        '200':
+          description: History entries, newest first.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConfigHistory' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+
+  # ── apply ─────────────────────────────────────────────────────────────────
+
+  /dp/instances/{instanceId}/apply:
+    parameters: [{ $ref: '#/components/parameters/InstanceId' }]
+    post:
+      tags: [apply]
+      operationId: submitApply
+      summary: Submit an apply
+      description: |
+        ⚠️ Requires `instance.restart` **in addition to** `config.apply`
+        whenever the selected strategy restarts anything. Under the default
+        `manual` strategy the core never restarts, so `config.apply` alone is
+        enough.
+
+        **Returns `202` before any adapter call.** The apply is durable the
+        moment it is admitted; progress is observed, not awaited.
+      x-sm-permission: config.apply
+      x-sm-permission-also: [instance.restart]
+      x-sm-scope: instance
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [generation, strategy]
+              properties:
+                generation:
+                  type: integer
+                  format: int64
+                  minimum: 1
+                  description: Required for an apply, and only for an apply.
+                strategy:
+                  $ref: '#/components/schemas/Strategy'
+                placementId:
+                  type: string
+                  format: uuid
+                  description: Absent means instance-wide.
+                outageConfirmedBy:
+                  type: string
+                  description: Required when `strategy` is `restart-all`.
+      responses:
+        '202':
+          description: Admitted and durable.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApplyAccepted' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: Admission refused — an apply is already in flight for this scope.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /dp/instances/{instanceId}/apply/observe:
+    parameters: [{ $ref: '#/components/parameters/InstanceId' }]
+    get:
+      tags: [apply]
+      operationId: observeApply
+      summary: Observe apply progress and backfill by stateVersion
+      description: |
+        The authoritative backfill path (`BE-D1`). A client that missed mesh
+        notices catches up here by passing `sinceStateVersion`.
+      x-sm-permission: config.view
+      x-sm-scope: instance
+      parameters:
+        - name: sinceStateVersion
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/StateVersion' }
+      responses:
+        '200':
+          description: Apply state at or after the requested version.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApplyObservation' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+
+  /dp/instances/{instanceId}/apply/rollback:
+    parameters: [{ $ref: '#/components/parameters/InstanceId' }]
+    post:
+      tags: [apply]
+      operationId: rollbackApply
+      summary: Roll back to the previous generation
+      x-sm-permission: config.rollback
+      x-sm-permission-also: [instance.restart]
+      x-sm-scope: instance
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [applyId]
+              properties:
+                applyId: { type: string, format: uuid }
+      responses:
+        '202':
+          description: Rollback admitted.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApplyAccepted' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: Not rollbackable, or another apply is in flight.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /dp/instances/{instanceId}/stop:
+    parameters: [{ $ref: '#/components/parameters/InstanceId' }]
+    post:
+      tags: [apply]
+      operationId: stopInstance
+      summary: Stop an instance, or one of its placements
+      description: |
+        ⛔ **Administrator-only, HIGH consequence, audited, idempotent** —
+        catalog row 36, assigned to plan 007 Task 6b by ruling `OR-18`.
+
+        **Targeting, exactly as the engine executes it** (`BE-D26`): one
+        placement, or the whole instance. **An absent `placementId` means
+        instance-wide** and is sent to the engine as the nil-UUID sentinel
+        `PlacementId.INSTANCE_WIDE`; an instance-wide stop addresses every
+        placement the instance has a history with and lands under **one**
+        `applyId`.
+
+        ⚠️ **Authorized at the OWNING INSTANCE scope** (ruling `OR-16`).
+        Placement is an operational child identity, not a grantable level, so
+        a binding cannot grant `stop` for one placement only.
+
+        ⛔ **No `generation`, no `strategy`, no `outageConfirmedBy`.** The
+        engine's `ApplyCommand` rejects all three on a stop; accepting them
+        would be an API that cannot execute.
+
+        **Idempotent:** stopping an already-stopped instance returns `202` and
+        still writes one audit line. ⚠️ Two failures land *after* admission and
+        therefore still return `202`, surfacing as a terminal `STOP_FAILED` on
+        the request: `stop.no.known.placement` (instance-wide against an
+        instance with no placement history) and `stop.replica.label.collision`.
+      x-sm-permission: instance.stop
+      x-sm-scope: instance
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                placementId:
+                  type: [string, "null"]
+                  format: uuid
+                  description: Absent or null means instance-wide.
+              additionalProperties: false
+      responses:
+        '202':
+          description: |
+            Stop admitted and durable. ⚠️ Does not mean the workload stopped —
+            observe the request for its terminal state.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApplyAccepted' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+        '409':
+          description: A stop is already in flight for this scope.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  # ── governance ────────────────────────────────────────────────────────────
+
+  /dp/instances/{instanceId}/health:
+    parameters: [{ $ref: '#/components/parameters/InstanceId' }]
+    get:
+      tags: [governance]
+      operationId: getHealth
+      summary: Instance health
+      x-sm-permission: health.view
+      x-sm-scope: instance
+      responses:
+        '200':
+          description: Health, per placement and rolled up.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+
+  /dp/instances/{instanceId}/config-ladder:
+    parameters: [{ $ref: '#/components/parameters/InstanceId' }]
+    get:
+      tags: [governance]
+      operationId: getConfigLadder
+      summary: The configuration-state ladder
+      description: |
+        Where the instance sits between *authored*, *staged*, *applied* and
+        *observed on the host*. ⛔ **`I6`: values are never returned, only
+        state and hashes computed over references.**
+      x-sm-permission: config.view
+      x-sm-scope: instance
+      responses:
+        '200':
+          description: The ladder.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConfigLadder' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+
+  /dp/instances/{instanceId}/logs/{component}:
+    parameters:
+      - { $ref: '#/components/parameters/InstanceId' }
+      - { $ref: '#/components/parameters/Component' }
+    get:
+      tags: [governance]
+      operationId: readLogs
+      summary: Read logs for one component
+      x-sm-permission: logs.read
+      x-sm-scope: instance
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 1000, default: 200 }
+      responses:
+        '200':
+          description: Log lines.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LogPage' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+
+  /dp/instances/{instanceId}/log-levels/{component}:
+    parameters:
+      - { $ref: '#/components/parameters/InstanceId' }
+      - { $ref: '#/components/parameters/Component' }
+    get:
+      tags: [governance]
+      operationId: getLogLevel
+      summary: Read the current log level
+      x-sm-permission: logs.read
+      x-sm-scope: instance
+      responses:
+        '200':
+          description: The level.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LogLevel' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+    post:
+      tags: [governance]
+      operationId: setLogLevel
+      summary: Change the log level
+      description: High-consequence and audited.
+      x-sm-permission: logs.setLevel
+      x-sm-scope: instance
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [level]
+              properties:
+                level:
+                  type: string
+                  enum: [TRACE, DEBUG, INFO, WARN, ERROR]
+      responses:
+        '202':
+          description: Accepted.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Versioned' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+components:
+
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: SM_SESSION
+      description: |
+        Durable, revocable, server-side session. ⛔ Every mutating request must
+        also carry the CSRF header `X-SM-CSRF`, whose value comes from the
+        login or identity response. A mutation without it is rejected 403.
+
+  parameters:
+    OrganizationId:
+      name: organizationId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    SubOrganizationId:
+      name: subOrganizationId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    SolutionId:
+      name: solutionId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    InstanceId:
+      name: instanceId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Component:
+      name: component
+      in: path
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 128 }
+    CsrfToken:
+      name: X-SM-CSRF
+      in: header
+      required: true
+      description: Session-bound CSRF token returned by login or identity.
+      schema: { type: string, minLength: 1 }
+
+  responses:
+    Unauthenticated:
+      description: No session, or the session is expired or revoked.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Forbidden:
+      description: |
+        Authenticated, and the required verb is not held at the required scope.
+        ⚠️ Also returned when a mutation is missing or failing CSRF.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    CsrfRejected:
+      description: The CSRF token was missing or did not match.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    NotFoundOrUnauthorized:
+      description: |
+        ⚠️ **Deliberately indistinguishable from "exists but out of your
+        scope".** Discriminating the two leaks existence across a scope
+        boundary.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    BadRequest:
+      description: The request failed validation.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+
+  schemas:
+
+    StateVersion:
+      type: integer
+      format: int64
+      minimum: 0
+      description: |
+        The **only** ordering signal (`BE-D4`). Monotonic per entity. A client
+        refetches when it sees a higher one and compares nothing else —
+        timestamps are not ordering.
+
+    Problem:
+      type: object
+      description: RFC 9457 problem detail. ⛔ Never carries a resolved secret.
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri-reference }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string, format: uri-reference }
+
+    Availability:
+      type: object
+      description: |
+        Per-surface liveness. ⚠️ **A degraded surface is declared, never
+        silently empty** — the console must render the reason rather than an
+        empty state. Polling is a declared degraded mode (`BE-D6`, `OR-3`),
+        not the architecture.
+      required: [state]
+      properties:
+        state:
+          type: string
+          enum: [live, degraded, unavailable]
+        mode:
+          type: string
+          enum: [events, polling]
+          description: How this surface is currently being kept fresh.
+        reason:
+          type: string
+          description: Required when `state` is not `live`.
+        since:
+          type: string
+          format: date-time
+
+    Versioned:
+      type: object
+      required: [stateVersion]
+      properties:
+        stateVersion: { $ref: '#/components/schemas/StateVersion' }
+        availability: { $ref: '#/components/schemas/Availability' }
+
+    ApplyAccepted:
+      allOf:
+        - $ref: '#/components/schemas/Versioned'
+        - type: object
+          required: [applyId]
+          properties:
+            applyId: { type: string, format: uuid }
+
+    Identity:
+      type: object
+      description: Authentication state is not a notify entity and has no stateVersion watermark.
+      required: [principalId, username, source, mustRotate, permissions, csrfToken]
+      properties:
+        principalId: { type: string, format: uuid }
+        username: { type: string }
+        source:
+          type: string
+          enum: [local, idp]
+        mustRotate:
+          type: boolean
+          description: While true, only identity, logout and credential rotation are authorized.
+        csrfToken: { type: string }
+        permissions:
+          type: array
+          description: |
+            The caller's effective permissions, each with the scopes it is
+            held at. ⚠️ The console uses this to render, never to decide —
+            the server decides.
+          items:
+            type: object
+            required: [permission, scopes]
+            properties:
+              permission: { type: string }
+              scopes:
+                type: array
+                items: { $ref: '#/components/schemas/ScopePath' }
+
+    ScopePath:
+      type: object
+      description: |
+        A position in the **five-level** grant hierarchy (ruling `OR-16`):
+        Organization → Sub-organization → Environment → Solution → Instance.
+        ⛔ **There is no placement component** — a placement-targeted operation
+        authorizes through its owning instance.
+      properties:
+        organizationId: { type: string, format: uuid }
+        subOrganizationId: { type: string, format: uuid }
+        environmentId: { type: string, format: uuid }
+        solutionId: { type: string, format: uuid }
+        instanceId: { type: string, format: uuid }
+
+    ScopeNode:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+
+    ScopeNodeList:
+      allOf:
+        - $ref: '#/components/schemas/Versioned'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/ScopeNode' }
+
+    Solution:
+      type: object
+      required: [solutionId, name]
+      properties:
+        solutionId: { type: string, format: uuid }
+        name: { type: string }
+        packageVersion:
+          type: array
+          items: { type: integer }
+
+    SolutionList:
+      allOf:
+        - $ref: '#/components/schemas/Versioned'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/Solution' }
+
+    Target:
+      type: object
+      required: [targetId, name, kind]
+      properties:
+        targetId: { type: string, format: uuid }
+        name: { type: string }
+        kind:
+          type: string
+          enum: [docker, kubernetes, vm]
+
+    TargetList:
+      allOf:
+        - $ref: '#/components/schemas/Versioned'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/Target' }
+
+    Instance:
+      allOf:
+        - $ref: '#/components/schemas/Versioned'
+        - type: object
+          required: [instanceId, name, solutionId, environmentId]
+          properties:
+            instanceId: { type: string, format: uuid }
+            name: { type: string }
+            solutionId: { type: string, format: uuid }
+            environmentId: { type: string, format: uuid }
+            placements:
+              type: array
+              description: |
+                Operational children of this instance. ⚠️ Present in the API by
+                design (`OR-2`); ⛔ **not a grant level** (`OR-16`).
+              items:
+                type: object
+                required: [placementId]
+                properties:
+                  placementId: { type: string, format: uuid }
+                  targetId: { type: string, format: uuid }
+
+    InstanceList:
+      allOf:
+        - $ref: '#/components/schemas/Versioned'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/Instance' }
+
+    Designer:
+      allOf:
+        - $ref: '#/components/schemas/Versioned'
+        - type: object
+          required: [fields]
+          properties:
+            fields:
+              type: array
+              items:
+                type: object
+                required: [key, type]
+                properties:
+                  key: { type: string }
+                  type: { type: string }
+                  value:
+                    description: ⛔ Absent for any `secretRef` field.
+                  secretRef: { type: string }
+                  secretPresent: { type: boolean }
+
+    StagedConfig:
+      allOf:
+        - $ref: '#/components/schemas/Versioned'
+        - type: object
+          required: [generation]
+          properties:
+            generation: { type: integer, format: int64 }
+
+    ConfigHistory:
+      allOf:
+        - $ref: '#/components/schemas/Versioned'
+        - type: object
+          required: [entries]
+          properties:
+            entries:
+              type: array
+              items:
+                type: object
+                required: [generation, at, by]
+                properties:
+                  generation: { type: integer, format: int64 }
+                  at: { type: string, format: date-time }
+                  by: { type: string }
+                  configHash:
+                    type: string
+                    description: Computed over references, never over resolved values (`I6`).
+
+    Strategy:
+      type: string
+      description: |
+        ⚠️ Only `manual` and `rolling-health-gated` are selectable. The
+        high-consequence strategies `restart-all` and `rolling-no-validation`
+        have **no approved verb** (open item 39 letter b), so they are not
+        offered and an attempt answers 501, never 403.
+      enum: [manual, rolling-health-gated]
+
+    ApplyObservation:
+      allOf:
+        - $ref: '#/components/schemas/Versioned'
+        - type: object
+          required: [applyId, state]
+          properties:
+            applyId: { type: string, format: uuid }
+            state:
+              type: string
+              enum: [REQUESTED, RUNNING, APPLIED, FAILED, STOP_FAILED, ROLLED_BACK, SUPERSEDED]
+            steps:
+              type: array
+              items:
+                type: object
+                required: [step, outcome]
+                properties:
+                  step: { type: string }
+                  placementId: { type: string, format: uuid }
+                  outcome: { type: string }
+                  reason:
+                    type: string
+                    description: Present on failure — e.g. `stop.no.known.placement`.
+
+    Health:
+      allOf:
+        - $ref: '#/components/schemas/Versioned'
+        - type: object
+          required: [state]
+          properties:
+            state:
+              type: string
+              enum: [HEALTHY, DEGRADED, UNHEALTHY, UNKNOWN]
+            placements:
+              type: array
+              items:
+                type: object
+                required: [placementId, state]
+                properties:
+                  placementId: { type: string, format: uuid }
+                  state: { type: string }
+
+    ConfigLadder:
+      allOf:
+        - $ref: '#/components/schemas/Versioned'
+        - type: object
+          required: [rungs]
+          properties:
+            rungs:
+              type: array
+              items:
+                type: object
+                required: [rung, present]
+                properties:
+                  rung:
+                    type: string
+                    enum: [authored, staged, applied, observed]
+                  present: { type: boolean }
+                  generation: { type: integer, format: int64 }
+                  configHash: { type: string }
+
+    LogLevel:
+      allOf:
+        - $ref: '#/components/schemas/Versioned'
+        - type: object
+          required: [component, level]
+          properties:
+            component: { type: string }
+            level: { type: string }
+
+    LogPage:
+      allOf:
+        - $ref: '#/components/schemas/Versioned'
+        - type: object
+          required: [lines]
+          properties:
+            lines:
+              type: array
+              items:
+                type: object
+                required: [at, message]
+                properties:
+                  at: { type: string, format: date-time }
+                  level: { type: string }
+                  message: { type: string }

@@ -42,6 +42,7 @@ not resolved: **`UI-D19` vs `B/D4`**, **`UI-D21` vs `D1`**, and **`UI-D12` super
 | `UI-D21` | Package-supplied UI code is replaced by SM-built named screen types | PROPOSED ⚠️ |
 | `UI-D22` | Dynamic option sources and actions are closed-vocabulary members | PROPOSED |
 | `UI-D23` | `yaml` fields are a bounded tunnel with four stated limits | PROPOSED |
+| `UI-D24` | Virtual fields drive the form and predicates but are never written to config | PROPOSED |
 
 ---
 
@@ -96,7 +97,9 @@ diff, export and the config hash follow the rendered set.
 
 **Rationale.** Explicit marking lets the renderer swap a subtree deliberately and lets validation run only the
 live branch. Retention preserves work on switch-and-switch-back; non-rendering prevents the MI receiving
-settings for a server type it is not using. Gate 6 requires discriminators be `enum`.
+settings for a server type it is not using. Gate 6 requires a discriminator to have an **enumerable
+domain** — `enum` **or** `bool`. It read `enum` only until the Cache fixture caught `solace.enabled`, a
+boolean discriminator gating the entire broker subtree; File Mesh has one too (`CONFIG_JAVA_RUNTIME`).
 
 ## `UI-D5` — Undeclared metrics are quarantined, not rejected
 
@@ -379,7 +382,7 @@ a materially different security posture and should not be adopted speculatively.
 A field declares static `options` **or** an `optionsSource`, never both. `optionsSource.kind` is closed at
 **`sm-catalog`**, whose `entity` is closed at `broker · environment · connection · instance · metric`.
 **Actions are not fields** — they hold no value and appear in no config file — and `action.kind` is closed at
-`test-connection · browse-remote-path · refresh-catalog`. `type: table` declares its own scalar `columns`.
+**`test-connection · manage-catalog-entry`**. `type: table` declares its own scalar `columns`.
 
 **Rationale.** The first draft's vocabulary **could not express File Mesh at all**, which made `UI-D14`'s
 acceptance gate self-refuting: `COMP_SINK_SOLACE` carries **14 buttons and 8 api-sourced fields**
@@ -393,8 +396,15 @@ endpoint is a package-supplied code path in everything but syntax, which defeats
 **server-side only**, resolving the secret at render time and returning a verdict — never the credential. A
 client-side test would require shipping the resolved secret to the browser.
 
-**Residual risk:** three `action.kind` members cover File Mesh's observed buttons by category, but 160 buttons
-were not individually classified. A miss is a vocabulary addition, i.e. an SM release.
+⚠️ **Corrected by building the fixture.** The first draft proposed `browse-remote-path` and `refresh-catalog`
+on no evidence; both are **dropped**. Of the **16 distinct buttons across all 1,989 rows**, exactly **one**
+(`TEST_CONNECTION`) is api-backed and five manage catalog entries. The other ten are not declarations at all:
+eight are **renderer chrome** (`BACK`, `REFRESH`, `SAVE*`) that SM's shell owns, and two (`DEPLOY_CONNECTOR`,
+`DOWNLOAD_BINARY`) are **out of SM scope per `I1`** — the customer's CI/CD deploys artifacts.
+
+**Residual gap, not closed:** File Mesh's `SELECT_BROKER` **populates** `solace/java/msg-vpn` and friends from
+the chosen catalog entry; 42 `COMP_SINK_SOLACE` rows are broker attributes with no config path. The contract
+declares the selector and the targets but not the population. See `design.md` §9 item 10.
 
 ## `UI-D23` — `yaml` fields are a bounded tunnel with four stated limits
 
@@ -412,6 +422,22 @@ they can shadow properties SM wrote elsewhere in the same file; `secret: true` m
 so a pasted password is stored, diffed and exported in clear, defeating `I6`; and `UI-D16`'s bind-tier
 certainty evaporates because Spring binds whatever is there. The first draft admitted `yaml` to the closed
 vocabulary and said nothing about its content.
+
+## `UI-D24` — Virtual fields drive the form and predicates but are never written to config
+
+A field may declare `virtual: true`. It renders, participates in `when:` predicates, and is stored in the
+instance draft so the choice persists — but it is **never written to the config file** and is **outside
+T-KEYS**, because it does not exist in the MI.
+
+**Rationale.** Forced by building the File Mesh fixture. **All 11** fields referenced by a File Mesh predicate
+— `ACTION`, `SERVER_TYPE`, `ALLOW_SSL`, `ALLOW_SEMP`, `DEPLOYMENT_MODE`, `DEPLOYMENT_FORM_FACTOR`,
+`DEPLOY_TYPE`, `DOWNLOAD_LOCATION`, `GIT_CONFIGURATION`, `CONFIG_JAVA_RUNTIME`, `fileFormat` — have **no
+`CONFIGURATION_PATH`**. Since `field.key` *is* the config property path, none of them could be a field, so
+gate 4 would have rejected **every File Mesh predicate**. `UI-D2`, `UI-D3` and `UI-D4` were unusable against
+the one MI whose applicability data actually exists. The generated fixture carries **54 virtual fields**.
+
+**Relationship to `UI-D4`:** this is the permanent form of the same rule. An inactive discriminator branch is
+retained in the draft and not rendered; a virtual field is retained in the draft and *never* rendered.
 
 ---
 
@@ -438,3 +464,16 @@ were found to be *understated*. Applied in place per the amendment policy above.
 | **`UI-D22`** | **NEW** — dynamic option sources, actions, `type: table`. Closes the unpassable acceptance gate |
 | **`UI-D23`** | **NEW** — `yaml` field limits. Closes an `I6` and bind-tier hole |
 | Header | "One such conflict exists" corrected to **two conflicts and one supersession** |
+
+## Changelog — fixture-build corrections
+
+Building `contracts/validation/fixtures/` against the real 1,989 File Mesh rows falsified three parts of the contract.
+All checks now pass via `contracts/run-checks.sh`.
+
+| Decision | Change |
+|---|---|
+| **`UI-D24`** | **NEW** — virtual fields. Without them the contract could not express **any** File Mesh predicate |
+| `UI-D22` | `action.kind` corrected to `test-connection` + `manage-catalog-entry`; `browse-remote-path` and `refresh-catalog` dropped for lack of evidence. Catalog-populates recorded as an open gap |
+| `UI-D4` / gate 6 | Widened from `enum` to **`enum \| bool`** — `solace.enabled` is a boolean discriminator, as is File Mesh's `CONFIG_JAVA_RUNTIME` |
+| `UI-D1` | Confirmed unchanged: `FILE_PROCESS_CONFIGURATION` variants (differing in 58 of 65 FTP fields) are expressible as separate component types |
+| `UI-D14` | Confirmed: `field.key` is the config path, not File Mesh's `CONFIGURATION_FIELD` label — 57 label collisions, all resolved by `SECTION`+`PATH`, none irreducible |

@@ -1,0 +1,11 @@
+### [OK] (s-negB) the LITERAL full Phase 0 as a NON-superuser database owner — must WARN on the REVOKE, not error  (container=negctl role=sm_installer db=smdb)
+--- RESULT ---
+CREATE ROLE
+CREATE ROLE
+CREATE ROLE
+GRANT ROLE
+CREATE SCHEMA
+GRANT
+REVOKE
+WARNING:  01006: no privileges could be revoked for "public"
+LOCATION:  restrict_and_check_grant, aclchk.c:333

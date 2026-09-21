@@ -1,0 +1,109 @@
+### [REFUSED] (k) REFUSE: UPDATE apply_step_intent under runtime  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_step_intent SET config_hash='sha256:tampered' WHERE intent_id='e0000001-0000-4000-8000-000000000001';
+--- RESULT ---
+ERROR:  42501: permission denied for table apply_step_intent
+LOCATION:  aclcheck_error, aclchk.c:3452
+
+### [REFUSED] (k) REFUSE: DELETE apply_step_intent under runtime  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+DELETE FROM sm_data.apply_step_intent WHERE intent_id='e0000001-0000-4000-8000-000000000001';
+--- RESULT ---
+ERROR:  42501: permission denied for table apply_step_intent
+LOCATION:  aclcheck_error, aclchk.c:3452
+
+### [OK] (k) OWNER CONTROL: the SAME UPDATE succeeds via sm_dp_migrator  (container=main role=sm_dp_migrator db=smdb)
+--- SQL ---
+SET ROLE sm_dp_owner;
+BEGIN;
+UPDATE sm_data.apply_step_intent SET config_hash='sha256:tampered' WHERE intent_id='e0000001-0000-4000-8000-000000000001';
+SELECT 'owner updated intent rows='||count(*) FROM sm_data.apply_step_intent WHERE config_hash='sha256:tampered';
+ROLLBACK;
+--- RESULT ---
+?column?
+-----------------------------
+ owner updated intent rows=1
+(1 row)
+
+### [OK] (k) OWNER CONTROL: the SAME DELETE succeeds via sm_dp_migrator  (container=main role=sm_dp_migrator db=smdb)
+--- SQL ---
+SET ROLE sm_dp_owner;
+BEGIN;
+DELETE FROM sm_data.apply_attempt WHERE intent_id='e0000001-0000-4000-8000-000000000001';
+DELETE FROM sm_data.apply_step_intent WHERE intent_id='e0000001-0000-4000-8000-000000000001';
+SELECT 'owner deleted intent ok' AS r;
+ROLLBACK;
+--- RESULT ---
+r
+-------------------------
+ owner deleted intent ok
+(1 row)
+
+### [REFUSED] (l) REFUSE: SET ROLE sm_dp_owner under sm_dp_runtime  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+SET ROLE sm_dp_owner;
+--- RESULT ---
+ERROR:  42501: permission denied to set role "sm_dp_owner"
+LOCATION:  call_string_check_hook, guc.c:11616
+
+### [OK] (l) ASSERT: role topology cannot drift silently  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+SELECT pg_has_role('sm_dp_runtime','sm_dp_owner','MEMBER')  AS runtime_is_owner_member,
+       pg_has_role('sm_dp_migrator','sm_dp_owner','MEMBER') AS migrator_is_owner_member,
+       (SELECT rolinherit FROM pg_roles WHERE rolname='sm_dp_runtime') AS runtime_inherits,
+       (SELECT rolsuper   FROM pg_roles WHERE rolname='sm_dp_runtime') AS runtime_is_superuser;
+--- RESULT ---
+runtime_is_owner_member | migrator_is_owner_member | runtime_inherits | runtime_is_superuser
+-------------------------+--------------------------+------------------+----------------------
+ f                       | t                        | f                | f
+(1 row)
+
+### [REFUSED] (o) REFUSE on a NON-TERMINAL row: UPDATE apply_request.tenant_id  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET tenant_id='11111111-1111-4111-8111-111111111111' WHERE apply_id='c0000021-0000-4000-8000-000000000021';
+--- RESULT ---
+ERROR:  42501: permission denied for table apply_request
+LOCATION:  aclcheck_error, aclchk.c:3452
+
+### [REFUSED] (o) REFUSE on a NON-TERMINAL row: UPDATE apply_request.requested_by  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET requested_by='op:forged' WHERE apply_id='c0000021-0000-4000-8000-000000000021';
+--- RESULT ---
+ERROR:  42501: permission denied for table apply_request
+LOCATION:  aclcheck_error, aclchk.c:3452
+
+### [OK] (o) OWNER CONTROL: the SAME identity UPDATE succeeds on the non-terminal row  (container=main role=sm_dp_migrator db=smdb)
+--- SQL ---
+SET ROLE sm_dp_owner;
+BEGIN;
+UPDATE sm_data.apply_request SET requested_by='op:forged' WHERE apply_id='c0000021-0000-4000-8000-000000000021';
+SELECT 'owner rewrote requested_by rows='||count(*) FROM sm_data.apply_request WHERE requested_by='op:forged';
+ROLLBACK;
+--- RESULT ---
+?column?
+-----------------------------------
+ owner rewrote requested_by rows=1
+(1 row)
+
+### [OK] (o) POS: legal RUNNING -> APPLIED walk succeeds  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='APPLIED', terminal_at=now() WHERE apply_id='d0000001-0000-4000-8000-000000000001';
+--- RESULT ---
+
+
+### [REFUSED] (o) REFUSE: terminal walk-back APPLIED -> REQUESTED (apply_request_terminal_guard)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='REQUESTED', terminal_at=NULL WHERE apply_id='d0000001-0000-4000-8000-000000000001';
+--- RESULT ---
+ERROR:  P0001: apply_request d0000001-0000-4000-8000-000000000001 is terminal (APPLIED) and immutable
+CONTEXT:  PL/pgSQL function sm_data.forbid_terminal_regression() line 17 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3857
+
+### [REFUSED] (o) NOTE: the terminal guard binds the OWNER too (trigger, not grant)  (container=main role=sm_dp_migrator db=smdb)
+--- SQL ---
+SET ROLE sm_dp_owner;
+UPDATE sm_data.apply_request SET state='REQUESTED', terminal_at=NULL WHERE apply_id='d0000001-0000-4000-8000-000000000001';
+--- RESULT ---
+ERROR:  P0001: apply_request d0000001-0000-4000-8000-000000000001 is terminal (APPLIED) and immutable
+CONTEXT:  PL/pgSQL function sm_data.forbid_terminal_regression() line 17 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3857

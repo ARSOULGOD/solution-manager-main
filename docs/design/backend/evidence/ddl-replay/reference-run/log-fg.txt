@@ -1,0 +1,137 @@
+### [OK] (f) POS: MATERIALIZE intent WITH config_hash  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_step_intent(intent_id,tenant_id,apply_id,replica_ref,step,idempotency_key,config_hash,created_at)
+VALUES ('e0000001-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','replica-0','MATERIALIZE','idem-mat-0','sha256:aaa',now());
+--- RESULT ---
+
+
+### [REFUSED] (f) REFUSE dir1: ROLLBACK intent WITHOUT config_hash  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_step_intent(intent_id,tenant_id,apply_id,replica_ref,step,idempotency_key,created_at)
+VALUES ('e0000002-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','@placement','ROLLBACK','idem-rb-0',now());
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_step_intent" violates check constraint "hash_on_config_steps"
+DETAIL:  Failing row contains (e0000002-0000-4000-8000-000000000002, 11111111-1111-4111-8111-111111111111, d0000001-0000-4000-8000-000000000001, @placement, ROLLBACK, idem-rb-0, null, 2026-09-09 09:01:44.891477+00).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_step_intent
+CONSTRAINT NAME:  hash_on_config_steps
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (f) REFUSE dir1: VERIFY intent WITHOUT config_hash  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_step_intent(intent_id,tenant_id,apply_id,replica_ref,step,idempotency_key,created_at)
+VALUES ('e0000003-0000-4000-8000-000000000003','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','replica-0','VERIFY','idem-ver-0',now());
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_step_intent" violates check constraint "hash_on_config_steps"
+DETAIL:  Failing row contains (e0000003-0000-4000-8000-000000000003, 11111111-1111-4111-8111-111111111111, d0000001-0000-4000-8000-000000000001, replica-0, VERIFY, idem-ver-0, null, 2026-09-09 09:01:45.002606+00).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_step_intent
+CONSTRAINT NAME:  hash_on_config_steps
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (f) REFUSE dir2: STOP intent WITH a config_hash  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_step_intent(intent_id,tenant_id,apply_id,replica_ref,step,idempotency_key,config_hash,created_at)
+VALUES ('e0000004-0000-4000-8000-000000000004','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','replica-0','STOP','idem-stop-0','sha256:bbb',now());
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_step_intent" violates check constraint "hash_on_config_steps"
+DETAIL:  Failing row contains (e0000004-0000-4000-8000-000000000004, 11111111-1111-4111-8111-111111111111, d0000001-0000-4000-8000-000000000001, replica-0, STOP, idem-stop-0, sha256:bbb, 2026-09-09 09:01:45.128662+00).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_step_intent
+CONSTRAINT NAME:  hash_on_config_steps
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (f) REFUSE dir2: PREFLIGHT intent WITH a config_hash  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_step_intent(intent_id,tenant_id,apply_id,replica_ref,step,idempotency_key,config_hash,created_at)
+VALUES ('e0000005-0000-4000-8000-000000000005','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','@placement','PREFLIGHT','idem-pre-0','sha256:ccc',now());
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_step_intent" violates check constraint "hash_on_config_steps"
+DETAIL:  Failing row contains (e0000005-0000-4000-8000-000000000005, 11111111-1111-4111-8111-111111111111, d0000001-0000-4000-8000-000000000001, @placement, PREFLIGHT, idem-pre-0, sha256:ccc, 2026-09-09 09:01:45.247296+00).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_step_intent
+CONSTRAINT NAME:  hash_on_config_steps
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (f) REFUSE dir2: LIFECYCLE intent WITH a config_hash  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_step_intent(intent_id,tenant_id,apply_id,replica_ref,step,idempotency_key,config_hash,created_at)
+VALUES ('e0000006-0000-4000-8000-000000000006','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','replica-0','LIFECYCLE','idem-lc-0','sha256:ddd',now());
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_step_intent" violates check constraint "hash_on_config_steps"
+DETAIL:  Failing row contains (e0000006-0000-4000-8000-000000000006, 11111111-1111-4111-8111-111111111111, d0000001-0000-4000-8000-000000000001, replica-0, LIFECYCLE, idem-lc-0, sha256:ddd, 2026-09-09 09:01:45.351602+00).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_step_intent
+CONSTRAINT NAME:  hash_on_config_steps
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (f) REFUSE dir2: ROLLBACK_ASSESS intent WITH a config_hash  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_step_intent(intent_id,tenant_id,apply_id,replica_ref,step,idempotency_key,config_hash,created_at)
+VALUES ('e0000007-0000-4000-8000-000000000007','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','@placement','ROLLBACK_ASSESS','idem-ra-0','sha256:eee',now());
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_step_intent" violates check constraint "hash_on_config_steps"
+DETAIL:  Failing row contains (e0000007-0000-4000-8000-000000000007, 11111111-1111-4111-8111-111111111111, d0000001-0000-4000-8000-000000000001, @placement, ROLLBACK_ASSESS, idem-ra-0, sha256:eee, 2026-09-09 09:01:45.470035+00).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_step_intent
+CONSTRAINT NAME:  hash_on_config_steps
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (f) extra: placement_scoped_steps refuses PREFLIGHT on a non-@placement replica  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_step_intent(intent_id,tenant_id,apply_id,replica_ref,step,idempotency_key,created_at)
+VALUES ('e0000008-0000-4000-8000-000000000008','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','replica-0','PREFLIGHT','idem-pre-bad',now());
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_step_intent" violates check constraint "placement_scoped_steps"
+DETAIL:  Failing row contains (e0000008-0000-4000-8000-000000000008, 11111111-1111-4111-8111-111111111111, d0000001-0000-4000-8000-000000000001, replica-0, PREFLIGHT, idem-pre-bad, null, 2026-09-09 09:01:45.580926+00).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_step_intent
+CONSTRAINT NAME:  placement_scoped_steps
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (f) extra: step_known refuses an unknown step  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_step_intent(intent_id,tenant_id,apply_id,replica_ref,step,idempotency_key,created_at)
+VALUES ('e000000f-0000-4000-8000-00000000000f','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','replica-0','TELEPORT','idem-tp',now());
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_step_intent" violates check constraint "step_known"
+DETAIL:  Failing row contains (e000000f-0000-4000-8000-00000000000f, 11111111-1111-4111-8111-111111111111, d0000001-0000-4000-8000-000000000001, replica-0, TELEPORT, idem-tp, null, 2026-09-09 09:01:45.704574+00).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_step_intent
+CONSTRAINT NAME:  step_known
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (g) REFUSE: 2nd intent, SAME (apply,step,replica), different key  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_step_intent(intent_id,tenant_id,apply_id,replica_ref,step,idempotency_key,config_hash,created_at)
+VALUES ('e0000010-0000-4000-8000-000000000010','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','replica-0','MATERIALIZE','idem-mat-0-DIFFERENT','sha256:aaa',now());
+--- RESULT ---
+ERROR:  23505: duplicate key value violates unique constraint "apply_step_intent_tenant_id_apply_id_step_replica_ref_key"
+DETAIL:  Key (tenant_id, apply_id, step, replica_ref)=(11111111-1111-4111-8111-111111111111, d0000001-0000-4000-8000-000000000001, MATERIALIZE, replica-0) already exists.
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_step_intent
+CONSTRAINT NAME:  apply_step_intent_tenant_id_apply_id_step_replica_ref_key
+LOCATION:  _bt_check_unique, nbtinsert.c:663
+
+### [REFUSED] (g) REFUSE: REUSED idempotency_key under another step  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_step_intent(intent_id,tenant_id,apply_id,replica_ref,step,idempotency_key,config_hash,created_at)
+VALUES ('e0000011-0000-4000-8000-000000000011','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','replica-1','VERIFY','idem-mat-0','sha256:zzz',now());
+--- RESULT ---
+ERROR:  23505: duplicate key value violates unique constraint "apply_step_intent_idempotency_key_key"
+DETAIL:  Key (idempotency_key)=(idem-mat-0) already exists.
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_step_intent
+CONSTRAINT NAME:  apply_step_intent_idempotency_key_key
+LOCATION:  _bt_check_unique, nbtinsert.c:663
+
+### [OK] (g) engine half shown: the read-compare query the retry rule rests on  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+SELECT idempotency_key, config_hash AS recorded, 'sha256:DIFFERENT' AS presented,
+       (config_hash='sha256:DIFFERENT') AS retry_admissible
+  FROM sm_data.apply_step_intent WHERE idempotency_key='idem-mat-0';
+--- RESULT ---
+idempotency_key |  recorded  |    presented     | retry_admissible
+-----------------+------------+------------------+------------------
+ idem-mat-0      | sha256:aaa | sha256:DIFFERENT | f
+(1 row)

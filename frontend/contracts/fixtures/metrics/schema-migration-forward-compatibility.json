@@ -1,0 +1,43 @@
+{
+  "name": "schema-migration-forward-compatibility",
+  "queryResponse": {
+    "queryVersion": 2,
+    "futureTopLevelField": "a field no console build at this queryVersion has ever heard of",
+    "metric": { "name": "cache.hit_rate", "metricType": "gauge", "unit": "ratio", "futureMetricField": "ignored" },
+    "render": { "transform": "none" },
+    "resolution": { "requested": "auto", "served": "hourly", "bucketSeconds": 3600 },
+    "coverage": { "requestedFrom": "2026-08-07T00:00:00Z", "servedFrom": "2026-08-07T00:00:00Z", "truncatedByRetention": false },
+    "gapThresholdSeconds": 7200,
+    "series": [
+      {
+        "seriesRef": { "instanceId": "a1b2", "placementId": "p1", "sourceKey": null },
+        "label": "cache-prod-01",
+        "replicaComposition": { "total": 1, "inactive": 0 },
+        "state": "ok",
+        "points": [["2026-08-07T00:00:00Z", 0.94, 60, 60]],
+        "gaps": [],
+        "futureSeriesField": { "anything": "additive fields must not break projection (§5.3)" }
+      }
+    ],
+    "partial": { "degraded": false, "unavailable": [] }
+  },
+  "widgetConfig": {},
+  "theme": { "categoricalColors": ["#4E79A7"] },
+  "expected": {
+    "metric": { "name": "cache.hit_rate", "metricType": "gauge", "unit": "ratio" },
+    "render": { "transform": "none" },
+    "coverage": { "requestedFrom": "2026-08-07T00:00:00Z", "servedFrom": "2026-08-07T00:00:00Z", "truncatedByRetention": false },
+    "series": [
+      {
+        "seriesRef": { "instanceId": "a1b2", "placementId": "p1", "sourceKey": null },
+        "label": "cache-prod-01",
+        "state": "ok",
+        "replicaComposition": { "total": 1, "inactive": 0 },
+        "color": "#4E79A7",
+        "dashPattern": "solid",
+        "points": [{ "ts": "2026-08-07T00:00:00Z", "value": 0.94, "lowCoverage": false }],
+        "gaps": []
+      }
+    ]
+  }
+}

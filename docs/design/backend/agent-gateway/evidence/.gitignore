@@ -1,0 +1,3 @@
+# Run transcripts only. results.md and results.json ARE committed as evidence;
+# log.txt is 0.5 MB+ per run and is reproducible from the harness.
+runs/**/log.txt

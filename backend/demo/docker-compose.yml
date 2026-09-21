@@ -1,0 +1,96 @@
+# Plan 005's Cache walkthrough environment: one real Solace Cache Engine container with the
+# external config directory SM owns, bind-mounted so SM's writes survive the container.
+#
+# The project name is this worktree's own. Docker is shared state on this machine and more than one
+# Solution Manager stream uses it; a default project name derived from the directory would collide
+# the moment two worktrees both have a backend/demo.
+name: sm-plan005-demo
+
+# What is NOT here, and why:
+#
+#   - no SM backend service. No application class exists; every endpoint is G2's. The apply engine
+#     runs from the test JVM (see README.md).
+#
+#   - no PostgreSQL. The walkthrough gets sm_data from Testcontainers, exactly as every other
+#     integration test in dp-core does, so that there is ONE bootstrap path rather than two that
+#     can drift. A compose service nothing connects to would read as though the walkthrough used
+#     it. (This is a deliberate deviation from the plan's sketch, recorded in its Results.)
+#
+#   - no auth of any kind (G2). SM connects to nothing here; the broker below is the managed
+#     integration's OWN messaging, not SM's event mesh, so BE-D5 and the two open ACL-shape items
+#     are untouched by it.
+#
+#   - no queue, topic or ACL provisioning. MEASURED (see the broker note below): with the SM-owned
+#     file's `solace.management.enabled: false`, the Cache binds no queue at all, and a broker with
+#     zero queues runs it healthy.
+services:
+  # MEASURED 2026-09-14, and it corrects plan 005's own "measured fact": the Cache CANNOT be
+  # started broker-free. `cache-engine.solace.enabled: false` does switch off JcsmpSolaceProducer
+  # (@ConditionalOnProperty(havingValue = "true")) -- but CacheManagerService is a plain @Service
+  # with a hard constructor dependency on that bean, so the context fails to refresh:
+  #
+  #   Parameter 2 of constructor in com.solace.solutions.cache.lifecycle.CacheManagerService
+  #   required a bean of type 'com.solace.solutions.cache.dispatch.JcsmpSolaceProducer' that could
+  #   not be found.
+  #
+  # No property makes that bean appear, and creating one would be development on the managed
+  # integration, which I1 forbids. A broker is therefore a PREREQUISITE of running the Cache at
+  # all, not a feature of this demo.
+  #
+  # A BARE broker is enough, and that too is measured rather than reasoned: the producer's
+  # @PostConstruct needs a session and nothing else, while the queue bind is reached only through
+  # LeaderElection -- which is @ConditionalOnProperty on solace.management.enabled as well, and the
+  # SM-owned file turns that off. Probed on 2026-09-14 against a broker whose queue list was
+  # literally `{"data":[]}`: the Cache came up healthy in 3s with no LeaderElection line in its log.
+  broker:
+    image: ${SM_DEMO_BROKER_IMAGE:-solace-pubsub-enterprise:10.25.0.177}
+    container_name: sm-plan005-broker
+    shm_size: 1g
+    environment:
+      - username_admin_globalaccesslevel=admin
+      # A throwaway local broker's admin password, in a file that is committed on purpose. It is
+      # not a secret and nothing resolves it: I6 is about config values marked `secretRef`
+      # resolving at render time from the secret backend, and this walkthrough exercises no
+      # secretRef at all.
+      - username_admin_password=sm-demo-only-not-a-secret
+      - system_scaling_maxconnectioncount=100
+    # MEASURED: the broker refuses to start below these. With hard nofile 42192 it logs
+    #   POST Violation [022]: Hard resource limit nofile 1048576 is required, 42192 detected
+    # and shuts the router down.
+    ulimits:
+      core: -1
+      nofile:
+        soft: 2448
+        hard: 1048576
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -f http://localhost:5550/health-check/guaranteed-active"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 30s
+
+  cache-1:
+    depends_on:
+      broker:
+        condition: service_healthy
+    image: ${SM_DEMO_CACHE_IMAGE:-solace-cache-engine:local}
+    container_name: sm-plan005-cache-1
+    # SM-D3 additional-location: the image already passes
+    #   --spring.config.additional-location=/app/external/spring/config/
+    # on its ENTRYPOINT (read from the Cache's own Dockerfile), so SM changes NO launch flag. It
+    # only needs that path to persist, which is what this bind provides -- and a bind mount is
+    # deployment configuration, not an image change (I1).
+    volumes:
+      - ./config/cache-1:/app/external/spring/config
+    ports:
+      - "58081:8081"
+    # Declared HERE, not in the Dockerfile. I1 forbids changing the image; a compose-level
+    # healthcheck is deployment configuration, and it is what makes State.Health appear in the
+    # daemon's inspect output -- which is what HealthGate reads. Without it the adapter reports
+    # NOT_DECLARED and a health-gated strategy is refused at pre-flight, correctly.
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8081"]
+      interval: 3s
+      timeout: 2s
+      retries: 20
+      start_period: 20s

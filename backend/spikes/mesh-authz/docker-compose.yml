@@ -1,0 +1,52 @@
+# Gate-G1 broker-authorization spike — throwaway harness, NOT product code.
+#
+# Adapted from ~/Work/Development/RapidPilot/webAppSDK/docker-compose.yml.
+# Deltas from the source file:
+#   - Keycloak service removed entirely — this spike mints its own tokens (issuer/issuer.mjs).
+#   - Only the ports the spike actually uses are published. In particular the broker's
+#     REST-TLS 9443 mapping is GONE: host 9443 belongs to nginx (the wss://localhost:9443/mesh
+#     origin the design's §5 production path uses).
+#   - container_name namespaced to sm-spike-* so it cannot collide with other local brokers.
+#
+# OAuth client authentication requires the Solace ENTERPRISE image; the Standard image has no
+# `authenticationOauthProfiles` support at runtime. Override with SOLACE_IMAGE if needed.
+
+services:
+  solace:
+    image: ${SOLACE_IMAGE:-solace-pubsub-enterprise:10.25.0.177}
+    # The enterprise image is not on a public registry — it is loaded locally from the
+    # Solace support-portal tarball. Never try to pull it.
+    pull_policy: missing
+    container_name: sm-spike-broker
+    hostname: sm-spike-broker
+    ports:
+      - "5550:5550"   # Health check
+      - "8080:8080"   # SEMP admin HTTP
+      # SMF WebSocket, plaintext. Published on the host DELIBERATELY: Task 10's compose-gated
+      # backend IT (`JcsmpEventPublisherIT`, backend/dp-core) connects to ws://localhost:8008
+      # from outside the compose network. The BROWSER/TLS path does not use this — it goes
+      # through nginx on 9443 (wss://localhost:9443/mesh), which is why the broker's own
+      # REST-TLS 9443 mapping is dropped above. Do not remove this line to "tighten" anything.
+      - "8008:8008"
+    environment:
+      - username_admin_globalaccesslevel=admin
+      - username_admin_password=admin
+      - system_scaling_maxconnectioncount=100
+    # shm_size is the only resource knob the source compose sets. Do NOT add a `ulimits.nofile`
+    # block: SolOS 10.25 POSTs "Hard resource limit nofile 1048576 is required" and shuts the
+    # router down on anything lower. Docker Desktop's default (1048576) already satisfies it.
+    shm_size: 1g
+    volumes:
+      - sm-spike-solace-data:/var/lib/solace
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: sm-spike-nginx
+    ports: ["9443:9443"]
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on: [solace]
+
+volumes:
+  sm-spike-solace-data:

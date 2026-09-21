@@ -1,0 +1,16 @@
+/* ============================================================
+   Solace Design System — global entry point
+   Consumers link THIS file only. It is an @import manifest;
+   never add rules directly here.
+   ============================================================ */
+
+/* Webfonts — Figtree & Space Mono are exact brand fonts (Google Fonts).
+   Newsreader is a flagged substitute for the brand's display serif
+   (ITC Souvenir / New Spirit — both commercial). See readme.md. */
+@import url('https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..900;1,300..900&family=Newsreader:opsz,wght@6..72,200..700&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+@import "tokens/colors.css";
+@import "tokens/typography.css";
+@import "tokens/spacing.css";
+@import "tokens/effects.css";
+@import "tokens/modes.css";

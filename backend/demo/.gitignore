@@ -1,0 +1,5 @@
+# The bind-mounted directory SM WRITES TO. It is a working directory, not a source file: the
+# walkthrough overwrites application.yml by design -- that is the thing being demonstrated -- and
+# ConfigFileStore retains pre-images beside it (.application.yml.sm-pre-<generation>). Seed it from
+# the committed template with the command in README.md.
+config/

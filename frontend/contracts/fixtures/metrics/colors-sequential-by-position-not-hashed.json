@@ -1,0 +1,77 @@
+{
+  "name": "colors-sequential-by-position-not-hashed",
+  "queryResponse": {
+    "queryVersion": 1,
+    "metric": { "name": "cache.hit_rate", "metricType": "gauge", "unit": "ratio" },
+    "render": { "transform": "none" },
+    "resolution": { "requested": "auto", "served": "hourly", "bucketSeconds": 3600 },
+    "coverage": { "requestedFrom": "2026-08-07T00:00:00Z", "servedFrom": "2026-08-07T00:00:00Z", "truncatedByRetention": false },
+    "gapThresholdSeconds": 7200,
+    "series": [
+      {
+        "seriesRef": { "instanceId": "zzz-last-alphabetically", "placementId": "p1", "sourceKey": null },
+        "label": "cache-z",
+        "replicaComposition": { "total": 1, "inactive": 0 },
+        "state": "ok",
+        "points": [["2026-08-07T00:00:00Z", 0.9, 60, 60]],
+        "gaps": []
+      },
+      {
+        "seriesRef": { "instanceId": "aaa-first-alphabetically", "placementId": "p2", "sourceKey": null },
+        "label": "cache-a",
+        "replicaComposition": { "total": 1, "inactive": 0 },
+        "state": "ok",
+        "points": [["2026-08-07T00:00:00Z", 0.8, 60, 60]],
+        "gaps": []
+      },
+      {
+        "seriesRef": { "instanceId": "mmm-middle-alphabetically", "placementId": "p3", "sourceKey": null },
+        "label": "cache-m",
+        "replicaComposition": { "total": 1, "inactive": 0 },
+        "state": "ok",
+        "points": [["2026-08-07T00:00:00Z", 0.7, 60, 60]],
+        "gaps": []
+      }
+    ],
+    "partial": { "degraded": false, "unavailable": [] }
+  },
+  "widgetConfig": {},
+  "theme": { "categoricalColors": ["#111111", "#222222", "#333333"] },
+  "expected": {
+    "metric": { "name": "cache.hit_rate", "metricType": "gauge", "unit": "ratio" },
+    "render": { "transform": "none" },
+    "coverage": { "requestedFrom": "2026-08-07T00:00:00Z", "servedFrom": "2026-08-07T00:00:00Z", "truncatedByRetention": false },
+    "series": [
+      {
+        "seriesRef": { "instanceId": "zzz-last-alphabetically", "placementId": "p1", "sourceKey": null },
+        "label": "cache-z",
+        "state": "ok",
+        "replicaComposition": { "total": 1, "inactive": 0 },
+        "color": "#111111",
+        "dashPattern": "solid",
+        "points": [{ "ts": "2026-08-07T00:00:00Z", "value": 0.9, "lowCoverage": false }],
+        "gaps": []
+      },
+      {
+        "seriesRef": { "instanceId": "aaa-first-alphabetically", "placementId": "p2", "sourceKey": null },
+        "label": "cache-a",
+        "state": "ok",
+        "replicaComposition": { "total": 1, "inactive": 0 },
+        "color": "#222222",
+        "dashPattern": "solid",
+        "points": [{ "ts": "2026-08-07T00:00:00Z", "value": 0.8, "lowCoverage": false }],
+        "gaps": []
+      },
+      {
+        "seriesRef": { "instanceId": "mmm-middle-alphabetically", "placementId": "p3", "sourceKey": null },
+        "label": "cache-m",
+        "state": "ok",
+        "replicaComposition": { "total": 1, "inactive": 0 },
+        "color": "#333333",
+        "dashPattern": "solid",
+        "points": [{ "ts": "2026-08-07T00:00:00Z", "value": 0.7, "lowCoverage": false }],
+        "gaps": []
+      }
+    ]
+  }
+}

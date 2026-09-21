@@ -1,0 +1,18 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: sm_demo
+      POSTGRES_USER: sm_demo
+      POSTGRES_PASSWORD: sm_demo_local_only
+    ports:
+      - "127.0.0.1:55433:5432"
+    volumes:
+      - sm-demo-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sm_demo -d sm_demo"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+volumes:
+  sm-demo-postgres:

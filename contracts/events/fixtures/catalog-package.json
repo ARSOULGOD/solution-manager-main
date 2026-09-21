@@ -1,0 +1,10 @@
+{
+  "eventId": "3f1c9a52-0000-4000-8000-000000000005",
+  "occurredAtUtc": "2026-08-27T10:00:20Z",
+  "producer": "cp-core",
+  "tenant": "acme",
+  "entity": { "kind": "solution", "solution": "cache" },
+  "stateVersion": 3,
+  "event": "catalog.package",
+  "payload": { "solution": "cache", "packageVersion": "2.4.0" }
+}
