@@ -32,6 +32,7 @@ Two refinements of spec §2.1, both to avoid import cycles: the internal message
 
 | Path | Responsibility |
 |---|---|
+| `oldGo-Agent/` | the pre-rewrite scaffold, archived with its history — nested `go.mod` keeps it out of `go build ./...`; reference only, no authority |
 | `Makefile` | `proto`, `build`, `test`, `test-integration`, `test-docker`, `fake-gateway` targets |
 | `buf.yaml`, `buf.gen.yaml` | buf module rooted at `proto/agentgateway/v1draft`, generating into `internal/wire/pb` |
 | `proto/agentgateway/v1draft/agent_gateway.proto` | DRAFT transcription of gateway §4.3/§4.11 |
@@ -64,24 +65,70 @@ Two refinements of spec §2.1, both to avoid import cycles: the internal message
 
 ## Phase P1 — the agent reaches `ACTIVE` against the fake gateway
 
-### Task 1: Retire the old scaffold, add dependencies and tooling
+### Task 1: Archive the old scaffold, add dependencies and tooling
 
 **Files:**
-- Delete: `internal/config/`, `internal/docker/`, `internal/persist/`, `internal/telemetry/`, `cmd/sm-agent/main.go`, `../testdata/java-demo/`
-- Create: `Makefile`, `cmd/sm-agent/main.go` (placeholder that compiles), `.gitignore` (append)
+- Move (never delete): `internal/config/`, `internal/docker/`, `internal/persist/`, `internal/telemetry/`, `cmd/sm-agent/main.go`, `../testdata/java-demo/` → `oldGo-Agent/`
+- Create: `oldGo-Agent/go.mod`, `oldGo-Agent/README.md`, `Makefile`, `cmd/sm-agent/main.go` (placeholder that compiles), `.gitignore` (append)
 - Modify: `go.mod`, `go.sum`
 
 **Interfaces:**
-- Produces: a module that builds with the new dependencies available; `make test` runs `go vet` + `go test`.
+- Produces: a module that builds with the new dependencies available; `make test` runs `go vet` + `go test`; the superseded scaffold preserved and readable under `go-agent/oldGo-Agent/` but excluded from the build.
 
-- [ ] **Step 1: Remove the old scaffold**
+- [ ] **Step 1: Move the old scaffold into `oldGo-Agent/`**
+
+The scaffold is structurally incompatible with the gateway design (journal phases, config topology, the missing parent-directory fsync), but it still documents how the Docker Engine API was driven and what the local telemetry shape was. It is archived, not deleted.
 
 ```bash
 cd go-agent
-git rm -r -q internal cmd/sm-agent/main.go ../testdata/java-demo
+mkdir -p oldGo-Agent/cmd/sm-agent
+git mv internal oldGo-Agent/internal
+git mv cmd/sm-agent/main.go oldGo-Agent/cmd/sm-agent/main.go
+git mv ../testdata/java-demo oldGo-Agent/java-demo
 ```
 
-- [ ] **Step 2: Write a compiling placeholder main**
+- [ ] **Step 2: Exclude the archive from the build**
+
+An archived directory inside a Go module is still compiled by `go build ./...`, and these packages no longer resolve their own imports (they import `…/go-agent/internal/persist`, which has moved). Giving the archive its own `go.mod` makes it a nested module, which the parent's `./...` skips.
+
+`oldGo-Agent/go.mod`:
+
+```
+// Archived scaffold — a nested module so `go build ./...` in go-agent skips it.
+// Not built, not tested, not maintained. See README.md.
+module github.com/solace/solution-manager/go-agent/oldGo-Agent
+
+go 1.26.4
+```
+
+`oldGo-Agent/README.md`:
+
+```markdown
+# oldGo-Agent — archived scaffold
+
+The `go-agent` packages as they stood before the rewrite against the
+[agent-gateway design](../../docs/design/backend/agent-gateway/design.md):
+`internal/config`, `internal/docker`, `internal/persist`, `internal/telemetry`,
+the two demo CLIs in `cmd/sm-agent/main.go`, and the `java-demo` fixtures.
+
+**Not built, not tested, not maintained.** It is a nested Go module purely so the
+parent module's `go build ./...` skips it; its imports no longer resolve and it is
+not expected to compile.
+
+**Kept for reference, superseded for authority.** The gateway design's fork
+inventory named three structural incompatibilities: the journal phases
+(`PREFLIGHT|STAGING|RENAMED|RESTARTING|INDETERMINATE` against the baseline
+`RECEIVED→STAGED→PERSISTED→REPORTED`), a config shape carrying a separate
+telemetry endpoint where the design has one connection, and `WriteFileAtomic`
+without the parent-directory fsync that design §5.1 requires.
+
+Still worth reading here: how `internal/docker` drove the Engine API, and the
+scrape/validate/store shape in `internal/telemetry` that slice 2's telemetry role
+will need. What was correct was re-derived in the new packages — the atomic write
+(now with the parent fsync) and the symlink-escape refusal — not copied.
+```
+
+- [ ] **Step 3: Write a compiling placeholder main**
 
 `cmd/sm-agent/main.go`:
 
@@ -99,7 +146,7 @@ func main() {
 }
 ```
 
-- [ ] **Step 3: Add dependencies**
+- [ ] **Step 4: Add dependencies**
 
 ```bash
 go get google.golang.org/grpc@latest google.golang.org/protobuf@latest \
@@ -109,7 +156,7 @@ go mod tidy
 
 Expected: `go.mod` now lists `google.golang.org/grpc`, `google.golang.org/protobuf`, `github.com/google/uuid`, `github.com/prometheus/client_golang` as direct requirements alongside the existing `github.com/docker/docker v27.1.2+incompatible`, `github.com/containerd/errdefs`, `gopkg.in/yaml.v3`.
 
-- [ ] **Step 4: Install proto tooling**
+- [ ] **Step 5: Install proto tooling**
 
 ```bash
 go install github.com/bufbuild/buf/cmd/buf@latest
@@ -120,7 +167,7 @@ buf --version && protoc-gen-go --version && protoc-gen-go-grpc --version
 
 Expected: three version strings. `$(go env GOPATH)/bin` must be on `PATH`.
 
-- [ ] **Step 5: Write the Makefile**
+- [ ] **Step 6: Write the Makefile**
 
 `Makefile`:
 
@@ -154,21 +201,30 @@ Append to `.gitignore`:
 /bin/
 ```
 
-- [ ] **Step 6: Verify the module builds**
+- [ ] **Step 7: Verify the module builds and the archive is excluded**
 
-Run: `go build ./... && go vet ./...`
-Expected: no output, exit 0.
+```bash
+go build ./... && go vet ./...
+go list ./... | grep -c oldGo-Agent   # expect 0: the nested module is not in ./...
+git log --oneline -1 -- oldGo-Agent/internal/docker/client.go   # history followed the move
+```
 
-- [ ] **Step 7: Commit**
+Expected: the build is clean, `grep -c` prints `0`, and the archived file still has its history.
+
+- [ ] **Step 8: Commit**
 
 ```bash
 git add -A .
 git add ../testdata
-git commit -m "go-agent: retire demo scaffold, add wire/uuid/prometheus deps and Makefile
+git commit -m "go-agent: archive the demo scaffold, add wire/uuid/prometheus deps and Makefile
 
-Clean rewrite per AG-D15: the lifecycle and collect demos, their packages
-and testdata/java-demo are removed. Adds grpc/protobuf, uuid and
-prometheus as direct deps and a Makefile with proto/test targets.
+Per AG-D15 the pre-rewrite packages are moved to go-agent/oldGo-Agent/
+rather than deleted: the lifecycle and collect demos, internal/{config,
+docker,persist,telemetry} and the java-demo fixtures stay readable while
+the rewrite lands. A nested go.mod keeps them out of go build ./...
+
+Adds grpc/protobuf, uuid and prometheus as direct deps and a Makefile
+with proto/test targets.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ```
@@ -10478,7 +10534,7 @@ Add these rows to the `AG-D*` table in `docs/design/go-agent/decisions.md`:
 ```markdown
 | `AG-D13` | The agent↔DP `.proto` is DRAFTed in-repo under `go-agent/proto/agentgateway/v1draft/`, transcribed 1:1 from the agent-gateway design §4.3/§4.11; only `internal/wire` imports the generated code | PROPOSED |
 | `AG-D14` | The agent is an event-driven reactor: one inbox, pure reducers `session → authority → commands → reports`, effects executed `Persist → Delete → Send → RunOp → timers`, one runtime worker | PROPOSED |
-| `AG-D15` | `internal/` is rewritten against the gateway design; the Docker-lifecycle and telemetry-collect demos and `testdata/java-demo` are retired | PROPOSED |
+| `AG-D15` | `internal/` is rewritten against the gateway design; the superseded packages, the Docker-lifecycle and telemetry-collect demos and the `java-demo` fixtures are **archived** under `go-agent/oldGo-Agent/`, not deleted | PROPOSED |
 | `AG-D16` | The DP test double is a scenario-driven **fake gateway** at wire level, shared by tests and a binary; it is not evidence about the plane | PROPOSED |
 | `AG-D17` | `item_id` is a UUIDv7 minted once per report item and immutable across retries; `sequence` is a per-`(binding, replica)` counter persisted before use and reseeded from DP time when lost — the agent's answer to `AGW-20` | PROPOSED |
 | `AG-D18` | A full `ActualStateReport` is sent at `SessionAccept.limits.report_interval` even when nothing changed — the agent's answer to `AGW-19` | PROPOSED |
@@ -10509,11 +10565,15 @@ Every input — an inbound message, a timer, a finished operation, a connection 
 
 **Consequence:** a failed `Persist` is fatal. The agent stops rather than act without durability.
 
-## `AG-D15` — `internal/` is rewritten; the demos are retired
+## `AG-D15` — `internal/` is rewritten; the superseded scaffold is archived, not deleted
 
-The scaffold in `go-agent/internal/` was written against the surrogate wire. The gateway design's fork inventory named three concrete incompatibilities — journal phases (`PREFLIGHT|STAGING|RENAMED|RESTARTING|INDETERMINATE` vs the baseline `RECEIVED→STAGED→PERSISTED→REPORTED`), a config shape encoding a separate telemetry endpoint where the design has one connection, and `WriteFileAtomic` without the parent-directory fsync §5.1 requires. All three are structural.
+The scaffold in `go-agent/internal/` was written against the surrogate wire. The gateway design's fork inventory named three concrete incompatibilities — journal phases (`PREFLIGHT|STAGING|RENAMED|RESTARTING|INDETERMINATE` vs the baseline `RECEIVED→STAGED→PERSISTED→REPORTED`), a config shape encoding a separate telemetry endpoint where the design has one connection, and `WriteFileAtomic` without the parent-directory fsync §5.1 requires. All three are structural, so the packages are replaced rather than patched.
 
-The Docker-lifecycle CLI (`start|stop|restart|status`) and the telemetry-collect CLI were proofs that predate the wire; their jobs now belong to `internal/runtime/docker` (driven by commands, never by an operator at a prompt) and to slice 2's telemetry role. They and `testdata/java-demo` are removed rather than left to rot beside the real thing. What survives is re-derived, not copied: the atomic-write primitive (now with the parent fsync) and the symlink-escape refusal the gateway design explicitly credits as a genuine addition.
+**Replaced, but kept.** `internal/{config,docker,persist,telemetry}`, the two demo CLIs and the `java-demo` fixtures move to **`go-agent/oldGo-Agent/`** with their git history; nothing is deleted. The Docker-lifecycle CLI (`start|stop|restart|status`) and the telemetry-collect CLI were proofs that predate the wire, and their jobs now belong to `internal/runtime/docker` (driven by commands, never by an operator at a prompt) and to slice 2's telemetry role — but they remain the clearest record of how the Engine API was driven and what shape local telemetry took, which is worth having while those are rebuilt.
+
+The archive carries its own `go.mod` so the parent module's `go build ./...` skips it: archived packages no longer resolve their imports and are not expected to compile. It is reference material with no authority — where it disagrees with the gateway design or the baseline `AG-D*` family, they win.
+
+What survives into the new packages is **re-derived, not copied**: the atomic-write primitive (now with the parent fsync) and the symlink-escape refusal the gateway design explicitly credits as a genuine addition.
 
 ## `AG-D16` — The DP test double is a scenario-driven fake gateway
 
@@ -10731,7 +10791,9 @@ group with `--group-add`. Never bake an enrollment token into an image (`I6`).
 
 - [ ] **Step 4: Update `go-agent/CLAUDE.md`**
 
-Replace its "Commands", "Architecture" and doc-table sections so they describe what now exists: the `make` targets; the reactor (`cmd/sm-agent` → `internal/agent` loop → reducers `session`/`authority`/`commands`/`reports` → effects); `internal/wire` + DRAFT proto; `internal/runtime` + `docker` + `configwriter`; `internal/store`; `internal/fakegw`. Keep the precedence section unchanged, and replace the "Local, superseded" table with a single row pointing at `docs/design/archive/go-agent-fork/`. Remove the "Still no `.proto`" caveat's claim that nothing is built, and replace the `internal/persist`/`internal/config` "known gaps" paragraphs — those packages no longer exist.
+Replace its "Commands", "Architecture" and doc-table sections so they describe what now exists: the `make` targets; the reactor (`cmd/sm-agent` → `internal/agent` loop → reducers `session`/`authority`/`commands`/`reports` → effects); `internal/wire` + DRAFT proto; `internal/runtime` + `docker` + `configwriter`; `internal/store`; `internal/fakegw`. Keep the precedence section unchanged, and replace the "Local, superseded" table with two rows: `docs/design/archive/go-agent-fork/` for the superseded design docs, and `oldGo-Agent/` for the archived scaffold — both reference-only.
+
+Drop the "Still no `.proto`" caveat's claim that nothing is built. The `internal/persist`/`internal/config` "known gaps" paragraphs are replaced by a one-line pointer: those packages now live under `oldGo-Agent/` and the gaps they described (journal phases, config topology, the missing parent-directory fsync) are closed in `internal/commands`, `internal/store` and `internal/runtime/configwriter`.
 
 - [ ] **Step 5: Verify every link resolves**
 
