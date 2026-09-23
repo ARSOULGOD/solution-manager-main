@@ -40,6 +40,23 @@ type State struct {
 	// carries only a CorrelationID, not a binding/generation. Not persisted
 	// — if the agent crashes before either an Offer or an Error resolves
 	// the pull, the DP simply redelivers the GenerationAvailable notice.
+	//
+	// This crash case is the only one it covers, and deliberately so: a
+	// SUPERSEDED pull answering with "the agent records that outcome
+	// without acting" (gateway design.md §4.4 rule 7) and "a pull or ack
+	// for a superseded command is answered SUPERSEDED and recorded as
+	// such" (§4.7 rule 4) is exactly this path. What it does NOT cover is
+	// the ack built from Pulling being lost in transit (as opposed to lost
+	// to a crash): nothing resends it, because §4.7 rule 3's
+	// re-notification-on-reclaim scope is QUEUED/OFFERED/DELIVERED only —
+	// a command the DP has already marked SUPERSEDED and withdrawn is not
+	// re-notified, so there is no second GenerationAvailable to re-trigger
+	// this path. This mirrors refuse() below, which has the identical
+	// property for every other pre-journal terminal ack in this file (a
+	// bare Send, no Persist) — a pre-existing, accepted tradeoff in this
+	// reducer, not new risk this addition introduces. Closing it for real
+	// would mean durable pre-journal outcome tracking across every
+	// refuse()/Pulling call site, a broader change than this one.
 	Pulling map[string]pending
 }
 
