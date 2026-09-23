@@ -7,6 +7,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/solace/solution-manager/go-agent/internal/identity"
 	"github.com/solace/solution-manager/go-agent/internal/msg"
 	"github.com/solace/solution-manager/go-agent/internal/reactor"
 	"github.com/solace/solution-manager/go-agent/internal/store"
@@ -133,6 +134,18 @@ func Reduce(s State, ev reactor.Event, env reactor.Env) (State, []reactor.Effect
 	switch e := ev.(type) {
 	case reactor.Resumed:
 		return s.recompute(env, nil)
+
+	case reactor.EnrollResult:
+		// A fresh (first-time) enroll mints a new certificate. LeafThumbprint
+		// is otherwise fixed at Load — computed from identity.Thumbprint()
+		// before the identity has a leaf cert — so without this, valid()
+		// compares every subsequent grant's CnfThumbprint against "" and
+		// rejects it forever. A restart doesn't hit this: Load reads the
+		// persisted cert before LoadState captures the thumbprint.
+		if e.Err == nil && e.Resp != nil && len(e.Resp.CertificateChain) > 0 {
+			s.LeafThumbprint = identity.Thumbprint(e.Resp.CertificateChain[0])
+		}
+		return s, nil
 
 	case reactor.TimerFired:
 		switch e.Kind {
