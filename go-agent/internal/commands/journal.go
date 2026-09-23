@@ -44,6 +44,16 @@ func DirRel(binding string, gen uint64) string {
 func PayloadRel(binding string, gen uint64) string  { return DirRel(binding, gen) + "/payload" }
 func PreviousRel(binding string, gen uint64) string { return DirRel(binding, gen) + "/previous" }
 
+// GenerationFromRel parses apply/<binding>/<gen>/payload.
+func GenerationFromRel(rel string) uint64 {
+	parts := strings.Split(rel, "/")
+	if len(parts) < 3 {
+		return 0
+	}
+	g, _ := strconv.ParseUint(parts[2], 10, 64)
+	return g
+}
+
 func (r Record) Rel() string { return fmt.Sprintf("apply/%s/%d.json", r.BindingID, r.RolloutGeneration) }
 
 func key(binding string, gen uint64) string { return binding + "|" + strconv.FormatUint(gen, 10) }

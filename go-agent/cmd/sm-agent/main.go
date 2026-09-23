@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/solace/solution-manager/go-agent/internal/agent"
+	"github.com/solace/solution-manager/go-agent/internal/runtime/docker"
 )
 
 var version = "dev" // -ldflags "-X main.version=..."
@@ -39,8 +40,15 @@ func main() {
 		}
 		bundle = b
 	}
+	adapter, closeDocker, err := docker.NewFromEnv()
+	if err != nil {
+		log.Error("docker", "err", err)
+		os.Exit(1)
+	}
+	defer closeDocker()
+
 	l, _, err := agent.Build(agent.BuildConfig{
-		DataDir: *dataDir, Endpoint: *endpoint, Token: *token, TrustBundlePEM: bundle, AgentVersion: version, AdminAddr: *adminAddr, Log: log,
+		DataDir: *dataDir, Endpoint: *endpoint, Token: *token, TrustBundlePEM: bundle, AgentVersion: version, AdminAddr: *adminAddr, Adapter: adapter, Log: log,
 	})
 	if err != nil {
 		log.Error("build", "err", err)

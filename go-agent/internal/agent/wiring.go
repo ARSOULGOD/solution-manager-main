@@ -11,6 +11,7 @@ import (
 	"github.com/solace/solution-manager/go-agent/internal/identity"
 	"github.com/solace/solution-manager/go-agent/internal/msg"
 	"github.com/solace/solution-manager/go-agent/internal/reactor"
+	"github.com/solace/solution-manager/go-agent/internal/runtime"
 	"github.com/solace/solution-manager/go-agent/internal/store"
 	"github.com/solace/solution-manager/go-agent/internal/wire"
 )
@@ -22,6 +23,7 @@ type BuildConfig struct {
 	TrustBundlePEM []byte
 	AgentVersion   string
 	AdminAddr      string
+	Adapter        runtime.Adapter
 	Log            *slog.Logger
 	Observe        func(reactor.Event, []reactor.Effect)
 }
@@ -72,6 +74,9 @@ func Build(bc BuildConfig) (*Loop, *store.Store, error) {
 		Log:      bc.Log,
 		Observe:  bc.Observe,
 	}, st)
+	if bc.Adapter != nil {
+		l.d.Ops = &opRunner{adapter: bc.Adapter, store: s, push: l.Push, now: l.d.Now}
+	}
 	if bc.AdminAddr != "" {
 		m := NewMetrics()
 		l.d.Observe = m.Observe(l)
