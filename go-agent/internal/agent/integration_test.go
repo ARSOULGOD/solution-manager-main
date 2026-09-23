@@ -430,3 +430,81 @@ func TestIntegrationApplyRestartSurvivesRestartOfTheAgent(t *testing.T) {
 		t.Fatal("no open records after a clean finish")
 	}
 }
+
+func TestIntegrationReportsAfterApplyAndReceivesMintedIDs(t *testing.T) {
+	payload := "c: 3\n"
+	gw := startGateway(t, applyScenario(payload))
+	ad := newFakeAdapter(t)
+	h := startAgentWith(t, gw, "", ad)
+	waitPhase(t, h.loop, PhaseActive, 10*time.Second)
+	if !gw.WaitFor("ActualStateReportBatch", 1, 30*time.Second) {
+		t.Fatal("no report")
+	}
+	deadline := time.Now().Add(20 * time.Second)
+	for time.Now().Before(deadline) {
+		st := h.loop.Snapshot()
+		if st.Reports.ReplicaID("binding-1", "java1") != "" && st.Reports.PendingCount() == 0 {
+			b := gw.Received("ActualStateReportBatch")[0].(msg.ActualStateReportBatch)
+			if len(b.Items) == 0 || b.Items[0].ItemID == "" || b.Items[0].Sequence == 0 {
+				t.Fatalf("%+v", b)
+			}
+			if b.Items[0].VersionObservation.Mechanism != "image-digest" {
+				t.Fatalf("version observation: %+v", b.Items[0].VersionObservation)
+			}
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("ids never landed: pending=%d", h.loop.Snapshot().Reports.PendingCount())
+}
+
+func TestIntegrationPeriodicReportWithNothingChanged(t *testing.T) {
+	sc := fakegw.DefaultScenario()
+	sc.Limits.ReportInterval = 300 * time.Millisecond
+	gw := startGateway(t, sc)
+	h := startAgentWith(t, gw, "", newFakeAdapter(t))
+	waitPhase(t, h.loop, PhaseActive, 10*time.Second)
+	if !gw.WaitFor("ActualStateReportBatch", 3, 20*time.Second) {
+		t.Fatalf("AG-D18: a healthy unchanged workload must keep reporting; got %d", gw.Count("ActualStateReportBatch"))
+	}
+}
+
+func TestIntegrationReportRetryAfterCrashReusesItemID(t *testing.T) {
+	sc := fakegw.DefaultScenario()
+	sc.Policy.Report = fakegw.ReportPolicy{Mode: "silent"} // never ack → the item stays pending
+	sc.Limits.ReportInterval = 500 * time.Millisecond
+	gw := startGateway(t, sc)
+	ad := newFakeAdapter(t)
+	h := startAgentWith(t, gw, "", ad)
+	waitPhase(t, h.loop, PhaseActive, 10*time.Second)
+	if !gw.WaitFor("ActualStateReportBatch", 1, 20*time.Second) {
+		t.Fatal("no report")
+	}
+	first := gw.Received("ActualStateReportBatch")[0].(msg.ActualStateReportBatch).Items[0]
+	h.stop()
+
+	// Same gateway, same data dir: the pending item must come back unchanged.
+	h2 := startAgentWith(t, gw, h.dir, ad)
+	waitPhase(t, h2.loop, PhaseActive, 10*time.Second)
+	if !gw.WaitFor("ActualStateReportBatch", 2, 20*time.Second) {
+		t.Fatal("pending item was not re-sent after restart")
+	}
+	for _, m := range gw.Received("ActualStateReportBatch") {
+		for _, it := range m.(msg.ActualStateReportBatch).Items {
+			if it.ItemID == first.ItemID && it.Sequence != first.Sequence {
+				t.Fatal("a re-sent item must be byte-identical")
+			}
+		}
+	}
+	var found bool
+	for _, m := range gw.Received("ActualStateReportBatch")[1:] {
+		for _, it := range m.(msg.ActualStateReportBatch).Items {
+			if it.ItemID == first.ItemID {
+				found = true
+			}
+		}
+	}
+	if !found {
+		t.Fatal("AG-D17: the same item_id must survive a restart")
+	}
+}

@@ -7,16 +7,18 @@ import (
 	"github.com/solace/solution-manager/go-agent/internal/commands"
 	"github.com/solace/solution-manager/go-agent/internal/identity"
 	"github.com/solace/solution-manager/go-agent/internal/reactor"
+	"github.com/solace/solution-manager/go-agent/internal/reports"
 	"github.com/solace/solution-manager/go-agent/internal/store"
 )
 
 // State is the composite the reducers share. Reduce dispatches in the fixed
-// order session → authority → commands (→ reports in later tasks); each later
-// reducer sees the earlier ones' new state.
+// order session → authority → commands → reports; each later reducer sees
+// the earlier ones' new state.
 type State struct {
 	Session   SessionState
 	Authority authority.State
 	Commands  commands.State
+	Reports   reports.State
 }
 
 func Reduce(cfg Config, s State, ev reactor.Event, env reactor.Env) (State, []reactor.Effect) {
@@ -28,6 +30,8 @@ func Reduce(cfg Config, s State, ev reactor.Event, env reactor.Env) (State, []re
 	s.Authority, effs = authority.Reduce(s.Authority, ev, env)
 	all = append(all, effs...)
 	s.Commands, effs = commands.Reduce(s.Commands, ev, env, s.Authority)
+	all = append(all, effs...)
+	s.Reports, effs = reports.Reduce(s.Reports, ev, env)
 	all = append(all, effs...)
 	return s, all
 }
@@ -47,6 +51,10 @@ func LoadState(cfg Config, s *store.Store, id *identity.Identity) (State, error)
 		return st, err
 	}
 	st.Commands, err = commands.Load(s)
+	if err != nil {
+		return st, err
+	}
+	st.Reports, err = reports.Load(s)
 	if err != nil {
 		return st, err
 	}

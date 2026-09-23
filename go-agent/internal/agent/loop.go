@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"path/filepath"
 	goruntime "runtime"
+	"slices"
 	"sync"
 	"time"
 
@@ -14,6 +16,7 @@ import (
 	"github.com/solace/solution-manager/go-agent/internal/identity"
 	"github.com/solace/solution-manager/go-agent/internal/msg"
 	"github.com/solace/solution-manager/go-agent/internal/reactor"
+	"github.com/solace/solution-manager/go-agent/internal/reports"
 	"github.com/solace/solution-manager/go-agent/internal/runtime"
 	"github.com/solace/solution-manager/go-agent/internal/store"
 )
@@ -43,6 +46,7 @@ type Deps struct {
 	Identity *identity.Identity
 	Wire     Wire
 	Ops      OpRunner
+	Adapter  runtime.Adapter
 	Clock    *clock.Clock
 	Offset   func() time.Duration
 	NewID    func() string
@@ -116,10 +120,40 @@ func New(d Deps, initial State) *Loop {
 
 func (l *Loop) Push(ev reactor.Event) { l.inbox <- ev }
 
+// Snapshot returns an isolated copy of the current state, safe to read after
+// this call returns with no further synchronization — see cloneState.
 func (l *Loop) Snapshot() State {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	return l.state
+	return cloneState(l.state)
+}
+
+// cloneState deep-copies st's mutable-map fields rather than aliasing them,
+// so the result is safe to use outside l.mu (Snapshot's whole point) and to
+// hand to another goroutine.
+//
+// Session's fields are plain values. Authority's Grant/Pending are
+// pointer-swapped wholesale on every change (authority.acceptGrant,
+// sendRenew) rather than ever mutated through an existing pointer, so an
+// older State's pointer stays valid and frozen even after a newer grant
+// replaces it — safe to share as-is. Commands.Journal (Journal.Put) and
+// Reports' Cursor/Registry (observe/ack) are the opposite: those maps are
+// created once at Load and only ever added to in place, never reallocated,
+// so every State value this Loop ever produces — including one captured by
+// Snapshot or handed to a spawned goroutine — aliases the very same maps for
+// the process's whole life. Without this clone, reading them from anywhere
+// but the loop goroutine races the loop goroutine's next Reduce (caught by
+// -race: reports.State.ack's write vs. a Snapshot-polling test's read, both
+// on Registry.ReplicaIDs).
+func cloneState(st State) State {
+	st.Commands.Journal.Records = maps.Clone(st.Commands.Journal.Records)
+	st.Commands.Journal.Watermark = maps.Clone(st.Commands.Journal.Watermark)
+	st.Commands.Pulling = maps.Clone(st.Commands.Pulling)
+	st.Reports.Cursor.Sequences = maps.Clone(st.Reports.Cursor.Sequences)
+	st.Reports.Registry.ReplicaIDs = maps.Clone(st.Reports.Registry.ReplicaIDs)
+	st.Reports.Registry.IncarnationIDs = maps.Clone(st.Reports.Registry.IncarnationIDs)
+	st.Reports.Pending.Items = slices.Clone(st.Reports.Pending.Items)
+	return st
 }
 
 func (l *Loop) Halted() msg.ErrorCode {
@@ -157,15 +191,18 @@ func (l *Loop) Run(ctx context.Context) error {
 				}
 			}
 		}
+		// l.mu covers the Reduce call itself, not just the state swap: the
+		// commands and reports reducers mutate their journal/cursor/registry
+		// maps in place (see cloneState), so Snapshot's clone must be unable
+		// to run concurrently with this — only holding the lock around the
+		// swap leaves that mutation unprotected.
 		l.mu.Lock()
 		st := l.state
-		l.mu.Unlock()
 		env := reactor.Env{Now: ev.EventAt(), Offset: l.d.Offset(), NewID: l.d.NewID, Jitter: l.d.Jitter, Limits: st.Session.Limits}
 		next, effs := Reduce(l.d.Config, st, ev, env)
-		effs = reactor.Sort(effs)
-		l.mu.Lock()
 		l.state = next
 		l.mu.Unlock()
+		effs = reactor.Sort(effs)
 		if l.d.Observe != nil {
 			l.d.Observe(ev, effs)
 		}
@@ -174,12 +211,48 @@ func (l *Loop) Run(ctx context.Context) error {
 			l.closeConn(false)
 			return err
 		}
+		if obs, ok := l.observationFor(ev, next); ok {
+			l.Push(reactor.Observed{At: l.d.Now(), Obs: obs})
+		}
+		if tf, ok := ev.(reactor.TimerFired); ok && tf.Kind == reactor.ReportDue {
+			go l.observeAll(ctx, next, persistedGenerations(next))
+		}
 		if _, isShutdown := ev.(reactor.Shutdown); isShutdown {
 			l.stopTimers()
 			return nil
 		}
 	}
 	return nil
+}
+
+// observationFor turns a finished operation into an actual-state observation.
+// It runs after the event was reduced, so the journal record is terminal and
+// PersistedGeneration is the durable one.
+func (l *Loop) observationFor(ev reactor.Event, st State) (reports.Observation, bool) {
+	fin, ok := ev.(reactor.OpFinished)
+	if !ok || fin.Result.Facts == nil || fin.Result.Placement == nil {
+		return reports.Observation{}, false
+	}
+	f, p := fin.Result.Facts, fin.Result.Placement
+	obs := reports.Observation{
+		BindingID: p.BindingID, ReplicaRef: f.ReplicaRef, Incarnation: f.Incarnation,
+		PersistedGeneration: st.Commands.PersistedGeneration(p.BindingID),
+		EffectiveHash:       fin.Result.EffectiveHash,
+		VersionObservation:  versionOf(f),
+	}
+	if f.Running && !f.StartedAt.IsZero() {
+		at := f.StartedAt.Add(l.d.Clock.Offset()) // host time → DP time
+		obs.RestartObservedAt = &at
+	}
+	return obs, true
+}
+
+// versionOf reports what the runtime shows and nothing more (AG-D12).
+func versionOf(f *runtime.ReplicaFacts) msg.VersionObservation {
+	if f.ImageDigest == "" {
+		return msg.VersionObservation{Mechanism: "none", Confidence: "none"}
+	}
+	return msg.VersionObservation{Mechanism: "image-digest", Value: f.ImageDigest, Confidence: "low"}
 }
 
 // translate turns loop-private events into public ones, dropping stale
@@ -367,5 +440,58 @@ func (l *Loop) worker(ctx context.Context) {
 		}
 		res := l.d.Ops.Run(ctx, op)
 		l.Push(reactor.OpFinished{At: l.d.Now(), CommandID: op.CommandID, Result: res})
+	}
+}
+
+// persistedGenerations snapshots Commands.PersistedGeneration for every bound
+// binding while still on the loop goroutine. Unlike Authority.Grant (replaced
+// wholesale on each new grant — see acceptGrant — so an older State's Grant
+// pointer is never mutated after another State snapshot moves on), the
+// commands journal's underlying map is mutated in place by Journal.Put and is
+// never reallocated, so every State copy for the process's life aliases the
+// same map. Reading it through st.Commands from observeAll's own goroutine
+// would race the loop goroutine's next journal write; computing the values
+// here, before the goroutine starts, keeps that read on the loop goroutine
+// where it is safe and hands the new goroutine only a private copy.
+func persistedGenerations(st State) map[string]uint64 {
+	if st.Authority.Grant == nil {
+		return nil
+	}
+	out := make(map[string]uint64, len(st.Authority.Grant.BindingIDs))
+	for _, binding := range st.Authority.Grant.BindingIDs {
+		out[binding] = st.Commands.PersistedGeneration(binding)
+	}
+	return out
+}
+
+// observeAll asks the adapter for current facts for every binding the lease
+// names, so a healthy unchanged workload still reports (AG-D18 / AGW-19).
+// persistedGen is precomputed on the loop goroutine (see persistedGenerations)
+// — this function and everything it calls must only read st.Authority.Grant
+// (safe: pointer-swapped, never mutated in place) and persistedGen (a private
+// copy), call the adapter, and l.Push; it must never touch st.Commands or any
+// Loop field directly.
+func (l *Loop) observeAll(ctx context.Context, st State, persistedGen map[string]uint64) {
+	if l.d.Adapter == nil || st.Authority.Grant == nil {
+		return
+	}
+	for _, binding := range st.Authority.Grant.BindingIDs {
+		p, err := l.d.Adapter.Resolve(ctx, binding)
+		if err != nil {
+			l.d.Log.Warn("periodic report: resolve", "binding", binding, "err", err)
+			continue
+		}
+		f, err := l.d.Adapter.Observe(ctx, p)
+		if err != nil {
+			l.d.Log.Warn("periodic report: observe", "binding", binding, "err", err)
+			continue
+		}
+		obs := reports.Observation{BindingID: binding, ReplicaRef: f.ReplicaRef, Incarnation: f.Incarnation,
+			PersistedGeneration: persistedGen[binding], VersionObservation: versionOf(&f)}
+		if f.Running && !f.StartedAt.IsZero() {
+			at := f.StartedAt.Add(l.d.Clock.Offset()) // host time → DP time
+			obs.RestartObservedAt = &at
+		}
+		l.Push(reactor.Observed{At: l.d.Now(), Obs: obs})
 	}
 }
