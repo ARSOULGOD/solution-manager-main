@@ -63,6 +63,13 @@ type EnrollResult struct {
 	Err  error
 }
 
+// Observed carries a runtime observation the report reducer turns into an
+// item. The loop produces it on the report timer and after every operation.
+type Observed struct {
+	At  time.Time
+	Obs any // reports.Observation; typed as any to keep reactor free of reports
+}
+
 type Resumed struct{ At time.Time }
 
 type Shutdown struct {
@@ -77,6 +84,7 @@ func (e OpProgress) EventAt() time.Time   { return e.At }
 func (e Connected) EventAt() time.Time    { return e.At }
 func (e Disconnected) EventAt() time.Time { return e.At }
 func (e EnrollResult) EventAt() time.Time { return e.At }
+func (e Observed) EventAt() time.Time     { return e.At }
 func (e Resumed) EventAt() time.Time      { return e.At }
 func (e Shutdown) EventAt() time.Time     { return e.At }
 
