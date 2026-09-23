@@ -82,6 +82,15 @@ func Open(root string) (*Store, error) {
 	return &Store{Root: root}, nil
 }
 
+// MustOpen is for tests.
+func MustOpen(root string) *Store {
+	s, err := Open(root)
+	if err != nil {
+		panic(err)
+	}
+	return s
+}
+
 func (s *Store) Path(rel string) string { return filepath.Join(s.Root, filepath.FromSlash(rel)) }
 
 func (s *Store) Exists(rel string) bool {
