@@ -103,7 +103,7 @@ func (s *Server) Stop()            { s.srv.Stop() }
 
 func (s *Server) Transcript() []Entry                              { return s.tr.all() }
 func (s *Server) Count(kind string) int                            { return s.tr.count(kind) }
-func (s *Server) Received(kind string) []msg.Outbound              { return s.tr.received(kind) }
+func (s *Server) Received(kind string) []any                       { return s.tr.received(kind) }
 func (s *Server) WaitFor(kind string, n int, d time.Duration) bool { return s.tr.waitFor(kind, n, d) }
 func (s *Server) Sessions() int {
 	s.mu.Lock()

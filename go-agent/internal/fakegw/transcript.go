@@ -5,8 +5,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/solace/solution-manager/go-agent/internal/msg"
 )
 
 type Entry struct {
@@ -61,11 +59,19 @@ func (t *transcript) count(kind string) int {
 	return n
 }
 
-func (t *transcript) received(kind string) []msg.Outbound {
-	var out []msg.Outbound
+// received returns any (not just msg.Outbound), because the transcript also
+// carries the unary Enroll RPC's msg.EnrollRequest/msg.EnrollResponse, which
+// are deliberately outside the Outbound/Inbound stream-message vocabulary
+// (Enroll precedes Connect and has no Envelope). Narrowing this to
+// []msg.Outbound made every "EnrollRequest"/"EnrollResponse" lookup an
+// unconditional type assertion to an interface those types never satisfy —
+// go vet flags it as an impossible conversion, and at runtime it would
+// panic.
+func (t *transcript) received(kind string) []any {
+	var out []any
 	for _, e := range t.all() {
 		if e.Dir == "in" && e.Kind == kind {
-			out = append(out, e.Msg.(msg.Outbound))
+			out = append(out, e.Msg)
 		}
 	}
 	return out
