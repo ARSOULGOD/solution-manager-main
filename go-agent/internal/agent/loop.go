@@ -80,6 +80,11 @@ type Loop struct {
 	connGen int
 	sendCh  chan any // msg.Outbound | flushAndClose
 	writerDone chan struct{}
+	// intentionalCloseGen is the connection generation whose connClosed echo
+	// should be dropped, not delivered as Disconnected — set only via
+	// closeConn(willRedialImmediately: true), i.e. only when we closed this
+	// connection in the same batch as arming an immediate (zero-delay)
+	// reconnect, so a fresh Dial is already racing to replace it.
 	intentionalCloseGen int
 }
 
@@ -143,7 +148,7 @@ func (l *Loop) Run(ctx context.Context) error {
 		}
 		l.d.Log.Debug("event", "type", fmt.Sprintf("%T", ev), "effects", len(effs))
 		if err := l.execute(ctx, effs); err != nil {
-			l.closeConn()
+			l.closeConn(false)
 			return err
 		}
 		if _, isShutdown := ev.(reactor.Shutdown); isShutdown {
@@ -165,10 +170,14 @@ func (l *Loop) translate(raw reactor.Event) (reactor.Event, bool) {
 		l.attach(e.conn)
 		return reactor.Connected{At: e.at}, true
 	case connClosed:
+		// The second condition catches only the immediate-redial echo (see
+		// closeConn/intentionalCloseGen) — any other intentional close is
+		// already safe via the phase guard in session.go's Disconnected case,
+		// so it is delivered normally rather than suppressed here.
 		if e.gen != l.connGen || e.gen == l.intentionalCloseGen {
 			return nil, false
 		}
-		l.closeConn() // the peer dropped us: stop the writer too, never just dereference
+		l.closeConn(false) // the peer dropped us: stop the writer too, never just dereference
 		return reactor.Disconnected{At: e.at, Cause: e.err}, true
 	default:
 		return raw, true
@@ -176,7 +185,7 @@ func (l *Loop) translate(raw reactor.Event) (reactor.Event, bool) {
 }
 
 func (l *Loop) attach(c Conn) {
-	l.closeConn()
+	l.closeConn(false)
 	l.connGen++
 	gen := l.connGen
 	l.conn = c
@@ -210,11 +219,22 @@ func (l *Loop) writer(c Conn, ch chan any, done chan struct{}) {
 	}
 }
 
-func (l *Loop) closeConn() {
+// closeConn tears down the active connection. willRedialImmediately marks
+// this generation's eventual connClosed echo for suppression (see
+// intentionalCloseGen) — set only when the effects batch that produced this
+// Close also armed a zero-delay ReconnectDue timer, meaning a new Dial is
+// about to race the echo. A Close not paired with an immediate reconnect
+// (Drain's real-delay timer, Shutdown, Revoke, a halt) must NOT suppress:
+// Drain relies on the echo to leave PhaseDraining, and the others are
+// already safe because the reducer transitioned to an ignore-listed phase
+// (Closed/Halted) before the echo can arrive.
+func (l *Loop) closeConn(willRedialImmediately bool) {
 	if l.conn == nil {
 		return
 	}
-	l.intentionalCloseGen = l.connGen
+	if willRedialImmediately {
+		l.intentionalCloseGen = l.connGen
+	}
 	l.sendCh <- flushAndClose{}
 	close(l.sendCh)
 	<-l.writerDone
@@ -222,6 +242,15 @@ func (l *Loop) closeConn() {
 }
 
 func (l *Loop) execute(ctx context.Context, effs []reactor.Effect) error {
+	// A same-batch, zero-delay ReconnectDue timer means the reducer is about
+	// to redial immediately after this Close — see closeConn.
+	immediateRedial := false
+	for _, eff := range effs {
+		if a, ok := eff.(reactor.ArmTimer); ok && a.Kind == reactor.ReconnectDue && a.After == 0 {
+			immediateRedial = true
+			break
+		}
+	}
 	for _, eff := range effs {
 		switch e := eff.(type) {
 		case reactor.Persist:
@@ -256,7 +285,7 @@ func (l *Loop) execute(ctx context.Context, effs []reactor.Effect) error {
 				l.Push(dialResult{at: l.d.Now(), conn: c, err: err})
 			}()
 		case reactor.Close:
-			l.closeConn()
+			l.closeConn(immediateRedial)
 		case reactor.Halt:
 			l.mu.Lock()
 			l.halted = e.Code

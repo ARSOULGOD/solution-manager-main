@@ -202,6 +202,37 @@ func TestLoopStaleDisconnectIsIgnored(t *testing.T) {
 	}
 }
 
+// TestLoopReconnectsAfterDrain is the regression test for the deadlock the
+// broadened intentionalCloseGen suppression introduced and the narrowed
+// willRedialImmediately condition fixes: Drain arms ReconnectDue with a real
+// (nonzero) delay, not 0, so its Close must NOT suppress the resulting
+// connClosed echo — session.go's Disconnected case relies on that echo to
+// leave PhaseDraining. If the echo were wrongly suppressed, the timer would
+// still fire, but PhaseDraining never matches TimerFired{ReconnectDue}'s
+// phase checks, so the agent would drain and never reconnect.
+func TestLoopReconnectsAfterDrain(t *testing.T) {
+	ca, _ := testca.New()
+	w := &fakeWire{ca: ca}
+	l, _ := newTestLoop(t, w)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() { _ = l.Run(ctx) }()
+
+	c0 := w.conn(0)
+	expect[msg.SessionOpen](t, c0)
+	c0.inject <- msg.SessionAccept{SessionID: "s1", Limits: msg.Limits{HeartbeatInterval: time.Hour}}
+	c0.inject <- msg.Drain{Reason: "maintenance", ReconnectAfter: 50 * time.Millisecond}
+
+	select {
+	case <-c0.closed:
+	case <-time.After(time.Second):
+		t.Fatal("conn not closed after drain")
+	}
+
+	c1 := w.conn(1)
+	expect[msg.SessionOpen](t, c1)
+}
+
 func TestLoopHaltsOnTokenConsumed(t *testing.T) {
 	ca, _ := testca.New()
 	w := &fakeWire{ca: ca, failNext: &msg.ProtocolError{Code: msg.ErrTokenConsumed}}
