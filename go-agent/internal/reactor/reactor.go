@@ -139,3 +139,6 @@ type Env struct {
 }
 
 func (e Env) DPNow() time.Time { return e.Now.Add(e.Offset) }
+
+// Env mints one envelope per outbound message.
+func (e Env) Env() msg.Envelope { return msg.Envelope{MessageID: e.NewID(), SentAt: e.Now} }

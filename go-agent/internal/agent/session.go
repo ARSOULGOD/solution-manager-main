@@ -114,7 +114,7 @@ func reduceSession(cfg Config, s SessionState, ev reactor.Event, env reactor.Env
 			s.MissedHeartbeats++
 			return s, []reactor.Effect{
 				reactor.Send{Msg: msg.Heartbeat{
-					Envelope:             msg.Envelope{MessageID: env.NewID(), SentAt: env.Now},
+					Envelope:             env.Env(),
 					AgentClock:           env.Now,
 					JournalDepth:         in.JournalDepth,
 					LeaseRemainingAtSend: in.LeaseRemaining,
@@ -130,7 +130,7 @@ func reduceSession(cfg Config, s SessionState, ev reactor.Event, env reactor.Env
 		}
 		s.Phase = PhaseOpening
 		return s, []reactor.Effect{reactor.Send{Msg: msg.SessionOpen{
-			Envelope:              msg.Envelope{MessageID: env.NewID(), SentAt: env.Now},
+			Envelope:              env.Env(),
 			ProtocolVersion:       protocolVersion,
 			AgentVersion:          cfg.AgentVersion,
 			CapabilitiesSupported: cfg.Capabilities,
@@ -152,7 +152,7 @@ func reduceSession(cfg Config, s SessionState, ev reactor.Event, env reactor.Env
 	case reactor.Shutdown:
 		var effs []reactor.Effect
 		if s.Phase == PhaseActive || s.Phase == PhaseOpening {
-			effs = append(effs, reactor.Send{Msg: msg.Teardown{Envelope: msg.Envelope{MessageID: env.NewID(), SentAt: env.Now}, Reason: "shutdown"}})
+			effs = append(effs, reactor.Send{Msg: msg.Teardown{Envelope: env.Env(), Reason: "shutdown"}})
 		}
 		s.Phase = PhaseClosed
 		return s, append(effs, reactor.Close{Reason: "shutdown"})
