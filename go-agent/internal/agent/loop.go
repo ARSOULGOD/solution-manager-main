@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"runtime"
+	goruntime "runtime"
 	"sync"
 	"time"
 
@@ -13,6 +13,7 @@ import (
 	"github.com/solace/solution-manager/go-agent/internal/identity"
 	"github.com/solace/solution-manager/go-agent/internal/msg"
 	"github.com/solace/solution-manager/go-agent/internal/reactor"
+	"github.com/solace/solution-manager/go-agent/internal/runtime"
 	"github.com/solace/solution-manager/go-agent/internal/store"
 )
 
@@ -32,7 +33,7 @@ type Wire interface {
 // OpRunner executes one runtime operation; the loop guarantees at most one
 // in flight. Task 19 supplies the Docker-backed implementation.
 type OpRunner interface {
-	Run(ctx context.Context, op reactor.RunOp) any
+	Run(ctx context.Context, op reactor.RunOp) runtime.OpResult
 }
 
 type Deps struct {
@@ -344,7 +345,7 @@ func (l *Loop) enroll(ctx context.Context, endpoint string) {
 		CSRDER:                    csr,
 		AgentVersion:              l.d.Config.AgentVersion,
 		ProtocolVersionsSupported: []uint32{protocolVersion},
-		HostFacts:                 msg.HostFacts{OS: runtime.GOOS, Arch: runtime.GOARCH, RuntimeKind: "docker"},
+		HostFacts:                 msg.HostFacts{OS: goruntime.GOOS, Arch: goruntime.GOARCH, RuntimeKind: "docker"},
 	}
 	resp, err := l.d.Wire.Enroll(ctx, endpoint, req)
 	if err == nil {

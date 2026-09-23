@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/solace/solution-manager/go-agent/internal/msg"
+	"github.com/solace/solution-manager/go-agent/internal/runtime"
 	"github.com/solace/solution-manager/go-agent/internal/store"
 )
 
@@ -38,7 +39,15 @@ type TimerFired struct {
 type OpFinished struct {
 	At        time.Time
 	CommandID string
-	Result    any // runtime.OpResult once Task 16 lands
+	Result    runtime.OpResult
+}
+
+// OpProgress is pushed by the runtime worker when the adapter reaches a
+// journal step mid-operation (the step is already on disk when this fires).
+type OpProgress struct {
+	At        time.Time
+	CommandID string
+	Step      msg.ProgressStep
 }
 
 type Connected struct{ At time.Time }
@@ -64,6 +73,7 @@ type Shutdown struct {
 func (e WireIn) EventAt() time.Time       { return e.At }
 func (e TimerFired) EventAt() time.Time   { return e.At }
 func (e OpFinished) EventAt() time.Time   { return e.At }
+func (e OpProgress) EventAt() time.Time   { return e.At }
 func (e Connected) EventAt() time.Time    { return e.At }
 func (e Disconnected) EventAt() time.Time { return e.At }
 func (e EnrollResult) EventAt() time.Time { return e.At }
