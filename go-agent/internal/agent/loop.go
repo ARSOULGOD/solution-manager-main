@@ -319,6 +319,7 @@ func (l *Loop) enroll(ctx context.Context, endpoint string) {
 		return
 	}
 	req := msg.EnrollRequest{
+		Token:                     l.d.Config.EnrollmentToken,
 		CSRDER:                    csr,
 		AgentVersion:              l.d.Config.AgentVersion,
 		ProtocolVersionsSupported: []uint32{protocolVersion},

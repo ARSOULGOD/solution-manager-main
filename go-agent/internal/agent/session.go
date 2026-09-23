@@ -28,6 +28,7 @@ const (
 
 type Config struct {
 	BootstrapEndpoint string
+	EnrollmentToken   string
 	AgentVersion      string
 	Capabilities      []msg.Capability
 }

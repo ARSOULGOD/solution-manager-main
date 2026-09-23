@@ -150,6 +150,7 @@ type HostFacts struct {
 }
 
 type EnrollRequest struct {
+	Token                     string // gRPC metadata x-sm-enrollment-token; never persisted, never logged
 	CSRDER                    []byte
 	AgentVersion              string
 	ProtocolVersionsSupported []uint32
