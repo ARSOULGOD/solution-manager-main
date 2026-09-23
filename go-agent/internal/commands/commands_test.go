@@ -197,6 +197,42 @@ func TestSupersededErrorClosesRecord(t *testing.T) {
 	}
 }
 
+// A command can be superseded between the agent's CommandPull and the
+// CommandOffer that would have journaled it: offer() only writes the
+// RECEIVED record once the payload arrives, so the gateway can answer the
+// pull with an Error instead. msg.Error carries a CorrelationID and nothing
+// else — no binding, no generation — so wireError must correlate through
+// the pending-pull map, not the journal, or the DP never gets an ack for a
+// command it will never redeliver under this id.
+func TestSupersededDuringPullIsAckedWithNoJournalRecord(t *testing.T) {
+	s, effs := Reduce(newState(), reactor.WireIn{At: t0, Msg: msg.GenerationAvailable{CommandID: "c1", BindingID: "b1", Generation: 7, Operation: msg.OpApply}}, env(t0), okAuth)
+	if p := sent[msg.CommandPull](t, effs); p.CommandID != "c1" {
+		t.Fatal(p)
+	}
+	if _, ok := s.Journal.ByCommand("c1"); ok {
+		t.Fatal("nothing is journaled before the offer arrives")
+	}
+
+	s2, effs2 := Reduce(s, reactor.WireIn{At: t0, Msg: msg.Error{Code: msg.ErrSuperseded, CorrelationID: "c1"}}, env(t0), okAuth)
+	ack := sent[msg.CommandAck](t, effs2)
+	if ack.Outcome != msg.OutcomeSuperseded || ack.CommandID != "c1" || ack.Generation != 7 {
+		t.Fatalf("%+v", ack)
+	}
+	if _, ok := s2.Journal.ByCommand("c1"); ok {
+		t.Fatal("still nothing to journal: the command was never received")
+	}
+	if _, pending := s2.Pulling["c1"]; pending {
+		t.Fatal("the pending-pull entry must be cleared once resolved")
+	}
+}
+
+func TestErrorForUnknownCorrelationIsIgnored(t *testing.T) {
+	_, effs := Reduce(newState(), reactor.WireIn{At: t0, Msg: msg.Error{Code: msg.ErrSuperseded, CorrelationID: "never-pulled"}}, env(t0), okAuth)
+	if len(effs) != 0 {
+		t.Fatalf("no journal record and no pending pull means nothing to ack: %+v", effs)
+	}
+}
+
 func TestOpProgressJournalsStep(t *testing.T) {
 	s := newState()
 	s.Journal.Put(Record{SchemaVersion: 1, BindingID: "b1", RolloutGeneration: 1, CommandID: "c1", Step: msg.StepReceived})

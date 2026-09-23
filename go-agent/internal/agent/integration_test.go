@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -248,4 +249,184 @@ func waitAuthority(t *testing.T, l *Loop, want authority.Phase, timeout time.Dur
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatalf("authority %s not reached (at %s)", want, l.Snapshot().Authority.Phase)
+}
+
+func applyScenario(payload string) *fakegw.Scenario {
+	sc := fakegw.DefaultScenario()
+	sc.Steps = []fakegw.Step{
+		// Generation is DP-assigned and monotonic per binding across every
+		// operation type, not just apply (design.md: "rollout_generation #
+		// monotonic, DP-assigned; per binding"; the wire's CommandOffer
+		// carries generation for preflight/restart/stop exactly as for
+		// apply). Three commands against the same binding therefore need
+		// three increasing generations — reusing one would make the second
+		// and third notices look like redelivery of the first's already-
+		// terminal record and the agent would replay its stored ack instead
+		// of ever pulling them.
+		{Offer: &fakegw.OfferStep{CommandID: "cmd-pf", BindingID: "binding-1", Generation: 1, Operation: "preflight"}},
+		{Expect: &fakegw.ExpectStep{Kind: "CommandAck", Timeout: 20 * time.Second}},
+		{Offer: &fakegw.OfferStep{CommandID: "cmd-ap", BindingID: "binding-1", Generation: 2, Operation: "apply", Payload: payload, IdempotencyKey: "k1"}},
+		{Expect: &fakegw.ExpectStep{Kind: "CommandAck", Timeout: 20 * time.Second}},
+		{Offer: &fakegw.OfferStep{CommandID: "cmd-rs", BindingID: "binding-1", Generation: 3, Operation: "restart"}},
+		{Expect: &fakegw.ExpectStep{Kind: "CommandAck", Timeout: 20 * time.Second}},
+	}
+	return sc
+}
+
+func acksByCommand(gw *fakegw.Server) map[string]msg.CommandAck {
+	out := map[string]msg.CommandAck{}
+	for _, m := range gw.Received("CommandAck") {
+		a := m.(msg.CommandAck)
+		out[a.CommandID] = a
+	}
+	return out
+}
+
+func TestIntegrationPreflightApplyRestart(t *testing.T) {
+	payload := "server.port: 8081\n"
+	gw := startGateway(t, applyScenario(payload))
+	ad := newFakeAdapter(t)
+	h := startAgentWith(t, gw, "", ad)
+	waitPhase(t, h.loop, PhaseActive, 10*time.Second)
+	if !gw.WaitFor("CommandAck", 3, 30*time.Second) {
+		t.Fatalf("expected three acks, got %d", gw.Count("CommandAck"))
+	}
+	acks := acksByCommand(gw)
+	if acks["cmd-pf"].Outcome != msg.OutcomePreflightOK || acks["cmd-pf"].Detail.PreflightResult == nil {
+		t.Fatalf("preflight: %+v", acks["cmd-pf"])
+	}
+	if acks["cmd-ap"].Outcome != msg.OutcomeApplied {
+		t.Fatalf("apply: %+v", acks["cmd-ap"])
+	}
+	if acks["cmd-rs"].Outcome != msg.OutcomeApplied {
+		t.Fatalf("restart: %+v", acks["cmd-rs"])
+	}
+	got, err := os.ReadFile(ad.target())
+	if err != nil || string(got) != payload {
+		t.Fatalf("config not written: %v %q", err, got)
+	}
+	st, _ := os.Stat(ad.target())
+	if st.Mode().Perm() != 0o600 {
+		t.Fatalf("mode %o", st.Mode().Perm())
+	}
+	// delivery and outcome are two acks, and progress was reported
+	if gw.Count("CommandReceived") != 3 || gw.Count("ApplyProgress") < 6 {
+		t.Fatalf("received=%d progress=%d", gw.Count("CommandReceived"), gw.Count("ApplyProgress"))
+	}
+}
+
+func TestIntegrationDuplicateOfferIsAnsweredFromTheJournal(t *testing.T) {
+	payload := "a: 1\n"
+	sc := fakegw.DefaultScenario()
+	sc.Steps = []fakegw.Step{
+		{Offer: &fakegw.OfferStep{CommandID: "cmd-1", BindingID: "binding-1", Generation: 1, Operation: "apply", Payload: payload, IdempotencyKey: "k1"}},
+		{Expect: &fakegw.ExpectStep{Kind: "CommandAck", Timeout: 20 * time.Second}},
+		{Offer: &fakegw.OfferStep{CommandID: "cmd-1", BindingID: "binding-1", Generation: 1, Operation: "apply", Payload: payload, IdempotencyKey: "k1"}},
+		{Expect: &fakegw.ExpectStep{Kind: "CommandAck", Timeout: 20 * time.Second}},
+	}
+	gw := startGateway(t, sc)
+	ad := newFakeAdapter(t)
+	h := startAgentWith(t, gw, "", ad)
+	waitPhase(t, h.loop, PhaseActive, 10*time.Second)
+	if !gw.WaitFor("CommandAck", 2, 30*time.Second) {
+		t.Fatal("no second ack")
+	}
+	for _, m := range gw.Received("CommandAck") {
+		if a := m.(msg.CommandAck); a.Outcome != msg.OutcomeApplied {
+			t.Fatalf("both acks are APPLIED (the second replayed): %+v", a)
+		}
+	}
+	// executed at most once: exactly one apply reached the adapter
+	if n := gw.Count("ApplyProgress"); n > 8 {
+		t.Fatalf("looks like it ran twice: %d progress messages", n)
+	}
+}
+
+func TestIntegrationHashMismatchRefused(t *testing.T) {
+	sc := fakegw.DefaultScenario()
+	sc.Steps = []fakegw.Step{
+		{Offer: &fakegw.OfferStep{CommandID: "cmd-bad", BindingID: "binding-1", Generation: 1, Operation: "apply", Payload: "x", BadHash: true}},
+		{Expect: &fakegw.ExpectStep{Kind: "CommandAck", Timeout: 20 * time.Second}},
+	}
+	gw := startGateway(t, sc)
+	ad := newFakeAdapter(t)
+	h := startAgentWith(t, gw, "", ad)
+	waitPhase(t, h.loop, PhaseActive, 10*time.Second)
+	if !gw.WaitFor("CommandAck", 1, 20*time.Second) {
+		t.Fatal("no ack")
+	}
+	a := gw.Received("CommandAck")[0].(msg.CommandAck)
+	if a.Outcome != msg.OutcomeRefused || a.Detail.Code != msg.DetailOf(msg.ErrKeyHashMismatch) {
+		t.Fatalf("%+v", a)
+	}
+	if _, err := os.Stat(ad.target()); err == nil {
+		t.Fatal("nothing may be written for a mismatched hash")
+	}
+}
+
+func TestIntegrationSupersededPullIsRecordedNotActed(t *testing.T) {
+	sc := fakegw.DefaultScenario()
+	sc.Steps = []fakegw.Step{
+		{Offer: &fakegw.OfferStep{CommandID: "cmd-old", BindingID: "binding-1", Generation: 1, Operation: "apply", Payload: "old\n"}},
+		{Superseded: strPtr("cmd-old")},
+		{Expect: &fakegw.ExpectStep{Kind: "CommandAck", Timeout: 20 * time.Second}},
+	}
+	gw := startGateway(t, sc)
+	ad := newFakeAdapter(t)
+	h := startAgentWith(t, gw, "", ad)
+	waitPhase(t, h.loop, PhaseActive, 10*time.Second)
+	if !gw.WaitFor("CommandAck", 1, 20*time.Second) {
+		t.Fatal("no ack")
+	}
+	if a := gw.Received("CommandAck")[0].(msg.CommandAck); a.Outcome != msg.OutcomeSuperseded {
+		t.Fatalf("%+v", a)
+	}
+	if _, err := os.Stat(ad.target()); err == nil {
+		t.Fatal("a superseded command must not be applied")
+	}
+}
+
+func TestIntegrationCapabilityMissingRefusedLocally(t *testing.T) {
+	sc := fakegw.DefaultScenario()
+	sc.Lease.Capabilities = []string{"apply-config"} // no lifecycle
+	sc.Steps = []fakegw.Step{
+		{Offer: &fakegw.OfferStep{CommandID: "cmd-rs", BindingID: "binding-1", Generation: 1, Operation: "restart"}},
+		{Expect: &fakegw.ExpectStep{Kind: "CommandAck", Timeout: 20 * time.Second}},
+	}
+	gw := startGateway(t, sc)
+	h := startAgentWith(t, gw, "", newFakeAdapter(t))
+	waitPhase(t, h.loop, PhaseActive, 10*time.Second)
+	if !gw.WaitFor("CommandAck", 1, 20*time.Second) {
+		t.Fatal("no ack")
+	}
+	a := gw.Received("CommandAck")[0].(msg.CommandAck)
+	if a.Outcome != msg.OutcomeRefused || a.Detail.Code != msg.DetailOf(msg.ErrCapabilityMissing) {
+		t.Fatalf("%+v", a)
+	}
+	if gw.Count("CommandPull") != 0 {
+		t.Fatal("a command the lease cannot authorize is refused without pulling it")
+	}
+}
+
+func TestIntegrationApplyRestartSurvivesRestartOfTheAgent(t *testing.T) {
+	payload := "b: 2\n"
+	gw := startGateway(t, applyScenario(payload))
+	ad := newFakeAdapter(t)
+	h := startAgentWith(t, gw, "", ad)
+	waitPhase(t, h.loop, PhaseActive, 10*time.Second)
+	if !gw.WaitFor("CommandAck", 3, 30*time.Second) {
+		t.Fatal("first run did not finish")
+	}
+	h.stop()
+	h2 := startAgentWith(t, gw, h.dir, ad)
+	waitPhase(t, h2.loop, PhaseActive, 10*time.Second)
+	// the journal is terminal for every command, so nothing re-runs and the
+	// file is untouched
+	got, _ := os.ReadFile(ad.target())
+	if string(got) != payload {
+		t.Fatalf("%q", got)
+	}
+	if h2.loop.Snapshot().Commands.OpenCount() != 0 {
+		t.Fatal("no open records after a clean finish")
+	}
 }

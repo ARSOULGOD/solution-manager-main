@@ -32,6 +32,22 @@ type Authority interface {
 type State struct {
 	Journal  Journal
 	InFlight string
+	// Pulling correlates a CommandID to its (binding, generation) while a
+	// CommandPull is outstanding and nothing has been journaled for it yet
+	// (offer() writes the RECEIVED record only once the payload arrives).
+	// A pull-stage error (SUPERSEDED, UNKNOWN_COMMAND, STALE_GENERATION)
+	// otherwise has nowhere durable to look the command up: msg.Error
+	// carries only a CorrelationID, not a binding/generation. Not persisted
+	// — if the agent crashes before either an Offer or an Error resolves
+	// the pull, the DP simply redelivers the GenerationAvailable notice.
+	Pulling map[string]pending
+}
+
+// pending is Pulling's value: just enough to ack a command that errors out
+// before it is ever journaled.
+type pending struct {
+	BindingID  string
+	Generation uint64
 }
 
 func Load(s *store.Store) (State, error) {
@@ -131,10 +147,17 @@ func (s State) notice(m msg.GenerationAvailable, env reactor.Env, auth Authority
 	if m.Generation < s.Journal.Watermark[m.BindingID] {
 		return s.refuse(m.CommandID, m.BindingID, m.Generation, msg.DetailOf(msg.ErrStaleGeneration), env)
 	}
+	if s.Pulling == nil {
+		s.Pulling = map[string]pending{}
+	}
+	s.Pulling[m.CommandID] = pending{BindingID: m.BindingID, Generation: m.Generation}
 	return s, []reactor.Effect{reactor.Send{Msg: msg.CommandPull{Envelope: env.Env(), CommandID: m.CommandID}}}
 }
 
 func (s State) offer(m msg.CommandOffer, env reactor.Env, auth Authority) (State, []reactor.Effect) {
+	// The pull cycle for this CommandID is over the moment a CommandOffer
+	// arrives, whatever offer() decides to do with it below.
+	delete(s.Pulling, m.CommandID)
 	if d := auth.RefusalDetail(m.Operation, m.BindingID, env.DPNow()); d != msg.DetailNone {
 		return s.refuse(m.CommandID, m.BindingID, m.Generation, d, env)
 	}
@@ -185,17 +208,32 @@ func (s State) wireError(m msg.Error, env reactor.Env) (State, []reactor.Effect)
 	if m.CorrelationID == "" {
 		return s, nil
 	}
-	r, ok := s.Journal.ByCommand(m.CorrelationID)
+	var outcome msg.Outcome
+	switch m.Code {
+	case msg.ErrSuperseded:
+		outcome = msg.OutcomeSuperseded
+	case msg.ErrUnknownCommand, msg.ErrStaleGeneration:
+		outcome = msg.OutcomeRefused
+	default:
+		return s, nil
+	}
+	detail := msg.AckDetail{Code: msg.DetailOf(m.Code)}
+	if r, ok := s.Journal.ByCommand(m.CorrelationID); ok {
+		return s.terminate(r, outcome, detail, "", env)
+	}
+	// No journal record: the error arrived while a CommandPull was still
+	// outstanding, before offer() ever journaled a RECEIVED record for it.
+	// Ack from the pending-pull correlation instead, so the DP still gets
+	// closure on a command it will never redeliver under this id — there is
+	// nothing to terminate in the journal because nothing was ever written
+	// to it.
+	p, ok := s.Pulling[m.CorrelationID]
 	if !ok {
 		return s, nil
 	}
-	switch m.Code {
-	case msg.ErrSuperseded:
-		return s.terminate(r, msg.OutcomeSuperseded, msg.AckDetail{Code: msg.DetailOf(msg.ErrSuperseded)}, "", env)
-	case msg.ErrUnknownCommand, msg.ErrStaleGeneration:
-		return s.terminate(r, msg.OutcomeRefused, msg.AckDetail{Code: msg.DetailOf(m.Code)}, "", env)
-	}
-	return s, nil
+	delete(s.Pulling, m.CorrelationID)
+	return s, []reactor.Effect{reactor.Send{Msg: msg.CommandAck{Envelope: env.Env(), CommandID: m.CorrelationID, Generation: p.Generation,
+		Outcome: outcome, Detail: detail, AgentClock: env.Now}}}
 }
 
 // terminate closes a record, acks it, and sweeps superseded partials.

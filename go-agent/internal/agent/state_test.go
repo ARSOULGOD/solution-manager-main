@@ -26,6 +26,24 @@ func TestReduceFeedsLeaseRemainingIntoHeartbeat(t *testing.T) {
 	}
 }
 
+type runOpEffect = reactor.RunOp
+type deleteEffect = reactor.Delete
+
+func resumedAt(t time.Time) reactor.Event { return reactor.Resumed{At: t} }
+
+func sentMsg[M msg.Outbound](t *testing.T, effs []reactor.Effect) M {
+	t.Helper()
+	for _, e := range effs {
+		if s, ok := e.(reactor.Send); ok {
+			if m, ok := s.Msg.(M); ok {
+				return m
+			}
+		}
+	}
+	t.Fatalf("no %T sent", *new(M))
+	panic("unreachable")
+}
+
 func TestReduceSessionAcceptReachesBothReducers(t *testing.T) {
 	env := testEnv()
 	g := msg.LeaseGrant{CnfThumbprint: "leaf", IssuedAt: t0, ExpiresAt: t0.Add(time.Hour), Nonce: "n"}
