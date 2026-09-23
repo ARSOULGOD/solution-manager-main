@@ -1,12 +1,20 @@
 package authority
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"errors"
 	"testing"
 	"time"
 
+	"github.com/solace/solution-manager/go-agent/internal/identity"
 	"github.com/solace/solution-manager/go-agent/internal/msg"
 	"github.com/solace/solution-manager/go-agent/internal/reactor"
 	"github.com/solace/solution-manager/go-agent/internal/store"
+	"github.com/solace/solution-manager/go-agent/internal/testca"
 )
 
 var t0 = time.Date(2026, 9, 22, 10, 0, 0, 0, time.UTC)
@@ -278,5 +286,61 @@ func TestLoadAndResume(t *testing.T) {
 	none, _ := Reduce(empty, reactor.Resumed{At: t0}, env(t0, 0))
 	if none.Phase != PhaseNone {
 		t.Fatal(none.Phase)
+	}
+}
+
+// testLeafDER returns a real, CA-signed leaf certificate DER — the same
+// shape EnrollResponse.CertificateChain[0] carries — using the same
+// throwaway CA the fake gateway signs against, rather than an arbitrary
+// byte slice.
+func testLeafDER(t *testing.T) []byte {
+	t.Helper()
+	ca, err := testca.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	csrDER, err := x509.CreateCertificateRequest(rand.Reader, &x509.CertificateRequest{Subject: pkix.Name{CommonName: "test-agent"}}, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	leafDER, err := ca.Sign(csrDER)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return leafDER
+}
+
+func TestEnrollResultSetsLeafThumbprint(t *testing.T) {
+	leafDER := testLeafDER(t)
+
+	// success: a fresh enroll's leaf cert becomes LeafThumbprint, with no effects.
+	s, effs := Reduce(State{}, reactor.EnrollResult{Resp: &msg.EnrollResponse{CertificateChain: [][]byte{leafDER}}}, env(t0, 0))
+	if want := identity.Thumbprint(leafDER); s.LeafThumbprint != want {
+		t.Fatalf("LeafThumbprint = %q, want %q", s.LeafThumbprint, want)
+	}
+	if len(effs) != 0 {
+		t.Fatalf("EnrollResult must produce no effects, got %+v", effs)
+	}
+
+	// Err != nil: a failed enroll must not touch an existing LeafThumbprint.
+	s, _ = Reduce(State{LeafThumbprint: leaf}, reactor.EnrollResult{Err: errors.New("enroll failed"), Resp: &msg.EnrollResponse{CertificateChain: [][]byte{leafDER}}}, env(t0, 0))
+	if s.LeafThumbprint != leaf {
+		t.Fatalf("a failed enroll must not change LeafThumbprint, got %q", s.LeafThumbprint)
+	}
+
+	// missing Resp: same no-op, guarding the nil dereference.
+	s, _ = Reduce(State{LeafThumbprint: leaf}, reactor.EnrollResult{Resp: nil}, env(t0, 0))
+	if s.LeafThumbprint != leaf {
+		t.Fatalf("a nil Resp must not change LeafThumbprint, got %q", s.LeafThumbprint)
+	}
+
+	// empty chain: same no-op.
+	s, _ = Reduce(State{LeafThumbprint: leaf}, reactor.EnrollResult{Resp: &msg.EnrollResponse{CertificateChain: nil}}, env(t0, 0))
+	if s.LeafThumbprint != leaf {
+		t.Fatalf("an empty CertificateChain must not change LeafThumbprint, got %q", s.LeafThumbprint)
 	}
 }
