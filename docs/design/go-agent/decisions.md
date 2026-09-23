@@ -21,6 +21,9 @@ nothing here may be implemented as though settled.
 | **The whole family assumes the agent's session terminates at the Data Plane** — `AG-D4`, `AG-D5`, `AG-D6` and `AG-D11` are all written against it | **`B/D16` is `LOCKED`** and defines the session as agent↔**Control Plane** ([`../DECISIONS.md`](../DECISIONS.md) — `B/D16`, §8). The re-homing is **`SM-D24`** + **`SM-D28`**, both `PROPOSED` | **Flagged, not resolved.** The locked decision stands until the architect group rules. The apply machinery (`AG-D4`, `AG-D5`) is **locus-bound, not plane-bound**, so it survives either outcome; `AG-D11`'s transport and the enrollment relay do not. See [`design.md`](design.md) §0.1 |
 | `AG-D5` retains `APPLY_INDETERMINATE` on the `host-local` path, **narrowly scoped** | [`../frontend/decisions.md`](../frontend/decisions.md) `FE-D18` **clause B** makes `APPLY_INDETERMINATE` the **`dp-remote`** degradation, *because* `host-local` carries `B/D16`'s guarantees | **Not a conflict once scoped.** `AG-D4` supplies the guarantees; `AG-D5` narrows the state to one case that `B/D16` does not cover. The first draft's wide reading **was** a conflict and is retracted ([`design.md`](design.md) §14, R1-2) |
 | `AG-D3` assigns restart strategy, ordering and gating **entirely** to the DP | `SM-D15` is `PROPOSED`, yet `AG-D3` treats its `manual` default as binding | **Deliberate.** Two sibling documents already depend on the manual default — [`../frontend/design.md`](../frontend/design.md) §10.1 and [`../dynamic-ui/decisions.md`](../dynamic-ui/decisions.md) `UI-D7`. Building the opposite would falsify both. Flagged as a dependency, not resolved |
+| `AG-D17` provides stable `item_id` and `sequence` persistence/reset semantics — the agent's answer to `AGW-20` | [`docs/design/backend/agent-gateway/decisions.md`](docs/design/backend/agent-gateway/decisions.md) `AGW-20` | **Paired answers:** this decision supplies UUID identity and `sequence` persistence; DP-side watermark, projection and fingerprint remain `AGW-20`'s |
+| `AG-D18` establishes periodic `ActualStateReport` cadence, answering `AGW-19`'s requirement for regular liveness signals | [`docs/design/backend/agent-gateway/decisions.md`](docs/design/backend/agent-gateway/decisions.md) `AGW-19` | **Answered:** the DP delivers the cadence via `SessionAccept.limits.report_interval` |
+| `AG-D19` and `AG-D20` flag architectural gaps requiring `AGW` owners' consideration | [`docs/design/backend/agent-gateway/decisions.md`](docs/design/backend/agent-gateway/decisions.md) §4 | **Routed, not resolved:** `AG-D19` flags missing outcome for "changed-but-failed"; `AG-D20` flags placement-discovery built on protocol silence |
 
 ⚠️ **External facts in this file were verified by WebFetch on 2026-08-18, per `I2`.** Every version number, licence
 and library guarantee below carries its source. This project has been burned three times by confident recall.
@@ -41,6 +44,14 @@ and library guarantee below carries its source. This project has been burned thr
 | `AG-D10` | The agent holds **no database and issues no SQL**; `I5` binds the planes, and binds the agent only on scope self-assertion | PROPOSED |
 | `AG-D11` | `google.golang.org/grpc` + `crypto/tls` + `client-go` + Prometheus libraries; dependencies are few, verified and boring | PROPOSED |
 | `AG-D12` | The agent reports version **observations with mechanism and confidence**, never a version verdict | PROPOSED |
+| `AG-D13` | The agent↔DP `.proto` is DRAFTed in-repo under `go-agent/proto/agentgateway/v1draft/`, transcribed 1:1 from the agent-gateway design §4.3/§4.11; only `internal/wire` imports the generated code | PROPOSED |
+| `AG-D14` | The agent is an event-driven reactor: one inbox, pure reducers `session → authority → commands → reports`, effects executed `Persist → Delete → Send → RunOp → timers`, one runtime worker | PROPOSED |
+| `AG-D15` | `internal/` is rewritten against the gateway design; the superseded packages, the Docker-lifecycle and telemetry-collect demos and the `java-demo` fixtures are **archived** under `go-agent/oldGo-Agent/`, not deleted | PROPOSED |
+| `AG-D16` | The DP test double is a scenario-driven **fake gateway** at wire level, shared by tests and a binary; it is not evidence about the plane | PROPOSED |
+| `AG-D17` | `item_id` is a UUIDv7 minted once per report item and immutable across retries; `sequence` is a per-`(binding, replica)` counter persisted before use and reseeded from DP time when lost — the agent's answer to `AGW-20` | PROPOSED |
+| `AG-D18` | A full `ActualStateReport` is sent at `SessionAccept.limits.report_interval` even when nothing changed — the agent's answer to `AGW-19` | PROPOSED |
+| `AG-D19` | Lifecycle-verb outcomes are decided by **observation**, not by the verb's return; a changed-but-failed state has no `AG-D5` outcome and is routed | PROPOSED |
+| `AG-D20` | On Docker a binding's container is found by the label `com.solace.sm.binding-id`, its config path read from the container's own launch args/env, and the host path mapped through a required bind mount | PROPOSED |
 
 ---
 
@@ -456,10 +467,82 @@ The agent is the strongest corroboration source that exists, and that is precise
 mechanism that would make it reliable); requiring a version endpoint from the MI (`I1`); inferring version from
 config-schema fit (circular — the schema is selected *by* version, `SM-D14`).
 
+## `AG-D13` — The `.proto` is drafted in-repo, under `go-agent/proto/`, never `contracts/`
+
+Open item 6 / `AG-1` / `AGW-2` routes the authoritative `.proto` to the architect group **with the `AG-D*` owners**, and the gateway design's §4 is explicitly "the input" to it. Building the agent needs an encoding now. So `go-agent/proto/agentgateway/v1draft/agent_gateway.proto` transcribes §4.3's catalogue and §4.11's enum one-for-one — same message names, same field names, nothing invented — under a header that says DRAFT and non-authoritative. It is **not** placed under `contracts/`, which is single-writer and normative.
+
+Two transcription notes are recorded because they are the only places the transcription had to decide anything. Proto scopes enum values at package level, so values carry the enum-name prefix (`ERROR_CODE_SUPERSEDED`); the bare names in the design stay the semantic names and `internal/msg` uses them. And `CommandAck.detail.code` needs an enum the design leaves implicit: §4.4 rule 5 puts `ADMISSION_BLOCKED` there and §4.8 uses `LEASE_NOT_ACTIVE`, neither of which is in §4.11 — so `AckDetailCode` carries those two plus a reused `ErrorCode`.
+
+**Containment.** Only `internal/wire` and `internal/wire/codec` import the generated package; every other package speaks `internal/msg` structs. When the reviewed contract lands, the swap is one directory and one codec file, and no reducer changes. **Exit condition:** this decision is superseded the day `contracts/` carries the real proto.
+
+## `AG-D14` — The agent is an event-driven reactor with pure reducers
+
+Every input — an inbound message, a timer, a finished operation, a connection event, a signal — becomes an `Event` on one inbox. One loop drains it and passes it to pure reducers that return `(state, []Effect)`; the loop executes the effects in the fixed order **`Persist → Delete → Send → RunOp → timers → connection`**. Reducers never read a clock, never do I/O, never spawn goroutines: the only impurities arrive through `reactor.Env` (`Now`, `Offset`, `NewID`, `Jitter`, `Limits`).
+
+**Rationale.** The properties this component must prove are sequencing properties — "no `GenerationAvailable` is acted on unless the lease is `ACTIVE`", "the journal entry is fsynced before `CommandReceived` leaves the process", "a resent `LeaseRenew` reuses its `message_id`". Under a reducer they are table tests over `(state, event) → effects`; under goroutines with shared state they are timing arguments. The effect order **is** the agent-side write-before-act rule, in one place instead of at every call site.
+
+**Rejected.** *Goroutine per stream with a mutex* — idiomatic, but scatters lease and journal transitions across five goroutines. *Full event sourcing* — the design requires only the command journal and the lease grant to be durable (`AG-D4`, `AGW-D15`); journaling heartbeats and credits is persistence with no requirement behind it, and the repo already holds the "events are notices, rows are the record" position (`BE-D1`).
+
+**Consequence:** a failed `Persist` is fatal. The agent stops rather than act without durability.
+
+## `AG-D15` — `internal/` is rewritten; the superseded scaffold is archived, not deleted
+
+The scaffold in `go-agent/internal/` was written against the surrogate wire. The gateway design's fork inventory named three concrete incompatibilities — journal phases (`PREFLIGHT|STAGING|RENAMED|RESTARTING|INDETERMINATE` vs the baseline `RECEIVED→STAGED→PERSISTED→REPORTED`), a config shape encoding a separate telemetry endpoint where the design has one connection, and `WriteFileAtomic` without the parent-directory fsync §5.1 requires. All three are structural, so the packages are replaced rather than patched.
+
+**Replaced, but kept.** `internal/{config,docker,persist,telemetry}`, the two demo CLIs and the `java-demo` fixtures move to **`go-agent/oldGo-Agent/`** with their git history; nothing is deleted. The Docker-lifecycle CLI (`start|stop|restart|status`) and the telemetry-collect CLI were proofs that predate the wire, and their jobs now belong to `internal/runtime/docker` (driven by commands, never by an operator at a prompt) and to slice 2's telemetry role — but they remain the clearest record of how the Engine API was driven and what shape local telemetry took, which is worth having while those are rebuilt.
+
+The archive carries its own `go.mod` so the parent module's `go build ./...` skips it: archived packages no longer resolve their imports and are not expected to compile. It is reference material with no authority — where it disagrees with the gateway design or the baseline `AG-D*` family, they win.
+
+What survives into the new packages is **re-derived, not copied**: the atomic-write primitive (now with the parent fsync) and the symlink-escape refusal the gateway design explicitly credits as a genuine addition.
+
+## `AG-D16` — The DP test double is a scenario-driven fake gateway
+
+`internal/fakegw` implements the DRAFT proto's server side over real mTLS/h2: it mints a CA, signs CSRs, enforces single-use enrollment tokens with `(token, CSR)` replay, issues and renews leases under the single-use nonce, and runs an ordered YAML **scenario** (`expect`, `offer`, `superseded`, `error`, `revoke`, `drain`, `disconnect`, policy switches) while recording a transcript. The same engine runs in-process from `go test` and as `cmd/fake-gateway` for demos.
+
+**What it is not.** It has no ports, no persistence and no `dp-core`. **It is not evidence about the plane's correctness** — the gateway design's own §8 failure matrix and its PostgreSQL execution harness are. A green scenario here means the agent obeys the protocol as this repo reads it, nothing more.
+
+## `AG-D17` — `item_id` and `sequence` (the agent's answer to `AGW-20`)
+
+The gateway design asks the `AG-D*` owners for two things it cannot invent: a stable per-item report identity, and `sequence` reset/persistence semantics.
+
+**`item_id`** is a UUIDv7 minted once when an observation becomes a report item. The item is written to `reports/pending.json` **before** it is sent and is re-sent byte-identical — same id, same sequence, same content — across reconnects and process restarts until a `ReportAck` names it. A new observation of the same replica is a new item; a pending item is never edited. That answers AGW-20's four properties: type (UUIDv7 string), uniqueness within one agent (globally, in practice), persistence across restarts (the pending file), and a non-reuse horizon (unbounded — ids are never reissued).
+
+**`sequence`** is a per-`(binding_id, replica_ref)` `uint64`, incremented and **persisted to `reports/cursor.json` before the item exists**. A restart therefore cannot reset it, which removes the case AGW-20 names as unsolved from this agent's behaviour by construction. If the cursor is lost with the data directory, the counter is **reseeded from `dpNow.UnixNano()`**: any previous value is necessarily smaller, so monotonicity holds without the agent knowing what it was.
+
+⚠️ **This is the agent half only.** The DP-side watermark, the canonical projection and the stored fingerprint remain AGW-20's, and this decision does not close it.
+
+## `AG-D18` — A periodic report at `report_interval` (the agent's answer to `AGW-19`)
+
+The agent sends a full `ActualStateReport` for every binding at `SessionAccept.limits.report_interval` **even when nothing has changed**, and once immediately after every `SessionAccept`.
+
+**Why it is not optional.** The DP's replica registry retires an incarnation whose `last_seen_at` has gone stale, and `last_seen_at` is refreshed **only** by an actual-state report — `Heartbeat` deliberately carries no replica or incarnation identity. Without a cadence, a healthy unchanged workload is silence-retired; taking liveness from the heartbeat instead would keep a vanished replica alive for as long as its agent lives, which is the exhaustion the sweep exists to prevent. The DP delivers the interval, so the plane sets the rate and the agent does not guess it.
+
+## `AG-D19` — Lifecycle outcomes are decided by observation
+
+`restart` and `stop` report `APPLIED` only when the **post-state is observed** — for `restart`, running with a `StartedAt` newer than before; for `stop`, not running — and `FAILED_NO_EFFECT` when the call failed and the pre-state is unchanged. The verb's own return value is never the verdict: a Docker `restart` that returns success while the container fails its health check has changed the world and not achieved the goal.
+
+⚠️ **The gap, stated rather than papered over.** `AG-D5`'s outcome set has no member for "the verb changed state and still failed". This design reports `FAILED_NO_EFFECT` with the observed facts and lets the next `ActualStateReport` — which is what convergence actually reads (gateway §4.8) — carry the truth. Adding an outcome is a wire change and therefore the `AG-D*` owners' and `AGW`'s jointly; **routed, not decided here.**
+
+## `AG-D20` — Docker binding resolution by label, path by discovery
+
+Nothing in gateway §4.3 carries placement facts to the agent: a command names a `binding_id`, and the agent must find the container, the declared config path and a writable host path itself. On Docker, for v1:
+
+| Fact | Source |
+|---|---|
+| the container | the label `com.solace.sm.binding-id=<id>`, exactly one match (zero → `ErrNotFound`, many → `ErrAmbiguous`) |
+| the config path | the container's own `--spring.config.additional-location=` / `--spring.config.location=` argument, else `SPRING_CONFIG_ADDITIONAL_LOCATION` / `SPRING_CONFIG_LOCATION` |
+| the host path | that directory mapped through a **bind mount** (required — the agent writes on the host) |
+| `replica_ref` / `incarnation` | container name (RFC 1123-valid) / container ID (hex) |
+
+**`I1` check.** All four are **deployment configuration** — a label, a launch argument, a mount — which `I1` names as fair game. None requires an MI code or build change. Pre-flight refuses (`PREFLIGHT_REFUSED`) when any of them cannot be established, and reports competing Spring sources (`SPRING_APPLICATION_JSON`, `SPRING_CONFIG_LOCATION`) rather than writing beside them (`SM-D21`).
+
+⚠️ **Flagged to the `AGW` owners:** this convention exists because the plane carries no placement facts. If the protocol later carries them, this decision is superseded rather than extended.
+
 ---
 
 ## Changelog
 
 | Date | Change |
 |---|---|
+| 2026-09-22 | `AG-D13`–`AG-D20` from `docs/superpowers/specs/2026-09-21-go-agent-control-path-design.md`: DRAFT proto, reactor architecture, clean rewrite, fake gateway, the answers to `AGW-19` and `AGW-20`, lifecycle outcomes and Docker binding resolution. |
 | 2026-08-18 | **Family created (`AG-D1`…`AG-D12`), all `PROPOSED`.** Raised by an audit finding that [`design.md`](design.md) had been written to an earlier standard than its siblings — no citations, no per-choice rationale, no flagged conflicts and **no decisions file**, though `AG-D*` is reserved for this component in [`../README.md`](../README.md). Four of the twelve correct first-draft statements rather than merely record them: `AG-D3` retracts agent-initiated restart (contradicted `SM-D15`), `AG-D4` + `AG-D5` supply `LOCKED` `B/D16`'s crash-safety guarantees the draft had replaced with the `dp-remote` degradation, `AG-D6` retracts the claim that `client-go` election guarantees a single leader, and `AG-D10` corrects an `I2`/`I5` miscitation. `AG-D2`, `AG-D7`, `AG-D8`, `AG-D11` replace named-library-without-rationale entries, each with a WebFetch-verified citation per `I2`. See [`design.md`](design.md) §14. |
