@@ -299,6 +299,25 @@ func TestResumeTable(t *testing.T) {
 	}
 }
 
+func TestResumeArmsStepDeadlineUsingDPClockNotWallClock(t *testing.T) {
+	s := newState()
+	deadline := t0.Add(90 * time.Second)
+	r := Record{SchemaVersion: 1, BindingID: "b1", RolloutGeneration: 1, CommandID: "c1", Operation: msg.OpApply,
+		Step: msg.StepStaged, ConfigHash: sha("x"), StepDeadline: deadline}
+	s.Journal.Put(r)
+	e := env(t0)
+	e.Offset = 30 * time.Second // DP clock is ahead of the agent's wall clock
+	_, effs := Reduce(s, reactor.Resumed{At: t0}, e, okAuth)
+	timer, ok := has[reactor.ArmTimer](effs)
+	if !ok || timer.Kind != reactor.StepDeadline {
+		t.Fatalf("expected a StepDeadline ArmTimer: %+v", effs)
+	}
+	want := deadline.Sub(e.DPNow())
+	if timer.After != want {
+		t.Fatalf("ArmTimer.After = %v, want %v (deadline.Sub(env.DPNow()), not the agent's wall clock)", timer.After, want)
+	}
+}
+
 func TestResumeResendsUnacknowledgedTerminalOutcome(t *testing.T) {
 	s := newState()
 	s.Journal.Put(Record{SchemaVersion: 1, BindingID: "b1", RolloutGeneration: 1, CommandID: "c1", Step: msg.StepReported,

@@ -241,7 +241,7 @@ func (s State) resume(env reactor.Env) (State, []reactor.Effect) {
 			effs = append(effs,
 				reactor.RunOp{CommandID: r.CommandID, BindingID: r.BindingID, Op: r.Operation,
 					PayloadRel: PayloadRel(r.BindingID, r.RolloutGeneration), SHA256: r.ConfigHash, Deadline: r.StepDeadline},
-				reactor.ArmTimer{Kind: reactor.StepDeadline, After: time.Until(r.StepDeadline)},
+				reactor.ArmTimer{Kind: reactor.StepDeadline, After: r.StepDeadline.Sub(env.DPNow())},
 			)
 		case msg.StepReported:
 			if !r.AckSent {
