@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/solace/solution-manager/go-agent/internal/clock"
 	"github.com/solace/solution-manager/go-agent/internal/identity"
 	"github.com/solace/solution-manager/go-agent/internal/msg"
 	"github.com/solace/solution-manager/go-agent/internal/reactor"
@@ -40,6 +41,7 @@ type Deps struct {
 	Identity *identity.Identity
 	Wire     Wire
 	Ops      OpRunner
+	Clock    *clock.Clock
 	Offset   func() time.Duration
 	NewID    func() string
 	Jitter   func(time.Duration) time.Duration
@@ -76,9 +78,9 @@ type Loop struct {
 	state  State
 	halted msg.ErrorCode
 
-	conn    Conn
-	connGen int
-	sendCh  chan any // msg.Outbound | flushAndClose
+	conn       Conn
+	connGen    int
+	sendCh     chan any // msg.Outbound | flushAndClose
 	writerDone chan struct{}
 	// intentionalCloseGen is the connection generation whose connClosed echo
 	// should be dropped, not delivered as Disconnected — set only via
@@ -92,8 +94,11 @@ func New(d Deps, initial State) *Loop {
 	if d.Now == nil {
 		d.Now = time.Now
 	}
+	if d.Clock == nil {
+		d.Clock = &clock.Clock{}
+	}
 	if d.Offset == nil {
-		d.Offset = func() time.Duration { return 0 }
+		d.Offset = d.Clock.Offset
 	}
 	if d.Log == nil {
 		d.Log = slog.Default()
@@ -121,6 +126,8 @@ func (l *Loop) Halted() msg.ErrorCode {
 	return l.halted
 }
 
+func (l *Loop) Clock() *clock.Clock { return l.d.Clock }
+
 func (l *Loop) Run(ctx context.Context) error {
 	go l.worker(ctx)
 	go func() {
@@ -133,6 +140,20 @@ func (l *Loop) Run(ctx context.Context) error {
 		ev, ok := l.translate(raw)
 		if !ok {
 			continue
+		}
+		if w, isWire := ev.(reactor.WireIn); isWire {
+			switch m := w.Msg.(type) {
+			case msg.HeartbeatAck:
+				l.d.Clock.Update(m.ClockOffsetMs, m.ClockState)
+			case msg.SessionAccept:
+				if !m.ServerClock.IsZero() {
+					l.d.Clock.Set(m.ServerClock, w.At)
+				}
+			case msg.LeaseGrant:
+				if !m.ServerClock.IsZero() {
+					l.d.Clock.Set(m.ServerClock, w.At)
+				}
+			}
 		}
 		l.mu.Lock()
 		st := l.state

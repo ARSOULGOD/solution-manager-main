@@ -3,22 +3,28 @@ package agent
 import (
 	"errors"
 
+	"github.com/solace/solution-manager/go-agent/internal/authority"
 	"github.com/solace/solution-manager/go-agent/internal/identity"
 	"github.com/solace/solution-manager/go-agent/internal/reactor"
 	"github.com/solace/solution-manager/go-agent/internal/store"
 )
 
-// State is the composite the reducers share. Later tasks add Authority,
-// Commands and Reports; Reduce dispatches in that fixed order.
+// State is the composite the reducers share. Reduce dispatches in the fixed
+// order session → authority (→ commands → reports in later tasks); each later
+// reducer sees the earlier ones' new state.
 type State struct {
-	Session SessionState
+	Session   SessionState
+	Authority authority.State
 }
 
 func Reduce(cfg Config, s State, ev reactor.Event, env reactor.Env) (State, []reactor.Effect) {
-	in := SessionInputs{}
-	var effs []reactor.Effect
+	var all, effs []reactor.Effect
+	in := SessionInputs{LeaseRemaining: s.Authority.Remaining(env.DPNow())}
 	s.Session, effs = reduceSession(cfg, s.Session, ev, env, in)
-	return s, effs
+	all = append(all, effs...)
+	s.Authority, effs = authority.Reduce(s.Authority, ev, env)
+	all = append(all, effs...)
+	return s, all
 }
 
 func LoadState(cfg Config, s *store.Store, id *identity.Identity) (State, error) {
@@ -29,6 +35,10 @@ func LoadState(cfg Config, s *store.Store, id *identity.Identity) (State, error)
 		st.Session.Endpoint = rec.Endpoint
 	case errors.Is(err, store.ErrNotFound):
 	default:
+		return st, err
+	}
+	st.Authority, err = authority.Load(s, id.Thumbprint())
+	if err != nil {
 		return st, err
 	}
 	return st, nil

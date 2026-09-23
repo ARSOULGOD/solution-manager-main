@@ -20,6 +20,7 @@ func main() {
 	token := flag.String("enrollment-token", os.Getenv("SM_AGENT_ENROLL_TOKEN"), "single-use enrollment token (env SM_AGENT_ENROLL_TOKEN)")
 	trust := flag.String("trust-bundle", "", "PEM file with the DP server trust bundle or pin")
 	level := flag.String("log-level", "info", "debug|info|warn|error")
+	adminAddr := flag.String("admin-addr", "127.0.0.1:9464", "loopback /healthz and /metrics listener; empty disables")
 	flag.Parse()
 
 	var lvl slog.Level
@@ -39,7 +40,7 @@ func main() {
 		bundle = b
 	}
 	l, _, err := agent.Build(agent.BuildConfig{
-		DataDir: *dataDir, Endpoint: *endpoint, Token: *token, TrustBundlePEM: bundle, AgentVersion: version, Log: log,
+		DataDir: *dataDir, Endpoint: *endpoint, Token: *token, TrustBundlePEM: bundle, AgentVersion: version, AdminAddr: *adminAddr, Log: log,
 	})
 	if err != nil {
 		log.Error("build", "err", err)

@@ -21,6 +21,7 @@ type BuildConfig struct {
 	Token          string
 	TrustBundlePEM []byte
 	AgentVersion   string
+	AdminAddr      string
 	Log            *slog.Logger
 	Observe        func(reactor.Event, []reactor.Effect)
 }
@@ -71,6 +72,15 @@ func Build(bc BuildConfig) (*Loop, *store.Store, error) {
 		Log:      bc.Log,
 		Observe:  bc.Observe,
 	}, st)
+	if bc.AdminAddr != "" {
+		m := NewMetrics()
+		l.d.Observe = m.Observe(l)
+		go func() {
+			if err := ServeAdmin(context.Background(), bc.AdminAddr, l, m, bc.Log); err != nil {
+				bc.Log.Error("admin server", "err", err)
+			}
+		}()
+	}
 	return l, s, nil
 }
 
