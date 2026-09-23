@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	goruntime "runtime"
 	"sync"
 	"time"
@@ -281,7 +282,11 @@ func (l *Loop) execute(ctx context.Context, effs []reactor.Effect) error {
 				return fmt.Errorf("%w: %s: %v", ErrFatalPersist, e.Rec.Rel(), err)
 			}
 		case reactor.Delete:
-			if err := l.d.Store.Delete(e.Rel); err != nil {
+			del := l.d.Store.Delete
+			if filepath.Ext(e.Rel) == "" {
+				del = l.d.Store.DeleteAll
+			}
+			if err := del(e.Rel); err != nil {
 				return fmt.Errorf("%w: delete %s: %v", ErrFatalPersist, e.Rel, err)
 			}
 		case reactor.Send:

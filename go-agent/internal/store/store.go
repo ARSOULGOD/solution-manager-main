@@ -137,6 +137,14 @@ func (s *Store) Delete(rel string) error {
 	return syncDir(filepath.Dir(s.Path(rel)))
 }
 
+// DeleteAll removes a directory and its contents, then fsyncs the parent.
+func (s *Store) DeleteAll(rel string) error {
+	if err := os.RemoveAll(s.Path(rel)); err != nil {
+		return err
+	}
+	return syncDir(filepath.Dir(s.Path(rel)))
+}
+
 type Versioned interface{ Version() int }
 
 func LoadJSON[T Versioned](s *Store, rel string, wantVersion int) (T, error) {
