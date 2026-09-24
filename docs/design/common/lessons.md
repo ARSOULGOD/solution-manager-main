@@ -491,3 +491,48 @@ on that key") and mark the stronger one as an expectation — an expectation tha
 costs a paragraph; a "measured fact" that turns out wrong costs the reader's trust in every other
 one in the document. Related: [[L16]] (your own derived document is not a source), [[L19]] (a
 guarantee is settled only when its enforcing artifact is present).
+
+## L23 — A value copy of reducer state is not a snapshot while its maps are shared
+
+**What happened:** the go-agent's reducers take and return a composite `State` by value, which
+reads like immutability. But `commands.Journal`, `commands.Pulling` and the `reports` state hold
+maps, and `Journal.Put`, `reports.observe`/`ack` and the `Pulling` writes mutate them in place.
+Every `State` copy therefore aliases the same live maps — a reducer's write is visible through the
+*old* value before the caller has even adopted the new one. The loop is single-goroutine, so the
+reducers themselves were safe; the admin surface was not. `/healthz` and `/metrics` read
+`Snapshot()` from another goroutine and raced the reducers' writes, which `-race` reproduced (plan
+005, task 22). The fix was a lock around `Reduce` and a deep clone in `Snapshot()`.
+
+**Rule:** in Go, copying a struct copies its map and slice *headers*, not their contents, so "the
+reducer is pure" can be true of its logic and false of its storage. Anything that reads reducer
+state off the loop goroutine goes through the deep-copying accessor (`Snapshot()` /
+`cloneState`), and **every map- or slice-typed field added to reducer state is added to that clone
+in the same change** — the clone is the one list that has to stay complete, and nothing fails when
+it falls behind until a race detector happens to catch it. Appending to a slice has the same
+hazard in a quieter form: `append` may write into a backing array an earlier copy still
+references, so take `slices.Clip` before appending in a reducer (the dispatch queue does).
+Related: [[L19]] (a guarantee is settled only when its enforcing artifact is present).
+
+## L24 — A test that cannot fail on the regression it names is not coverage
+
+**What happened:** plan 005's final review, and the fixes after it, found three go-agent tests
+that read as assertions of a property and could not fail on the defect they named. The redaction
+test asserted that a secret's ASCII text was absent from logged output — but Go renders a `[]byte`
+struct field as decimal byte codes, so the text was absent with redaction removed too, while the
+entire secret was being logged byte by byte. `TestResumeTable` declared `wantAck` and `wantRecvAck`
+columns and never asserted either, and checked deletes only where one was expected, so a resume
+that re-acked an acknowledged record or deleted a started step still passed; the orphaned-record
+bug (review finding C1) sat in the neighbouring row for the same reason. The "executed at most
+once" check bounded a count at `> 8` when one execution produces 4, so a genuine double execution
+— exactly 8 — passed. All three were green, and all three came from a plan that showed them
+passing.
+
+**Rule:** a test is evidence only once it has been seen to fail against the defect it names.
+Before relying on one, break the code the way the test claims to guard against — revert the fix,
+or mutate a scratch copy — and watch it fail with that defect's message. Prefer a positive
+assertion that can hold only when the mechanism ran (the redaction *marker* is present) over a
+negative one that also holds whenever there was nothing to find (the secret is *absent*). In a
+table-driven test, assert every declared expectation column, in both directions: a column that is
+set in the table but never checked is documentation that looks like coverage. Related: [[L15]]
+(never put code in a plan you have not executed), [[L22]] (measuring an input is not measuring the
+outcome you wrote down).
