@@ -166,6 +166,17 @@ func (l *Loop) Halted() msg.ErrorCode {
 func (l *Loop) Clock() *clock.Clock { return l.d.Clock }
 
 func (l *Loop) Run(ctx context.Context) error {
+	// Every exit — shutdown or a fatal persist — must release what Run
+	// starts: the ctx watcher (waiting on a context the caller may never
+	// cancel), the worker (parked on range l.ops) and any live timer (which
+	// would otherwise post into an inbox nobody reads). One defer, so no exit
+	// path can skip it.
+	ctx, cancel := context.WithCancel(ctx)
+	defer func() {
+		cancel()
+		l.stopTimers()
+		close(l.ops)
+	}()
 	go l.worker(ctx)
 	go func() {
 		<-ctx.Done()
@@ -219,7 +230,6 @@ func (l *Loop) Run(ctx context.Context) error {
 			go l.observeAll(ctx, next, persistedGenerations(next))
 		}
 		if _, isShutdown := ev.(reactor.Shutdown); isShutdown {
-			l.stopTimers()
 			return nil
 		}
 	}

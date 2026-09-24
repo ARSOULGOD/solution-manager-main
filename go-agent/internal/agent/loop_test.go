@@ -13,6 +13,7 @@ import (
 
 	"github.com/solace/solution-manager/go-agent/internal/identity"
 	"github.com/solace/solution-manager/go-agent/internal/msg"
+	"github.com/solace/solution-manager/go-agent/internal/reactor"
 	"github.com/solace/solution-manager/go-agent/internal/store"
 	"github.com/solace/solution-manager/go-agent/internal/testca"
 )
@@ -262,5 +263,44 @@ func TestLoopPersistFailureIsFatal(t *testing.T) {
 	err := l.Run(context.Background())
 	if err == nil || !errors.Is(err, ErrFatalPersist) {
 		t.Fatalf("want ErrFatalPersist, got %v", err)
+	}
+}
+
+// A fatal persist returns from Run while the worker is parked on `range l.ops`
+// and the ctx watcher on `<-ctx.Done()` — which, for context.Background(),
+// never fires. Every exit from Run must release both.
+func TestRunReleasesItsGoroutinesOnTheFatalPath(t *testing.T) {
+	ca, _ := testca.New()
+	l, s := newTestLoop(t, &fakeWire{ca: ca})
+	if err := os.Chmod(s.Path("session"), 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(s.Path("session"), 0o700) })
+	if err := l.Run(context.Background()); !errors.Is(err, ErrFatalPersist) {
+		t.Fatalf("want ErrFatalPersist, got %v", err)
+	}
+
+	// the worker: its channel must be closed so its range ends
+	select {
+	case _, ok := <-l.ops:
+		if ok {
+			t.Fatal("an op was queued on the fatal path")
+		}
+	default:
+		t.Fatal("l.ops left open: the worker goroutine is stranded on range forever")
+	}
+
+	// the ctx watcher: Run's own context must be cancelled, which releases it;
+	// it posts its Shutdown and returns
+	deadline := time.After(2 * time.Second)
+	for {
+		select {
+		case ev := <-l.inbox:
+			if _, ok := ev.(reactor.Shutdown); ok {
+				return
+			}
+		case <-deadline:
+			t.Fatal("the ctx watcher never fired: it is blocked on a context nothing will cancel")
+		}
 	}
 }
