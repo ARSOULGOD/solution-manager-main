@@ -86,7 +86,7 @@ internal/agent/        the loop, the session reducer, effect executor, op worker
 internal/authority/    lease reducer — SM-D28's phases, DP-time timers, admission
 internal/commands/     command journal (AG-D4) — offer gate, idempotency, resume, outcomes
 internal/reports/      actual-state reports — item_id/sequence (AG-D17), cadence (AG-D18)
-internal/wire/         gRPC/mTLS binding; wire + wire/codec are the ONLY importers of wire/pb
+internal/wire/         gRPC/mTLS binding; wire + wire/codec are the only production importers of wire/pb (fakegw, the test double, must implement its server)
 internal/identity/     key, CSR (persisted before first Enroll), cert chain, trust bundle
 internal/runtime/      Adapter seam; docker/ implementation; configwriter (atomic, 0600, symlink refusal)
 internal/store/        durable records; one write primitive with parent-dir fsync

@@ -43,7 +43,8 @@ type OpFinished struct {
 }
 
 // OpProgress is pushed by the runtime worker when the adapter reaches a
-// journal step mid-operation (the step is already on disk when this fires).
+// journal step mid-operation. The step is journaled when this is reduced, so
+// the filesystem may already be ahead of it — see runtime.Progress.
 type OpProgress struct {
 	At        time.Time
 	CommandID string

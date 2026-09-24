@@ -67,7 +67,7 @@ func Build(bc BuildConfig) (*Loop, *store.Store, error) {
 		Config:   cfg,
 		Store:    s,
 		Identity: id,
-		Wire:     wireAdapter{wire.New(id, bc.TrustBundlePEM, bc.Log)},
+		Wire:     wireAdapter{wire.New(id, bc.TrustBundlePEM)},
 		Adapter:  bc.Adapter,
 		NewID:    newUUIDv7,
 		Jitter:   fullJitter,

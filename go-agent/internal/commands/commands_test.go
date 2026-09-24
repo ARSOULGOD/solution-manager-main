@@ -344,35 +344,60 @@ func TestTerminateIsANoOpOnceTheRecordIsAlreadyTerminal(t *testing.T) {
 	}
 }
 
+// One row per AG-D4 resume case, every column asserted in both directions. The
+// earlier table declared wantAck and wantRecvAck without ever checking them, and
+// checked deletes only where one was expected — so a resume that re-acked an
+// acknowledged record, or deleted a started step, still passed. C1 hid in this
+// table's neighbouring row for the same reason.
 func TestResumeTable(t *testing.T) {
 	cases := []struct {
+		name        string
 		step        msg.ProgressStep
+		ackSent     bool
 		wantRunOp   bool
 		wantDelete  bool
 		wantAck     bool
 		wantRecvAck bool
 	}{
-		{step: msg.StepReceived, wantDelete: true}, // discard; the DP redelivers
-		{step: msg.StepStaged, wantRunOp: true},    // verify temp and complete
-		{step: msg.StepPersisted, wantRunOp: true}, // re-read, verify, re-report — never rewrite
-		{step: msg.StepReported, wantAck: false},   // closed
+		{name: "RECEIVED: discard, the DP redelivers", step: msg.StepReceived, wantDelete: true},
+		{name: "STAGED: verify the temp and complete", step: msg.StepStaged, wantRunOp: true},
+		{name: "PERSISTED: re-read and re-report, never rewrite", step: msg.StepPersisted, wantRunOp: true},
+		{name: "REPORTED with the ack unsent: resend it", step: msg.StepReported, wantAck: true},
+		{name: "REPORTED with the ack sent: closed", step: msg.StepReported, ackSent: true},
 	}
 	for _, c := range cases {
-		s := newState()
-		r := Record{SchemaVersion: 1, BindingID: "b1", RolloutGeneration: 1, CommandID: "c1", Operation: msg.OpApply, Step: c.step, ConfigHash: sha("x")}
-		if c.step == msg.StepReported {
-			r.Outcome, r.AckSent = msg.OutcomeApplied, true
-		}
-		s.Journal.Put(r)
-		_, effs := Reduce(s, reactor.Resumed{At: t0}, env(t0), okAuth)
-		_, gotRun := has[reactor.RunOp](effs)
-		_, gotDel := has[reactor.Delete](effs)
-		if gotRun != c.wantRunOp {
-			t.Errorf("%s: RunOp=%v want %v", c.step, gotRun, c.wantRunOp)
-		}
-		if c.wantDelete && !gotDel {
-			t.Errorf("%s: expected the partial to be discarded", c.step)
-		}
+		t.Run(c.name, func(t *testing.T) {
+			s := newState()
+			r := Record{SchemaVersion: 1, BindingID: "b1", RolloutGeneration: 1, CommandID: "c1", Operation: msg.OpApply, Step: c.step, ConfigHash: sha("x")}
+			if c.step == msg.StepReported {
+				r.Outcome, r.AckSent = msg.OutcomeApplied, c.ackSent
+			}
+			s.Journal.Put(r)
+			_, effs := Reduce(s, reactor.Resumed{At: t0}, env(t0), okAuth)
+			_, gotRun := has[reactor.RunOp](effs)
+			_, gotDel := has[reactor.Delete](effs)
+			_, gotAck := ackFor(effs, "c1")
+			gotRecv := false
+			for _, x := range effs {
+				if snd, ok := x.(reactor.Send); ok {
+					if _, ok := snd.Msg.(msg.CommandReceived); ok {
+						gotRecv = true
+					}
+				}
+			}
+			if gotRun != c.wantRunOp {
+				t.Errorf("RunOp = %v, want %v", gotRun, c.wantRunOp)
+			}
+			if gotDel != c.wantDelete {
+				t.Errorf("Delete = %v, want %v", gotDel, c.wantDelete)
+			}
+			if gotAck != c.wantAck {
+				t.Errorf("CommandAck = %v, want %v", gotAck, c.wantAck)
+			}
+			if gotRecv != c.wantRecvAck {
+				t.Errorf("CommandReceived = %v, want %v", gotRecv, c.wantRecvAck)
+			}
+		})
 	}
 }
 

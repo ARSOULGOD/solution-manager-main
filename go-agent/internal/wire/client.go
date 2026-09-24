@@ -5,7 +5,6 @@ package wire
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"google.golang.org/grpc"
@@ -26,11 +25,10 @@ const maxRecvBytes = 16 << 20 // conservative; Limits.max_message_bytes is enfor
 type Client struct {
 	id        *identity.Identity
 	bootstrap []byte
-	log       *slog.Logger
 }
 
-func New(id *identity.Identity, bootstrapBundlePEM []byte, log *slog.Logger) *Client {
-	return &Client{id: id, bootstrap: bootstrapBundlePEM, log: log}
+func New(id *identity.Identity, bootstrapBundlePEM []byte) *Client {
+	return &Client{id: id, bootstrap: bootstrapBundlePEM}
 }
 
 // Enroll is the one cert-less RPC: a short-lived connection verified by the

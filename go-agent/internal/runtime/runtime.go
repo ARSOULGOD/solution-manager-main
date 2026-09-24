@@ -28,6 +28,13 @@ type ReplicaFacts struct {
 	ImageDigest string
 }
 
+// Progress reports that a write reached a journal step. It is asynchronous:
+// the agent enqueues the step for its loop and returns at once, and the
+// journal record is written when the loop gets to it. So the journal may LAG
+// the filesystem but never LEADS it — PERSISTED is reported only after the
+// rename and the parent-directory fsync. A lagging journal is safe because
+// writes are content-hash idempotent: on resume, a target that already holds
+// the bytes is reported PERSISTED without being rewritten.
 type Progress func(step msg.ProgressStep) error
 
 type WriteResult struct{ Hash string }

@@ -87,7 +87,9 @@ func Write(hostPath string, payload []byte, wantSHA string, uid, gid int, progre
 	prev, prevErr := os.ReadFile(target)
 	hadPrev := prevErr == nil
 
-	// STAGED is journaled before the temp file exists (write-before-act).
+	// Report STAGED before creating the temp file. The report is asynchronous,
+	// so the journal may record it after the rename has happened; that is
+	// safe because this writer is idempotent (see runtime.Progress).
 	if err := progress(msg.StepStaged); err != nil {
 		return runtime.WriteResult{}, before(err)
 	}

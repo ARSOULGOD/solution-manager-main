@@ -189,10 +189,6 @@ func (s State) ack(m msg.ReportAck, env reactor.Env) (State, []reactor.Effect) {
 	for _, r := range m.Results {
 		answered[r.InReplyToItemID] = r
 	}
-	byItem := map[string]msg.ActualStateReport{}
-	for _, it := range s.Pending.Items {
-		byItem[it.ItemID] = it
-	}
 	var remaining []msg.ActualStateReport
 	changedRegistry := false
 	for _, it := range s.Pending.Items {

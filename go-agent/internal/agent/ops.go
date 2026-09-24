@@ -14,8 +14,9 @@ import (
 )
 
 // opRunner executes one runtime operation and maps it to an outcome. Journal
-// steps reached mid-write are pushed back through the loop as OpProgress, so
-// the record is on disk before the writer proceeds (write-before-act).
+// steps reached mid-write are pushed back through the loop as OpProgress and
+// journaled when the loop reduces them — after the writer has moved on, not
+// before; runtime.Progress states why that ordering is safe.
 type opRunner struct {
 	adapter runtime.Adapter
 	store   *store.Store

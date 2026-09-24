@@ -72,7 +72,7 @@ cat /tmp/sm-conf/application.yml
 | `--connect-endpoint` | — | bootstrap DP endpoint, replaced by the one enrollment returns |
 | `--enrollment-token` | `SM_AGENT_ENROLL_TOKEN` | single-use, never persisted |
 | `--trust-bundle` | — | PEM the DP server is verified against |
-| `--admin-addr` | — | loopback `/healthz` + `/metrics`; default `127.0.0.1:9464` |
+| `--admin-addr` | — | `/healthz` + `/metrics`; default `127.0.0.1:9464` (loopback). Both are unauthenticated, so binding a non-loopback address — e.g. for a Prometheus scrape — exposes them; that is the operator's decision |
 | `--log-level` | — | `debug` \| `info` \| `warn` \| `error` |
 
 ## Where the design lives
@@ -85,3 +85,11 @@ authoritative and which are archived.
 Distroless, non-root, built from this directory. Mount a data volume at
 `/var/lib/sm-agent`, mount `/var/run/docker.sock`, and pass the host docker
 group with `--group-add`. Never bake an enrollment token into an image (`I6`).
+
+**Also mount each managed config directory, at the same absolute path it has
+on the host.** The agent finds the file to write from the managed container's
+bind mount, whose source is a *host* path. Running on the host, it writes there
+directly. Running in a container, that path must exist inside the agent's
+container too — `-v /srv/cache/conf:/srv/cache/conf` — or every apply fails
+before the rename with `FAILED_NO_EFFECT`. The cause is not obvious from that
+error, which is why it is spelled out here.

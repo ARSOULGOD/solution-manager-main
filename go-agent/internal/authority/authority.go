@@ -165,9 +165,9 @@ func Reduce(s State, ev reactor.Event, env reactor.Env) (State, []reactor.Effect
 	case reactor.WireIn:
 		switch m := e.Msg.(type) {
 		case msg.SessionAccept:
-			return s.acceptGrant(m.Lease, env, true)
+			return s.acceptGrant(m.Lease, env)
 		case msg.LeaseGrant:
-			return s.acceptGrant(m, env, false)
+			return s.acceptGrant(m, env)
 		case msg.Error:
 			switch m.Code {
 			case msg.ErrLeaseRenewRequired:
@@ -235,7 +235,7 @@ func (s State) valid(g msg.LeaseGrant) bool {
 // acceptGrant stores a validated grant and re-derives phase and timers. A
 // grant carrying the nonce of a pending renewal is the same lease returned
 // on failover, so the pending request is still owed under its id.
-func (s State) acceptGrant(g msg.LeaseGrant, env reactor.Env, fromAccept bool) (State, []reactor.Effect) {
+func (s State) acceptGrant(g msg.LeaseGrant, env reactor.Env) (State, []reactor.Effect) {
 	if !s.valid(g) {
 		return s, nil
 	}

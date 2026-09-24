@@ -21,7 +21,7 @@ func main() {
 	token := flag.String("enrollment-token", os.Getenv("SM_AGENT_ENROLL_TOKEN"), "single-use enrollment token (env SM_AGENT_ENROLL_TOKEN)")
 	trust := flag.String("trust-bundle", "", "PEM file with the DP server trust bundle or pin")
 	level := flag.String("log-level", "info", "debug|info|warn|error")
-	adminAddr := flag.String("admin-addr", "127.0.0.1:9464", "loopback /healthz and /metrics listener; empty disables")
+	adminAddr := flag.String("admin-addr", "127.0.0.1:9464", "/healthz and /metrics listener; loopback by default — a non-loopback address exposes both unauthenticated, at the operator's choice; empty disables")
 	flag.Parse()
 
 	var lvl slog.Level
