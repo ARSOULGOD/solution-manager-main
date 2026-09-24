@@ -1,8 +1,12 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io/fs"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -10,6 +14,7 @@ import (
 	"github.com/solace/solution-manager/go-agent/internal/msg"
 	"github.com/solace/solution-manager/go-agent/internal/reactor"
 	"github.com/solace/solution-manager/go-agent/internal/runtime"
+	"github.com/solace/solution-manager/go-agent/internal/runtime/configwriter"
 	"github.com/solace/solution-manager/go-agent/internal/store"
 )
 
@@ -34,7 +39,7 @@ func (s *stubAdapter) Observe(context.Context, runtime.Placement) (runtime.Repli
 	return f, nil
 }
 func (s *stubAdapter) Restart(context.Context, runtime.Placement) error { return s.restart }
-func (s *stubAdapter) WriteConfig(_ context.Context, _ runtime.Placement, payload []byte, _ string, _ string, p runtime.Progress) (runtime.WriteResult, error) {
+func (s *stubAdapter) WriteConfig(_ context.Context, _ runtime.Placement, payload []byte, _ string, p runtime.Progress) (runtime.WriteResult, error) {
 	_ = p(msg.StepStaged)
 	if s.writeErr != nil {
 		return runtime.WriteResult{}, s.writeErr
@@ -86,9 +91,9 @@ type ctxCapturingAdapter struct {
 	gotCtx context.Context
 }
 
-func (a *ctxCapturingAdapter) WriteConfig(ctx context.Context, p runtime.Placement, payload []byte, sha, prev string, prog runtime.Progress) (runtime.WriteResult, error) {
+func (a *ctxCapturingAdapter) WriteConfig(ctx context.Context, p runtime.Placement, payload []byte, sha string, prog runtime.Progress) (runtime.WriteResult, error) {
 	a.gotCtx = ctx
-	return a.stubAdapter.WriteConfig(ctx, p, payload, sha, prev, prog)
+	return a.stubAdapter.WriteConfig(ctx, p, payload, sha, prog)
 }
 
 // TestOpRunnerConvertsDPTimeDeadlineToWallClock pins I2: RunOp.Deadline
@@ -134,4 +139,52 @@ func TestOpRunnerResolveFailureIsNoEffect(t *testing.T) {
 	if res := r.Run(context.Background(), reactor.RunOp{Op: msg.OpPreflight}); res.Outcome != msg.OutcomePreflightRefused {
 		t.Fatalf("%+v", res)
 	}
+}
+
+// diskAdapter writes through the real configwriter, so the test sees exactly
+// what an apply leaves on disk.
+type diskAdapter struct {
+	runtime.Adapter
+	host string
+}
+
+func (d *diskAdapter) Resolve(context.Context, string) (runtime.Placement, error) {
+	return runtime.Placement{BindingID: "b1", HostPath: d.host, UID: -1, GID: -1}, nil
+}
+func (d *diskAdapter) Observe(context.Context, runtime.Placement) (runtime.ReplicaFacts, error) {
+	return runtime.ReplicaFacts{Running: true}, nil
+}
+func (d *diskAdapter) WriteConfig(_ context.Context, p runtime.Placement, payload []byte, sha string, pr runtime.Progress) (runtime.WriteResult, error) {
+	return configwriter.Write(p.HostPath, payload, sha, p.UID, p.GID, pr)
+}
+
+// The configuration being REPLACED may hold secrets (I6), and nothing ever
+// reads a copy of it back: rollback restores from memory, and resume replays
+// the idempotent writer instead. So no apply may leave it anywhere under the
+// agent's data directory.
+func TestApplyNeverPersistsThePreviousConfiguration(t *testing.T) {
+	const oldSecret = "db.password: old-secret-9f3a"
+	host := filepath.Join(t.TempDir(), "application.yml")
+	if err := os.WriteFile(host, []byte(oldSecret+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	st := store.MustOpen(t.TempDir())
+	payload := []byte("db.password: new-value\n")
+	_ = st.Save(store.Blob{RelPath: commands.PayloadRel("b1", 3), Data: payload})
+	r := &opRunner{adapter: &diskAdapter{host: host}, store: st, push: func(reactor.Event) {}, now: time.Now}
+	res := r.Run(context.Background(), reactor.RunOp{CommandID: "c", BindingID: "b1", Op: msg.OpApply,
+		PayloadRel: commands.PayloadRel("b1", 3), SHA256: configwriter.SHA256(payload), Deadline: time.Now().Add(time.Minute)})
+	if res.Outcome != msg.OutcomeApplied {
+		t.Fatalf("apply failed: %+v", res)
+	}
+	_ = filepath.WalkDir(st.Root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		if b, _ := os.ReadFile(path); bytes.Contains(b, []byte(oldSecret)) {
+			rel, _ := filepath.Rel(st.Root, path)
+			t.Errorf("the replaced configuration was persisted under the data dir at %s", rel)
+		}
+		return nil
+	})
 }

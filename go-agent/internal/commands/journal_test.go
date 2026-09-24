@@ -16,8 +16,8 @@ func rec(binding string, gen uint64, step msg.ProgressStep) Record {
 
 func TestRecordPaths(t *testing.T) {
 	r := rec("b1", 7, msg.StepReceived)
-	if r.Rel() != "apply/b1/7.json" || PayloadRel("b1", 7) != "apply/b1/7/payload" || PreviousRel("b1", 7) != "apply/b1/7/previous" {
-		t.Fatalf("%s %s %s", r.Rel(), PayloadRel("b1", 7), PreviousRel("b1", 7))
+	if r.Rel() != "apply/b1/7.json" || PayloadRel("b1", 7) != "apply/b1/7/payload" {
+		t.Fatalf("%s %s", r.Rel(), PayloadRel("b1", 7))
 	}
 }
 

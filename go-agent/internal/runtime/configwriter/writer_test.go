@@ -13,9 +13,8 @@ func TestWriteHappyPathJournalsStagedThenPersisted(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(dir, "application.yml")
 	_ = os.WriteFile(target, []byte("old"), 0o644)
-	prev := filepath.Join(t.TempDir(), "previous")
 	var steps []msg.ProgressStep
-	res, err := Write(target, []byte("new"), SHA256([]byte("new")), prev, -1, -1, func(s msg.ProgressStep) error { steps = append(steps, s); return nil })
+	res, err := Write(target, []byte("new"), SHA256([]byte("new")), -1, -1, func(s msg.ProgressStep) error { steps = append(steps, s); return nil })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,10 +32,6 @@ func TestWriteHappyPathJournalsStagedThenPersisted(t *testing.T) {
 	if st.Mode().Perm() != 0o600 {
 		t.Fatalf("mode %o", st.Mode().Perm())
 	}
-	p, _ := os.ReadFile(prev)
-	if string(p) != "old" {
-		t.Fatal("previous copy must hold the old content")
-	}
 	entries, _ := os.ReadDir(dir)
 	if len(entries) != 1 {
 		t.Fatalf("temp left behind: %v", entries)
@@ -51,7 +46,7 @@ func TestWriteRefusesSymlinkEscape(t *testing.T) {
 	if err := os.Symlink(outside, link); err != nil {
 		t.Skip("symlinks unsupported")
 	}
-	_, err := Write(link, []byte("new"), SHA256([]byte("new")), filepath.Join(dir, "prev"), -1, -1, func(msg.ProgressStep) error { return nil })
+	_, err := Write(link, []byte("new"), SHA256([]byte("new")), -1, -1, func(msg.ProgressStep) error { return nil })
 	if !errors.Is(err, ErrSymlinkEscape) {
 		t.Fatalf("want ErrSymlinkEscape, got %v", err)
 	}
@@ -65,7 +60,7 @@ func TestWriteHashMismatchFailsBeforeRename(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(dir, "a.yml")
 	_ = os.WriteFile(target, []byte("old"), 0o644)
-	_, err := Write(target, []byte("new"), "0000", filepath.Join(dir, "prev"), -1, -1, func(msg.ProgressStep) error { return nil })
+	_, err := Write(target, []byte("new"), "0000", -1, -1, func(msg.ProgressStep) error { return nil })
 	var we *WriteError
 	if !errors.As(err, &we) || we.Phase != PhaseBeforeRename {
 		t.Fatalf("want before-rename failure, got %v", err)
@@ -81,7 +76,7 @@ func TestWriteIsIdempotentWhenTargetAlreadyMatches(t *testing.T) {
 	target := filepath.Join(dir, "a.yml")
 	_ = os.WriteFile(target, []byte("new"), 0o600)
 	var steps []msg.ProgressStep
-	_, err := Write(target, []byte("new"), SHA256([]byte("new")), filepath.Join(dir, "prev"), -1, -1, func(s msg.ProgressStep) error { steps = append(steps, s); return nil })
+	_, err := Write(target, []byte("new"), SHA256([]byte("new")), -1, -1, func(s msg.ProgressStep) error { steps = append(steps, s); return nil })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +89,7 @@ func TestWriteProgressErrorAbortsBeforeTouchingTarget(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(dir, "a.yml")
 	_ = os.WriteFile(target, []byte("old"), 0o644)
-	_, err := Write(target, []byte("new"), SHA256([]byte("new")), filepath.Join(dir, "prev"), -1, -1, func(msg.ProgressStep) error { return errors.New("journal down") })
+	_, err := Write(target, []byte("new"), SHA256([]byte("new")), -1, -1, func(msg.ProgressStep) error { return errors.New("journal down") })
 	var we *WriteError
 	if !errors.As(err, &we) || we.Phase != PhaseBeforeRename {
 		t.Fatalf("%v", err)

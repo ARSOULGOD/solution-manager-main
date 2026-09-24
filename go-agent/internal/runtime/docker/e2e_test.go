@@ -50,7 +50,7 @@ func TestE2EAgainstRealContainer(t *testing.T) {
 		t.Fatal(err)
 	}
 	payload := []byte("server.port: 8081\n")
-	if _, err := a.WriteConfig(ctx, p, payload, shaOf(payload), filepath.Join(t.TempDir(), "prev"), func(msg.ProgressStep) error { return nil }); err != nil {
+	if _, err := a.WriteConfig(ctx, p, payload, shaOf(payload), func(msg.ProgressStep) error { return nil }); err != nil {
 		t.Fatal(err)
 	}
 	st, err := os.Stat(p.HostPath)

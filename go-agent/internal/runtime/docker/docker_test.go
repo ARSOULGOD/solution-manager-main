@@ -221,7 +221,7 @@ func TestWriteConfigDelegatesToWriter(t *testing.T) {
 	a := New(eng)
 	p, _ := a.Resolve(context.Background(), "b1")
 	var steps []msg.ProgressStep
-	res, err := a.WriteConfig(context.Background(), p, []byte("x: 1\n"), sha("x: 1\n"), filepath.Join(t.TempDir(), "prev"),
+	res, err := a.WriteConfig(context.Background(), p, []byte("x: 1\n"), sha("x: 1\n"),
 		func(s msg.ProgressStep) error { steps = append(steps, s); return nil })
 	if err != nil {
 		t.Fatal(err)

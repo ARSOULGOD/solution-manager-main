@@ -122,12 +122,12 @@ func (a *fakeAdapter) Preflight(_ context.Context, p runtime.Placement) (msg.Pre
 		HostPath: p.HostPath, Mechanism: p.Mechanism, Writable: true}, nil
 }
 
-func (a *fakeAdapter) WriteConfig(_ context.Context, p runtime.Placement, payload []byte, sha string, prev string, pr runtime.Progress) (runtime.WriteResult, error) {
+func (a *fakeAdapter) WriteConfig(_ context.Context, p runtime.Placement, payload []byte, sha string, pr runtime.Progress) (runtime.WriteResult, error) {
 	if a.failWrite != nil {
 		_ = pr(msg.StepStaged)
 		return runtime.WriteResult{}, a.failWrite
 	}
-	return configwriter.Write(p.HostPath, payload, sha, prev, -1, -1, pr)
+	return configwriter.Write(p.HostPath, payload, sha, -1, -1, pr)
 }
 
 func (a *fakeAdapter) Restart(context.Context, runtime.Placement) error {

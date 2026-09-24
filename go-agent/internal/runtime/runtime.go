@@ -35,7 +35,7 @@ type WriteResult struct{ Hash string }
 type Adapter interface {
 	Resolve(ctx context.Context, bindingID string) (Placement, error)
 	Preflight(ctx context.Context, p Placement) (msg.PreflightResult, error)
-	WriteConfig(ctx context.Context, p Placement, payload []byte, sha256 string, previousPath string, progress Progress) (WriteResult, error)
+	WriteConfig(ctx context.Context, p Placement, payload []byte, sha256 string, progress Progress) (WriteResult, error)
 	Restart(ctx context.Context, p Placement) error
 	Stop(ctx context.Context, p Placement) error
 	Observe(ctx context.Context, p Placement) (ReplicaFacts, error)

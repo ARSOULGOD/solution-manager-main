@@ -215,8 +215,8 @@ func imageDigest(insp types.ContainerJSON) string {
 	return insp.Image
 }
 
-func (a *Adapter) WriteConfig(_ context.Context, p runtime.Placement, payload []byte, sha string, previousPath string, progress runtime.Progress) (runtime.WriteResult, error) {
-	return configwriter.Write(p.HostPath, payload, sha, previousPath, p.UID, p.GID, progress)
+func (a *Adapter) WriteConfig(_ context.Context, p runtime.Placement, payload []byte, sha string, progress runtime.Progress) (runtime.WriteResult, error) {
+	return configwriter.Write(p.HostPath, payload, sha, p.UID, p.GID, progress)
 }
 
 func (a *Adapter) Restart(ctx context.Context, p runtime.Placement) error {

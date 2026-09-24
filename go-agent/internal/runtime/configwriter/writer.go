@@ -63,7 +63,7 @@ func checkPath(hostPath string) (dir, base string, err error) {
 	return realDir, base, nil
 }
 
-func Write(hostPath string, payload []byte, wantSHA, previousPath string, uid, gid int, progress runtime.Progress) (runtime.WriteResult, error) {
+func Write(hostPath string, payload []byte, wantSHA string, uid, gid int, progress runtime.Progress) (runtime.WriteResult, error) {
 	if SHA256(payload) != wantSHA {
 		return runtime.WriteResult{}, before(fmt.Errorf("payload hash %s != declared %s", SHA256(payload), wantSHA))
 	}
@@ -81,17 +81,11 @@ func Write(hostPath string, payload []byte, wantSHA, previousPath string, uid, g
 		return runtime.WriteResult{Hash: wantSHA}, nil
 	}
 
-	// Retain the previous content for FAILED_ROLLED_BACK.
+	// The previous content, kept in memory for FAILED_ROLLED_BACK and never
+	// written to disk: it may hold secrets (I6), and nothing would read a copy
+	// back — a crash mid-write is recovered by replaying this idempotent writer.
 	prev, prevErr := os.ReadFile(target)
 	hadPrev := prevErr == nil
-	if hadPrev {
-		if err := os.MkdirAll(filepath.Dir(previousPath), 0o700); err != nil {
-			return runtime.WriteResult{}, before(err)
-		}
-		if err := os.WriteFile(previousPath, prev, 0o600); err != nil {
-			return runtime.WriteResult{}, before(err)
-		}
-	}
 
 	// STAGED is journaled before the temp file exists (write-before-act).
 	if err := progress(msg.StepStaged); err != nil {

@@ -50,7 +50,7 @@ func TestResumeFromStagedCompletesTheWrite(t *testing.T) {
 		t.Fatalf("STAGED must re-enter the adapter: %+v", effs)
 	}
 	// the writer is idempotent: running it now lands the file exactly once
-	res, err := configwriter.Write(target, payload, hash, filepath.Join(dir, "prev"), -1, -1, func(msg.ProgressStep) error { return nil })
+	res, err := configwriter.Write(target, payload, hash, -1, -1, func(msg.ProgressStep) error { return nil })
 	if err != nil || res.Hash != hash {
 		t.Fatal(err)
 	}
@@ -67,7 +67,7 @@ func TestResumeFromPersistedDoesNotRewrite(t *testing.T) {
 	_ = os.WriteFile(target, payload, 0o600)
 	before, _ := os.Stat(target)
 	var steps []msg.ProgressStep
-	_, err := configwriter.Write(target, payload, configwriter.SHA256(payload), filepath.Join(t.TempDir(), "prev"), -1, -1,
+	_, err := configwriter.Write(target, payload, configwriter.SHA256(payload), -1, -1,
 		func(s msg.ProgressStep) error { steps = append(steps, s); return nil })
 	if err != nil {
 		t.Fatal(err)
@@ -98,7 +98,7 @@ func TestResumeFromReceivedDiscardsThePartial(t *testing.T) {
 	if len(deleted) == 0 {
 		t.Fatal("RECEIVED must be discarded; the DP redelivers")
 	}
-	// Both the payload/temp/previous directory AND the sibling journal
+	// Both the payload/temp directory AND the sibling journal
 	// record file must go, or the record survives with ReceivedAck=true and
 	// no payload behind it, permanently confusing offer()'s redelivery gate.
 	wantDir := commands.DirRel("b1", 4)

@@ -41,18 +41,7 @@ func (r Record) Terminal() bool { return r.Step == msg.StepReported }
 func DirRel(binding string, gen uint64) string {
 	return fmt.Sprintf("apply/%s/%d", binding, gen)
 }
-func PayloadRel(binding string, gen uint64) string  { return DirRel(binding, gen) + "/payload" }
-func PreviousRel(binding string, gen uint64) string { return DirRel(binding, gen) + "/previous" }
-
-// GenerationFromRel parses apply/<binding>/<gen>/payload.
-func GenerationFromRel(rel string) uint64 {
-	parts := strings.Split(rel, "/")
-	if len(parts) < 3 {
-		return 0
-	}
-	g, _ := strconv.ParseUint(parts[2], 10, 64)
-	return g
-}
+func PayloadRel(binding string, gen uint64) string { return DirRel(binding, gen) + "/payload" }
 
 func (r Record) Rel() string {
 	return fmt.Sprintf("apply/%s/%d.json", r.BindingID, r.RolloutGeneration)
@@ -140,7 +129,7 @@ func (j Journal) OpenCount() int {
 }
 
 // SupersededPartials lists the per-generation directories below belowGen for
-// a binding; their payload/previous/temp files are a disk leak and a future
+// a binding; their payload/temp files are a disk leak and a future
 // resume's ambiguous input (AG-D4 §5.2).
 func (j Journal) SupersededPartials(binding string, belowGen uint64) []string {
 	var out []string

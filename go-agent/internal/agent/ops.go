@@ -6,7 +6,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/solace/solution-manager/go-agent/internal/commands"
 	"github.com/solace/solution-manager/go-agent/internal/msg"
 	"github.com/solace/solution-manager/go-agent/internal/reactor"
 	"github.com/solace/solution-manager/go-agent/internal/runtime"
@@ -60,8 +59,7 @@ func (r *opRunner) Run(ctx context.Context, op reactor.RunOp) runtime.OpResult {
 		if err != nil {
 			return runtime.OpResult{Outcome: msg.OutcomeFailedNoEffect, Detail: msg.AckDetail{Message: "payload unreadable"}, Placement: &p}
 		}
-		prev := r.store.Path(commands.PreviousRel(op.BindingID, generationOf(op)))
-		res, err := r.adapter.WriteConfig(ctx, p, payload, op.SHA256, prev, func(step msg.ProgressStep) error {
+		res, err := r.adapter.WriteConfig(ctx, p, payload, op.SHA256, func(step msg.ProgressStep) error {
 			r.push(reactor.OpProgress{At: r.now(), CommandID: op.CommandID, Step: step})
 			return nil
 		})
@@ -121,6 +119,3 @@ func refusedResult(op reactor.RunOp, err error) runtime.OpResult {
 	}
 	return runtime.OpResult{Outcome: outcome, Detail: msg.AckDetail{Message: err.Error()}}
 }
-
-// generationOf recovers the generation from the payload path the reducer set.
-func generationOf(op reactor.RunOp) uint64 { return commands.GenerationFromRel(op.PayloadRel) }

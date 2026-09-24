@@ -385,7 +385,7 @@ func (s State) resume(env reactor.Env) (State, []reactor.Effect) {
 		switch r.Step {
 		case msg.StepReceived:
 			// nothing was written; discard and let the DP redeliver. Delete
-			// both the payload/temp/previous directory AND the sibling
+			// both the payload/temp directory AND the sibling
 			// record file (r.Rel()) — leaving the record behind orphans it
 			// with ReceivedAck=true and no payload, which makes offer()'s
 			// "in flight and already acknowledged" branch re-announce a

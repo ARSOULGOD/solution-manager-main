@@ -224,14 +224,14 @@ Preflight refuses (`PREFLIGHT_REFUSED`) when any of these cannot be established,
 | Op | Adapter call | Journal | Outcome |
 |---|---|---|---|
 | `preflight` | `Resolve` → `Preflight` | `RECEIVED → REPORTED` | `PREFLIGHT_OK` / `PREFLIGHT_REFUSED` |
-| `apply` | `WriteConfig` — **never restarts** (`AG-D3`) | full ladder | `APPLIED` (read-back hash verified) · `FAILED_NO_EFFECT` (before rename) · `FAILED_ROLLED_BACK` (after rename, `previous` restored) |
+| `apply` | `WriteConfig` — **never restarts** (`AG-D3`) | full ladder | `APPLIED` (read-back hash verified) · `FAILED_NO_EFFECT` (before rename) · `FAILED_ROLLED_BACK` (after rename, the previous content restored from memory) |
 | `restart` / `stop` | `Restart` / `Stop` via the Engine API, then `Observe` | `RECEIVED → REPORTED` | `APPLIED` iff the post-state is observed — `restart`: running with a `StartedAt` newer than before; `stop`: not running · `FAILED_NO_EFFECT` iff the call failed **and** `Observe` shows the pre-state unchanged |
 
 **Gap routed (`AG-D19`):** `AG-D5`'s vocabulary has no outcome for a lifecycle verb that changed state and still failed (stopped, did not come back). This design reports the truth through `Observe` → the next `ActualStateReport` — which is what convergence reads (gateway §4.8) — and records the missing outcome as an ask on the `AG-D*`/`AGW` owners rather than inventing an enum value.
 
 ### 6.5 Config write (`configwriter`)
 
-Keeps the rule the gateway design credited as a genuine addition. Canonicalise the declared directory; **refuse if the resolved target escapes it via symlink**; copy the current file to `apply/<binding>/<gen>/previous`; temp in the same directory → `fsync` → `chmod 0600` (chown to the declared service account when running as root) → `rename` → **`fsync` parent directory** → read back and verify the hash. Journal `STAGED` before the temp write, `PERSISTED` after the parent fsync. A crash between rename and `PERSISTED` is resolvable by reading the file — which is why `APPLY_INDETERMINATE` stays narrow.
+Keeps the rule the gateway design credited as a genuine addition. Canonicalise the declared directory; **refuse if the resolved target escapes it via symlink**; hold the current content **in memory** for rollback — never on disk (§8.2); temp in the same directory → `fsync` → `chmod 0600` (chown to the declared service account when running as root) → `rename` → **`fsync` parent directory** → read back and verify the hash. Journal `STAGED` before the temp write, `PERSISTED` after the parent fsync. A crash between rename and `PERSISTED` is resolvable by reading the file — which is why `APPLY_INDETERMINATE` stays narrow.
 
 ### 6.6 `APPLY_INDETERMINATE`
 
@@ -276,7 +276,7 @@ All pending items go in one `ActualStateReportBatch` per flush (several bindings
 identity/   key.pem · csr.der · cert.pem · trust-bundle.pem · agent_id
 session/    lease.json · endpoint
 apply/<binding>/<gen>.json          journal record
-apply/<binding>/<gen>/              payload · staged · previous
+apply/<binding>/<gen>/              payload · staged
 reports/    cursor.json · pending.json · registry.json
 ```
 
@@ -284,7 +284,9 @@ Every record is a typed Go struct with `schema_version`. One write primitive, `s
 
 ### 8.2 Secrets on disk (`I6`)
 
-The DP renders `secretRef` values into the payload, so `payload`, `staged` and `previous` may hold secrets: `0600`, never logged, short-lived — `payload` and `staged` are deleted at `REPORTED`; `previous` survives only until the next successful apply for that binding supersedes it, then goes with the superseded-partials sweep. The enrollment token is never written anywhere.
+The DP renders `secretRef` values into the payload, so `payload` and `staged` may hold secrets: `0600`, never logged, short-lived — both are deleted at `REPORTED`. The enrollment token is never written anywhere.
+
+*Amended 2026-09-25 (final-review finding M3):* this design originally also kept a `previous` copy of the replaced configuration under `apply/<binding>/<gen>/`, on the reasoning that `FAILED_ROLLED_BACK` needed it. The implementation disproved that: rollback restores from the content already held in memory, and a crash mid-write is recovered by replaying the content-hash-idempotent writer, so nothing ever read the file back. It was a write-only, non-atomic copy of configuration that may hold secrets, so it is removed rather than hardened. The baseline decision is unaffected — `AG-D5` requires restoring "from the retained copy", and an in-memory copy is one.
 
 ### 8.3 Observability
 
