@@ -199,10 +199,6 @@ func TestIntegrationSupersededReconnectsImmediately(t *testing.T) {
 }
 
 func TestIntegrationDrainHonoursReconnectAfter(t *testing.T) {
-	t.Skip("AG-5 (renewal backoff/jitter unspecified): fullJitter applied to Drain's server-given ReconnectAfter " +
-		"is uniform [0, ReconnectAfter], so P(elapsed<1500ms)=75% by construction, not flakiness — the Drain-echo " +
-		"mechanism itself (Task 8's fix) is unaffected and passes every run; only this magnitude assertion is unreliable. " +
-		"See docs/design/go-agent/design.md's AG-5 item and this task's report.")
 	sc := fakegw.DefaultScenario()
 	sc.Steps = []fakegw.Step{{Drain: durPtr(2 * time.Second)}}
 	gw := startGateway(t, sc)
@@ -235,8 +231,8 @@ func TestIntegrationClockSuspectFailsClosedThenRecovers(t *testing.T) {
 	waitAuthority(t, h.loop, authority.PhaseActive, 10*time.Second)
 }
 
-func strPtr(s string) *string              { return &s }
-func boolPtr(b bool) *bool                 { return &b }
+func strPtr(s string) *string               { return &s }
+func boolPtr(b bool) *bool                  { return &b }
 func durPtr(d time.Duration) *time.Duration { return &d }
 
 func waitAuthority(t *testing.T, l *Loop, want authority.Phase, timeout time.Duration) {
@@ -336,8 +332,10 @@ func TestIntegrationDuplicateOfferIsAnsweredFromTheJournal(t *testing.T) {
 			t.Fatalf("both acks are APPLIED (the second replayed): %+v", a)
 		}
 	}
-	// executed at most once: exactly one apply reached the adapter
-	if n := gw.Count("ApplyProgress"); n > 8 {
+	// executed at most once: one apply execution emits exactly 4 progress
+	// messages (RECEIVED, STAGED, PERSISTED, REPORTED); the duplicate offer
+	// is answered straight from the journal with no further ApplyProgress.
+	if n := gw.Count("ApplyProgress"); n > 4 {
 		t.Fatalf("looks like it ran twice: %d progress messages", n)
 	}
 }

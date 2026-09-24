@@ -201,9 +201,16 @@ func reduceSessionWire(s SessionState, m msg.Inbound, env reactor.Env) (SessionS
 
 	case msg.Drain:
 		s.Phase = PhaseDraining
+		// AGW design.md §5.6: the gateway assigns staggered reconnect_after
+		// values across the drain window (§8 row 15: reconnects spread over
+		// ≥80% of it). That stagger is server-assigned — jittering it further
+		// here (fullJitter is uniform over [0, d]) can only pull an agent's
+		// reconnect earlier than instructed and collapse the spread, so this
+		// value is honoured verbatim, exactly like retryLater's explicit
+		// server override below.
 		return s, []reactor.Effect{
 			reactor.Close{Reason: "drain: " + m.Reason},
-			reactor.ArmTimer{Kind: reactor.ReconnectDue, After: env.Jitter(m.ReconnectAfter)},
+			reactor.ArmTimer{Kind: reactor.ReconnectDue, After: m.ReconnectAfter},
 		}
 
 	case msg.Teardown:
