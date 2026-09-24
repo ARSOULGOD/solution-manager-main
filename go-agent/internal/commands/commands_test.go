@@ -376,22 +376,29 @@ func TestResumeTable(t *testing.T) {
 	}
 }
 
+// A resumed step gets a fresh deadline, counted from its dispatch in DP time
+// (spec §5.2). The one written before the crash is long past after any real
+// outage — arming it fired at once and failed a step AG-D5 says must be
+// replayed. With the DP clock 30s ahead, a wall-clock bug lands 30s off and
+// the stale-deadline bug 12m off; both are caught.
 func TestResumeArmsStepDeadlineUsingDPClockNotWallClock(t *testing.T) {
 	s := newState()
-	deadline := t0.Add(90 * time.Second)
-	r := Record{SchemaVersion: 1, BindingID: "b1", RolloutGeneration: 1, CommandID: "c1", Operation: msg.OpApply,
-		Step: msg.StepStaged, ConfigHash: sha("x"), StepDeadline: deadline}
-	s.Journal.Put(r)
+	stale := t0.Add(-10 * time.Minute) // written before the crash
+	s.Journal.Put(Record{SchemaVersion: 1, BindingID: "b1", RolloutGeneration: 1, CommandID: "c1", Operation: msg.OpApply,
+		Step: msg.StepStaged, ConfigHash: sha("x"), StepDeadline: stale})
 	e := env(t0)
 	e.Offset = 30 * time.Second // DP clock is ahead of the agent's wall clock
 	_, effs := Reduce(s, reactor.Resumed{At: t0}, e, okAuth)
-	timer, ok := has[reactor.ArmTimer](effs)
-	if !ok || timer.Kind != reactor.StepDeadline {
-		t.Fatalf("expected a StepDeadline ArmTimer: %+v", effs)
+	op, ok := has[reactor.RunOp](effs)
+	if !ok {
+		t.Fatalf("the resumed step should dispatch: %+v", effs)
 	}
-	want := deadline.Sub(e.DPNow())
-	if timer.After != want {
-		t.Fatalf("ArmTimer.After = %v, want %v (deadline.Sub(env.DPNow()), not the agent's wall clock)", timer.After, want)
+	if want := e.DPNow().Add(2 * time.Minute); !op.Deadline.Equal(want) {
+		t.Fatalf("resumed deadline = %v, want %v — from DP-time dispatch, not the wall clock and not the stale pre-crash deadline", op.Deadline, want)
+	}
+	timer, ok := has[reactor.ArmTimer](effs)
+	if !ok || timer.Kind != reactor.StepDeadline || timer.After != 2*time.Minute {
+		t.Fatalf("want a StepDeadline timer for the full ceiling, got %+v", timer)
 	}
 }
 
@@ -477,5 +484,161 @@ func TestSupersededDuringPullAckCarriesItsOperation(t *testing.T) {
 	}
 	if ack.Operation != msg.OpStop {
 		t.Fatalf("ack.Operation = %q, want %q", ack.Operation, msg.OpStop)
+	}
+}
+
+func stopOffer(id string, gen uint64) msg.CommandOffer {
+	return msg.CommandOffer{CommandID: id, Generation: gen, IdempotencyKey: "k-" + id, BindingID: "b1",
+		Operation: msg.OpStop, Payload: []byte{}, ConfigSHA256: sha256Hex([]byte{})}
+}
+
+func runOps(effs []reactor.Effect) []string {
+	var ids []string
+	for _, x := range effs {
+		if op, ok := x.(reactor.RunOp); ok {
+			ids = append(ids, op.CommandID)
+		}
+	}
+	return ids
+}
+
+func ackFor(effs []reactor.Effect, id string) (msg.CommandAck, bool) {
+	for _, x := range effs {
+		if snd, ok := x.(reactor.Send); ok {
+			if a, ok := snd.Msg.(msg.CommandAck); ok && a.CommandID == id {
+				return a, true
+			}
+		}
+	}
+	return msg.CommandAck{}, false
+}
+
+// §4.4 rule 1 lets a stop interleave with an outstanding apply, and the worker
+// runs one op at a time. The second command must wait. It used to take over
+// InFlight and the only StepDeadline timer, so the first command's deadline
+// fired against the second — closing it before it had started — and its real
+// result was then dropped by the terminal guard.
+func TestInterleavedCommandWaitsForTheWorker(t *testing.T) {
+	s := newState()
+	s, effs := Reduce(s, reactor.WireIn{At: t0, Msg: offer(1, "x", msg.OpApply)}, env(t0), okAuth)
+	if got := runOps(effs); len(got) != 1 || got[0] != "c1" {
+		t.Fatalf("c1 should dispatch at once, got %v", got)
+	}
+	s, effs = Reduce(s, reactor.WireIn{At: t0, Msg: stopOffer("c2", 2)}, env(t0), okAuth)
+	if got := runOps(effs); len(got) != 0 {
+		t.Fatalf("c2 must not dispatch while c1 is running, got %v", got)
+	}
+	if _, ok := has[reactor.ArmTimer](effs); ok {
+		t.Fatal("c2 must not re-arm the deadline timer c1 is running under")
+	}
+	if s.InFlight != "c1" {
+		t.Fatalf("InFlight = %q, want the running command c1", s.InFlight)
+	}
+
+	// c1's deadline fires: it may only close c1, and closing a record does not free the worker
+	s, effs = Reduce(s, reactor.TimerFired{At: t0, Kind: reactor.StepDeadline}, env(t0), okAuth)
+	if _, ok := ackFor(effs, "c2"); ok {
+		t.Fatal("the deadline closed c2, a command that never started")
+	}
+	if _, ok := ackFor(effs, "c1"); !ok {
+		t.Fatal("the deadline should close c1, the running command")
+	}
+	if got := runOps(effs); len(got) != 0 || s.InFlight != "c1" {
+		t.Fatalf("c2 must wait until the worker reports c1 finished: runs=%v InFlight=%q", got, s.InFlight)
+	}
+
+	// only when the worker finishes c1 does c2 start, with a deadline from its own start
+	later := t0.Add(3 * time.Minute)
+	s, effs = Reduce(s, reactor.OpFinished{At: later, CommandID: "c1", Result: runtime.OpResult{Outcome: msg.OutcomeFailedNoEffect}}, env(later), okAuth)
+	op, ok := has[reactor.RunOp](effs)
+	if !ok || op.CommandID != "c2" || s.InFlight != "c2" {
+		t.Fatalf("c2 should dispatch once the worker is free: %+v", effs)
+	}
+	if want := later.Add(2 * time.Minute); !op.Deadline.Equal(want) {
+		t.Fatalf("c2 deadline = %v, want %v — counted from dispatch (spec §5.2), not from offer", op.Deadline, want)
+	}
+
+	// c2 really succeeds, and the DP is told so
+	_, effs = Reduce(s, reactor.OpFinished{At: later, CommandID: "c2", Result: runtime.OpResult{Outcome: msg.OutcomeApplied}}, env(later), okAuth)
+	if a, ok := ackFor(effs, "c2"); !ok || a.Outcome != msg.OutcomeApplied {
+		t.Fatalf("c2's real outcome must reach the DP, got %+v", a)
+	}
+}
+
+// Closing a command that is still queued — superseded while it waited — must
+// not cancel the one deadline timer, which belongs to the running command.
+func TestSupersedingAQueuedCommandLeavesTheRunningDeadlineAlone(t *testing.T) {
+	s := newState()
+	s, _ = Reduce(s, reactor.WireIn{At: t0, Msg: offer(1, "x", msg.OpApply)}, env(t0), okAuth)
+	s, _ = Reduce(s, reactor.WireIn{At: t0, Msg: stopOffer("c2", 2)}, env(t0), okAuth)
+	s, effs := Reduce(s, reactor.WireIn{At: t0, Msg: msg.Error{Code: msg.ErrSuperseded, CorrelationID: "c2"}}, env(t0), okAuth)
+	if a, ok := ackFor(effs, "c2"); !ok || a.Outcome != msg.OutcomeSuperseded {
+		t.Fatalf("c2 should be recorded SUPERSEDED, got %+v", a)
+	}
+	if _, ok := has[reactor.CancelTimer](effs); ok {
+		t.Fatal("closing queued c2 cancelled the deadline timer c1 is running under")
+	}
+	_, effs = Reduce(s, reactor.OpFinished{At: t0, CommandID: "c1", Result: runtime.OpResult{Outcome: msg.OutcomeApplied}}, env(t0), okAuth)
+	if got := runOps(effs); len(got) != 0 {
+		t.Fatalf("a superseded command must never be dispatched, got %v", got)
+	}
+}
+
+// Admission is re-checked before each step (spec §5.2), not only at offer: a
+// command can wait long enough behind another for the lease to stop admitting it.
+func TestQueuedCommandIsReAdmittedAtDispatch(t *testing.T) {
+	s := newState()
+	s, _ = Reduce(s, reactor.WireIn{At: t0, Msg: offer(1, "x", msg.OpApply)}, env(t0), okAuth)
+	s, _ = Reduce(s, reactor.WireIn{At: t0, Msg: stopOffer("c2", 2)}, env(t0), okAuth)
+	blocked := auth{detail: msg.DetailAdmissionBlocked, active: true}
+	_, effs := Reduce(s, reactor.OpFinished{At: t0, CommandID: "c1", Result: runtime.OpResult{Outcome: msg.OutcomeApplied}}, env(t0), blocked)
+	if got := runOps(effs); len(got) != 0 {
+		t.Fatalf("c2 must not run once admission fails, got %v", got)
+	}
+	if a, ok := ackFor(effs, "c2"); !ok || a.Outcome != msg.OutcomeRefused || a.Detail.Code != msg.DetailAdmissionBlocked {
+		t.Fatalf("c2 should be refused ADMISSION_BLOCKED at dispatch, got %+v", a)
+	}
+}
+
+// A resumed STAGED step may already have changed the target, so it must not be
+// refused (that would report no effect for an effect that may exist) and must
+// not run without an ACTIVE lease (no config write outside ACTIVE). It is held
+// and dispatched once the lease admits it — AG-D5's "resolved on the next
+// ACTIVE session by replaying the journal".
+func TestResumeHoldsAStartedStepUntilTheLeaseAdmitsIt(t *testing.T) {
+	s := newState()
+	s.Journal.Put(Record{SchemaVersion: 1, BindingID: "b1", RolloutGeneration: 1, CommandID: "c1",
+		Operation: msg.OpApply, Step: msg.StepStaged, ConfigHash: sha("x")})
+	inactive := auth{detail: msg.DetailLeaseNotActive}
+	s, effs := Reduce(s, reactor.Resumed{At: t0}, env(t0), inactive)
+	if got := runOps(effs); len(got) != 0 {
+		t.Fatalf("no config write without an ACTIVE lease, got %v", got)
+	}
+	if _, ok := ackFor(effs, "c1"); ok {
+		t.Fatal("a started step must be held, not refused")
+	}
+	_, effs = Reduce(s, reactor.WireIn{At: t0, Msg: msg.SessionAccept{}}, env(t0), okAuth)
+	if got := runOps(effs); len(got) != 1 || got[0] != "c1" {
+		t.Fatalf("the held step should dispatch once the lease admits it, got %v", got)
+	}
+}
+
+// Resume must not depend on map iteration order, and must hand the worker one
+// step at a time — lowest generation first, so a binding's generations stay ordered.
+func TestResumeDispatchesInGenerationOrderOneAtATime(t *testing.T) {
+	s := newState()
+	for _, r := range []Record{
+		{SchemaVersion: 1, BindingID: "b1", RolloutGeneration: 3, CommandID: "c3", Operation: msg.OpApply, Step: msg.StepStaged, ConfigHash: sha("x")},
+		{SchemaVersion: 1, BindingID: "b1", RolloutGeneration: 2, CommandID: "c2", Operation: msg.OpApply, Step: msg.StepPersisted, ConfigHash: sha("x")},
+	} {
+		s.Journal.Put(r)
+	}
+	s, effs := Reduce(s, reactor.Resumed{At: t0}, env(t0), okAuth)
+	if got := runOps(effs); len(got) != 1 || got[0] != "c2" {
+		t.Fatalf("want exactly the lowest generation (c2) dispatched, got %v", got)
+	}
+	_, effs = Reduce(s, reactor.OpFinished{At: t0, CommandID: "c2", Result: runtime.OpResult{Outcome: msg.OutcomeApplied}}, env(t0), okAuth)
+	if got := runOps(effs); len(got) != 1 || got[0] != "c3" {
+		t.Fatalf("c3 should follow once c2 finishes, got %v", got)
 	}
 }

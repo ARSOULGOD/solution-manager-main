@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/solace/solution-manager/go-agent/internal/authority"
 	"github.com/solace/solution-manager/go-agent/internal/commands"
 	"github.com/solace/solution-manager/go-agent/internal/msg"
 	"github.com/solace/solution-manager/go-agent/internal/runtime/configwriter"
@@ -42,6 +43,7 @@ func TestResumeFromStagedCompletesTheWrite(t *testing.T) {
 		ConfigHash: hash, Step: msg.StepStaged, StepDeadline: time.Now().Add(time.Minute)}})
 
 	st := loadAfterCrash(t, dir)
+	st.Authority = activeLease() // resume writes config only under an ACTIVE lease
 	_, effs := Reduce(cfg, st, resumedAt(time.Now()), testEnv())
 	op, ok := has[runOpEffect](effs)
 	if !ok || op.CommandID != "c1" {
@@ -124,5 +126,42 @@ func TestResumeResendsUnsentTerminalAck(t *testing.T) {
 	ack := sentMsg[msg.CommandAck](t, effs)
 	if ack.Outcome != msg.OutcomeApplied || ack.CommandID != "c9" {
 		t.Fatalf("%+v", ack)
+	}
+}
+
+// activeLease is a lease that admits an apply on b1 at the test clock t0.
+func activeLease() authority.State {
+	g := msg.LeaseGrant{CnfThumbprint: "leaf", TargetID: "t", BindingIDs: []string{"b1"},
+		IssuedAt: t0.Add(-10 * time.Minute), ExpiresAt: t0.Add(50 * time.Minute), Nonce: "n",
+		Capabilities:    []msg.Capability{msg.CapApplyConfig, msg.CapLifecycle},
+		VerbCeilings:    map[msg.Operation]time.Duration{msg.OpApply: 2 * time.Minute},
+		AdmissionMargin: 30 * time.Second}
+	return authority.State{Phase: authority.PhaseActive, Grant: &g, LeafThumbprint: "leaf"}
+}
+
+// The composed reducers, as loaded from disk after a crash: with no lease (or
+// an expired one) a STAGED step is held, not replayed — "LEASE_EXPIRED: no
+// config write" — and not refused either, since the target may already have
+// changed. Before the dispatch point existed, resume wrote regardless.
+func TestResumeWithoutALeaseHoldsTheWrite(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "d")
+	s, _ := store.Open(dir)
+	payload := []byte("new: 1\n")
+	hash := configwriter.SHA256(payload)
+	_ = s.Save(store.Blob{RelPath: commands.PayloadRel("b1", 2), Data: payload})
+	_ = s.Save(store.JSON{RelPath: "apply/b1/2.json", Value: commands.Record{SchemaVersion: 1, RolloutGeneration: 2,
+		IdempotencyKey: "k", CommandID: "c1", BindingID: "b1", Operation: msg.OpApply,
+		ConfigHash: hash, Step: msg.StepStaged}})
+
+	st := loadAfterCrash(t, dir) // no lease: the zero authority state is not ACTIVE
+	next, effs := Reduce(cfg, st, resumedAt(time.Now()), testEnv())
+	if _, ok := has[runOpEffect](effs); ok {
+		t.Fatal("resume must not write config without an ACTIVE lease")
+	}
+	if _, ok := sentMsgOK[msg.CommandAck](effs); ok {
+		t.Fatal("a started step must be held, not refused")
+	}
+	if got := next.Commands.Queue; len(got) != 1 || got[0] != "c1" {
+		t.Fatalf("the step should wait in the queue, got %v", got)
 	}
 }

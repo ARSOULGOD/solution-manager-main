@@ -4,6 +4,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"slices"
+	"sort"
 	"time"
 
 	"github.com/solace/solution-manager/go-agent/internal/msg"
@@ -30,8 +32,19 @@ type Authority interface {
 }
 
 type State struct {
-	Journal  Journal
+	Journal Journal
+	// InFlight is the command whose op the worker is running right now: set
+	// when a RunOp is dispatched, cleared only by that command's OpFinished.
+	// Closing its record (a deadline, a SUPERSEDED) does not clear it — the
+	// worker is still busy until it reports back. The single StepDeadline
+	// timer belongs to this command and no other.
 	InFlight string
+	// Queue holds offered commands awaiting the worker, oldest first. The
+	// worker runs one op at a time and §4.4 lets a stop interleave with an
+	// outstanding apply, so a second command waits here instead of taking
+	// over InFlight and the timer. In memory only: a queued command's record
+	// is RECEIVED, which resume discards for the DP to redeliver.
+	Queue []string
 	// Pulling correlates a CommandID to its (binding, generation) while a
 	// CommandPull is outstanding and nothing has been journaled for it yet
 	// (offer() writes the RECEIVED record only once the payload arrives).
@@ -90,6 +103,19 @@ func (s State) PersistedGeneration(binding string) uint64 {
 func (s State) OpenCount() int { return s.Journal.OpenCount() }
 
 func Reduce(s State, ev reactor.Event, env reactor.Env, auth Authority) (State, []reactor.Effect) {
+	s, effs := s.reduce(ev, env, auth)
+	// The one dispatch point. Checked after every event because any of them
+	// can free the worker (OpFinished) or restore admission for a held step
+	// (a lease grant, the clock returning to OK).
+	if s.InFlight == "" && len(s.Queue) > 0 {
+		var more []reactor.Effect
+		s, more = s.startNext(env, auth)
+		effs = append(effs, more...)
+	}
+	return s, effs
+}
+
+func (s State) reduce(ev reactor.Event, env reactor.Env, auth Authority) (State, []reactor.Effect) {
 	switch e := ev.(type) {
 	case reactor.Resumed:
 		return s.resume(env)
@@ -100,7 +126,6 @@ func Reduce(s State, ev reactor.Event, env reactor.Env, auth Authority) (State, 
 		}
 		r, ok := s.Journal.ByCommand(s.InFlight)
 		if !ok {
-			s.InFlight = ""
 			return s, nil
 		}
 		// AG-D5: APPLY_INDETERMINATE only when a step was in flight and the
@@ -126,14 +151,17 @@ func Reduce(s State, ev reactor.Event, env reactor.Env, auth Authority) (State, 
 		}
 
 	case reactor.OpFinished:
-		r, ok := s.Journal.ByCommand(e.CommandID)
-		if !ok {
-			return s, nil
+		var effs []reactor.Effect
+		if r, ok := s.Journal.ByCommand(e.CommandID); ok {
+			if e.Result.Facts != nil {
+				r.ReplicaRef = e.Result.Facts.ReplicaRef
+			}
+			s, effs = s.terminate(r, e.Result.Outcome, e.Result.Detail, e.Result.EffectiveHash, env)
 		}
-		if e.Result.Facts != nil {
-			r.ReplicaRef = e.Result.Facts.ReplicaRef
+		if s.InFlight == e.CommandID {
+			s.InFlight = ""
 		}
-		return s.terminate(r, e.Result.Outcome, e.Result.Detail, e.Result.EffectiveHash, env)
+		return s, effs
 
 	case reactor.WireIn:
 		switch m := e.Msg.(type) {
@@ -209,17 +237,15 @@ func (s State) offer(m msg.CommandOffer, env reactor.Env, auth Authority) (State
 		StepDeadline: auth.StepDeadline(m.Operation, env.DPNow()), ReceivedAck: true,
 	}
 	s.Journal.Put(r)
-	s.InFlight = m.CommandID
-	effs := []reactor.Effect{
+	// Queued, not run: Reduce's dispatch point starts it at once if the worker
+	// is free, and otherwise when the running op reports back.
+	s.Queue = append(slices.Clip(s.Queue), m.CommandID)
+	return s, []reactor.Effect{
 		reactor.Persist{Rec: store.Blob{RelPath: PayloadRel(m.BindingID, m.Generation), Data: m.Payload}},
 		reactor.Persist{Rec: r},
 		reactor.Send{Msg: msg.CommandReceived{Envelope: env.Env(), CommandID: m.CommandID, Generation: m.Generation}},
 		reactor.Send{Msg: msg.ApplyProgress{Envelope: env.Env(), CommandID: m.CommandID, Step: msg.StepReceived, At: env.Now}},
-		reactor.RunOp{CommandID: m.CommandID, BindingID: m.BindingID, Op: m.Operation, PayloadRel: PayloadRel(m.BindingID, m.Generation),
-			SHA256: m.ConfigSHA256, Deadline: r.StepDeadline},
-		reactor.ArmTimer{Kind: reactor.StepDeadline, After: r.StepDeadline.Sub(env.DPNow())},
 	}
-	return s, effs
 }
 
 func (s State) wireError(m msg.Error, env reactor.Env) (State, []reactor.Effect) {
@@ -270,17 +296,18 @@ func (s State) terminate(r Record, outcome msg.Outcome, detail msg.AckDetail, ef
 		r.EffectiveHash = effectiveHash
 	}
 	s.Journal.Put(r)
+	effs := []reactor.Effect{reactor.Persist{Rec: r}}
+	// The timer belongs to the running command. Closing a queued one — say,
+	// SUPERSEDED while it waited — must leave it alone.
 	if s.InFlight == r.CommandID {
-		s.InFlight = ""
+		effs = append(effs, reactor.CancelTimer{Kind: reactor.StepDeadline})
 	}
-	effs := []reactor.Effect{
-		reactor.Persist{Rec: r},
-		reactor.CancelTimer{Kind: reactor.StepDeadline},
+	effs = append(effs,
 		reactor.Send{Msg: msg.ApplyProgress{Envelope: env.Env(), CommandID: r.CommandID, Step: msg.StepReported, ReplicaRef: r.ReplicaRef, At: env.Now}},
 		reactor.Send{Msg: msg.CommandAck{Envelope: env.Env(), CommandID: r.CommandID, Generation: r.RolloutGeneration,
 			Outcome: outcome, Detail: detail, AgentClock: env.Now, Operation: r.Operation}},
 		reactor.Delete{Rel: PayloadRel(r.BindingID, r.RolloutGeneration)},
-	}
+	)
 	if outcome == msg.OutcomeApplied {
 		for _, dir := range s.Journal.SupersededPartials(r.BindingID, r.RolloutGeneration) {
 			effs = append(effs, reactor.Delete{Rel: dir})
@@ -289,10 +316,72 @@ func (s State) terminate(r Record, outcome msg.Outcome, detail msg.AckDetail, ef
 	return s, effs
 }
 
-// resume replays the journal per the AG-D4 table.
-func (s State) resume(env reactor.Env) (State, []reactor.Effect) {
+// startNext hands the worker the head of the queue. Reduce calls it only when
+// the worker is free. The step deadline and admission are decided here, at
+// dispatch, not at offer: spec §5.2 counts the deadline from step start and
+// re-checks admission before each step, and a command may have waited behind
+// another for longer than its whole ceiling.
+func (s State) startNext(env reactor.Env, auth Authority) (State, []reactor.Effect) {
 	var effs []reactor.Effect
+	for s.InFlight == "" && len(s.Queue) > 0 {
+		r, ok := s.Journal.ByCommand(s.Queue[0])
+		if !ok || r.Terminal() {
+			s.Queue = s.Queue[1:] // closed while it waited, e.g. SUPERSEDED
+			continue
+		}
+		dpNow := env.DPNow()
+		if d := auth.RefusalDetail(r.Operation, r.BindingID, dpNow); d != msg.DetailNone {
+			if r.Step != msg.StepReceived && (d == msg.DetailLeaseNotActive || d == msg.DetailAdmissionBlocked) {
+				// A resumed STAGED/PERSISTED step may already have changed the
+				// target, so refusing it would report no effect for an effect
+				// that may exist. Hold it — and everything behind it, keeping a
+				// binding's generations in order — until the lease admits it
+				// (AG-D5: resolved on the next ACTIVE session by replaying).
+				return s, effs
+			}
+			s.Queue = s.Queue[1:]
+			var more []reactor.Effect
+			s, more = s.terminate(r, msg.OutcomeRefused, msg.AckDetail{Code: d}, "", env)
+			effs = append(effs, more...)
+			continue
+		}
+		s.Queue = s.Queue[1:]
+		// Dispatched in the same event as its offer, the deadline is unchanged
+		// and the record needs no second write.
+		if deadline := auth.StepDeadline(r.Operation, dpNow); !deadline.Equal(r.StepDeadline) {
+			r.StepDeadline = deadline
+			s.Journal.Put(r)
+			effs = append(effs, reactor.Persist{Rec: r})
+		}
+		s.InFlight = r.CommandID
+		effs = append(effs,
+			reactor.RunOp{CommandID: r.CommandID, BindingID: r.BindingID, Op: r.Operation,
+				PayloadRel: PayloadRel(r.BindingID, r.RolloutGeneration), SHA256: r.ConfigHash, Deadline: r.StepDeadline},
+			reactor.ArmTimer{Kind: reactor.StepDeadline, After: r.StepDeadline.Sub(dpNow)},
+		)
+	}
+	return s, effs
+}
+
+// resume replays the journal per the AG-D4 table, in (binding, generation)
+// order so the outcome never depends on map iteration. STAGED and PERSISTED
+// steps are queued, not run: the dispatch point starts them one at a time with
+// a fresh deadline — the one written before the crash is long past after any
+// real outage, and would fail a step AG-D5 says must be replayed — and holds
+// them while the lease does not admit a config write.
+func (s State) resume(env reactor.Env) (State, []reactor.Effect) {
+	recs := make([]Record, 0, len(s.Journal.Records))
 	for _, r := range s.Journal.Records {
+		recs = append(recs, r)
+	}
+	sort.Slice(recs, func(i, j int) bool {
+		if recs[i].BindingID != recs[j].BindingID {
+			return recs[i].BindingID < recs[j].BindingID
+		}
+		return recs[i].RolloutGeneration < recs[j].RolloutGeneration
+	})
+	var effs []reactor.Effect
+	for _, r := range recs {
 		switch r.Step {
 		case msg.StepReceived:
 			// nothing was written; discard and let the DP redeliver. Delete
@@ -307,16 +396,9 @@ func (s State) resume(env reactor.Env) (State, []reactor.Effect) {
 			effs = append(effs, reactor.Delete{Rel: DirRel(r.BindingID, r.RolloutGeneration)}, reactor.Delete{Rel: r.Rel()})
 			s.Journal.Delete(r.BindingID, r.RolloutGeneration)
 		case msg.StepStaged, msg.StepPersisted:
-			// re-enter the adapter: it verifies the temp / reads back the file
-			// and never rewrites a PERSISTED target
-			if s.InFlight == "" {
-				s.InFlight = r.CommandID
-			}
-			effs = append(effs,
-				reactor.RunOp{CommandID: r.CommandID, BindingID: r.BindingID, Op: r.Operation,
-					PayloadRel: PayloadRel(r.BindingID, r.RolloutGeneration), SHA256: r.ConfigHash, Deadline: r.StepDeadline},
-				reactor.ArmTimer{Kind: reactor.StepDeadline, After: r.StepDeadline.Sub(env.DPNow())},
-			)
+			// the adapter verifies the temp / reads back the file and never
+			// rewrites a PERSISTED target, so replaying is safe
+			s.Queue = append(slices.Clip(s.Queue), r.CommandID)
 		case msg.StepReported:
 			if !r.AckSent {
 				effs = append(effs, reactor.Send{Msg: msg.CommandAck{Envelope: env.Env(), CommandID: r.CommandID,

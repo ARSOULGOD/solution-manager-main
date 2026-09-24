@@ -62,3 +62,16 @@ func TestReduceSessionAcceptReachesBothReducers(t *testing.T) {
 		t.Fatalf("timers: %v", kinds)
 	}
 }
+
+// sentMsgOK is sentMsg without the Fatal, for asserting that something was NOT sent.
+func sentMsgOK[M msg.Outbound](effs []reactor.Effect) (M, bool) {
+	for _, e := range effs {
+		if s, ok := e.(reactor.Send); ok {
+			if m, ok := s.Msg.(M); ok {
+				return m, true
+			}
+		}
+	}
+	var zero M
+	return zero, false
+}

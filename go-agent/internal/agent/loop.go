@@ -149,6 +149,7 @@ func cloneState(st State) State {
 	st.Commands.Journal.Records = maps.Clone(st.Commands.Journal.Records)
 	st.Commands.Journal.Watermark = maps.Clone(st.Commands.Journal.Watermark)
 	st.Commands.Pulling = maps.Clone(st.Commands.Pulling)
+	st.Commands.Queue = slices.Clone(st.Commands.Queue)
 	st.Reports.Cursor.Sequences = maps.Clone(st.Reports.Cursor.Sequences)
 	st.Reports.Registry.ReplicaIDs = maps.Clone(st.Reports.Registry.ReplicaIDs)
 	st.Reports.Registry.IncarnationIDs = maps.Clone(st.Reports.Registry.IncarnationIDs)
