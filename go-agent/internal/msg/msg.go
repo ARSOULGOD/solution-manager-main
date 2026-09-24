@@ -3,7 +3,11 @@
 // touches generated protobuf types; everything else speaks these structs.
 package msg
 
-import "time"
+import (
+	"fmt"
+	"log/slog"
+	"time"
+)
 
 type Operation string
 
@@ -105,7 +109,7 @@ const (
 type DetailCode string
 
 const (
-	DetailNone            DetailCode = ""
+	DetailNone             DetailCode = ""
 	DetailAdmissionBlocked DetailCode = "ADMISSION_BLOCKED"
 	DetailLeaseNotActive   DetailCode = "LEASE_NOT_ACTIVE"
 )
@@ -155,6 +159,26 @@ type EnrollRequest struct {
 	AgentVersion              string
 	ProtocolVersionsSupported []uint32
 	HostFacts                 HostFacts
+}
+
+// LogValue and String redact Token from slog output and from fmt's %v/%+v/%s
+// verbs alike — LogValuer alone only covers slog call sites, not a bare
+// fmt.Sprintf("%v", req) or an error wrap that embeds the value.
+func (r EnrollRequest) LogValue() slog.Value {
+	return slog.GroupValue(
+		slog.String("agent_version", r.AgentVersion),
+		slog.Any("protocol_versions_supported", r.ProtocolVersionsSupported),
+		slog.Int("csr_der_len", len(r.CSRDER)),
+		slog.String("host_os", r.HostFacts.OS),
+		slog.String("host_arch", r.HostFacts.Arch),
+		slog.String("host_runtime_kind", r.HostFacts.RuntimeKind),
+		slog.Bool("token_present", r.Token != ""),
+	)
+}
+
+func (r EnrollRequest) String() string {
+	return fmt.Sprintf("EnrollRequest{agent_version=%s csr_der_len=%d host=%s/%s token=[REDACTED]}",
+		r.AgentVersion, len(r.CSRDER), r.HostFacts.OS, r.HostFacts.Arch)
 }
 
 type TrustBundle struct {
@@ -310,6 +334,29 @@ type CommandOffer struct {
 
 func (CommandOffer) inbound() {}
 
+// LogValue and String redact Payload from slog output and from fmt's
+// %v/%+v/%s verbs alike — a config payload can carry embedded secrets
+// (secretRef values, credentials), so only its length is ever shown, never
+// its bytes. LogValuer alone only covers slog call sites, not a bare
+// fmt.Sprintf("%v", offer) elsewhere in the codebase.
+func (m CommandOffer) LogValue() slog.Value {
+	return slog.GroupValue(
+		slog.String("message_id", m.MessageID),
+		slog.String("command_id", m.CommandID),
+		slog.Uint64("generation", m.Generation),
+		slog.String("idempotency_key", m.IdempotencyKey),
+		slog.String("binding_id", m.BindingID),
+		slog.String("operation", string(m.Operation)),
+		slog.String("config_sha256", m.ConfigSHA256),
+		slog.Int("payload_len", len(m.Payload)),
+	)
+}
+
+func (m CommandOffer) String() string {
+	return fmt.Sprintf("CommandOffer{command_id=%s binding_id=%s operation=%s generation=%d payload_len=%d}",
+		m.CommandID, m.BindingID, m.Operation, m.Generation, len(m.Payload))
+}
+
 type CommandReceived struct {
 	Envelope
 	CommandID  string
@@ -362,15 +409,15 @@ type VersionObservation struct {
 }
 
 type ActualStateReport struct {
-	ItemID             string
-	Sequence           uint64
-	BindingID          string
-	ReplicaRef         string
-	Incarnation        string
+	ItemID              string
+	Sequence            uint64
+	BindingID           string
+	ReplicaRef          string
+	Incarnation         string
 	PersistedGeneration uint64
-	RestartObservedAt  *time.Time
-	EffectiveHash      string
-	VersionObservation VersionObservation
+	RestartObservedAt   *time.Time
+	EffectiveHash       string
+	VersionObservation  VersionObservation
 }
 
 type ActualStateReportBatch struct {
