@@ -4,8 +4,7 @@ FROM --platform=$BUILDPLATFORM golang:1.26.4 AS builder
 
 WORKDIR /src
 
-# No third-party requires yet; go.sum may be absent — do not COPY a missing go.sum.
-COPY go.mod ./
+COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
