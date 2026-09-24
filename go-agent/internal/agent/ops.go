@@ -22,6 +22,13 @@ type opRunner struct {
 	store   *store.Store
 	push    func(reactor.Event)
 	now     func() time.Time
+	// offset is the current DP clock offset (DPNow = wall now + offset), the
+	// same source the loop feeds into reactor.Env for the reducers. op.Deadline
+	// arrives in DP time (it was stamped via auth.StepDeadline(op, env.DPNow())
+	// in the commands reducer); context.WithDeadline compares against the wall
+	// clock, so it must be converted back before use — the same class of bug
+	// already fixed once at Task 18 in commands.resume() for ArmTimer.
+	offset func() time.Duration
 }
 
 func (r *opRunner) Run(ctx context.Context, op reactor.RunOp) runtime.OpResult {
@@ -29,7 +36,11 @@ func (r *opRunner) Run(ctx context.Context, op reactor.RunOp) runtime.OpResult {
 	if err != nil {
 		return refusedResult(op, err)
 	}
-	ctx, cancel := context.WithDeadline(ctx, op.Deadline)
+	wallDeadline := op.Deadline
+	if r.offset != nil {
+		wallDeadline = op.Deadline.Add(-r.offset())
+	}
+	ctx, cancel := context.WithDeadline(ctx, wallDeadline)
 	defer cancel()
 
 	switch op.Op {

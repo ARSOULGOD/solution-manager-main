@@ -79,6 +79,52 @@ func TestOpRunnerApplyPushesProgress(t *testing.T) {
 	}
 }
 
+// ctxCapturingAdapter wraps stubAdapter to capture the context WriteConfig
+// receives, so a test can inspect the deadline opRunner actually built.
+type ctxCapturingAdapter struct {
+	stubAdapter
+	gotCtx context.Context
+}
+
+func (a *ctxCapturingAdapter) WriteConfig(ctx context.Context, p runtime.Placement, payload []byte, sha, prev string, prog runtime.Progress) (runtime.WriteResult, error) {
+	a.gotCtx = ctx
+	return a.stubAdapter.WriteConfig(ctx, p, payload, sha, prev, prog)
+}
+
+// TestOpRunnerConvertsDPTimeDeadlineToWallClock pins I2: RunOp.Deadline
+// arrives in DP time (env.DPNow() when the commands reducer stamped it via
+// auth.StepDeadline), but context.WithDeadline compares against the wall
+// clock. With a non-zero offset, feeding op.Deadline straight into
+// WithDeadline would give the operation `offset` extra (or less) wall-clock
+// budget than intended.
+func TestOpRunnerConvertsDPTimeDeadlineToWallClock(t *testing.T) {
+	st := store.MustOpen(t.TempDir())
+	_ = st.Save(store.Blob{RelPath: commands.PayloadRel("b1", 1), Data: []byte("x")})
+	a := &ctxCapturingAdapter{stubAdapter: stubAdapter{facts: []runtime.ReplicaFacts{{Running: true}}}}
+	const offset = 30 * time.Second // DP clock is ahead of the agent's wall clock
+	r := &opRunner{adapter: a, store: st, push: func(reactor.Event) {}, now: time.Now,
+		offset: func() time.Duration { return offset }}
+
+	wallNow := time.Now()
+	dpDeadline := wallNow.Add(offset).Add(time.Minute) // a DP-time deadline: DPNow()+1m
+	res := r.Run(context.Background(), reactor.RunOp{CommandID: "c", BindingID: "b1", Op: msg.OpApply,
+		PayloadRel: commands.PayloadRel("b1", 1), SHA256: "h", Deadline: dpDeadline})
+	if res.Outcome != msg.OutcomeApplied {
+		t.Fatalf("%+v", res)
+	}
+	if a.gotCtx == nil {
+		t.Fatal("adapter never received a context")
+	}
+	gotDeadline, ok := a.gotCtx.Deadline()
+	if !ok {
+		t.Fatal("context has no deadline")
+	}
+	wantWallDeadline := dpDeadline.Add(-offset) // ≈ wallNow + 1m
+	if diff := gotDeadline.Sub(wantWallDeadline); diff < -time.Second || diff > time.Second {
+		t.Fatalf("context deadline = %v, want ≈ %v (dpDeadline - offset, not dpDeadline verbatim)", gotDeadline, wantWallDeadline)
+	}
+}
+
 func TestOpRunnerResolveFailureIsNoEffect(t *testing.T) {
 	a := &stubAdapter{resolve: errors.New("no such container"), facts: []runtime.ReplicaFacts{{}}}
 	r := &opRunner{adapter: a, store: store.MustOpen(t.TempDir()), push: func(reactor.Event) {}, now: time.Now}

@@ -76,7 +76,7 @@ func Build(bc BuildConfig) (*Loop, *store.Store, error) {
 		Observe:  bc.Observe,
 	}, st)
 	if bc.Adapter != nil {
-		l.d.Ops = &opRunner{adapter: bc.Adapter, store: s, push: l.Push, now: l.d.Now}
+		l.d.Ops = &opRunner{adapter: bc.Adapter, store: s, push: l.Push, now: l.d.Now, offset: l.d.Offset}
 	}
 	if bc.AdminAddr != "" {
 		m := NewMetrics()
