@@ -21,7 +21,7 @@ to live in `go-agent/docs/`; the gateway `decisions.md` "Fork inventory" lists t
 
 ## Status — read this before writing code
 
-**Slice 1 (the control path) is specified, planned and not yet built.**
+**Slice 1 (the control path) is specified, planned, built and reviewed.**
 
 | Artifact | Where |
 |---|---|
@@ -29,11 +29,10 @@ to live in `go-agent/docs/`; the gateway `decisions.md` "Fork inventory" lists t
 | Implementation plan | [`../docs/plans/go-agent/005-control-path.md`](../docs/plans/go-agent/005-control-path.md) — 24 TDD tasks, phases P1–P5 |
 | Agent decisions | [`../docs/design/go-agent/decisions.md`](../docs/design/go-agent/decisions.md) — `AG-D1`–`AG-D12` baseline, `AG-D13`–`AG-D20` from the plan |
 
-**Do not improvise an implementation.** If you are here to build slice 1, execute the plan
-task-by-task (`superpowers:executing-plans` or `superpowers:subagent-driven-development`); the plan
-carries the code, the tests and the commit boundaries.
+The plan is now the historical record of what was built, not forward guidance — read it to
+understand why the code is shaped the way it is, not as a task list to execute.
 
-**Two gates, and their current readings:**
+**One gate remains open:**
 
 - **The `.proto`.** There is still no *authoritative* contract — open item 6 / `AG-1` / `AGW-2` routes
   it to the architect group **with the `AG-D*` owners**, and the gateway design's §4 is explicitly
@@ -41,49 +40,23 @@ carries the code, the tests and the commit boundaries.
   `proto/agentgateway/v1draft/agent_gateway.proto`, transcribed 1:1 from §4.3/§4.11, labelled DRAFT,
   and **never** placed under `../contracts/` (single-writer, normative). Only `internal/wire` imports
   the generated code, so the swap when the real contract lands is one directory.
-- **The walking skeleton.** The `dp-remote` apply engine (backend plans 004–005) is merged on this
-  lineage, and the project owner has confirmed agent product code may now be written. The old
-  `workplan.md` rule "no product code until the skeleton is accepted" is **discharged**; it is
-  recorded in the plan's §1.3 as an assumption so the reading stays visible.
+
+The walking-skeleton gate — product code blocked until the `dp-remote` apply engine merged — is
+**discharged** (recorded in the plan's §1.3) and no longer applies.
 
 `SM-D*`, `AG-D*` and `AGW-D*` are all **PROPOSED**, not ratified (`I4`).
 
 ## Current state of the code
 
-⚠️ **What is in `internal/` today is the pre-rewrite scaffold, not the product.** It was written
-against the ASSUMED surrogate wire and is structurally incompatible with the gateway design. Plan
-task 1 **archives it to `oldGo-Agent/`** — `git mv`, with history, plus a nested `go.mod` so the
-parent module's `go build ./...` skips it. **It is never deleted**; it stays readable while the
-replacement is written.
+`internal/` holds the rewritten control path — see Architecture below. The pre-rewrite scaffold is
+archived at [`oldGo-Agent/`](oldGo-Agent/), not deleted: its own README names the three structural
+incompatibilities the gateway design's fork inventory found in it (journal phases, a config shape
+encoding a separate telemetry endpoint, `WriteFileAtomic` with no parent-directory fsync). What those
+gaps described is closed here: the journal lives in `internal/commands`, the atomic-write-with-
+parent-fsync guarantee in `internal/store` and `internal/runtime/configwriter`, and the single mTLS
+connection in `internal/wire`.
 
-The three incompatibilities the gateway design's fork inventory named, and where each is fixed:
-
-| Scaffold | Problem | Replaced by |
-|---|---|---|
-| `internal/persist` (`Cursor.InFlight.Phase`) | phases `PREFLIGHT\|STAGING\|RENAMED\|RESTARTING\|INDETERMINATE` against the wire's and baseline `AG-D4`'s `RECEIVED→STAGED→PERSISTED→REPORTED` | `internal/commands` (journal) |
-| `internal/persist` (`WriteFileAtomic`) | no parent-directory fsync after rename, which design §5.1 requires | `internal/store` + `internal/runtime/configwriter` |
-| `internal/config` (`DPEnrollURL`/`DPConnectAddr`/`DPTelemetryAddr`) | encodes three endpoints where the design has **one** mTLS connection carrying `Enroll`, `Connect` and `Telemetry` as three streams (`AGW-D5`, §4.1) | one `--connect-endpoint`, replaced by `EnrollResponse.connect_endpoint` |
-
-Worth keeping from the scaffold, and why it is archived rather than dropped: `internal/docker` is the
-clearest record of how the Engine API was driven (it becomes the command-driven
-`internal/runtime/docker`), and `internal/telemetry`'s scrape → validate → store shape is what slice
-2's telemetry role rebuilds. What was correct is **re-derived, not copied** — the atomic write (now
-with the parent fsync) and the symlink-escape refusal the gateway design credits as a genuine addition.
-
-### Commands that work today
-
-These drive the two demo CLIs; plan task 1 retires both (the lifecycle verbs become DP commands, the
-collect demo becomes slice 2's telemetry role).
-
-```bash
-go build -o sm-agent ./cmd/sm-agent
-go vet ./... && go test ./...
-
-./sm-agent start|stop|restart|status <container-name>          # Docker lifecycle demo
-./sm-agent collect --targets <targets.yaml> --data-dir <dir>   # local telemetry demo
-```
-
-### Commands after plan task 1
+## Commands
 
 ```bash
 make proto              # regenerate internal/wire/pb (needs buf + protoc-gen-go[-grpc])
@@ -93,7 +66,7 @@ make test-integration   # scenarios against an in-process fake gateway
 make test-docker        # Docker adapter against a real container (needs a socket)
 ```
 
-## Target architecture (what the plan builds)
+## Architecture
 
 An **event-driven reactor** (`AG-D14`). Everything that can happen — an inbound message, a timer, a
 finished operation, a connection event, a signal — becomes an `Event` on one inbox. One loop drains
@@ -154,11 +127,11 @@ Authoritative, in reading order:
 | [`../docs/design/backend/agent-gateway/decisions.md`](../docs/design/backend/agent-gateway/decisions.md) | `AGW-D1`–`AGW-D16`; the `AGW-D ↔ AG-D` dependency table; the "Fork inventory". |
 | [`../docs/design/go-agent/design.md`](../docs/design/go-agent/design.md) · [`decisions.md`](../docs/design/go-agent/decisions.md) | The baseline `AG-D*` family — journal (`AG-D4`), outcomes (`AG-D5`), buffer (`AG-D9`), version observation (`AG-D12`) — plus `AG-D13`–`AG-D20` from slice 1. |
 | [`../docs/superpowers/specs/2026-09-21-go-agent-control-path-design.md`](../docs/superpowers/specs/2026-09-21-go-agent-control-path-design.md) | Slice 1's design: reactor, reducers, store layout, error taxonomy, testing. |
-| [`../docs/plans/go-agent/005-control-path.md`](../docs/plans/go-agent/005-control-path.md) | The executable plan. |
+| [`../docs/plans/go-agent/005-control-path.md`](../docs/plans/go-agent/005-control-path.md) | The executed plan. |
 
 Superseded, kept for reference, **never cite as authority**:
 
 | Where | What |
 |---|---|
-| [`docs/`](docs/) — moves to `../docs/design/archive/go-agent-fork/` at plan task 24 | The old local design, its `AG-D1`–`AG-D6` family (IDs collide with the baseline), the workplan, and the ASSUMED surrogate wire (`p2-*`, `p3-mechanism-gaps.md`). [`docs/p2-wire-assumptions-audit.md`](docs/p2-wire-assumptions-audit.md) is still worth reading beside §4.3 — it shows what got answered. |
-| `oldGo-Agent/` — created by plan task 1 | The archived scaffold. Not built, not tested, not maintained. |
+| [`../docs/design/archive/go-agent-fork/`](../docs/design/archive/go-agent-fork/) | The old local design, its `AG-D1`–`AG-D6` family (IDs collide with the baseline), the workplan, and the ASSUMED surrogate wire (`p2-*`, `p3-mechanism-gaps.md`). Its own README says what supersedes each part. |
+| [`oldGo-Agent/`](oldGo-Agent/) | The archived scaffold. Not built, not tested, not maintained. |

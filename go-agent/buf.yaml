@@ -1,0 +1,9 @@
+version: v2
+modules:
+  - path: proto/agentgateway/v1draft
+lint:
+  use:
+    - STANDARD
+breaking:
+  use:
+    - FILE

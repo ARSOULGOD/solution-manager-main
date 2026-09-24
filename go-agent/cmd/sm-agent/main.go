@@ -4,94 +4,67 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"net/http"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
-	"github.com/solace/solution-manager/go-agent/internal/config"
-	"github.com/solace/solution-manager/go-agent/internal/docker"
-	"github.com/solace/solution-manager/go-agent/internal/telemetry"
+	"github.com/solace/solution-manager/go-agent/internal/agent"
+	"github.com/solace/solution-manager/go-agent/internal/runtime/docker"
 )
 
-const defaultDataDir = "/var/lib/sm-agent"
+var version = "dev" // -ldflags "-X main.version=..."
 
 func main() {
-	if len(os.Args) > 1 && docker.IsLifecycleCommand(os.Args[1]) {
-		if err := runLifecycle(os.Args[1:]); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-		return
-	}
+	dataDir := flag.String("data-dir", envOr("SM_AGENT_DATA_DIR", "/var/lib/sm-agent"), "state directory")
+	endpoint := flag.String("connect-endpoint", "", "bootstrap DP endpoint host:port (required until enrolled)")
+	token := flag.String("enrollment-token", os.Getenv("SM_AGENT_ENROLL_TOKEN"), "single-use enrollment token (env SM_AGENT_ENROLL_TOKEN)")
+	trust := flag.String("trust-bundle", "", "PEM file with the DP server trust bundle or pin")
+	level := flag.String("log-level", "info", "debug|info|warn|error")
+	adminAddr := flag.String("admin-addr", "127.0.0.1:9464", "loopback /healthz and /metrics listener; empty disables")
+	flag.Parse()
 
-	if len(os.Args) > 1 && os.Args[1] == "collect" {
-		if err := runCollect(os.Args[2:]); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-		return
+	var lvl slog.Level
+	if err := lvl.UnmarshalText([]byte(*level)); err != nil {
+		fmt.Fprintln(os.Stderr, "bad --log-level:", err)
+		os.Exit(2)
 	}
+	log := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: lvl}))
 
-	cfg, err := config.Load(os.Args)
+	var bundle []byte
+	if *trust != "" {
+		b, err := os.ReadFile(*trust)
+		if err != nil {
+			log.Error("trust bundle", "err", err)
+			os.Exit(2)
+		}
+		bundle = b
+	}
+	adapter, closeDocker, err := docker.NewFromEnv()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		log.Error("docker", "err", err)
 		os.Exit(1)
 	}
+	defer closeDocker()
 
-	fmt.Printf("Starting sm-agent with config: %+v\n", cfg)
-
-	// Keep the agent running until it receives a termination signal.
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
-	sig := <-sigChan
-	fmt.Printf("Received signal %v, shutting down sm-agent\n", sig)
+	l, _, err := agent.Build(agent.BuildConfig{
+		DataDir: *dataDir, Endpoint: *endpoint, Token: *token, TrustBundlePEM: bundle, AgentVersion: version, AdminAddr: *adminAddr, Adapter: adapter, Log: log,
+	})
+	if err != nil {
+		log.Error("build", "err", err)
+		os.Exit(1)
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	if err := l.Run(ctx); err != nil {
+		log.Error("agent stopped", "err", err)
+		os.Exit(1)
+	}
 }
 
-func runCollect(args []string) error {
-	fs := flag.NewFlagSet("collect", flag.ContinueOnError)
-	fs.SetOutput(os.Stderr)
-
-	dataDir := defaultDataDir
-	if envDir := os.Getenv("SM_AGENT_DATA_DIR"); envDir != "" {
-		dataDir = envDir
+func envOr(k, def string) string {
+	if v := os.Getenv(k); v != "" {
+		return v
 	}
-
-	var targetsPath string
-	fs.StringVar(&targetsPath, "targets", "", "Path to targets YAML file (required)")
-	fs.StringVar(&dataDir, "data-dir", dataDir, "Agent data directory")
-
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
-
-	if envDir := os.Getenv("SM_AGENT_DATA_DIR"); envDir != "" {
-		dataDir = envDir
-	}
-
-	if targetsPath == "" {
-		return fmt.Errorf("--targets is required")
-	}
-
-	targets, err := telemetry.LoadTargets(targetsPath)
-	if err != nil {
-		return err
-	}
-
-	client := &http.Client{Timeout: 5 * time.Second}
-	return telemetry.Run(context.Background(), dataDir, targets, client, 0)
-}
-
-func runLifecycle(args []string) error {
-	cli, err := docker.NewFromEnv()
-	if err != nil {
-		return err
-	}
-	defer cli.Close()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-	return docker.RunCLI(ctx, cli, args, os.Stdout)
+	return def
 }
