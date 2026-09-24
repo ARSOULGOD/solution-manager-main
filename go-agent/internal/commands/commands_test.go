@@ -35,7 +35,9 @@ func env(now time.Time) reactor.Env {
 		Jitter: func(d time.Duration) time.Duration { return d }, Limits: msg.Limits{MaxMessageBytes: 1024}}
 }
 
-func newState() State { return State{Journal: Journal{Records: map[string]Record{}, Watermark: map[string]uint64{}}} }
+func newState() State {
+	return State{Journal: Journal{Records: map[string]Record{}, Watermark: map[string]uint64{}}}
+}
 
 func has[T reactor.Effect](effs []reactor.Effect) (T, bool) {
 	for _, e := range effs {
@@ -281,25 +283,64 @@ func TestOpFinishedAcksAndSweeps(t *testing.T) {
 }
 
 func TestStepDeadlineWhileInFlightIsIndeterminateOnlyWhenLeaseLeftActive(t *testing.T) {
-	base := newState()
-	base.Journal.Put(Record{SchemaVersion: 1, BindingID: "b1", RolloutGeneration: 1, CommandID: "c1", Operation: msg.OpApply, Step: msg.StepStaged})
-	base.InFlight = "c1"
+	// Each branch gets its own state: Journal.Records is a map, shared by
+	// reference even across a by-value State copy, and terminate() mutates
+	// it in place — reusing one `base` across two Reduce calls would let the
+	// first call's terminate() silently close the record before the second
+	// call ever ran, which the terminal guard (I1) now correctly no-ops on.
+	newBase := func() State {
+		s := newState()
+		s.Journal.Put(Record{SchemaVersion: 1, BindingID: "b1", RolloutGeneration: 1, CommandID: "c1", Operation: msg.OpApply, Step: msg.StepStaged})
+		s.InFlight = "c1"
+		return s
+	}
 
 	// lease still ACTIVE → a blown deadline is an ordinary failure
-	s1, effs1 := Reduce(base, reactor.TimerFired{At: t0, Kind: reactor.StepDeadline}, env(t0), okAuth)
+	s1, effs1 := Reduce(newBase(), reactor.TimerFired{At: t0, Kind: reactor.StepDeadline}, env(t0), okAuth)
 	if ack := sent[msg.CommandAck](t, effs1); ack.Outcome != msg.OutcomeFailedNoEffect {
 		t.Fatalf("%+v", ack)
 	}
 	_ = s1
 
 	// lease left ACTIVE with a step in flight → APPLY_INDETERMINATE (AG-D5)
-	s2, effs2 := Reduce(base, reactor.TimerFired{At: t0, Kind: reactor.StepDeadline}, env(t0), auth{detail: msg.DetailLeaseNotActive})
+	s2, effs2 := Reduce(newBase(), reactor.TimerFired{At: t0, Kind: reactor.StepDeadline}, env(t0), auth{detail: msg.DetailLeaseNotActive})
 	if ack := sent[msg.CommandAck](t, effs2); ack.Outcome != msg.OutcomeApplyIndeterminate {
 		t.Fatalf("%+v", ack)
 	}
 	r, _ := s2.Journal.Get("b1", 1)
 	if r.Outcome != msg.OutcomeApplyIndeterminate {
 		t.Fatalf("%+v", r)
+	}
+}
+
+// TestTerminateIsANoOpOnceTheRecordIsAlreadyTerminal drives the race I1
+// describes: a step-deadline timer fires APPLY_INDETERMINATE (closing the
+// record), and the operation it was timing out on finishes anyway and
+// delivers its own OpFinished for the same command. Without a terminal
+// guard, the second terminate() call would overwrite the record's outcome
+// and send a second, contradictory ack (APPLIED after APPLY_INDETERMINATE)
+// for a command already closed.
+func TestTerminateIsANoOpOnceTheRecordIsAlreadyTerminal(t *testing.T) {
+	base := newState()
+	base.Journal.Put(Record{SchemaVersion: 1, BindingID: "b1", RolloutGeneration: 1, CommandID: "c1", Operation: msg.OpApply, Step: msg.StepStaged})
+	base.InFlight = "c1"
+
+	// the deadline fires while the lease left ACTIVE: APPLY_INDETERMINATE closes the record
+	s1, effs1 := Reduce(base, reactor.TimerFired{At: t0, Kind: reactor.StepDeadline}, env(t0), auth{detail: msg.DetailLeaseNotActive})
+	ack1 := sent[msg.CommandAck](t, effs1)
+	if ack1.Outcome != msg.OutcomeApplyIndeterminate {
+		t.Fatalf("%+v", ack1)
+	}
+
+	// ...and then the same operation finishes anyway, racing the timer
+	res := runtimeResult(msg.OutcomeApplied, sha("x"))
+	s2, effs2 := Reduce(s1, reactor.OpFinished{At: t0, CommandID: "c1", Result: res}, env(t0), okAuth)
+	if _, ok := has[reactor.Send](effs2); ok {
+		t.Fatalf("terminate() must be a no-op once the record is already terminal, got effects: %+v", effs2)
+	}
+	r, _ := s2.Journal.Get("b1", 1)
+	if r.Outcome != msg.OutcomeApplyIndeterminate {
+		t.Fatalf("the already-terminal outcome must survive unchanged: %+v", r)
 	}
 }
 
@@ -311,10 +352,10 @@ func TestResumeTable(t *testing.T) {
 		wantAck     bool
 		wantRecvAck bool
 	}{
-		{step: msg.StepReceived, wantDelete: true},               // discard; the DP redelivers
-		{step: msg.StepStaged, wantRunOp: true},                  // verify temp and complete
-		{step: msg.StepPersisted, wantRunOp: true},               // re-read, verify, re-report — never rewrite
-		{step: msg.StepReported, wantAck: false},                 // closed
+		{step: msg.StepReceived, wantDelete: true}, // discard; the DP redelivers
+		{step: msg.StepStaged, wantRunOp: true},    // verify temp and complete
+		{step: msg.StepPersisted, wantRunOp: true}, // re-read, verify, re-report — never rewrite
+		{step: msg.StepReported, wantAck: false},   // closed
 	}
 	for _, c := range cases {
 		s := newState()

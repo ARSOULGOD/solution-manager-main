@@ -253,8 +253,17 @@ func (s State) wireError(m msg.Error, env reactor.Env) (State, []reactor.Effect)
 		Outcome: outcome, Detail: detail, AgentClock: env.Now}}}
 }
 
-// terminate closes a record, acks it, and sweeps superseded partials.
+// terminate closes a record, acks it, and sweeps superseded partials. A
+// record that is already terminal is a no-op: a step-deadline timer can fire
+// APPLY_INDETERMINATE and then the operation it was timing out on finishes
+// anyway (OpFinished delivered after the timer, both racing the same
+// in-flight command) — without this guard the second terminate() would
+// overwrite the record and send a second, contradictory ack for a command
+// already closed.
 func (s State) terminate(r Record, outcome msg.Outcome, detail msg.AckDetail, effectiveHash string, env reactor.Env) (State, []reactor.Effect) {
+	if r.Terminal() {
+		return s, nil
+	}
 	r.Step, r.Outcome, r.Detail, r.AckSent = msg.StepReported, outcome, detail, true
 	if effectiveHash != "" {
 		r.EffectiveHash = effectiveHash
@@ -285,8 +294,17 @@ func (s State) resume(env reactor.Env) (State, []reactor.Effect) {
 	for _, r := range s.Journal.Records {
 		switch r.Step {
 		case msg.StepReceived:
-			// nothing was written; discard and let the DP redeliver
-			effs = append(effs, reactor.Delete{Rel: DirRel(r.BindingID, r.RolloutGeneration)})
+			// nothing was written; discard and let the DP redeliver. Delete
+			// both the payload/temp/previous directory AND the sibling
+			// record file (r.Rel()) — leaving the record behind orphans it
+			// with ReceivedAck=true and no payload, which makes offer()'s
+			// "in flight and already acknowledged" branch re-announce a
+			// command that will never run again. Drop it from the
+			// in-memory journal too, so OpenCount() is correct immediately
+			// rather than only after the next restart reloads the (now
+			// absent) file from disk.
+			effs = append(effs, reactor.Delete{Rel: DirRel(r.BindingID, r.RolloutGeneration)}, reactor.Delete{Rel: r.Rel()})
+			s.Journal.Delete(r.BindingID, r.RolloutGeneration)
 		case msg.StepStaged, msg.StepPersisted:
 			// re-enter the adapter: it verifies the temp / reads back the file
 			// and never rewrites a PERSISTED target

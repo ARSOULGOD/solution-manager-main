@@ -54,7 +54,9 @@ func GenerationFromRel(rel string) uint64 {
 	return g
 }
 
-func (r Record) Rel() string { return fmt.Sprintf("apply/%s/%d.json", r.BindingID, r.RolloutGeneration) }
+func (r Record) Rel() string {
+	return fmt.Sprintf("apply/%s/%d.json", r.BindingID, r.RolloutGeneration)
+}
 
 func key(binding string, gen uint64) string { return binding + "|" + strconv.FormatUint(gen, 10) }
 
@@ -101,6 +103,16 @@ func (j *Journal) Put(r Record) {
 	if r.RolloutGeneration > j.Watermark[r.BindingID] {
 		j.Watermark[r.BindingID] = r.RolloutGeneration
 	}
+}
+
+// Delete removes a record from the in-memory journal. Callers that discard a
+// record (e.g. resume() on a RECEIVED partial) must also emit a
+// reactor.Delete for its persisted store.Record — this only drops the
+// in-memory copy so OpenCount() is correct without waiting for a restart.
+// Deleting the entry a range loop is currently visiting is safe per the Go
+// spec (a deleted-during-range entry is simply not produced again).
+func (j *Journal) Delete(binding string, gen uint64) {
+	delete(j.Records, key(binding, gen))
 }
 
 func (j Journal) Get(binding string, gen uint64) (Record, bool) {

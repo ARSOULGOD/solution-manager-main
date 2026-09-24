@@ -3,6 +3,7 @@ package agent
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -85,7 +86,7 @@ func TestResumeFromReceivedDiscardsThePartial(t *testing.T) {
 	_ = s.Save(store.JSON{RelPath: "apply/b1/4.json", Value: commands.Record{SchemaVersion: 1, RolloutGeneration: 4,
 		CommandID: "c1", BindingID: "b1", Operation: msg.OpApply, Step: msg.StepReceived, ConfigHash: "h"}})
 	st := loadAfterCrash(t, dir)
-	_, effs := Reduce(cfg, st, resumedAt(time.Now()), testEnv())
+	next, effs := Reduce(cfg, st, resumedAt(time.Now()), testEnv())
 	var deleted []string
 	for _, e := range effs {
 		if d, ok := e.(deleteEffect); ok {
@@ -94,6 +95,22 @@ func TestResumeFromReceivedDiscardsThePartial(t *testing.T) {
 	}
 	if len(deleted) == 0 {
 		t.Fatal("RECEIVED must be discarded; the DP redelivers")
+	}
+	// Both the payload/temp/previous directory AND the sibling journal
+	// record file must go, or the record survives with ReceivedAck=true and
+	// no payload behind it, permanently confusing offer()'s redelivery gate.
+	wantDir := commands.DirRel("b1", 4)
+	wantRecord := "apply/b1/4.json"
+	if !slices.Contains(deleted, wantDir) {
+		t.Fatalf("expected the partial directory %q deleted: %v", wantDir, deleted)
+	}
+	if !slices.Contains(deleted, wantRecord) {
+		t.Fatalf("expected the orphaned journal record %q deleted too: %v", wantRecord, deleted)
+	}
+	// And the in-memory journal must drop it immediately, not only after the
+	// next restart re-reads the (now absent) file from disk.
+	if _, ok := next.Commands.Journal.ByCommand("c1"); ok {
+		t.Fatal("the RECEIVED record must be removed from the in-memory journal immediately")
 	}
 }
 
