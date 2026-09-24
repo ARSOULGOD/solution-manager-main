@@ -426,3 +426,56 @@ func TestLoadAndPersistedGeneration(t *testing.T) {
 func runtimeResult(o msg.Outcome, hash string) runtime.OpResult {
 	return runtime.OpResult{Outcome: o, EffectiveHash: hash, Facts: &runtime.ReplicaFacts{ReplicaRef: "r1", Incarnation: "abc"}}
 }
+
+// A command refused before anything is journaled — the dominant refusal path
+// — must still carry its operation, so the sm_agent_commands_total{op} label
+// reports the real operation instead of bucketing it under "unknown".
+// refuse() writes no state at all, so this can only come from the ack itself.
+func TestRefusedAckCarriesItsOperation(t *testing.T) {
+	cases := []struct {
+		name string
+		auth Authority
+		ev   reactor.Event
+		want msg.Operation
+	}{
+		{"capability missing at notice", auth{detail: msg.DetailOf(msg.ErrCapabilityMissing), active: true},
+			reactor.WireIn{At: t0, Msg: msg.GenerationAvailable{CommandID: "c1", BindingID: "b1", Generation: 1, Operation: msg.OpRestart}},
+			msg.OpRestart},
+		{"hash mismatch at offer", okAuth,
+			func() reactor.Event {
+				o := offer(1, "x", msg.OpApply)
+				o.ConfigSHA256 = "deadbeef"
+				return reactor.WireIn{At: t0, Msg: o}
+			}(),
+			msg.OpApply},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, effs := Reduce(newState(), c.ev, env(t0), c.auth)
+			ack := sent[msg.CommandAck](t, effs)
+			if ack.Outcome != msg.OutcomeRefused {
+				t.Fatalf("expected a refusal, got %+v", ack)
+			}
+			if ack.Operation != c.want {
+				t.Fatalf("ack.Operation = %q, want %q — the metrics label would read \"unknown\"", ack.Operation, c.want)
+			}
+		})
+	}
+}
+
+// The pull-stage error path has no journal record either, and wireError
+// deletes its Pulling entry in the same reduction, so the operation likewise
+// has to ride on the ack.
+func TestSupersededDuringPullAckCarriesItsOperation(t *testing.T) {
+	s := newState()
+	s, _ = Reduce(s, reactor.WireIn{At: t0, Msg: msg.GenerationAvailable{
+		CommandID: "c1", BindingID: "b1", Generation: 1, Operation: msg.OpStop}}, env(t0), okAuth)
+	_, effs := Reduce(s, reactor.WireIn{At: t0, Msg: msg.Error{Code: msg.ErrSuperseded, CorrelationID: "c1"}}, env(t0), okAuth)
+	ack := sent[msg.CommandAck](t, effs)
+	if ack.Outcome != msg.OutcomeSuperseded {
+		t.Fatalf("%+v", ack)
+	}
+	if ack.Operation != msg.OpStop {
+		t.Fatalf("ack.Operation = %q, want %q", ack.Operation, msg.OpStop)
+	}
+}

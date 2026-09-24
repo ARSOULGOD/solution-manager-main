@@ -65,6 +65,7 @@ type State struct {
 type pending struct {
 	BindingID  string
 	Generation uint64
+	Operation  msg.Operation
 }
 
 func Load(s *store.Store) (State, error) {
@@ -147,27 +148,27 @@ func Reduce(s State, ev reactor.Event, env reactor.Env, auth Authority) (State, 
 	return s, nil
 }
 
-func (s State) refuse(commandID, bindingID string, gen uint64, code msg.DetailCode, env reactor.Env) (State, []reactor.Effect) {
+func (s State) refuse(commandID, bindingID string, gen uint64, op msg.Operation, code msg.DetailCode, env reactor.Env) (State, []reactor.Effect) {
 	return s, []reactor.Effect{reactor.Send{Msg: msg.CommandAck{Envelope: env.Env(), CommandID: commandID, Generation: gen,
-		Outcome: msg.OutcomeRefused, Detail: msg.AckDetail{Code: code}, AgentClock: env.Now}}}
+		Outcome: msg.OutcomeRefused, Detail: msg.AckDetail{Code: code}, AgentClock: env.Now, Operation: op}}}
 }
 
 func (s State) notice(m msg.GenerationAvailable, env reactor.Env, auth Authority) (State, []reactor.Effect) {
 	if d := auth.RefusalDetail(m.Operation, m.BindingID, env.DPNow()); d != msg.DetailNone {
-		return s.refuse(m.CommandID, m.BindingID, m.Generation, d, env)
+		return s.refuse(m.CommandID, m.BindingID, m.Generation, m.Operation, d, env)
 	}
 	if r, ok := s.Journal.Get(m.BindingID, m.Generation); ok && r.Terminal() {
 		// redelivery of a finished generation: replay the stored outcome
 		return s, []reactor.Effect{reactor.Send{Msg: msg.CommandAck{Envelope: env.Env(), CommandID: r.CommandID, Generation: r.RolloutGeneration,
-			Outcome: r.Outcome, Detail: r.Detail, AgentClock: env.Now}}}
+			Outcome: r.Outcome, Detail: r.Detail, AgentClock: env.Now, Operation: r.Operation}}}
 	}
 	if m.Generation < s.Journal.Watermark[m.BindingID] {
-		return s.refuse(m.CommandID, m.BindingID, m.Generation, msg.DetailOf(msg.ErrStaleGeneration), env)
+		return s.refuse(m.CommandID, m.BindingID, m.Generation, m.Operation, msg.DetailOf(msg.ErrStaleGeneration), env)
 	}
 	if s.Pulling == nil {
 		s.Pulling = map[string]pending{}
 	}
-	s.Pulling[m.CommandID] = pending{BindingID: m.BindingID, Generation: m.Generation}
+	s.Pulling[m.CommandID] = pending{BindingID: m.BindingID, Generation: m.Generation, Operation: m.Operation}
 	return s, []reactor.Effect{reactor.Send{Msg: msg.CommandPull{Envelope: env.Env(), CommandID: m.CommandID}}}
 }
 
@@ -176,22 +177,22 @@ func (s State) offer(m msg.CommandOffer, env reactor.Env, auth Authority) (State
 	// arrives, whatever offer() decides to do with it below.
 	delete(s.Pulling, m.CommandID)
 	if d := auth.RefusalDetail(m.Operation, m.BindingID, env.DPNow()); d != msg.DetailNone {
-		return s.refuse(m.CommandID, m.BindingID, m.Generation, d, env)
+		return s.refuse(m.CommandID, m.BindingID, m.Generation, m.Operation, d, env)
 	}
 	if env.Limits.MaxMessageBytes > 0 && uint64(len(m.Payload)) > env.Limits.MaxMessageBytes {
-		return s.refuse(m.CommandID, m.BindingID, m.Generation, msg.DetailOf(msg.ErrPayloadTooLarge), env)
+		return s.refuse(m.CommandID, m.BindingID, m.Generation, m.Operation, msg.DetailOf(msg.ErrPayloadTooLarge), env)
 	}
 	if sha256Hex(m.Payload) != m.ConfigSHA256 {
-		return s.refuse(m.CommandID, m.BindingID, m.Generation, msg.DetailOf(msg.ErrKeyHashMismatch), env)
+		return s.refuse(m.CommandID, m.BindingID, m.Generation, m.Operation, msg.DetailOf(msg.ErrKeyHashMismatch), env)
 	}
 	if prev, ok := s.Journal.Get(m.BindingID, m.Generation); ok {
 		if prev.IdempotencyKey == m.IdempotencyKey && prev.ConfigHash != m.ConfigSHA256 {
 			// same key, different bytes: a DP bug, never resolved by retry
-			return s.refuse(m.CommandID, m.BindingID, m.Generation, msg.DetailOf(msg.ErrKeyHashMismatch), env)
+			return s.refuse(m.CommandID, m.BindingID, m.Generation, m.Operation, msg.DetailOf(msg.ErrKeyHashMismatch), env)
 		}
 		if prev.Terminal() {
 			return s, []reactor.Effect{reactor.Send{Msg: msg.CommandAck{Envelope: env.Env(), CommandID: prev.CommandID, Generation: prev.RolloutGeneration,
-				Outcome: prev.Outcome, Detail: prev.Detail, AgentClock: env.Now}}}
+				Outcome: prev.Outcome, Detail: prev.Detail, AgentClock: env.Now, Operation: prev.Operation}}}
 		}
 		if prev.ReceivedAck {
 			// in flight and already acknowledged: re-announce, do not re-run
@@ -199,7 +200,7 @@ func (s State) offer(m msg.CommandOffer, env reactor.Env, auth Authority) (State
 		}
 	}
 	if m.Generation < s.Journal.Watermark[m.BindingID] {
-		return s.refuse(m.CommandID, m.BindingID, m.Generation, msg.DetailOf(msg.ErrStaleGeneration), env)
+		return s.refuse(m.CommandID, m.BindingID, m.Generation, m.Operation, msg.DetailOf(msg.ErrStaleGeneration), env)
 	}
 
 	r := Record{
@@ -250,7 +251,7 @@ func (s State) wireError(m msg.Error, env reactor.Env) (State, []reactor.Effect)
 	}
 	delete(s.Pulling, m.CorrelationID)
 	return s, []reactor.Effect{reactor.Send{Msg: msg.CommandAck{Envelope: env.Env(), CommandID: m.CorrelationID, Generation: p.Generation,
-		Outcome: outcome, Detail: detail, AgentClock: env.Now}}}
+		Outcome: outcome, Detail: detail, AgentClock: env.Now, Operation: p.Operation}}}
 }
 
 // terminate closes a record, acks it, and sweeps superseded partials. A
@@ -277,7 +278,7 @@ func (s State) terminate(r Record, outcome msg.Outcome, detail msg.AckDetail, ef
 		reactor.CancelTimer{Kind: reactor.StepDeadline},
 		reactor.Send{Msg: msg.ApplyProgress{Envelope: env.Env(), CommandID: r.CommandID, Step: msg.StepReported, ReplicaRef: r.ReplicaRef, At: env.Now}},
 		reactor.Send{Msg: msg.CommandAck{Envelope: env.Env(), CommandID: r.CommandID, Generation: r.RolloutGeneration,
-			Outcome: outcome, Detail: detail, AgentClock: env.Now}},
+			Outcome: outcome, Detail: detail, AgentClock: env.Now, Operation: r.Operation}},
 		reactor.Delete{Rel: PayloadRel(r.BindingID, r.RolloutGeneration)},
 	}
 	if outcome == msg.OutcomeApplied {
@@ -319,7 +320,7 @@ func (s State) resume(env reactor.Env) (State, []reactor.Effect) {
 		case msg.StepReported:
 			if !r.AckSent {
 				effs = append(effs, reactor.Send{Msg: msg.CommandAck{Envelope: env.Env(), CommandID: r.CommandID,
-					Generation: r.RolloutGeneration, Outcome: r.Outcome, Detail: r.Detail, AgentClock: env.Now}})
+					Generation: r.RolloutGeneration, Outcome: r.Outcome, Detail: r.Detail, AgentClock: env.Now, Operation: r.Operation}})
 			}
 		}
 	}

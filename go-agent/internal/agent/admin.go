@@ -74,9 +74,21 @@ func (m *Metrics) Observe(l *Loop) func(reactor.Event, []reactor.Effect) {
 					// CommandAck is always the terminal outcome message (REFUSED,
 					// APPLIED, ...); CommandReceived is the non-terminal one and is
 					// a different Outbound type, so every CommandAck here counts.
-					op := "unknown"
-					if r, found := st.Commands.Journal.ByCommand(ack.CommandID); found {
-						op = string(r.Operation)
+					//
+					// The ack carries its own operation (agent-internal, not on the
+					// wire) because two ack sites have nothing in the journal to look
+					// up: refuse() writes no state, and wireError()'s pull-stage path
+					// deletes its Pulling entry in the same reduction. The journal is
+					// kept as a fallback, and "unknown" now means genuinely unknown
+					// rather than "emitted before a record existed".
+					op := string(ack.Operation)
+					if op == "" {
+						if r, found := st.Commands.Journal.ByCommand(ack.CommandID); found {
+							op = string(r.Operation)
+						}
+					}
+					if op == "" {
+						op = "unknown"
 					}
 					m.commands.WithLabelValues(op, string(ack.Outcome)).Inc()
 				}

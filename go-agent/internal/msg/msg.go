@@ -388,6 +388,19 @@ type CommandAck struct {
 	Outcome    Outcome
 	Detail     AckDetail
 	AgentClock time.Time
+
+	// Operation is agent-internal and deliberately NOT on the wire: the
+	// gateway design's CommandAck field list carries no operation, and the DP
+	// already knows it — it issued the command and correlates by command_id.
+	// The codec does not marshal it (see TestCommandAckOperationIsNotOnTheWire).
+	//
+	// It exists because the metrics label sm_agent_commands_total{op} is
+	// applied by observing ack effects, and two ack sites have no journal
+	// record to look the operation up in: refuse() writes no state at all, and
+	// wireError()'s pull-stage path deletes its Pulling entry in the same
+	// reduction. Carrying the operation on the ack labels those correctly
+	// instead of bucketing real operations under op="unknown".
+	Operation Operation
 }
 
 func (CommandAck) outbound() {}

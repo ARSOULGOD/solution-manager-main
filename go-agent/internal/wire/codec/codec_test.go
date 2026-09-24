@@ -111,3 +111,28 @@ func TestStatusRoundTrip(t *testing.T) {
 		t.Fatal("non-status errors must pass through")
 	}
 }
+
+// CommandAck.Operation is agent-internal: the gateway design's CommandAck
+// field list carries no operation, and the DP already knows it. This asserts
+// the omission is deliberate — the round-trip test above only stays green
+// because its fixtures leave the field zero, which would hide a regression
+// here.
+func TestCommandAckOperationIsNotOnTheWire(t *testing.T) {
+	in := msg.CommandAck{Envelope: msg.Envelope{MessageID: "m"}, CommandID: "c1", Generation: 3,
+		Outcome: msg.OutcomeRefused, Operation: msg.OpRestart}
+	p, err := AgentToPB(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := AgentFromPB(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := out.(msg.CommandAck)
+	if got.Operation != "" {
+		t.Fatalf("Operation must not survive the wire, got %q", got.Operation)
+	}
+	if got.CommandID != "c1" || got.Outcome != msg.OutcomeRefused || got.Generation != 3 {
+		t.Fatalf("the rest of the ack must still round-trip: %+v", got)
+	}
+}
