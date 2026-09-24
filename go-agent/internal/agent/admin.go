@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/solace/solution-manager/go-agent/internal/msg"
 	"github.com/solace/solution-manager/go-agent/internal/reactor"
 )
 
@@ -61,13 +62,28 @@ func kindName(v any) string {
 func (m *Metrics) Observe(l *Loop) func(reactor.Event, []reactor.Effect) {
 	return func(ev reactor.Event, effs []reactor.Effect) {
 		m.events.WithLabelValues(kindName(ev)).Inc()
+		st := l.Snapshot() // after Reduce (loop.go sets l.state = next before calling Observe), so the
+		// journal already reflects this batch's writes — safe to look up the record a CommandAck below closes.
 		for _, e := range effs {
 			m.effects.WithLabelValues(kindName(e)).Inc()
 			if d, ok := e.(reactor.Dial); ok && d.Endpoint != "" {
 				m.reconnects.Inc()
 			}
+			if snd, ok := e.(reactor.Send); ok {
+				if ack, ok := snd.Msg.(msg.CommandAck); ok {
+					// CommandAck is always the terminal outcome message (REFUSED,
+					// APPLIED, ...); CommandReceived is the non-terminal one and is
+					// a different Outbound type, so every CommandAck here counts.
+					op := "unknown"
+					if r, found := st.Commands.Journal.ByCommand(ack.CommandID); found {
+						op = string(r.Operation)
+					}
+					m.commands.WithLabelValues(op, string(ack.Outcome)).Inc()
+				}
+			}
 		}
-		st := l.Snapshot()
+		m.journalOpen.Set(float64(st.Commands.OpenCount()))
+		m.reportsPend.Set(float64(st.Reports.PendingCount()))
 		m.leaseState.Reset()
 		m.leaseState.WithLabelValues(string(st.Authority.Phase)).Set(1)
 		m.leaseRemain.Set(st.Authority.Remaining(time.Now().Add(l.Clock().Offset())).Seconds())
