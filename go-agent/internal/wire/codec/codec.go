@@ -27,10 +27,16 @@ func enumFrom[E ~int32](names map[int32]string, prefix string, v E) string {
 	return strings.TrimPrefix(names[int32(v)], prefix)
 }
 
-func opToPB(o msg.Operation) pb.Operation   { return enumTo[pb.Operation](pb.Operation_value, "OPERATION_", string(o)) }
-func opFromPB(p pb.Operation) msg.Operation { return msg.Operation(strings.ToLower(enumFrom(pb.Operation_name, "OPERATION_", p))) }
+func opToPB(o msg.Operation) pb.Operation {
+	return enumTo[pb.Operation](pb.Operation_value, "OPERATION_", string(o))
+}
+func opFromPB(p pb.Operation) msg.Operation {
+	return msg.Operation(strings.ToLower(enumFrom(pb.Operation_name, "OPERATION_", p)))
+}
 
-func capToPB(c msg.Capability) pb.Capability { return enumTo[pb.Capability](pb.Capability_value, "CAPABILITY_", string(c)) }
+func capToPB(c msg.Capability) pb.Capability {
+	return enumTo[pb.Capability](pb.Capability_value, "CAPABILITY_", string(c))
+}
 func capFromPB(p pb.Capability) msg.Capability {
 	return msg.Capability(strings.ToLower(strings.ReplaceAll(enumFrom(pb.Capability_name, "CAPABILITY_", p), "_", "-")))
 }
@@ -52,8 +58,12 @@ func capsFromPB(ps []pb.Capability) []msg.Capability {
 	return out
 }
 
-func outcomeToPB(o msg.Outcome) pb.Outcome   { return enumTo[pb.Outcome](pb.Outcome_value, "OUTCOME_", string(o)) }
-func outcomeFromPB(p pb.Outcome) msg.Outcome { return msg.Outcome(enumFrom(pb.Outcome_name, "OUTCOME_", p)) }
+func outcomeToPB(o msg.Outcome) pb.Outcome {
+	return enumTo[pb.Outcome](pb.Outcome_value, "OUTCOME_", string(o))
+}
+func outcomeFromPB(p pb.Outcome) msg.Outcome {
+	return msg.Outcome(enumFrom(pb.Outcome_name, "OUTCOME_", p))
+}
 func stepToPB(s msg.ProgressStep) pb.ProgressStep {
 	return enumTo[pb.ProgressStep](pb.ProgressStep_value, "PROGRESS_STEP_", string(s))
 }
@@ -75,7 +85,9 @@ func clockFromPB(p pb.ClockState) msg.ClockState {
 	return msg.ClockState(enumFrom(pb.ClockState_name, "CLOCK_STATE_", p))
 }
 
-func errToPB(c msg.ErrorCode) pb.ErrorCode { return enumTo[pb.ErrorCode](pb.ErrorCode_value, "ERROR_CODE_", string(c)) }
+func errToPB(c msg.ErrorCode) pb.ErrorCode {
+	return enumTo[pb.ErrorCode](pb.ErrorCode_value, "ERROR_CODE_", string(c))
+}
 func errFromPB(p pb.ErrorCode) msg.ErrorCode {
 	if p == pb.ErrorCode_ERROR_CODE_UNSPECIFIED {
 		return msg.ErrUnknown
@@ -147,7 +159,9 @@ func strPtr(s string) *string {
 	return proto.String(s)
 }
 
-func envToPB(e msg.Envelope) *pb.Envelope { return &pb.Envelope{MessageId: e.MessageID, SentAt: ts(e.SentAt)} }
+func envToPB(e msg.Envelope) *pb.Envelope {
+	return &pb.Envelope{MessageId: e.MessageID, SentAt: ts(e.SentAt)}
+}
 func envFromPB(p *pb.Envelope) msg.Envelope {
 	if p == nil {
 		return msg.Envelope{}
@@ -197,8 +211,8 @@ func AgentToPB(m msg.Outbound) (*pb.AgentToGateway, error) {
 		return &pb.AgentToGateway{Msg: &pb.AgentToGateway_SessionOpen{SessionOpen: &pb.SessionOpen{
 			Envelope: envToPB(v.Envelope), ProtocolVersion: v.ProtocolVersion, AgentVersion: v.AgentVersion,
 			CapabilitiesSupported: capsToPB(v.CapabilitiesSupported),
-			Resume:     &pb.Resume{LastAckedGenerationByBinding: v.Resume.LastAckedGenerationByBinding, LastTelemetrySeqByStream: v.Resume.LastTelemetrySeqByStream},
-			AgentClock: ts(v.AgentClock),
+			Resume:                &pb.Resume{LastAckedGenerationByBinding: v.Resume.LastAckedGenerationByBinding, LastTelemetrySeqByStream: v.Resume.LastTelemetrySeqByStream},
+			AgentClock:            ts(v.AgentClock),
 		}}}, nil
 	case msg.LeaseRenew:
 		return &pb.AgentToGateway{Msg: &pb.AgentToGateway_LeaseRenew{LeaseRenew: &pb.LeaseRenew{Envelope: envToPB(v.Envelope), NonceConsumed: v.NonceConsumed, AgentClock: ts(v.AgentClock)}}}, nil
@@ -253,8 +267,8 @@ func AgentFromPB(p *pb.AgentToGateway) (msg.Outbound, error) {
 		m := v.SessionOpen
 		return msg.SessionOpen{Envelope: envFromPB(m.GetEnvelope()), ProtocolVersion: m.GetProtocolVersion(), AgentVersion: m.GetAgentVersion(),
 			CapabilitiesSupported: capsFromPB(m.GetCapabilitiesSupported()),
-			Resume:     msg.Resume{LastAckedGenerationByBinding: m.GetResume().GetLastAckedGenerationByBinding(), LastTelemetrySeqByStream: m.GetResume().GetLastTelemetrySeqByStream()},
-			AgentClock: tsFrom(m.GetAgentClock())}, nil
+			Resume:                msg.Resume{LastAckedGenerationByBinding: m.GetResume().GetLastAckedGenerationByBinding(), LastTelemetrySeqByStream: m.GetResume().GetLastTelemetrySeqByStream()},
+			AgentClock:            tsFrom(m.GetAgentClock())}, nil
 	case *pb.AgentToGateway_LeaseRenew:
 		m := v.LeaseRenew
 		return msg.LeaseRenew{Envelope: envFromPB(m.GetEnvelope()), NonceConsumed: m.GetNonceConsumed(), AgentClock: tsFrom(m.GetAgentClock())}, nil

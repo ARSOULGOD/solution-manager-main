@@ -116,7 +116,7 @@ func (id *Identity) loadChainPEM(b []byte) error {
 	return nil
 }
 
-func (id *Identity) Enrolled() bool { return id.leaf != nil && id.agentID != "" }
+func (id *Identity) Enrolled() bool  { return id.leaf != nil && id.agentID != "" }
 func (id *Identity) AgentID() string { return id.agentID }
 
 func (id *Identity) Thumbprint() string {

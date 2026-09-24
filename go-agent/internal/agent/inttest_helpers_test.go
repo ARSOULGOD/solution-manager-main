@@ -146,4 +146,3 @@ func (a *fakeAdapter) Observe(context.Context, runtime.Placement) (runtime.Repli
 func startAgentWith(t *testing.T, gw *fakegw.Server, dir string, ad runtime.Adapter) *agentHandle {
 	return startAgent(t, gw, dir, func(bc *BuildConfig) { bc.Adapter = ad })
 }
-

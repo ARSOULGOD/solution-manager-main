@@ -77,7 +77,7 @@ func engineWith(t *testing.T, hostDir string) (*fakeEngine, string) {
 		list: []types.Container{{ID: id, Names: []string{"/java1"}, Labels: map[string]string{BindingLabel: "b1"}}},
 		inspect: map[string]types.ContainerJSON{id: {
 			ContainerJSONBase: &types.ContainerJSONBase{ID: id, Name: "/java1", Image: "sha256:img",
-				State: &types.ContainerState{Running: true, StartedAt: time.Now().Format(time.RFC3339Nano)},
+				State:      &types.ContainerState{Running: true, StartedAt: time.Now().Format(time.RFC3339Nano)},
 				HostConfig: &container.HostConfig{}},
 			Config: &container.Config{
 				Cmd: []string{"java", "-jar", "/app.jar", "--spring.config.additional-location=file:/etc/app/"},

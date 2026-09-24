@@ -24,9 +24,9 @@ const MetadataTokenKey = "x-sm-enrollment-token"
 const maxRecvBytes = 16 << 20 // conservative; Limits.max_message_bytes is enforced in reducers
 
 type Client struct {
-	id       *identity.Identity
+	id        *identity.Identity
 	bootstrap []byte
-	log      *slog.Logger
+	log       *slog.Logger
 }
 
 func New(id *identity.Identity, bootstrapBundlePEM []byte, log *slog.Logger) *Client {

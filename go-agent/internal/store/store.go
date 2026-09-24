@@ -109,8 +109,8 @@ type JSON struct {
 	Value   any
 }
 
-func (j JSON) Rel() string               { return j.RelPath }
-func (j JSON) Marshal() ([]byte, error)  { return json.MarshalIndent(j.Value, "", "  ") }
+func (j JSON) Rel() string              { return j.RelPath }
+func (j JSON) Marshal() ([]byte, error) { return json.MarshalIndent(j.Value, "", "  ") }
 
 // Blob persists raw bytes (payloads, PEM) at RelPath.
 type Blob struct {
