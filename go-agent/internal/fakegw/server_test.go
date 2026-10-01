@@ -114,7 +114,7 @@ func TestSessionCommandsAndPolicyConcurrentAccess(t *testing.T) {
 	ag := &enrolledAgent{agentID: "agent-x", thumbprint: "thumb-x", renewIDs: map[string]msg.LeaseGrant{}}
 	ss := &session{
 		s: s, ag: ag, stream: nopStream{}, sc: s.cfg.Scenario, policy: s.cfg.Scenario.Policy,
-		commands: map[string]*cmdState{},
+		commands: map[string]*cmdState{}, accepted: closed(),
 	}
 
 	const n = 200
@@ -144,4 +144,10 @@ func TestSessionCommandsAndPolicyConcurrentAccess(t *testing.T) {
 		}
 	}()
 	wg.Wait()
+}
+
+func closed() chan struct{} {
+	c := make(chan struct{})
+	close(c)
+	return c
 }

@@ -48,10 +48,15 @@ type session struct {
 	// mustClose's one read (in run(), after <-stepDone) is already ordered
 	// after every write to it by the stepDone channel close, which is
 	// itself a happens-before edge per the Go memory model.
-	mu        sync.Mutex
-	commands  map[string]*cmdState
-	inbox     chan msg.Outbound
-	done      chan struct{}
+	mu       sync.Mutex
+	commands map[string]*cmdState
+	inbox    chan msg.Outbound
+	done     chan struct{}
+	// accepted is closed once SessionAccept is on the stream. The session is
+	// live (Offer, Telemetry) a moment before that, so an agent that opens
+	// Telemetry straight after SessionAccept is never refused; an offer
+	// waits here so it can never overtake SessionAccept.
+	accepted  chan struct{}
 	cursor    int  // transcript index the next `expect` scans from
 	mustClose bool // set by disconnect/drain/revoke steps: drop the stream when steps finish
 }
@@ -72,7 +77,7 @@ func (s *Server) Connect(stream pb.AgentGateway_ConnectServer) error {
 	s.mu.Unlock()
 
 	ss := &session{s: s, ag: ag, stream: stream, sc: s.cfg.Scenario, policy: s.cfg.Scenario.Policy,
-		commands: map[string]*cmdState{}, inbox: make(chan msg.Outbound, 256), done: make(chan struct{}),
+		commands: map[string]*cmdState{}, inbox: make(chan msg.Outbound, 256), done: make(chan struct{}), accepted: make(chan struct{}),
 		cursor: s.tr.length()}
 	go ss.reader()
 	return ss.run()
@@ -130,8 +135,8 @@ func (ss *session) newGrant(now time.Time) msg.LeaseGrant {
 
 func (ss *session) limits() msg.Limits {
 	l := ss.sc.Limits
-	return msg.Limits{MaxMessageBytes: l.MaxMessageBytes, HeartbeatInterval: l.HeartbeatInterval, KeepaliveInterval: l.KeepaliveInterval,
-		SkewTolerance: l.SkewTolerance, ReportInterval: l.ReportInterval}
+	return msg.Limits{MaxMessageBytes: l.MaxMessageBytes, MaxBatchBytes: l.MaxBatchBytes, InitialCredits: l.InitialCredits,
+		HeartbeatInterval: l.HeartbeatInterval, KeepaliveInterval: l.KeepaliveInterval, SkewTolerance: l.SkewTolerance, ReportInterval: l.ReportInterval}
 }
 
 // next waits for the next inbound message or the stream ending.
@@ -184,10 +189,11 @@ func (ss *session) run() error {
 		g := ss.grantForRenew(lr, now)
 		lease = &g
 	}
-	ss.send(msg.SessionAccept{Envelope: ss.env(), SessionID: "sess-" + ss.s.newID()[:8], AssignedTargetID: ss.sc.Lease.TargetID,
-		RequiredCapabilities: nil, Lease: *lease, Limits: ss.limits(), ServerClock: now})
 	ss.s.setLive(ss)
 	defer ss.s.clearLive(ss)
+	ss.send(msg.SessionAccept{Envelope: ss.env(), SessionID: "sess-" + ss.s.newID()[:8], AssignedTargetID: ss.sc.Lease.TargetID,
+		RequiredCapabilities: nil, Lease: *lease, Limits: ss.limits(), ServerClock: now})
+	close(ss.accepted)
 
 	// 2. steady state: auto-responders + scripted steps
 	steps := ss.sc.Steps
@@ -353,6 +359,7 @@ func (ss *session) ackReports(b msg.ActualStateReportBatch) {
 // offer registers a command and notifies the agent of it. Scripted steps and
 // the console both offer through here.
 func (ss *session) offer(o OfferStep) *cmdState {
+	<-ss.accepted
 	sum := sha256.Sum256([]byte(o.Payload))
 	h := hex.EncodeToString(sum[:])
 	if o.BadHash {

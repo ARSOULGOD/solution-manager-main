@@ -114,3 +114,38 @@ func (c *Conn) Close() error {
 	c.cancel()
 	return c.cc.Close()
 }
+
+// TelemetryStream is the Telemetry RPC on the Conn's own connection: gateway
+// §4.1 puts all three RPCs on one TLS connection.
+type TelemetryStream struct {
+	stream pb.AgentGateway_TelemetryClient
+	cancel context.CancelFunc
+}
+
+func (c *Conn) OpenTelemetry(ctx context.Context) (*TelemetryStream, error) {
+	sctx, cancel := context.WithCancel(ctx)
+	st, err := pb.NewAgentGatewayClient(c.cc).Telemetry(sctx)
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("wire: telemetry: %w", codec.ErrorFromStatus(err))
+	}
+	return &TelemetryStream{stream: st, cancel: cancel}, nil
+}
+
+func (t *TelemetryStream) Send(b msg.TelemetryBatch) error {
+	return t.stream.Send(codec.TelemetryUpToPB(b))
+}
+
+func (t *TelemetryStream) Recv() (msg.TelemetryInbound, error) {
+	p, err := t.stream.Recv()
+	if err != nil {
+		return nil, codec.ErrorFromStatus(err)
+	}
+	return codec.TelemetryDownFromPB(p)
+}
+
+func (t *TelemetryStream) Close() error {
+	err := t.stream.CloseSend()
+	t.cancel()
+	return err
+}

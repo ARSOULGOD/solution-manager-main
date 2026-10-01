@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"sync"
@@ -32,6 +33,7 @@ type Config struct {
 	Tokens   []string
 	Scenario *Scenario
 	Log      *slog.Logger
+	Out      io.Writer // telemetry lines; nil discards
 }
 
 type enrolledAgent struct {
@@ -64,6 +66,12 @@ type Server struct {
 	sessions int
 	live     *session          // the latest accepted session; console commands go here
 	gens     map[string]uint64 // binding → highest generation offered, scripted or typed
+
+	tele       map[string]map[string]uint64 // agent_id → stream → watermark: the DP's telemetry_ingest_watermark (§6.2)
+	tstream    *teleStream                  // the live Telemetry stream, for unsolicited credits
+	paused     bool
+	rejectNext string
+	outMu      sync.Mutex
 }
 
 func Start(cfg Config) (*Server, error) {
@@ -90,6 +98,7 @@ func Start(cfg Config) (*Server, error) {
 		cfg: cfg, ca: ca, lis: lis, tr: newTranscript(), log: cfg.Log,
 		tokens: map[string]*enrolledAgent{}, byThumb: map[string]*enrolledAgent{},
 		replicas: map[string]string{}, incarn: map[string]string{}, gens: map[string]uint64{},
+		tele: map[string]map[string]uint64{}, rejectNext: cfg.Scenario.Policy.Telemetry.RejectNext,
 	}
 	for _, t := range cfg.Tokens {
 		s.tokens[t] = nil
@@ -170,6 +179,8 @@ func (s *Server) sawGeneration(binding string, gen uint64) {
 		s.gens[binding] = gen
 	}
 }
+
+func (s *Server) env() msg.Envelope { return msg.Envelope{MessageID: s.newID(), SentAt: time.Now()} }
 
 func (s *Server) newID() string {
 	id, err := uuid.NewV7()

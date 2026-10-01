@@ -22,6 +22,8 @@ type LeaseSpec struct {
 
 type LimitsSpec struct {
 	MaxMessageBytes   uint64        `yaml:"max_message_bytes"`
+	MaxBatchBytes     uint64        `yaml:"max_batch_bytes"`
+	InitialCredits    uint32        `yaml:"initial_credits"`
 	HeartbeatInterval time.Duration `yaml:"heartbeat_interval"`
 	KeepaliveInterval time.Duration `yaml:"keepalive_interval"`
 	SkewTolerance     time.Duration `yaml:"skew_tolerance"`
@@ -38,11 +40,17 @@ type ReportPolicy struct {
 	Reason string `yaml:"reason"` // for refuse
 }
 
+type TelemetryPolicy struct {
+	CreditsPerAck uint32 `yaml:"credits_per_ack"`
+	RejectNext    string `yaml:"reject_next"` // an ErrorCode; the next batch is rejected with it, once
+}
+
 type Policy struct {
 	OnOpen    string          `yaml:"on_open"` // accept | renew-required | reject:<CODE>
 	Renew     string          `yaml:"renew"`   // grant | refuse:<CODE> | silent
 	Heartbeat HeartbeatPolicy `yaml:"heartbeat"`
 	Report    ReportPolicy    `yaml:"report"`
+	Telemetry TelemetryPolicy `yaml:"telemetry"`
 }
 
 type ExpectStep struct {
@@ -99,8 +107,8 @@ func DefaultScenario() *Scenario {
 			VerbCeilings:    map[string]time.Duration{"preflight": time.Minute, "apply": 2 * time.Minute, "restart": 5 * time.Minute, "stop": 2 * time.Minute},
 			AdmissionMargin: 30 * time.Second,
 		},
-		Limits: LimitsSpec{MaxMessageBytes: 1 << 20, HeartbeatInterval: 10 * time.Second, KeepaliveInterval: 30 * time.Second, SkewTolerance: 30 * time.Second, ReportInterval: time.Minute},
-		Policy: Policy{OnOpen: "accept", Renew: "grant", Heartbeat: HeartbeatPolicy{State: "OK"}, Report: ReportPolicy{Mode: "auto"}},
+		Limits: LimitsSpec{MaxMessageBytes: 1 << 20, MaxBatchBytes: 65536, InitialCredits: 4, HeartbeatInterval: 10 * time.Second, KeepaliveInterval: 30 * time.Second, SkewTolerance: 30 * time.Second, ReportInterval: time.Minute},
+		Policy: Policy{OnOpen: "accept", Renew: "grant", Heartbeat: HeartbeatPolicy{State: "OK"}, Report: ReportPolicy{Mode: "auto"}, Telemetry: TelemetryPolicy{CreditsPerAck: 1}},
 	}
 }
 
