@@ -30,6 +30,7 @@ type Runner struct {
 	retry   *time.Timer
 	in      chan any
 	queue   []Event
+	dead    bool // a Send failed on this stream: skip Sends until the next OpenStream
 }
 
 type (
@@ -115,11 +116,14 @@ func (r *Runner) step(ctx context.Context, ev Event) {
 		ev := r.queue[0]
 		r.queue = r.queue[1:]
 		snap := r.View.Current()
-		prev := len(r.state.InFlight)
-		next, effs := Reduce(r.state, ev, Env{Now: r.Now(), Heads: r.heads(snap), Jitter: r.Jitter})
-		if _, isAck := ev.(Ack); isAck && prev > len(next.InFlight) {
-			r.Metrics.AckedBatches(prev - len(next.InFlight))
+		if a, isAck := ev.(Ack); isAck {
+			// Mirrors the reducer's Ack case; counted before Reduce because a
+			// send selected in the same reduction would cancel it out.
+			if seq, ok := r.state.InFlight[a.Stream]; ok && seq <= a.HWM {
+				r.Metrics.AckedBatches(1)
+			}
 		}
+		next, effs := Reduce(r.state, ev, Env{Now: r.Now(), Heads: r.heads(snap), Jitter: r.Jitter})
 		r.state = next
 		r.Metrics.SetCredits(next.Credits)
 		for _, e := range effs {
@@ -146,6 +150,7 @@ func (r *Runner) heads(snap view.Snapshot) []Head {
 func (r *Runner) exec(ctx context.Context, e Effect, snap view.Snapshot) {
 	switch e := e.(type) {
 	case OpenStream:
+		r.dead = false
 		r.closeStream()
 		r.gen++
 		gen, info := r.gen, r.session
@@ -175,18 +180,31 @@ func (r *Runner) exec(ctx context.Context, e Effect, snap view.Snapshot) {
 	case CloseStream:
 		r.closeStream()
 	case Send:
+		if r.dead {
+			return // one break is one failure: the StreamBroken already queued requeues this send
+		}
 		if !r.Buf.MarkInFlight(e.Stream, e.Seq) {
 			r.queue = append(r.queue, Unsendable{Stream: e.Stream})
 			return
 		}
 		b, err := r.Buf.Read(e.Stream, e.Seq)
+		if err != nil {
+			// The file is unreadable now and will be on every retry: the same
+			// class of fault the buffer drops as CORRUPT on load. No contents logged (I6).
+			r.Log.Warn("telemetry batch unreadable; dropping as a gap", "stream", e.Stream, "seq", e.Seq, "err", err)
+			r.Buf.DropAsGap(e.Stream, e.Seq, buffer.ReasonCorrupt) // also clears the in-flight mark
+			r.queue = append(r.queue, Unsendable{Stream: e.Stream})
+			return
+		}
 		m, ok := r.message(b, snap)
-		if err != nil || !ok {
+		if !ok {
 			r.Buf.ClearInFlight(e.Stream)
 			r.queue = append(r.queue, Unsendable{Stream: e.Stream})
 			return
 		}
 		if r.stream == nil || r.stream.Send(m) != nil {
+			r.dead = true
+			r.closeStream()
 			r.queue = append(r.queue, StreamBroken{})
 			return
 		}
