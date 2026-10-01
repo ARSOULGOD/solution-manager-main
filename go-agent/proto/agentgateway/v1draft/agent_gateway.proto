@@ -30,7 +30,8 @@ service AgentGateway {
   // token travels as gRPC metadata "x-sm-enrollment-token".
   rpc Enroll(EnrollRequest) returns (EnrollResponse);
   rpc Connect(stream AgentToGateway) returns (stream GatewayToAgent);
-  // Declared per §4.1; not implemented in slice 1.
+  // Opened only after SessionAccept (gateway §4.1); credits are the only
+  // backpressure (§4.10).
   rpc Telemetry(stream TelemetryUp) returns (stream TelemetryDown);
 }
 
@@ -425,12 +426,79 @@ message GatewayToAgent {
   }
 }
 
-// ---- Telemetry stream (declared, unimplemented in slice 1) ----
+// ---- Telemetry stream (gateway §4.3, §4.10) ----
+//
+// Transcription notes:
+//  * §4.3 types samples[] as "the normalized model of architecture §10"; the
+//    fields are taken from gateway §6.1's NormalizedSample.
+//  * gap_markers[].reason is a string because §4.3 defines no vocabulary
+//    (go-agent AG-16 proposes DROPPED_OLDEST, EXPIRED, OVERSIZE, UNREGISTERED,
+//    CORRUPT, plus §4.11 reject codes).
 
+enum MetricType {
+  METRIC_TYPE_UNSPECIFIED = 0;
+  METRIC_TYPE_COUNTER = 1;
+  METRIC_TYPE_GAUGE = 2;
+  METRIC_TYPE_HISTOGRAM = 3;
+}
+
+message Sample {
+  string series_key = 1;
+  MetricType type = 2;
+  google.protobuf.Timestamp ts = 3;
+  double value = 4;
+  map<string, string> labels = 5;
+}
+
+message GapMarker {
+  uint64 from_seq = 1;
+  uint64 to_seq = 2;
+  string reason = 3;
+}
+
+message TelemetryBatch {
+  Envelope envelope = 1;
+  string stream_id = 2;
+  uint64 batch_seq = 3;
+  repeated Sample samples = 4;
+  repeated GapMarker gap_markers = 5;
+  google.protobuf.Timestamp produced_at = 6;
+}
+
+message TelemetryAck {
+  Envelope envelope = 1;
+  string stream_id = 2;
+  uint64 high_watermark_seq = 3;
+  uint32 credits_granted = 4;
+}
+
+message TelemetryCredit {
+  Envelope envelope = 1;
+  string stream_id = 2;
+  uint32 credits_granted = 3;
+}
+
+message TelemetryReject {
+  Envelope envelope = 1;
+  string stream_id = 2;
+  ErrorCode code = 3;
+  optional google.protobuf.Duration retry_after = 4;
+}
+
+// envelope = 1 predates the oneof and is unused; it is kept, never
+// renumbered (§4.12 evolution rules).
 message TelemetryUp {
   Envelope envelope = 1;
+  oneof msg {
+    TelemetryBatch telemetry_batch = 2;
+  }
 }
 
 message TelemetryDown {
   Envelope envelope = 1;
+  oneof msg {
+    TelemetryAck telemetry_ack = 2;
+    TelemetryCredit telemetry_credit = 3;
+    TelemetryReject telemetry_reject = 4;
+  }
 }

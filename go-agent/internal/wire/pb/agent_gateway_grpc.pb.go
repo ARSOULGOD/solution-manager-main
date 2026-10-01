@@ -51,7 +51,8 @@ type AgentGatewayClient interface {
 	// token travels as gRPC metadata "x-sm-enrollment-token".
 	Enroll(ctx context.Context, in *EnrollRequest, opts ...grpc.CallOption) (*EnrollResponse, error)
 	Connect(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[AgentToGateway, GatewayToAgent], error)
-	// Declared per §4.1; not implemented in slice 1.
+	// Opened only after SessionAccept (gateway §4.1); credits are the only
+	// backpressure (§4.10).
 	Telemetry(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[TelemetryUp, TelemetryDown], error)
 }
 
@@ -107,7 +108,8 @@ type AgentGatewayServer interface {
 	// token travels as gRPC metadata "x-sm-enrollment-token".
 	Enroll(context.Context, *EnrollRequest) (*EnrollResponse, error)
 	Connect(grpc.BidiStreamingServer[AgentToGateway, GatewayToAgent]) error
-	// Declared per §4.1; not implemented in slice 1.
+	// Opened only after SessionAccept (gateway §4.1); credits are the only
+	// backpressure (§4.10).
 	Telemetry(grpc.BidiStreamingServer[TelemetryUp, TelemetryDown]) error
 	mustEmbedUnimplementedAgentGatewayServer()
 }

@@ -475,3 +475,72 @@ func ErrorFromStatus(err error) error {
 	}
 	return err
 }
+
+// ---- Telemetry stream (gateway §4.3, §4.10) ----
+
+func metricTypeToPB(t msg.MetricType) pb.MetricType {
+	return enumTo[pb.MetricType](pb.MetricType_value, "METRIC_TYPE_", string(t))
+}
+
+func metricTypeFromPB(p pb.MetricType) msg.MetricType {
+	if p == pb.MetricType_METRIC_TYPE_UNSPECIFIED {
+		return ""
+	}
+	return msg.MetricType(strings.ToLower(enumFrom(pb.MetricType_name, "METRIC_TYPE_", p)))
+}
+
+func TelemetryUpToPB(b msg.TelemetryBatch) *pb.TelemetryUp {
+	p := &pb.TelemetryBatch{Envelope: envToPB(b.Envelope), StreamId: b.StreamID, BatchSeq: b.BatchSeq, ProducedAt: ts(b.ProducedAt)}
+	for _, s := range b.Samples {
+		p.Samples = append(p.Samples, &pb.Sample{SeriesKey: s.SeriesKey, Type: metricTypeToPB(s.Type), Ts: ts(s.TS), Value: s.Value, Labels: s.Labels})
+	}
+	for _, g := range b.GapMarkers {
+		p.GapMarkers = append(p.GapMarkers, &pb.GapMarker{FromSeq: g.FromSeq, ToSeq: g.ToSeq, Reason: g.Reason})
+	}
+	return &pb.TelemetryUp{Msg: &pb.TelemetryUp_TelemetryBatch{TelemetryBatch: p}}
+}
+
+func TelemetryUpFromPB(p *pb.TelemetryUp) (msg.TelemetryBatch, error) {
+	b := p.GetTelemetryBatch()
+	if b == nil {
+		return msg.TelemetryBatch{}, fmt.Errorf("codec: TelemetryUp carries no batch")
+	}
+	out := msg.TelemetryBatch{Envelope: envFromPB(b.Envelope), StreamID: b.StreamId, BatchSeq: b.BatchSeq, ProducedAt: tsFrom(b.ProducedAt)}
+	for _, s := range b.Samples {
+		out.Samples = append(out.Samples, msg.Sample{SeriesKey: s.SeriesKey, Type: metricTypeFromPB(s.Type), TS: tsFrom(s.Ts), Value: s.Value, Labels: s.Labels})
+	}
+	for _, g := range b.GapMarkers {
+		out.GapMarkers = append(out.GapMarkers, msg.GapMarker{FromSeq: g.FromSeq, ToSeq: g.ToSeq, Reason: g.Reason})
+	}
+	return out, nil
+}
+
+func TelemetryDownToPB(m msg.TelemetryInbound) (*pb.TelemetryDown, error) {
+	switch v := m.(type) {
+	case msg.TelemetryAck:
+		return &pb.TelemetryDown{Msg: &pb.TelemetryDown_TelemetryAck{TelemetryAck: &pb.TelemetryAck{
+			Envelope: envToPB(v.Envelope), StreamId: v.StreamID, HighWatermarkSeq: v.HighWatermarkSeq, CreditsGranted: v.CreditsGranted}}}, nil
+	case msg.TelemetryCredit:
+		return &pb.TelemetryDown{Msg: &pb.TelemetryDown_TelemetryCredit{TelemetryCredit: &pb.TelemetryCredit{
+			Envelope: envToPB(v.Envelope), StreamId: v.StreamID, CreditsGranted: v.CreditsGranted}}}, nil
+	case msg.TelemetryReject:
+		return &pb.TelemetryDown{Msg: &pb.TelemetryDown_TelemetryReject{TelemetryReject: &pb.TelemetryReject{
+			Envelope: envToPB(v.Envelope), StreamId: v.StreamID, Code: errToPB(v.Code), RetryAfter: durPtr(v.RetryAfter)}}}, nil
+	}
+	return nil, fmt.Errorf("codec: unknown telemetry message %T", m)
+}
+
+func TelemetryDownFromPB(p *pb.TelemetryDown) (msg.TelemetryInbound, error) {
+	switch v := p.Msg.(type) {
+	case *pb.TelemetryDown_TelemetryAck:
+		a := v.TelemetryAck
+		return msg.TelemetryAck{Envelope: envFromPB(a.Envelope), StreamID: a.StreamId, HighWatermarkSeq: a.HighWatermarkSeq, CreditsGranted: a.CreditsGranted}, nil
+	case *pb.TelemetryDown_TelemetryCredit:
+		c := v.TelemetryCredit
+		return msg.TelemetryCredit{Envelope: envFromPB(c.Envelope), StreamID: c.StreamId, CreditsGranted: c.CreditsGranted}, nil
+	case *pb.TelemetryDown_TelemetryReject:
+		r := v.TelemetryReject
+		return msg.TelemetryReject{Envelope: envFromPB(r.Envelope), StreamID: r.StreamId, Code: errFromPB(r.Code), RetryAfter: durPtrFrom(r.RetryAfter)}, nil
+	}
+	return nil, fmt.Errorf("codec: TelemetryDown carries nothing")
+}

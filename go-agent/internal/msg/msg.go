@@ -510,3 +510,65 @@ type Error struct {
 }
 
 func (Error) inbound() {}
+
+// ---- Telemetry stream (gateway §4.3, §4.10) ----
+
+type MetricType string
+
+const (
+	MetricCounter   MetricType = "counter"
+	MetricGauge     MetricType = "gauge"
+	MetricHistogram MetricType = "histogram"
+)
+
+// Sample is gateway §6.1's NormalizedSample. On an agent batch, Labels holds
+// exactly binding_id, replica_id and incarnation_id, all DP-minted.
+type Sample struct {
+	SeriesKey string
+	Type      MetricType
+	TS        time.Time
+	Value     float64
+	Labels    map[string]string
+}
+
+type GapMarker struct {
+	FromSeq, ToSeq uint64
+	Reason         string
+}
+
+// TelemetryBatch is the only agent → gateway message on the Telemetry stream.
+type TelemetryBatch struct {
+	Envelope
+	StreamID   string
+	BatchSeq   uint64
+	Samples    []Sample
+	GapMarkers []GapMarker
+	ProducedAt time.Time
+}
+
+// TelemetryInbound is a gateway → agent message on the Telemetry stream.
+type TelemetryInbound interface{ telemetryInbound() }
+
+type TelemetryAck struct {
+	Envelope
+	StreamID         string
+	HighWatermarkSeq uint64
+	CreditsGranted   uint32
+}
+
+type TelemetryCredit struct {
+	Envelope
+	StreamID       string
+	CreditsGranted uint32
+}
+
+type TelemetryReject struct {
+	Envelope
+	StreamID   string
+	Code       ErrorCode
+	RetryAfter *time.Duration
+}
+
+func (TelemetryAck) telemetryInbound()    {}
+func (TelemetryCredit) telemetryInbound() {}
+func (TelemetryReject) telemetryInbound() {}
