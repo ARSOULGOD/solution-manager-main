@@ -265,3 +265,17 @@ func (s *Server) agentFor(ctx context.Context) (*enrolledAgent, error) {
 
 var _ = tls.VersionTLS13
 var _ = x509.ErrUnsupportedAlgorithm
+
+// Disconnect ends the live agent's Connect stream. The CA and the enrolment
+// survive, so the agent reconnects with its identity — a gateway restart
+// cannot do that, because the CA lives in memory.
+func (s *Server) Disconnect() error {
+	s.mu.Lock()
+	ss := s.live
+	s.mu.Unlock()
+	if ss == nil {
+		return ErrNoAgent
+	}
+	ss.kickOnce.Do(func() { close(ss.kick) })
+	return nil
+}

@@ -108,3 +108,25 @@ func TestIntegrationConsoleReachesAgentAfterItRestarts(t *testing.T) {
 	gw.Console(strings.NewReader("stop\n"), out)
 	waitOutput(t, out, "stop-2 gen=2 -> APPLIED", 20*time.Second)
 }
+
+// disconnect drops the session while the gateway keeps its CA and enrolment,
+// so the agent reconnects with the identity it has — unlike a gateway restart.
+func TestIntegrationConsoleDisconnectKeepsEnrolment(t *testing.T) {
+	gw := startGateway(t, nil)
+	h := startAgent(t, gw, "", nil)
+	waitPhase(t, h.loop, PhaseActive, 10*time.Second)
+	out := &syncBuffer{}
+	gw.Console(strings.NewReader("disconnect\n"), out)
+	waitOutput(t, out, "session closed; the agent will reconnect", 5*time.Second)
+	deadline := time.Now().Add(30 * time.Second)
+	for gw.Sessions() < 2 && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
+	}
+	if gw.Sessions() < 2 {
+		t.Fatalf("agent did not reconnect: sessions=%d", gw.Sessions())
+	}
+	waitPhase(t, h.loop, PhaseActive, 10*time.Second)
+	if n := gw.Count("EnrollRequest"); n != 1 {
+		t.Fatalf("a disconnect must not force re-enrolment: EnrollRequest=%d", n)
+	}
+}

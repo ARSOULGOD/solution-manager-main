@@ -12,7 +12,7 @@ import (
 	"github.com/solace/solution-manager/go-agent/internal/msg"
 )
 
-const consoleUsage = "type: preflight | apply <file> | restart | stop"
+const consoleUsage = "type: preflight | apply <file> | restart | stop | pause | resume | disconnect"
 
 // Console turns lines typed at the gateway's terminal into commands for the
 // connected agent, one operation per line, and prints each outcome when the
@@ -41,6 +41,24 @@ func (c *console) println(format string, a ...any) {
 func (c *console) line(text string) {
 	f := strings.Fields(text)
 	if len(f) == 0 {
+		return
+	}
+	switch f[0] {
+	case "pause":
+		c.s.PauseTelemetry()
+		c.println("telemetry paused: acks grant no credits")
+		return
+	case "resume":
+		n := max(c.s.cfg.Scenario.Limits.InitialCredits, 1)
+		c.s.ResumeTelemetry(n)
+		c.println("telemetry resumed: %d credits granted", n)
+		return
+	case "disconnect":
+		if err := c.s.Disconnect(); err != nil {
+			c.println("%v", err)
+			return
+		}
+		c.println("session closed; the agent will reconnect")
 		return
 	}
 	var payload []byte

@@ -53,3 +53,22 @@ func TestConsoleIgnoresBlankLines(t *testing.T) {
 		t.Fatalf("blank lines must print nothing beyond the banner: %q", out.String())
 	}
 }
+
+func TestConsoleTelemetryVerbsWithoutAnAgent(t *testing.T) {
+	s, err := Start(Config{Listen: "127.0.0.1:0"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Stop()
+	for line, want := range map[string]string{
+		"pause":      "telemetry paused: acks grant no credits",
+		"resume":     "telemetry resumed: 4 credits granted",
+		"disconnect": "no agent connected",
+	} {
+		var out bytes.Buffer
+		s.Console(strings.NewReader(line+"\n"), &out)
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("%q: want %q, got %q", line, want, out.String())
+		}
+	}
+}

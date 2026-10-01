@@ -32,6 +32,9 @@ type session struct {
 
 	sendMu sync.Mutex
 
+	kick     chan struct{} // closed by Server.Disconnect: end this stream, keep the enrolment
+	kickOnce sync.Once
+
 	// mu guards commands and policy. Once the steady-state phase starts,
 	// run() has two live goroutines touching session state: the scripted
 	// step runner (runStep, driven by the scenario) and the auto-responder
@@ -77,7 +80,7 @@ func (s *Server) Connect(stream pb.AgentGateway_ConnectServer) error {
 	s.mu.Unlock()
 
 	ss := &session{s: s, ag: ag, stream: stream, sc: s.cfg.Scenario, policy: s.cfg.Scenario.Policy,
-		commands: map[string]*cmdState{}, inbox: make(chan msg.Outbound, 256), done: make(chan struct{}), accepted: make(chan struct{}),
+		commands: map[string]*cmdState{}, inbox: make(chan msg.Outbound, 256), done: make(chan struct{}), accepted: make(chan struct{}), kick: make(chan struct{}),
 		cursor: s.tr.length()}
 	go ss.reader()
 	return ss.run()
@@ -212,6 +215,8 @@ func (ss *session) run() error {
 			ss.respond(m)
 		case <-ss.done:
 			return nil
+		case <-ss.kick:
+			return nil
 		case <-stepDone:
 			if ss.mustClose {
 				return nil // returning ends the stream: the agent sees EOF
@@ -222,6 +227,8 @@ func (ss *session) run() error {
 				case m := <-ss.inbox:
 					ss.respond(m)
 				case <-ss.done:
+					return nil
+				case <-ss.kick:
 					return nil
 				}
 			}
