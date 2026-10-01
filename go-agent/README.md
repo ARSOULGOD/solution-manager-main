@@ -28,6 +28,11 @@ make test-docker        # adapter against a real container (needs a socket)
 The fake gateway (`AG-D16`) speaks the DRAFT wire over real mTLS and runs a
 scripted scenario. It is a test double, not a Data Plane.
 
+To type commands — `preflight`, `apply <file>`, `restart`, `stop` — into a
+running gateway (`--interactive`) and see each outcome, follow
+[`RUNBOOK.md`](RUNBOOK.md). The walk-through below runs the whole `demo.yaml`
+sequence in one go.
+
 ```bash
 make build
 ./bin/fake-gateway --listen 127.0.0.1:8443 \

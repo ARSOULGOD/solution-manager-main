@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -61,6 +62,8 @@ type Server struct {
 	replicas map[string]string // binding|replica_ref → replica_id
 	incarn   map[string]string // binding|replica_ref|incarnation → incarnation_id
 	sessions int
+	live     *session          // the latest accepted session; console commands go here
+	gens     map[string]uint64 // binding → highest generation offered, scripted or typed
 }
 
 func Start(cfg Config) (*Server, error) {
@@ -86,7 +89,7 @@ func Start(cfg Config) (*Server, error) {
 	s := &Server{
 		cfg: cfg, ca: ca, lis: lis, tr: newTranscript(), log: cfg.Log,
 		tokens: map[string]*enrolledAgent{}, byThumb: map[string]*enrolledAgent{},
-		replicas: map[string]string{}, incarn: map[string]string{},
+		replicas: map[string]string{}, incarn: map[string]string{}, gens: map[string]uint64{},
 	}
 	for _, t := range cfg.Tokens {
 		s.tokens[t] = nil
@@ -109,6 +112,63 @@ func (s *Server) Sessions() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.sessions
+}
+
+var ErrNoAgent = errors.New("no agent connected")
+
+// Offered is a command Offer sent; Ack delivers the agent's CommandAck.
+type Offered struct {
+	CommandID  string
+	Generation uint64
+	Ack        <-chan msg.CommandAck
+}
+
+// Offer sends one command to the connected agent, for the lease's first
+// binding, at the next generation this gateway has not offered for it. The
+// agent refuses a generation below its watermark and answers a repeated one
+// from its journal, so the gateway — like the real DP — must never reuse one.
+func (s *Server) Offer(op msg.Operation, payload []byte) (Offered, error) {
+	s.mu.Lock()
+	ss := s.live
+	if ss == nil {
+		s.mu.Unlock()
+		return Offered{}, ErrNoAgent
+	}
+	if len(ss.sc.Lease.BindingIDs) == 0 {
+		s.mu.Unlock()
+		return Offered{}, errors.New("the lease names no binding")
+	}
+	binding := ss.sc.Lease.BindingIDs[0]
+	gen := s.gens[binding] + 1
+	s.gens[binding] = gen
+	s.mu.Unlock()
+	id := fmt.Sprintf("%s-%d", op, gen)
+	cs := ss.offer(OfferStep{CommandID: id, BindingID: binding, Generation: gen, Operation: string(op), Payload: string(payload)})
+	return Offered{CommandID: id, Generation: gen, Ack: cs.ack}, nil
+}
+
+func (s *Server) setLive(ss *session) {
+	s.mu.Lock()
+	s.live = ss
+	s.mu.Unlock()
+	s.log.Info("fakegw: agent connected", "agent", ss.ag.agentID)
+}
+
+// clearLive forgets ss only if no newer session has replaced it.
+func (s *Server) clearLive(ss *session) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.live == ss {
+		s.live = nil
+	}
+}
+
+func (s *Server) sawGeneration(binding string, gen uint64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if gen > s.gens[binding] {
+		s.gens[binding] = gen
+	}
 }
 
 func (s *Server) newID() string {

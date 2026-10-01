@@ -16,8 +16,12 @@ import (
 type cmdState struct {
 	offer      msg.CommandOffer
 	superseded bool
-	state      string // OFFERED | DELIVERED | ACKED | REFUSED | SUPERSEDED
+	state      string              // OFFERED | DELIVERED | ACKED | REFUSED | SUPERSEDED
+	ack        chan msg.CommandAck // the first CommandAck, for whoever offered it
 }
+
+// offerDeadline is an offer's deadline when its step names none.
+const offerDeadline = 5 * time.Minute
 
 type session struct {
 	s      *Server
@@ -182,6 +186,8 @@ func (ss *session) run() error {
 	}
 	ss.send(msg.SessionAccept{Envelope: ss.env(), SessionID: "sess-" + ss.s.newID()[:8], AssignedTargetID: ss.sc.Lease.TargetID,
 		RequiredCapabilities: nil, Lease: *lease, Limits: ss.limits(), ServerClock: now})
+	ss.s.setLive(ss)
+	defer ss.s.clearLive(ss)
 
 	// 2. steady state: auto-responders + scripted steps
 	steps := ss.sc.Steps
@@ -302,6 +308,10 @@ func (ss *session) respond(m msg.Outbound) {
 			} else {
 				c.state = "ACKED"
 			}
+			select {
+			case c.ack <- v:
+			default: // a replayed ack: the first one was already delivered
+			}
 		}
 		ss.mu.Unlock()
 	case msg.ActualStateReportBatch:
@@ -340,6 +350,36 @@ func (ss *session) ackReports(b msg.ActualStateReportBatch) {
 	ss.send(ack)
 }
 
+// offer registers a command and notifies the agent of it. Scripted steps and
+// the console both offer through here.
+func (ss *session) offer(o OfferStep) *cmdState {
+	sum := sha256.Sum256([]byte(o.Payload))
+	h := hex.EncodeToString(sum[:])
+	if o.BadHash {
+		h = "deadbeef"
+	}
+	dl := o.Deadline
+	if dl == 0 {
+		dl = offerDeadline
+	}
+	key := o.IdempotencyKey
+	if key == "" {
+		key = "key-" + o.CommandID
+	}
+	cs := &cmdState{state: "OFFERED", ack: make(chan msg.CommandAck, 1), offer: msg.CommandOffer{
+		CommandID: o.CommandID, Generation: o.Generation, IdempotencyKey: key, BindingID: o.BindingID,
+		Operation: msg.Operation(o.Operation), Payload: []byte(o.Payload), ConfigSHA256: h,
+		SupersedesGeneration: o.SupersedesGeneration, Deadline: time.Now().Add(dl),
+	}}
+	ss.mu.Lock()
+	ss.commands[o.CommandID] = cs
+	ss.mu.Unlock()
+	ss.s.sawGeneration(o.BindingID, o.Generation)
+	ss.send(msg.GenerationAvailable{Envelope: ss.env(), CommandID: o.CommandID, BindingID: o.BindingID, Generation: o.Generation,
+		Operation: msg.Operation(o.Operation), ConfigSHA256: h, Deadline: time.Now().Add(dl)})
+	return cs
+}
+
 // runStep returns false when the session should stop.
 func (ss *session) runStep(st Step) bool {
 	switch {
@@ -355,30 +395,7 @@ func (ss *session) runStep(st Step) bool {
 		}
 		ss.cursor = next
 	case st.Offer != nil:
-		o := st.Offer
-		sum := sha256.Sum256([]byte(o.Payload))
-		h := hex.EncodeToString(sum[:])
-		if o.BadHash {
-			h = "deadbeef"
-		}
-		dl := o.Deadline
-		if dl == 0 {
-			dl = 5 * time.Minute
-		}
-		key := o.IdempotencyKey
-		if key == "" {
-			key = "key-" + o.CommandID
-		}
-		cs := &cmdState{state: "OFFERED", offer: msg.CommandOffer{
-			CommandID: o.CommandID, Generation: o.Generation, IdempotencyKey: key, BindingID: o.BindingID,
-			Operation: msg.Operation(o.Operation), Payload: []byte(o.Payload), ConfigSHA256: h,
-			SupersedesGeneration: o.SupersedesGeneration, Deadline: time.Now().Add(dl),
-		}}
-		ss.mu.Lock()
-		ss.commands[o.CommandID] = cs
-		ss.mu.Unlock()
-		ss.send(msg.GenerationAvailable{Envelope: ss.env(), CommandID: o.CommandID, BindingID: o.BindingID, Generation: o.Generation,
-			Operation: msg.Operation(o.Operation), ConfigSHA256: h, Deadline: time.Now().Add(dl)})
+		ss.offer(*st.Offer)
 	case st.Superseded != nil:
 		ss.mu.Lock()
 		if c := ss.commands[*st.Superseded]; c != nil {

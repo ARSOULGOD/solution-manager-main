@@ -17,6 +17,7 @@ func main() {
 	scenarioPath := flag.String("scenario", "", "scenario YAML (default: built-in accept-only)")
 	tokens := flag.String("enroll-token", "demo-token", "comma-separated single-use enrollment tokens")
 	caOut := flag.String("ca-out", "", "write the fake CA PEM here (the agent's --trust-bundle)")
+	interactive := flag.Bool("interactive", false, "read commands from stdin, one per line: preflight | apply <file> | restart | stop")
 	flag.Parse()
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
@@ -40,6 +41,11 @@ func main() {
 		}
 	}
 	log.Info("fake gateway listening", "endpoint", s.Endpoint(), "ca", *caOut)
+	if *interactive {
+		// Opt-in: a gateway started in the background with `&` that read the
+		// terminal would be stopped by SIGTTIN.
+		go s.Console(os.Stdin, os.Stdout)
+	}
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	<-sig
