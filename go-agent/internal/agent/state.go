@@ -29,7 +29,7 @@ func Reduce(cfg Config, s State, ev reactor.Event, env reactor.Env) (State, []re
 	all = append(all, effs...)
 	s.Authority, effs = authority.Reduce(s.Authority, ev, env)
 	all = append(all, effs...)
-	s.Commands, effs = commands.Reduce(s.Commands, ev, env, s.Authority)
+	s.Commands, effs = commands.Reduce(s.Commands, ev, env, gate{State: s.Authority, supported: cfg.Capabilities})
 	all = append(all, effs...)
 	s.Reports, effs = reports.Reduce(s.Reports, ev, env)
 	all = append(all, effs...)

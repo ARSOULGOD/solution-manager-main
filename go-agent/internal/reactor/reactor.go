@@ -51,7 +51,10 @@ type OpProgress struct {
 	Step      msg.ProgressStep
 }
 
-type Connected struct{ At time.Time }
+type Connected struct {
+	At              time.Time
+	TelemetryResume map[string]uint64 // SessionOpen.resume.last_telemetry_seq_by_stream
+}
 
 type Disconnected struct {
 	At    time.Time

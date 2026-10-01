@@ -134,8 +134,9 @@ func reduceSession(cfg Config, s SessionState, ev reactor.Event, env reactor.Env
 			ProtocolVersion:       protocolVersion,
 			AgentVersion:          cfg.AgentVersion,
 			CapabilitiesSupported: cfg.Capabilities,
-			Resume:                in.Resume,
-			AgentClock:            env.Now,
+			Resume: msg.Resume{LastAckedGenerationByBinding: in.Resume.LastAckedGenerationByBinding,
+				LastTelemetrySeqByStream: e.TelemetryResume},
+			AgentClock: env.Now,
 		}}}
 
 	case reactor.Disconnected:
