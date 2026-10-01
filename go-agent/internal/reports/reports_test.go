@@ -230,3 +230,20 @@ func TestCursorSurvivesRestartAndReseedsWhenLost(t *testing.T) {
 	}
 	_ = f2
 }
+
+func TestIDTableIsAnIsolatedCopy(t *testing.T) {
+	s := State{Registry: Registry{SchemaVersion: 1,
+		ReplicaIDs:     map[string]string{"binding-1|java1": "rep-1"},
+		IncarnationIDs: map[string]string{"binding-1|java1|c1": "inc-1"}}}
+	tbl := s.IDTable()
+	if r, i, ok := tbl.IDs("binding-1", "java1", "c1"); !ok || r != "rep-1" || i != "inc-1" {
+		t.Fatalf("IDs = %q %q %v", r, i, ok)
+	}
+	if _, _, ok := tbl.IDs("binding-1", "java1", "c2"); ok {
+		t.Fatal("an unregistered incarnation must not resolve")
+	}
+	s.Registry.IncarnationIDs["binding-1|java1|c2"] = "inc-2" // the loop keeps mutating its maps (L23)
+	if _, _, ok := tbl.IDs("binding-1", "java1", "c2"); ok {
+		t.Fatal("IDTable aliases the registry it was taken from")
+	}
+}
