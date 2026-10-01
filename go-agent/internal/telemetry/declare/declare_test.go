@@ -37,6 +37,7 @@ func TestParseRefuses(t *testing.T) {
 	for _, tc := range []struct{ name, from, to, want string }{
 		{"schema version", "schema_version: 1", "schema_version: 2", "schema_version 2"},
 		{"unsafe binding id", "binding-1:", "binding/1:", "must match"},
+		{"dot-dot binding id", "binding-1:", "\"..\":", "must match"},
 		{"interval below 1s", "interval: 15s", "interval: 500ms", "at least 1s"},
 		{"timeout above interval", "interval: 15s", "interval: 15s\n    timeout: 20s", "timeout must be between 0 and interval"},
 		{"histogram", "metricType: gauge", "metricType: histogram", "histogram is not in this slice"},

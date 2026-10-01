@@ -266,3 +266,68 @@ func TestMarkInFlightRefusesAMissingBatch(t *testing.T) {
 		t.Fatal("MarkInFlight accepted a batch that does not exist")
 	}
 }
+
+func TestTrimWithAFailedStateWriteKeepsFilesSoSeqsAreNotReused(t *testing.T) {
+	dir := t.TempDir()
+	st := store.MustOpen(dir)
+	failState := false
+	b, err := Open(st, Options{Save: func(r store.Record) error {
+		if j, ok := r.(store.JSON); ok && failState && filepath.Base(j.RelPath) == "state.json" {
+			return errors.New("disk full")
+		}
+		return st.Save(r)
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 1; i <= 3; i++ {
+		mustAppend(t, b, "a", at(i))
+	}
+	failState = true
+	b.Trim("a", 3)
+	if h := b.Heads(); len(h) != 0 {
+		t.Fatalf("in-memory index must drop trimmed batches: %+v", h)
+	}
+	b2 := open(t, dir, Options{})
+	if seq := mustAppend(t, b2, "a", at(4)); seq != 4 {
+		t.Fatalf("seq %d reused after a failed state write", seq)
+	}
+}
+
+func TestATruncatedStateFileIsReportedAndOpenSucceeds(t *testing.T) {
+	dir := t.TempDir()
+	b := open(t, dir, Options{})
+	mustAppend(t, b, "a", at(1))
+	if err := os.WriteFile(filepath.Join(dir, "telemetry", "a", "state.json"), []byte("{trunc"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var reported []error
+	if _, err := Open(store.MustOpen(dir), Options{OnWriteError: func(err error) { reported = append(reported, err) }}); err != nil {
+		t.Fatal(err)
+	}
+	if len(reported) != 1 {
+		t.Fatalf("reported %v", reported)
+	}
+}
+
+func TestUnsafeStreamIdsAreRefused(t *testing.T) {
+	dir := t.TempDir()
+	var reported []error
+	b := open(t, dir, Options{OnWriteError: func(err error) { reported = append(reported, err) }})
+	for _, id := range []string{".", "..", "", "a/b"} {
+		if _, err := b.Append(id, at(1), samples()); err == nil {
+			t.Fatalf("Append accepted %q", id)
+		}
+	}
+	if len(reported) != 0 {
+		t.Fatalf("a caller bug is not a storage fault: %v", reported)
+	}
+	b.Trim("..", 5)
+	b.DropAsGap("..", 1, ReasonOversize)
+	if _, err := os.Stat(filepath.Join(dir, "state.json")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("Trim wrote outside telemetry/: %v", err)
+	}
+	if len(b.Resume()) != 0 {
+		t.Fatalf("Trim created a stream for an invalid id: %v", b.Resume())
+	}
+}

@@ -97,7 +97,7 @@ func (f *File) validate() error {
 		b := f.Bindings[id]
 		where := fmt.Sprintf("declarations: binding %q", id)
 		switch {
-		case !safeID.MatchString(id):
+		case !safeID.MatchString(id) || id == "." || id == "..":
 			return fmt.Errorf("%s: id must match %s", where, safeID)
 		case b.Interval < time.Second:
 			return fmt.Errorf("%s: interval must be at least 1s", where)

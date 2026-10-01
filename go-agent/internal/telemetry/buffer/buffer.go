@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -29,6 +30,11 @@ const (
 )
 
 const root = "telemetry"
+
+var safeID = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
+
+// validID: a stream id is a path segment under telemetry/.
+func validID(id string) bool { return id != "." && id != ".." && safeID.MatchString(id) }
 
 type Sample struct {
 	Name        string    `json:"name"`
@@ -163,7 +169,7 @@ func Open(st *store.Store, opt Options) (*Buffer, error) {
 		return nil, err
 	}
 	for _, e := range entries {
-		if e.IsDir() {
+		if e.IsDir() && validID(e.Name()) {
 			if err := b.load(e.Name()); err != nil {
 				return nil, err
 			}
@@ -176,6 +182,9 @@ func (b *Buffer) load(id string) error {
 	s := &stream{id: id, state: streamState{SchemaVersion: 1}}
 	if st, err := store.LoadJSON[streamState](b.st, stateRel(id), 1); err == nil {
 		s.state = st
+	} else if !errors.Is(err, store.ErrNotFound) {
+		// Unreadable state: report it and start from the default; telemetry must not stop the agent.
+		b.opt.OnWriteError(err)
 	}
 	entries, err := os.ReadDir(b.st.Path(root + "/" + id))
 	if err != nil {
@@ -188,14 +197,16 @@ func (b *Buffer) load(id string) error {
 		}
 		if seq <= s.state.AckedSeq { // trimmed in state before a crash finished the deletes
 			if err := b.st.Delete(batchRel(id, seq)); err != nil {
-				return err
+				b.opt.OnWriteError(err)
 			}
 			continue
 		}
 		batch, err := store.LoadJSON[Batch](b.st, batchRel(id, seq), 1)
 		if err != nil {
 			// Telemetry must not stop the agent starting: the batch is lost, and said so.
-			_ = b.st.Delete(batchRel(id, seq))
+			if err := b.st.Delete(batchRel(id, seq)); err != nil {
+				b.opt.OnWriteError(err)
+			}
 			s.addGap(seq, ReasonCorrupt)
 			b.opt.OnDrop(ReasonCorrupt, 0)
 			continue
@@ -237,6 +248,9 @@ func (b *Buffer) stream(id string) *stream {
 func (b *Buffer) Append(id string, producedAt time.Time, samples []Sample) (uint64, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if !validID(id) {
+		return 0, fmt.Errorf("buffer: invalid stream id %q", id)
+	}
 	s := b.stream(id)
 	batch := Batch{SchemaVersion: 1, StreamID: id, Seq: s.next, ProducedAt: producedAt.UTC(), Samples: samples}
 	data, err := json.Marshal(batch)
@@ -321,10 +335,12 @@ func (s *stream) addGap(seq uint64, reason string) {
 	s.state.Gaps = append(s.state.Gaps, Gap{From: seq, To: seq, Reason: reason})
 }
 
-func (b *Buffer) saveState(s *stream) {
-	if err := b.opt.Save(store.JSON{RelPath: stateRel(s.id), Value: s.state}); err != nil {
+func (b *Buffer) saveState(s *stream) error {
+	err := b.opt.Save(store.JSON{RelPath: stateRel(s.id), Value: s.state})
+	if err != nil {
 		b.opt.OnWriteError(err)
 	}
+	return err
 }
 
 func (b *Buffer) notify() {
@@ -392,14 +408,21 @@ func (b *Buffer) ClearInFlight(id string) {
 func (b *Buffer) Trim(id string, hwm uint64) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if !validID(id) {
+		return
+	}
 	s := b.stream(id)
 	s.state.AckedSeq = max(s.state.AckedSeq, hwm)
 	s.state.Gaps = slices.DeleteFunc(s.state.Gaps, func(g Gap) bool { return g.To < hwm })
-	b.saveState(s)
+	// If the state write failed, keep the files: after a restart they sit above
+	// the stale acked_seq, reload, and keep next above them.
+	stateSaved := b.saveState(s) == nil
 	for len(s.files) > 0 && s.files[0].seq <= hwm {
 		f := s.files[0]
-		if err := b.st.Delete(batchRel(id, f.seq)); err != nil {
-			b.opt.OnWriteError(err)
+		if stateSaved {
+			if err := b.st.Delete(batchRel(id, f.seq)); err != nil {
+				b.opt.OnWriteError(err)
+			}
 		}
 		s.files = s.files[1:]
 		b.total -= f.bytes
@@ -418,6 +441,9 @@ func (b *Buffer) Trim(id string, hwm uint64) {
 func (b *Buffer) DropAsGap(id string, seq uint64, reason string) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if !validID(id) {
+		return
+	}
 	s := b.streams[id]
 	if s == nil {
 		return
