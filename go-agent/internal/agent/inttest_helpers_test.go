@@ -4,6 +4,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"path/filepath"
@@ -104,6 +105,7 @@ type fakeAdapter struct {
 	started   time.Time
 	running   bool
 	failWrite error
+	scrape    string // host:port collectors fetch from (telemetry tests)
 }
 
 func newFakeAdapter(t *testing.T) *fakeAdapter {
@@ -141,6 +143,13 @@ func (a *fakeAdapter) Stop(context.Context, runtime.Placement) error { a.running
 func (a *fakeAdapter) Observe(context.Context, runtime.Placement) (runtime.ReplicaFacts, error) {
 	return runtime.ReplicaFacts{ReplicaRef: "java1", Incarnation: "container-abc", Running: a.running,
 		StartedAt: a.started, ImageDigest: "sha256:test"}, nil
+}
+
+func (a *fakeAdapter) ScrapeAddr(context.Context, runtime.Placement, int) (string, error) {
+	if a.scrape == "" {
+		return "", errors.New("fakeAdapter: no scrape address")
+	}
+	return a.scrape, nil
 }
 
 func startAgentWith(t *testing.T, gw *fakegw.Server, dir string, ad runtime.Adapter) *agentHandle {

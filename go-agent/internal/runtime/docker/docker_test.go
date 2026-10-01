@@ -11,7 +11,10 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/network"
+	"github.com/docker/go-connections/nat"
 	"github.com/solace/solution-manager/go-agent/internal/msg"
+	"github.com/solace/solution-manager/go-agent/internal/runtime"
 	"github.com/solace/solution-manager/go-agent/internal/runtime/configwriter"
 )
 
@@ -233,3 +236,31 @@ func TestWriteConfigDelegatesToWriter(t *testing.T) {
 }
 
 func sha(s string) string { return configwriter.SHA256([]byte(s)) }
+
+func TestScrapeAddrPrefersThePublishedPortThenTheContainerIP(t *testing.T) {
+	withNet := func(ports nat.PortMap, nets map[string]*network.EndpointSettings) types.ContainerJSON {
+		return types.ContainerJSON{ContainerJSONBase: &types.ContainerJSONBase{ID: "c1", Name: "/java1"},
+			NetworkSettings: &types.NetworkSettings{NetworkSettingsBase: types.NetworkSettingsBase{Ports: ports}, Networks: nets}}
+	}
+	for _, tc := range []struct {
+		name string
+		insp types.ContainerJSON
+		want string
+	}{
+		{"published on all interfaces", withNet(nat.PortMap{"8081/tcp": {{HostIP: "0.0.0.0", HostPort: "18081"}}}, nil), "127.0.0.1:18081"},
+		{"published on one interface", withNet(nat.PortMap{"8081/tcp": {{HostIP: "192.168.1.5", HostPort: "18081"}}}, nil), "192.168.1.5:18081"},
+		{"unpublished: the container IP", withNet(nil, map[string]*network.EndpointSettings{"b": {IPAddress: "172.18.0.9"}, "a": {IPAddress: "172.18.0.4"}}), "172.18.0.4:8081"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			a := New(&fakeEngine{inspect: map[string]types.ContainerJSON{"c1": tc.insp}})
+			got, err := a.ScrapeAddr(context.Background(), runtime.Placement{ContainerID: "c1", Name: "java1"}, 8081)
+			if err != nil || got != tc.want {
+				t.Fatalf("got %q %v, want %q", got, err, tc.want)
+			}
+		})
+	}
+	a := New(&fakeEngine{inspect: map[string]types.ContainerJSON{"c1": withNet(nil, nil)}})
+	if _, err := a.ScrapeAddr(context.Background(), runtime.Placement{ContainerID: "c1", Name: "java1"}, 8081); !errors.Is(err, ErrPortUnreachable) {
+		t.Fatalf("want ErrPortUnreachable, got %v", err)
+	}
+}
