@@ -25,7 +25,7 @@ type Head struct {
 // Env carries every impurity into Reduce.
 type Env struct {
 	Now    time.Time
-	Heads  []Head // oldest produced_at first
+	Heads  []Head // each is a stream's oldest unsent batch, oldest produced_at first; a stream with a batch in flight in the buffer is not listed
 	Jitter func(time.Duration) time.Duration
 }
 
@@ -156,6 +156,9 @@ func (s *State) requeueAll() []Effect {
 	return effs
 }
 
+// Reduce applies an event to a state and returns the new state and effects.
+// Reject relies on Env.Heads omitting every stream with a batch in flight in the buffer,
+// which ensures a terminal reject does not re-send the dropped batch.
 func Reduce(in State, ev Event, env Env) (State, []Effect) {
 	s := in.clone()
 	var effs []Effect
@@ -230,6 +233,7 @@ func Reduce(in State, ev Event, env Env) (State, []Effect) {
 		if _, ok := s.InFlight[e.Stream]; ok {
 			delete(s.InFlight, e.Stream)
 			s.Credits++
+			s.RetryAt[e.Stream] = env.Now.Add(retryDefault)
 		}
 	case Wake:
 	}

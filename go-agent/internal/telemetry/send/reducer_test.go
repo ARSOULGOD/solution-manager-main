@@ -210,6 +210,15 @@ func TestMoreStreamsThanCreditsNeverStarves(t *testing.T) {
 	}
 }
 
+func TestUnsendableGatesTheStreamWithRetryDefault(t *testing.T) {
+	s := up(0)
+	s.InFlight["a"] = 1
+	s, effs := Reduce(s, Unsendable{Stream: "a"}, env(t0, head("a", 1, 0)))
+	if !reflect.DeepEqual(effs, []Effect{ArmRetry{At: t0.Add(retryDefault)}}) || s.Credits != 1 {
+		t.Fatalf("effects %+v credits %d", effs, s.Credits)
+	}
+}
+
 func TestReduceDoesNotMutateItsInput(t *testing.T) {
 	s := up(1)
 	s.InFlight["a"] = 1
