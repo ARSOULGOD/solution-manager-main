@@ -87,7 +87,7 @@ Open two terminals, both in `go-agent/`.
   --enroll-token demo-token --ca-out bin/ca.pem
 ```
 
-It prints `type: preflight | apply <file> | restart | stop` and `fake gateway listening`. No `--scenario` is needed:
+It prints `type: preflight | apply <file> | restart | stop | pause | resume | disconnect` and `fake gateway listening`. No `--scenario` is needed:
 the built-in one grants a one-hour lease for `binding-1` with both capabilities, and sends nothing on its own.
 
 ### 2. Terminal 2 — start the agent from an empty data dir
@@ -170,6 +170,96 @@ Rows marked *observed* were reproduced on 2026-10-01; the others are read from t
 | `<op>-<n> gen=<n>: no ack within 5m0s`. | The agent went away while the command was in flight. | Check terminal 2; restart the agent (no `rm -rf`) and type the command again. |
 | The gateway exits with `bind: address already in use`. | An earlier `fake-gateway` or `sm-agent` is still running. | `pkill -f bin/fake-gateway; pkill -f bin/sm-agent`, then start again from step 1. |
 | `"msg":"send failed","err":"EOF"` when you `Ctrl-C` the agent. *Observed, every run.* | The stream closes under it. | Nothing — expected. |
+
+## Telemetry
+
+The agent can also scrape a binding's container and send the numbers to the gateway (`AG-D22`, interim). This
+section runs that against the same fake gateway, with a stand-in container that serves a fixed `stats.json`.
+
+**Status: executed on 2026-10-02**, all four demonstrations below, but not with the commands exactly as written
+here. A session was already using the defaults (gateway `127.0.0.1:8443`, admin `127.0.0.1:9464`, `bin/`, binding
+`binding-1`), so the run used a scratch directory, gateway `127.0.0.1:18443`, admin `127.0.0.1:19464`, a throwaway
+container `sm-telemetry-demo` published on `127.0.0.1:18080`, and the binding `tele-demo-1`
+(a copy of `examples/telemetry.yaml` with the binding renamed, and a one-line `--scenario` of
+`lease: {binding_ids: [tele-demo-1]}`). The steps below keep the standard names, because that is what you run; the
+lines in the output table carry the binding id as recorded (`tele-demo-1`), so read it as `binding-1`.
+
+### 1. The stand-in container
+
+Check nothing else carries the label, then start it. Docker Desktop shares only `$HOME`.
+
+```bash
+docker ps -a --filter label=com.solace.sm.binding-id=binding-1     # must print only your own container
+mkdir -p ~/sm-telemetry-demo
+docker run -d --name sm-telemetry-demo --label com.solace.sm.binding-id=binding-1 \
+  -e SPRING_CONFIG_ADDITIONAL_LOCATION=file:/etc/app/ -v ~/sm-telemetry-demo:/etc/app \
+  -p 127.0.0.1:18080:8080 busybox:1.36 \
+  sh -c 'mkdir -p /www && echo "{\"hitRate\":0.93,\"missCount\":12}" > /www/stats.json && httpd -f -p 8080 -h /www'
+```
+
+The port must be **published** (`-p`): the agent reaches the container through the host port Docker assigned.
+
+### 2. The declarations file
+
+[`examples/telemetry.yaml`](examples/telemetry.yaml) declares two metrics for `binding-1`, scraped every 5 s from
+`/stats.json` on container port 8080: `cache.hit_rate` (gauge, `/hitRate`) and `cache.miss_count` (counter,
+`/missCount`). A metric whose pointer is absent produces no sample, never a zero.
+
+### 3. Start the gateway and the agent
+
+Terminal 1 is step 1 above, unchanged. Terminal 2 is step 2 with two flags added:
+
+```bash
+rm -rf bin/agent-data
+./bin/sm-agent --data-dir bin/agent-data \
+  --connect-endpoint 127.0.0.1:8443 \
+  --enrollment-token demo-token \
+  --trust-bundle bin/ca.pem \
+  --roles control,telemetry --telemetry-config examples/telemetry.yaml
+```
+
+**The first line appears about one report interval after the agent connects** (one minute with the built-in
+scenario). The agent observes nothing at `SessionAccept`; the first actual-state report, which mints the ids every
+sample carries, goes out one interval later. Expect no `telemetry …` line until then. In the recorded run the
+session opened at 08:38:02 and the lines arrived at about 08:39:03, all twelve batches collected meanwhile (seq 1–12) at once, then one
+every 5 s.
+
+On start the agent may log `telemetry: declared binding is not in the lease; not collecting` once, before the
+session opens. It is not an error if lines follow (they did).
+
+### 4. What terminal 1 prints
+
+| When | Terminal 1 (recorded) |
+|---|---|
+| Steady state | `telemetry tele-demo-1 seq=12 cache.hit_rate=0.93 cache.miss_count=12 -> acked` |
+| After `docker exec sm-telemetry-demo sh -c 'echo "{\"hitRate\":0.5,\"missCount\":13}" > /www/stats.json'` | `telemetry tele-demo-1 seq=13 cache.hit_rate=0.5 cache.miss_count=13 -> acked` (first line with the new values, within one 5 s interval) |
+| `pause` | `telemetry paused: acks grant no credits`, then four more lines (`seq=16`…`seq=19`, the four credits the agent held), then silence |
+| `resume` | `telemetry resumed: 4 credits granted`, then the buffered batches in order: `seq=20`, `seq=21`, `seq=22` … `seq=29`, then live lines |
+| `disconnect` | `session closed; the agent will reconnect`, then `fakegw: agent connected`, then `seq=30`, `seq=31` … with no `duplicate` line |
+
+While paused, watch the agent's gauges (terminal 3):
+
+```bash
+curl -s localhost:9464/metrics | grep sm_agent_telemetry_
+```
+
+- `sm_agent_telemetry_credits` falls to `0`.
+- `sm_agent_telemetry_buffer_batches` rises, one per 5 s (recorded: 4, then 9 after about a minute), and
+  `sm_agent_telemetry_buffer_bytes` with it. After `resume` they return to `0` and credits to `4`.
+- `sm_agent_telemetry_dropped_batches_total{reason}` stays at `0` unless the byte cap or the age cap drops a batch.
+- `sm_agent_telemetry_scrape_errors_total{reason}` counts failed scrapes.
+
+### 5. Clean up
+
+`Ctrl-C` both processes, then `docker rm -f sm-telemetry-demo` and `rm -rf ~/sm-telemetry-demo`.
+
+### Telemetry: if it goes wrong
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Agent log: `port 8080 is neither published nor reachable` | The container does not publish the port. | Recreate it with `-p 127.0.0.1:<host>:8080`. |
+| No `telemetry …` lines at all | Still inside the first report interval, or every scrape fails. | Wait one minute; then `curl -s localhost:9464/metrics \| grep scrape_errors_total` and read the `reason` label. |
+| Agent log: `declared binding is not in the lease; not collecting`, and it stays | `examples/telemetry.yaml` names a binding the gateway's lease does not grant. | Rename the binding to one in the lease, or give the gateway a `--scenario` whose `lease: {binding_ids: [...]}` lists it. |
 
 ## Rollback
 

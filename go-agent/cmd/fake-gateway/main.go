@@ -29,7 +29,7 @@ func main() {
 			os.Exit(2)
 		}
 	}
-	s, err := fakegw.Start(fakegw.Config{Listen: *listen, Tokens: strings.Split(*tokens, ","), Scenario: sc, Log: log})
+	s, err := fakegw.Start(fakegw.Config{Listen: *listen, Tokens: strings.Split(*tokens, ","), Scenario: sc, Log: log, Out: os.Stdout})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
