@@ -87,18 +87,19 @@ func (c *Collector) Tick(ctx context.Context) {
 		return
 	}
 	now := c.Now().UTC()
-	docs := map[endpoint]any{} // a failed endpoint is cached as nil: one attempt per tick
+	docs := map[endpoint]fetched{} // a failed endpoint is cached too: one attempt per tick
 	var samples []buffer.Sample
 	for _, m := range c.Decl.Metrics {
 		ep := endpoint{port: m.Source.Port, path: m.Source.Path}
-		doc, fetched := docs[ep]
-		if !fetched {
-			doc = c.fetch(ctx, p, ep)
-			docs[ep] = doc
+		r, seen := docs[ep]
+		if !seen {
+			r.doc, r.ok = c.fetch(ctx, p, ep)
+			docs[ep] = r
 		}
-		if doc == nil {
+		if !r.ok {
 			continue
 		}
+		doc := r.doc
 		v, err := jsonptr.Resolve(doc, *m.Source.Pointer)
 		f, isNumber := jsonptr.Number(v)
 		if err != nil || !isNumber {
@@ -118,48 +119,60 @@ func (c *Collector) Tick(ctx context.Context) {
 	}
 }
 
-// fetch returns the decoded document, or nil after counting the failure. The
-// body is never logged (I6).
-func (c *Collector) fetch(ctx context.Context, p runtime.Placement, ep endpoint) any {
+type fetched struct {
+	doc any
+	ok  bool // the fetch succeeded; doc may still be nil (a JSON null body)
+}
+
+// defaultClient never uses a proxy (a container-IP scrape must not leave the
+// host through HTTP_PROXY) and never follows a redirect: a 3xx is a status error.
+var defaultClient = &http.Client{
+	Transport:     &http.Transport{Proxy: nil},
+	CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+}
+
+// fetch returns the decoded document and whether the fetch succeeded; a failure
+// is counted here. The body is never logged (I6).
+func (c *Collector) fetch(ctx context.Context, p runtime.Placement, ep endpoint) (any, bool) {
 	addr, err := c.Adapter.ScrapeAddr(ctx, p, ep.port)
 	if err != nil {
 		c.fail("addr", err)
-		return nil
+		return nil, false
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+addr+ep.path, nil)
 	if err != nil {
 		c.fail("http", err)
-		return nil
+		return nil, false
 	}
 	client := c.Client
 	if client == nil {
-		client = http.DefaultClient
+		client = defaultClient
 	}
 	resp, err := client.Do(req)
 	if err != nil {
 		c.fail("http", err)
-		return nil
+		return nil, false
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		c.fail("status", fmt.Errorf("GET %s: %s", ep.path, resp.Status))
-		return nil
+		return nil, false
 	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, MaxBody+1))
 	if err != nil {
 		c.fail("http", err)
-		return nil
+		return nil, false
 	}
 	if len(body) > MaxBody {
 		c.fail("decode", fmt.Errorf("GET %s: body over %d bytes", ep.path, MaxBody))
-		return nil
+		return nil, false
 	}
 	var doc any
 	if err := decodeNumbers(body, &doc); err != nil {
 		c.fail("decode", fmt.Errorf("GET %s: %w", ep.path, err))
-		return nil
+		return nil, false
 	}
-	return doc
+	return doc, true
 }
 
 func decodeNumbers(body []byte, v *any) error {

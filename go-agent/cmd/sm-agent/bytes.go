@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -22,6 +23,9 @@ func parseBytes(s string) (int64, error) {
 	n, err := strconv.ParseInt(s, 10, 64)
 	if err != nil || n <= 0 {
 		return 0, fmt.Errorf("bad byte size %q (want e.g. 64MiB)", s)
+	}
+	if n > math.MaxInt64/mult {
+		return 0, fmt.Errorf("byte size %q overflows", s)
 	}
 	return n * mult, nil
 }

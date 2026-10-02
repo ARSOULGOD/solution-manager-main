@@ -413,7 +413,15 @@ func (b *Buffer) Trim(id string, hwm uint64) {
 	}
 	s := b.stream(id)
 	s.state.AckedSeq = max(s.state.AckedSeq, hwm)
-	s.state.Gaps = slices.DeleteFunc(s.state.Gaps, func(g Gap) bool { return g.To < hwm })
+	// A gap at or below the watermark was delivered (or its seq was committed
+	// by the DP): drop it. One that straddles the watermark keeps only the
+	// part above it.
+	s.state.Gaps = slices.DeleteFunc(s.state.Gaps, func(g Gap) bool { return g.To <= hwm })
+	for i := range s.state.Gaps {
+		if g := &s.state.Gaps[i]; g.From <= hwm {
+			g.From = hwm + 1
+		}
+	}
 	// If the state write failed, keep the files: after a restart they sit above
 	// the stale acked_seq, reload, and keep next above them.
 	stateSaved := b.saveState(s) == nil

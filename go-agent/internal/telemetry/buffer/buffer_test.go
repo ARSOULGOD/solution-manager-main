@@ -331,3 +331,22 @@ func TestUnsafeStreamIdsAreRefused(t *testing.T) {
 		t.Fatalf("Trim created a stream for an invalid id: %v", b.Resume())
 	}
 }
+
+func TestTrimClearsAGapAtTheWatermarkAndClampsOneStraddlingIt(t *testing.T) {
+	b := open(t, t.TempDir(), Options{})
+	b.mu.Lock()
+	s := b.stream("a")
+	s.state.Gaps = []Gap{{From: 1, To: 1, Reason: ReasonOversize}}
+	b.mu.Unlock()
+	b.Trim("a", 1)
+	if g := b.GapsBefore("a", 99); len(g) != 0 {
+		t.Fatalf("a gap at the watermark is false: %+v", g)
+	}
+	b.mu.Lock()
+	s.state.Gaps = []Gap{{From: 2, To: 4, Reason: ReasonOversize}}
+	b.mu.Unlock()
+	b.Trim("a", 3)
+	if g := b.GapsBefore("a", 99); len(g) != 1 || g[0].From != 4 || g[0].To != 4 {
+		t.Fatalf("straddling gap must clamp to {4,4}: %+v", g)
+	}
+}

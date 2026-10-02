@@ -56,6 +56,10 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(2)
 		}
+		if *bufAge <= 0 {
+			fmt.Fprintln(os.Stderr, "--telemetry-buffer-age must be positive with the telemetry role")
+			os.Exit(2)
+		}
 		tc = &agent.TelemetryConfig{Declarations: decl, BufferBytes: n, BufferAge: *bufAge}
 	}
 	log := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: lvl}))

@@ -264,7 +264,14 @@ func (s *State) selectSends(env Env) []Effect {
 			effs = append(effs, DropAsGap{Stream: h.Stream, Seq: h.Seq, Reason: buffer.ReasonOversize})
 			continue
 		case !h.IDsKnown:
-			if env.Now.Sub(s.UpSince) > s.unregisteredAfter() {
+			// The wait runs from the later of stream open and the batch's own
+			// production time, so a batch collected long after the stream opened
+			// still gets its full two report intervals for the next report.
+			since := s.UpSince
+			if h.ProducedAt.After(since) {
+				since = h.ProducedAt
+			}
+			if env.Now.Sub(since) > s.unregisteredAfter() {
 				effs = append(effs, DropAsGap{Stream: h.Stream, Seq: h.Seq, Reason: buffer.ReasonUnregistered})
 			}
 			continue

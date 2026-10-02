@@ -8,7 +8,7 @@ func TestParseBytes(t *testing.T) {
 			t.Errorf("%q → %d %v, want %d", in, got, err, want)
 		}
 	}
-	for _, bad := range []string{"", "0", "-1", "64MB", "MiB"} {
+	for _, bad := range []string{"", "0", "-1", "64MB", "MiB", "8589934592GiB", "9223372036854775807KiB"} {
 		if _, err := parseBytes(bad); err == nil {
 			t.Errorf("%q must be refused", bad)
 		}

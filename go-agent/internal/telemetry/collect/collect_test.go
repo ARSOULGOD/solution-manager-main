@@ -225,3 +225,33 @@ func TestSlowEndpointNeverOverlaps(t *testing.T) {
 		t.Fatalf("peak in-flight scrapes %d, want 1", p)
 	}
 }
+
+func TestARedirectIsAStatusErrorAndIsNeverFollowed(t *testing.T) {
+	var second atomic.Int32
+	other := serve(t, func(http.ResponseWriter, *http.Request) { second.Add(1) })
+	addr := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "http://"+other+"/x", http.StatusFound)
+	})
+	out, m := &sink{}, tmetrics.New()
+	collector(addr, out, m, decl(time.Second, metric("cache.hit_rate", "gauge", "/hitRate"))).Tick(context.Background())
+	if len(out.all()) != 0 || second.Load() != 0 {
+		t.Fatalf("batches %+v, redirect target hit %d times", out.all(), second.Load())
+	}
+	if v := testutil.ToFloat64(m.ScrapeErrors.WithLabelValues("binding-1", "status")); v != 1 {
+		t.Fatalf("status errors = %v", v)
+	}
+}
+
+func TestANullBodyCountsEachMetricUnavailable(t *testing.T) {
+	addr := serve(t, func(w http.ResponseWriter, _ *http.Request) { _, _ = io.WriteString(w, `null`) })
+	out, m := &sink{}, tmetrics.New()
+	collector(addr, out, m, decl(time.Second, metric("cache.hit_rate", "gauge", "/hitRate"), metric("cache.miss_count", "counter", "/missCount"))).Tick(context.Background())
+	if len(out.all()) != 0 {
+		t.Fatalf("batches %+v", out.all())
+	}
+	for _, name := range []string{"cache.hit_rate", "cache.miss_count"} {
+		if v := testutil.ToFloat64(m.Unavailable.WithLabelValues("binding-1", name)); v != 1 {
+			t.Errorf("unavailable{%s} = %v", name, v)
+		}
+	}
+}

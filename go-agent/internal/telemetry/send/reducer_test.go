@@ -227,3 +227,15 @@ func TestReduceDoesNotMutateItsInput(t *testing.T) {
 		t.Fatalf("input mutated: %+v", s)
 	}
 }
+
+func TestAnUnresolvedBatchWaitsTwoReportIntervalsFromWhenItWasProduced(t *testing.T) {
+	h := head("a", 1, 600) // produced 10 minutes into a long-open stream
+	h.IDsKnown = false
+	s := up(4)
+	if _, effs := Reduce(s, Wake{}, env(t0.Add(601*time.Second), h)); len(effs) != 0 {
+		t.Fatalf("dropped on first sight: %+v", effs)
+	}
+	if _, effs := Reduce(s, Wake{}, env(t0.Add(721*time.Second), h)); !reflect.DeepEqual(effs, []Effect{DropAsGap{Stream: "a", Seq: 1, Reason: buffer.ReasonUnregistered}}) {
+		t.Fatalf("effects %+v", effs)
+	}
+}

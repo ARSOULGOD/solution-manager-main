@@ -41,11 +41,11 @@ const (
 )
 
 var (
-	ErrNotFound         = errors.New("docker: no container carries the binding label")
-	ErrAmbiguous        = errors.New("docker: more than one container carries the binding label")
-	ErrNoDeclaredPath   = errors.New("docker: the container declares no external config location")
-	ErrNoBindMount      = errors.New("docker: the declared config directory is not a bind mount")
-	ErrPortUnreachable  = errors.New("docker: port is neither published nor reachable on a container network")
+	ErrNotFound        = errors.New("docker: no container carries the binding label")
+	ErrAmbiguous       = errors.New("docker: more than one container carries the binding label")
+	ErrNoDeclaredPath  = errors.New("docker: the container declares no external config location")
+	ErrNoBindMount     = errors.New("docker: the declared config directory is not a bind mount")
+	ErrPortUnreachable = errors.New("docker: port is neither published nor reachable on a container network")
 )
 
 type engineAPI interface {
