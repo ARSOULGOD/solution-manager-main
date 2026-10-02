@@ -7,7 +7,15 @@ state back.
 
 **Stack:** Go 1.26 · gRPC/mTLS · Docker Engine API
 **Status:** control path (slice 1) — enroll, session, lease, heartbeat, command
-journal, actual-state reports. **No telemetry stream and no Kubernetes yet.**
+journal, actual-state reports — and the telemetry role (slice 2), built and
+reviewed on branch `feat/go-agent-telemetry`, not merged. **No Kubernetes yet.**
+
+**Telemetry.** With `--roles control,telemetry` (or `telemetry`) the agent scrapes
+the `http_json` metrics declared in a local file, buffers each batch on disk
+under a byte and an age cap, and sends them on the Telemetry stream within the
+gateway's credits. Samples carry only `binding_id`, `replica_id` and
+`incarnation_id`. The first batch waits for the first actual-state report, about
+one report interval after the session opens. See [`RUNBOOK.md`](RUNBOOK.md).
 
 ⚠️ **The wire is a DRAFT.** `proto/agentgateway/v1draft/agent_gateway.proto` is
 transcribed from the agent-gateway design §4.3/§4.11 while open item 6 / `AG-1`
@@ -78,6 +86,10 @@ cat /tmp/sm-conf/application.yml
 | `--enrollment-token` | `SM_AGENT_ENROLL_TOKEN` | single-use, never persisted |
 | `--trust-bundle` | — | PEM the DP server is verified against |
 | `--admin-addr` | — | `/healthz` + `/metrics`; default `127.0.0.1:9464` (loopback). Both are unauthenticated, so binding a non-loopback address — e.g. for a Prometheus scrape — exposes them; that is the operator's decision |
+| `--roles` | — | `control` (default), `control,telemetry` or `telemetry`; a telemetry-only agent refuses commands `CAPABILITY_MISSING` |
+| `--telemetry-config` | — | the declarations file: bindings, intervals and `http_json` metrics (`AG-D22`) |
+| `--telemetry-buffer-bytes` | — | global byte cap on the on-disk telemetry buffer; oldest batch dropped first (`AG-D24`) |
+| `--telemetry-buffer-age` | — | global age cap on buffered batches; older ones dropped as gaps (`AG-D24`) |
 | `--log-level` | — | `debug` \| `info` \| `warn` \| `error` |
 
 ## Where the design lives

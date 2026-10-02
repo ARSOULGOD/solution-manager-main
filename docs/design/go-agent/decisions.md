@@ -52,6 +52,11 @@ and library guarantee below carries its source. This project has been burned thr
 | `AG-D18` | A full `ActualStateReport` is sent at `SessionAccept.limits.report_interval` even when nothing changed — the agent's answer to `AGW-19` | PROPOSED |
 | `AG-D19` | Lifecycle-verb outcomes are decided by **observation**, not by the verb's return; a changed-but-failed state has no `AG-D5` outcome and is routed | PROPOSED |
 | `AG-D20` | On Docker a binding's container is found by the label `com.solace.sm.binding-id`, its config path read from the container's own launch args/env, and the host path mapped through a required bind mount | PROPOSED |
+| `AG-D21` | The telemetry role is a separate pipeline with its own loop; the reactor publishes a read-only view | PROPOSED |
+| `AG-D22` | Interim local declarations file, schema-shaped, until the plane delivers declarations | PROPOSED |
+| `AG-D23` | One logical stream per binding; one batch in flight per stream | PROPOSED |
+| `AG-D24` | Buffer: one file per batch; global byte and age caps; drop-oldest; in-flight spared; gap reasons `DROPPED_OLDEST`, `EXPIRED`, `OVERSIZE`, `UNREGISTERED`, `CORRUPT`, or the reject code | PROPOSED |
+| `AG-D25` | A telemetry write failure is counted, not fatal — unlike control-path `Persist` | PROPOSED |
 
 ---
 
@@ -538,11 +543,36 @@ Nothing in gateway §4.3 carries placement facts to the agent: a command names a
 
 ⚠️ **Flagged to the `AGW` owners:** this convention exists because the plane carries no placement facts. If the protocol later carries them, this decision is superseded rather than extended.
 
+## `AG-D21` — The telemetry role is a separate pipeline; the reactor publishes a read-only view
+
+Telemetry runs in its own goroutines — one collector per binding, a buffer, and a sender with its own loop and pure reducer (events in, effects out, table-testable like the control reducers). The control reactor receives **no telemetry events**. It publishes one immutable value, `View.Current()` (session phase and limits, the lease's binding set, the DP-minted ids), through an atomic pointer; `Changed()` is closed and replaced on every publish. `InLease` and `Lookup` are methods on that snapshot, so a reader never sees a session from one publish and ids from another. The agent's roles are `--roles control` (default), `control,telemetry` and `telemetry`; a telemetry-only agent advertises `report-only` and refuses commands locally with `CAPABILITY_MISSING`, through a capability check added in front of the lease-only offer gate.
+
+**Rationale.** Collector isolation is a hard requirement (a bad collector fails alone, never the process, and must not delay a `Revoke`); `AG-12`'s costs are per reactor event, so keeping telemetry off the reactor leaves that rate where slice 1 measured it; and the wire already separates the streams. **Rejected.** *Telemetry events through the reactor* — couples collector latency to the control path and multiplies `Snapshot` deep copies (`L23`).
+
+**Policy note, routed to `AG-11`.** `InLease` follows the lease grant's binding set and ignores the authority phase, so collection continues while the lease is `LEASE_EXPIRED`, `CLOCK_SUSPECT` or `RENEW_DEGRADED`. Nothing is sent unless the session is `ACTIVE`, and the DP refuses an unleased binding at ingest (`BINDING_NOT_IN_LEASE`, which the agent records as a gap). Accepted for this slice; whether telemetry should follow the lease phase belongs with `AG-11`.
+
+## `AG-D22` — Interim local declarations file, schema-shaped
+
+Until the plane delivers metric declarations (`AG-14`), the agent reads a local YAML file (`--telemetry-config`) of bindings, each with an interval and `metrics[]` entries that are valid instances of the solution-package schema's `metric` object restricted to the `http_json` source. `unit` is required although never sent, so an entry survives the move to a plane-delivered source unchanged. The file is validated at start; an invalid file refuses to start (exit 2) naming the binding and metric index, and a binding id must be a safe path component (it names a directory), so `.` and `..` are refused. **Rejected.** *Inventing a wire message for declarations* — the wire is the gateway design's to define. Response bodies from scraped endpoints are never logged or stored (`I6`): only numbers at declared pointers leave the collector.
+
+## `AG-D23` — One logical stream per binding; one batch in flight per stream
+
+`stream_id` is the binding id, and each stream has at most one batch in flight. `TelemetryReject` carries no `batch_seq`, so serializing each stream is the only way a reject names its batch (recorded as `AG-15`). Sender selection takes the oldest `produced_at` across streams that have something to send, nothing in flight, resolvable ids and are past their retry time, so more streams than credits never starves one. A batch whose ids stay unresolved for two report intervals of an open stream is dropped as a gap, so a container restarted before its new incarnation was reported does not stall its stream until the age cap. **Rejected.** *Pipelining several batches per stream* — unattributable rejects.
+
+## `AG-D24` — The disk buffer: per-batch files, global caps, drop-oldest, marked gaps
+
+This is `AG-D9` made concrete. The buffer holds one file per batch under `<data-dir>/telemetry/<binding>/`, written through `store.Save`, plus a `state.json` carrying `acked_seq` and pending gap markers. Two global caps (`--telemetry-buffer-bytes`, `--telemetry-buffer-age`) apply on every append and on a periodic sweep; the batch with the oldest `produced_at` across all streams is dropped first, and an in-flight batch is never dropped, because a gap marker must not claim a batch the DP may already have committed. Every drop appends a gap `{from_seq, to_seq, reason}` and is counted by reason. Gap reasons: `DROPPED_OLDEST`, `EXPIRED`, `OVERSIZE`, `UNREGISTERED` (ids still unknown after two report intervals of an open stream), `CORRUPT` (a batch file unreadable at load **or** at runtime), or the gateway's reject code where retrying the same bytes cannot succeed. The oversize check compares the stored batch's JSON size to `max_batch_bytes`; the telemetry packages cannot import the generated protobuf, and JSON is larger than the protobuf encoding, so the check is conservative. Stream ids reaching `Trim`/`Append` must be safe path components, which blocks path traversal from a gateway-supplied `stream_id`. On trim, `state.json` is written before the files are deleted, and a failed state write never lets a seq be reused. **Rejected.** *Segment files* — a later optimization, not a v1 need.
+
+## `AG-D25` — A telemetry write failure is counted, not fatal
+
+A `store.Save` failure in the telemetry buffer drops the batch, increments `sm_agent_telemetry_buffer_write_errors_total`, logs at `WARN` and the agent keeps running; load-time failures are reported the same way and never stop the agent starting. This deliberately differs from the control path, where a failed `Persist` is fatal: configuration change fails closed, while telemetry is best-effort with marked gaps (`B/D2`). Slice 1's `Persist` behaviour is unchanged.
+
 ---
 
 ## Changelog
 
 | Date | Change |
 |---|---|
+| 2026-10-02 | `AG-D21` to `AG-D25`, all `PROPOSED`, from plan `docs/plans/go-agent/006-telemetry-slice.md`: the separate telemetry pipeline and its read-only view, the interim declarations file, per-binding streams with one batch in flight, the disk buffer and its gap reasons, and non-fatal telemetry write failures. |
 | 2026-09-22 | `AG-D13`–`AG-D20` from `docs/superpowers/specs/2026-09-21-go-agent-control-path-design.md`: DRAFT proto, reactor architecture, clean rewrite, fake gateway, the answers to `AGW-19` and `AGW-20`, lifecycle outcomes and Docker binding resolution. |
 | 2026-08-18 | **Family created (`AG-D1`…`AG-D12`), all `PROPOSED`.** Raised by an audit finding that [`design.md`](design.md) had been written to an earlier standard than its siblings — no citations, no per-choice rationale, no flagged conflicts and **no decisions file**, though `AG-D*` is reserved for this component in [`../README.md`](../README.md). Four of the twelve correct first-draft statements rather than merely record them: `AG-D3` retracts agent-initiated restart (contradicted `SM-D15`), `AG-D4` + `AG-D5` supply `LOCKED` `B/D16`'s crash-safety guarantees the draft had replaced with the `dp-remote` degradation, `AG-D6` retracts the claim that `client-go` election guarantees a single leader, and `AG-D10` corrects an `I2`/`I5` miscitation. `AG-D2`, `AG-D7`, `AG-D8`, `AG-D11` replace named-library-without-rationale entries, each with a WebFetch-verified citation per `I2`. See [`design.md`](design.md) §14. |

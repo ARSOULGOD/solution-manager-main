@@ -5626,4 +5626,46 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ## Results
 
-*(Filled in at the end of execution: what was built, the test counts, the manual run's date and outcome, and any deviation beyond the eight above.)*
+Executed 2026-10-02 on branch `feat/go-agent-telemetry`, not merged. Tasks 1 to 16 are done; each of 1 to 15 was independently reviewed.
+
+### Built
+
+- `fake-gateway` serves the Telemetry stream with credits, a watermark, pause, resume and disconnect.
+- The agent gains `--roles`, `--telemetry-config`, `--telemetry-buffer-bytes` and `--telemetry-buffer-age`.
+- It runs an `http_json` collector per declared binding, the `AG-D9` disk buffer, the sender reducer and runner, and the view the control loop publishes.
+
+### Test counts at c7ccb92
+
+| Command | Result |
+|---|---|
+| `go test ./...` | 214 pass, 0 fail (64 in `internal/telemetry/...`) |
+| `go test -tags integration ./internal/agent/` | 75 pass, 1 skip (the pre-existing `AG-5` skip); 8 are telemetry scenarios: the plan's seven plus `TestIntegrationTelemetryAgentRestartSkipsAckedBatches` |
+| `go test -tags docker ./internal/runtime/docker/ -run ScrapeAddrReaches` | pass against Docker Desktop |
+
+### Manual run
+
+Executed 2026-10-02 against a BusyBox stand-in. All four demonstrations ran: steady acked lines; a value change after editing `stats.json`; pause buffering on disk, then resume draining in order; disconnect, then reconnect with no duplicate. It used isolated ports, paths and a binding of its own, because a live session already held the defaults (`RUNBOOK.md` says so). The first telemetry line arrived about 61 s after the session opened (see Timing).
+
+### Deviations beyond the plan's eight
+
+1. **Package layout.** `jsonptr`, `view` and `tmetrics` are subpackages of `internal/telemetry/`, where spec §2.2 put the JSON Pointer in `collect/` and the view and metrics in `telemetry/`. `agent` imports `telemetry`, `telemetry/view` and `telemetry/declare`. No behaviour change.
+2. **Buffer: a failed state write never causes seq reuse.** `Trim` writes `state.json` first; if that fails it still trims its in-memory index but keeps the batch files, which reload above the stale `acked_seq` after a restart and are trimmed again by the gateway's watermark ack. The drop path keeps delete-then-save, because deleting first frees space on a full disk; its residual window loses gap markers for never-acked batches only.
+3. **Buffer: load errors are reported, never silent, never fatal.** Only `store.ErrNotFound` means "no state"; any other `state.json` error and any delete failure during load goes to `OnWriteError`, and loading continues.
+4. **Stream ids are safe path components.** The buffer refuses empty, `.`, `..` and anything outside `[A-Za-z0-9._-]` (`Append` errors; `Trim` and `DropAsGap` ignore them; `Open` skips such directories), which blocks path traversal from the gateway's `TelemetryAck.stream_id`. `declare` refuses `.` and `..` as binding ids.
+5. **Reducer: `Unsendable` gates the stream for 1 s.** Without it a batch the runner could not read was re-selected forever inside one step.
+6. **Reducer: the `Env.Heads` contract is documented.** A stream with a batch in flight in the buffer is not listed, and a terminal `Reject` relies on that so it never re-selects the batch it just dropped.
+7. **Runner: lost wakeup fixed.** It takes `View.Changed()` and `Buf.Changed()` once and replaces each only when it fires; the plan re-took both every pass and missed a publish landing between passes.
+8. **Runner: one stream break counts as one failure.** After the first failed `Send` in a burst, later sends are skipped until the stream reopens; before, k failed sends gave a `backoff(k)` reopen delay.
+9. **Runner: `sm_agent_telemetry_batches_acked_total` counts from the in-flight entry the ack releases.** Before, it cancelled against same-pass sends and undercounted under credit pressure.
+10. **Runner: an unreadable batch file found at runtime is dropped as gap `CORRUPT`**, so `CORRUPT` covers load and runtime rather than stalling the stream until the age cap. `AG-D24` and `AG-16` say so.
+11. **`cmd/fake-gateway` passes `Out: os.Stdout`.** Task 2 added `fakegw.Config.Out` but no task wired the binary, so the end state could not print.
+12. **Integration tests use a 500 ms report interval** (`telemetryScenario()`), for the reason under Timing.
+13. **Behavioural mutation for the reducer's in-flight guard.** The guard was tested with `|| (busy && false)`, because the plan's mutation, which drops `|| busy`, does not compile (`busy` becomes unused).
+
+### Timing
+
+The agent takes no actual-state observation at `SessionAccept`, so the first `ActualStateReport` goes out one report interval after the session opens: about 60 s with `fake-gateway`'s default of 1 m. That report mints the `replica_id` and `incarnation_id` every sample must carry, so telemetry correctly waits (spec §8). `reports.go` says a full report precedes any telemetry; it does, but only after a full interval. The `UNREGISTERED` drop fires after two report intervals of an open stream, so on a fresh agent the first report lands about halfway to that deadline. Routed as the proposed open item `AG-21` (design §13.2); the owners are the `AG-D*` owners, because it changes slice 1's report cadence.
+
+### Policy note
+
+The view's `InLease` follows the lease grant's binding set and ignores the authority phase, so collection continues while the lease is `LEASE_EXPIRED`, `CLOCK_SUSPECT` or `RENEW_DEGRADED`. Nothing is sent unless the session is `ACTIVE`, and the DP refuses an unleased binding at ingest (`BINDING_NOT_IN_LEASE`, recorded as a gap). Accepted for this slice; whether telemetry follows the lease phase is routed to `AG-11`.

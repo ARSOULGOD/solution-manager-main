@@ -106,6 +106,8 @@ proto/…/v1draft/              + the four messages, transcribed (§6)
 
 The telemetry-only agent still runs the session, lease and actual-state reports, because a `TRUSTED` report is what mints the `replica_id`/`incarnation_id` its samples must carry (gateway §6.1, `AGW-D16`). Whether it needs a lease of its own stays `AG-11`.
 
+Corrected while planning (plan 006, deviation 1): the offer gate does not exist in this form. `authority.State.RefusalDetail` checks only the lease, and `fake-gateway` grants `apply-config` and `lifecycle` regardless, so the plan **extends** the gate: an operation whose capability the agent did not advertise is refused `CAPABILITY_MISSING` first.
+
 ### 2.4 Configuration (`AG-D7` — stdlib `flag`)
 
 | Flag | Default | Meaning |
@@ -204,6 +206,7 @@ Each tick runs under `recover()`. A panic is counted in `sm_agent_telemetry_coll
 - **Both caps are global.** On every append, and on a 60 s sweep, the buffer:
   - drops batches older than `--telemetry-buffer-age`, reason `EXPIRED`;
   - while the total exceeds `--telemetry-buffer-bytes`, drops the batch with the oldest `produced_at` across all streams, reason `DROPPED_OLDEST`.
+- **Gap reasons.** Corrected while planning (plan 006, deviation 2): two reasons are added to `DROPPED_OLDEST`, `EXPIRED` and `OVERSIZE`. `UNREGISTERED` is a batch whose ids are still unknown after two report intervals of an open stream, dropped so a stream does not stall until the age cap. `CORRUPT` is an unreadable batch file; corrected during execution (plan 006 Results, item 10), it covers a file unreadable at load **or** at runtime, which is dropped as a gap rather than stalling its stream.
 - **An in-flight batch is never dropped.** Its fate is the gateway's, and a gap marker must not claim a batch the DP may already have committed. There is at most one per stream (§5.2).
 - **A drop:**
   - deletes the file;
@@ -220,6 +223,8 @@ On `TelemetryAck{stream_id, high_watermark_seq}`:
 2. Delete the batch files with seq ≤ hwm.
 
 A crash between the two leaves files at or below `acked_seq`; load deletes them.
+
+Corrected during execution (plan 006 Results, item 2): if the `state.json` write fails, `Trim` still trims its in-memory index but keeps the batch files on disk, so a failed state write never causes seq reuse; they reload above the stale `acked_seq` after a restart and the gateway's watermark ack trims them again. The drop path keeps delete-then-save, because deleting first is what frees space on a full disk. Corrected during execution (plan 006 Results, item 3): at load only `store.ErrNotFound` means "no state"; any other `state.json` error, and any delete failure during load, is counted by `sm_agent_telemetry_buffer_write_errors_total` and loading continues, so it is never silent and never fatal. Corrected during execution (plan 006 Results, item 4): stream ids must be safe path components (`[A-Za-z0-9._-]`, not empty, `.` or `..`); `Append` errors on others, `Trim` and `DropAsGap` ignore them, and `Open` skips such directories, which blocks path traversal through the gateway's `TelemetryAck.stream_id`.
 
 ### 4.4 Gauges
 
@@ -246,6 +251,8 @@ type View interface {
 }
 ```
 
+Corrected while planning (plan 006, deviation 3): the view is one immutable value. `View.Current()` returns a `Snapshot`, with `InLease` and `Lookup` as methods on it, and `Changed()` stays on the view. This is the four methods above expressed as a single value, so a reader never sees a session from one publish and ids from another.
+
 The loop publishes an immutable value through an `atomic.Pointer` after any event that changes the session phase, the lease's binding set or the reports registry. Readers never call `Snapshot()`, so telemetry adds no deep copies (`L23`).
 
 `SessionOpen.resume.last_telemetry_seq_by_stream` — sent empty in slice 1 — is filled from the buffer's `acked_seq` per stream, through a function given to the loop at build time. It is a hint; the DP's watermark wins (gateway §4.13).
@@ -265,18 +272,18 @@ The loop publishes an immutable value through an `atomic.Pointer` after any even
 - its ids resolve through `View.IDs`;
 - it is past `retryAt`.
 
-Each send takes one credit. **One batch in flight per stream (`AG-D23`)**, because `TelemetryReject` carries no `batch_seq` (gateway §4.3), so this is the only way a reject names its batch. That limitation is recorded as `AG-15`.
+Each send takes one credit; a reject restores it except `OUT_OF_CREDITS`, and a stream break restores one per in-flight batch (corrected while planning, plan 006, deviations 5 and 6; assumption recorded under `AG-17`). **One batch in flight per stream (`AG-D23`)**, because `TelemetryReject` carries no `batch_seq` (gateway §4.3), so this is the only way a reject names its batch. That limitation is recorded as `AG-15`.
 
 | On | Then |
 |---|---|
 | `SessionUp` | `OpenStream`; credits = `limits.initial_credits`; `maxBatchBytes` = `limits.max_batch_bytes` |
 | `Ack{stream, hwm, n}` | `Trim`; clear the in-flight entry if ≤ hwm; credits += n |
 | `Credit{n}` | credits += n |
-| `Reject` `INTERNAL_UNAVAILABLE` | the batch goes back to unsent; `retryAt` = now + `retry_after` |
+| `Reject` `INTERNAL_UNAVAILABLE` | the batch goes back to unsent, its credit restored (corrected while planning, plan 006, deviation 5: a rejected batch's credit is restored, except for `OUT_OF_CREDITS`); `retryAt` = now + `retry_after` |
 | `Reject` `PAYLOAD_TOO_LARGE`, `UNKNOWN_REPLICA`, `INCARNATION_RETIRED`, `UNDECLARED_LABEL`, `LABEL_INVALID`, `BINDING_NOT_IN_LEASE`, `TENANT_MISMATCH` | `DropAsGap` with the code as the reason — retrying the same bytes cannot succeed |
 | `Reject` `OUT_OF_CREDITS` | credits = 0; the batch goes back to unsent; wait for `TelemetryCredit` (an agent/gateway disagreement, counted) |
-| A batch encoding > `maxBatchBytes` | `DropAsGap` with reason `OVERSIZE`, before sending |
-| `StreamBroken` while the session is `ACTIVE` | in-flight batches go back to unsent; credits = 0; `OpenStream` after full-jitter backoff (1 s base, 30 s cap, the existing `fullJitter`) |
+| A batch whose stored JSON size > `maxBatchBytes` | `DropAsGap` with reason `OVERSIZE`, before sending. Corrected while planning (plan 006, deviation 7): the telemetry packages cannot import `pb`, so the stored JSON size is compared; it is larger than the protobuf encoding, so the check is conservative |
+| `StreamBroken` while the session is `ACTIVE` | in-flight batches go back to unsent; credits restored by one per in-flight batch (corrected while planning, plan 006, deviation 6: each held a credit its ack would have returned) rather than reset to 0; `OpenStream` after full-jitter backoff (1 s base, 30 s cap, the existing `fullJitter`) |
 | `SessionDown` | as `StreamBroken`, but nothing reopens until `SessionUp` |
 
 Labels are written at send time: `binding_id`, `replica_id` and `incarnation_id` — **exactly these three** (gateway §6.1). `series_key` is the metric name.
@@ -415,8 +422,8 @@ New rows for [`../../design/go-agent/design.md`](../../design/go-agent/design.md
 |---|---|
 | `AG-14` | **Who delivers metric declarations to the agent?** Nothing on the wire or in the lease carries them. `AG-D22`'s file is interim |
 | `AG-15` | **`TelemetryReject` carries no `batch_seq`.** `AG-D23` serializes each stream to compensate; a `batch_seq` field would allow pipelining |
-| `AG-16` | **The gap `reason` vocabulary is undefined** in §4.3. Proposed: `DROPPED_OLDEST`, `EXPIRED`, `OVERSIZE`, plus §4.11 reject codes |
-| `AG-17` | **Credits: per session or per stream?** §4.10 grants `initial_credits` on the session while `TelemetryAck`/`TelemetryCredit` name a stream. This slice treats them as one session pool |
+| `AG-16` | **The gap `reason` vocabulary is undefined** in §4.3. Proposed: `DROPPED_OLDEST`, `EXPIRED`, `OVERSIZE`, `UNREGISTERED`, `CORRUPT`, plus §4.11 reject codes. Corrected while planning (plan 006, deviation 2): the last two were added; `CORRUPT` covers a batch file unreadable at load or at runtime |
+| `AG-17` | **Credits: per session or per stream?** §4.10 grants `initial_credits` on the session while `TelemetryAck`/`TelemetryCredit` name a stream. This slice treats them as one session pool, and assumes a stream break restores one credit per in-flight batch (plan 006, deviation 5) |
 | `AG-18` | **A failed scrape is not marked on the wire.** Gap markers are seq ranges of dropped batches; a tick that produced no batch has no seq. The DP sees staleness, not a marked gap |
 | `AG-19` | **A gap marker does not name its series**, so the DP cannot write `metrics_gap{series_id}` (§6.3) without inferring the series. Per-binding streams narrow it to one binding's series; a gap on a stream that never sends again stays pending |
 | `AG-20` | `when:` predicates and `histogram` via `http_json` are unsupported in this slice (§1.2) |

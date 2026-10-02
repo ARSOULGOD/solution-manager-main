@@ -30,6 +30,14 @@ from its final whole-branch review.
 | Implementation plan | [`../docs/plans/go-agent/005-control-path.md`](../docs/plans/go-agent/005-control-path.md) — 24 TDD tasks, phases P1–P5 |
 | Agent decisions | [`../docs/design/go-agent/decisions.md`](../docs/design/go-agent/decisions.md) — `AG-D1`–`AG-D12` baseline, `AG-D13`–`AG-D20` from the plan |
 
+**Slice 2 (the telemetry role) is specified, planned, built and reviewed on branch `feat/go-agent-telemetry`, not merged.**
+
+| Artifact | Where |
+|---|---|
+| Design | [`../docs/superpowers/specs/2026-10-01-go-agent-telemetry-slice-design.md`](../docs/superpowers/specs/2026-10-01-go-agent-telemetry-slice-design.md) |
+| Implementation plan | [`../docs/plans/go-agent/006-telemetry-slice.md`](../docs/plans/go-agent/006-telemetry-slice.md) — its Results section records what was built and every deviation |
+| Agent decisions | `AG-D21`–`AG-D25` in [`../docs/design/go-agent/decisions.md`](../docs/design/go-agent/decisions.md), all PROPOSED; open items `AG-14`–`AG-21` in design §13.2 |
+
 The plan is now the historical record of what was built, not forward guidance — read it to
 understand why the code is shaped the way it is, not as a task list to execute.
 
@@ -75,6 +83,8 @@ make build              # bin/sm-agent, bin/fake-gateway
 make test               # go vet + unit tests
 make test-integration   # scenarios against an in-process fake gateway
 make test-docker        # Docker adapter against a real container (needs a socket)
+
+bin/sm-agent --roles control,telemetry --telemetry-config telemetry.yaml ...   # roles: control (default) | control,telemetry | telemetry
 ```
 
 **On Docker Desktop:** export `DOCKER_HOST=unix://$HOME/.docker/desktop/docker.sock`. Bind-mount only directories
@@ -105,6 +115,7 @@ internal/identity/     key, CSR (persisted before first Enroll), cert chain, tru
 internal/runtime/      Adapter seam; docker/ implementation; configwriter (atomic, 0600, symlink refusal, in-memory rollback)
 internal/store/        durable records; one write primitive with parent-dir fsync
 internal/clock/        DP clock offset → CLOCK_SUSPECT input
+internal/telemetry/    pipeline wiring (AG-D21); view/ declare/ jsonptr/ collect/ buffer/ send/ tmetrics/
 internal/fakegw/       fake gateway server, shared by the binary and integration tests
 oldGo-Agent/           the archived scaffold — reference only, not built, not maintained
 ```
@@ -135,7 +146,7 @@ Each one was a real defect, and each has a test that fails without its fix.
   - `EnrollRequest` logs `token_present` and prints `token=[REDACTED]`.
   - A test that claims to prove a redaction must fail when the redaction is removed (`L24`).
 
-**Slice 1 does not build:** the `Telemetry` stream, credits and the disk buffer (`AG-D9`, slice 2);
+**Slice 1 did not build (slice 2 now does, on `feat/go-agent-telemetry`):** the `Telemetry` stream, credits and the disk buffer (`AG-D9`, slice 2);
 Kubernetes leader election (`AG-D6`) and the ConfigMap writer (`SM-D25`, slice 3); the `solace_event`
 collector (open item 35 / `AGW-3` — the vendor Go API is cgo and `AG-D1` requires a cgo-free binary);
 the report-only credential (`AGW-12`, undesigned plane-side).
