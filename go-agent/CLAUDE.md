@@ -141,6 +141,11 @@ Each one was a real defect, and each has a test that fails without its fix.
   (`L23` in [`../docs/design/common/lessons.md`](../docs/design/common/lessons.md)). A new field of that kind in any
   reducer's `State` needs a matching line there.
 - **`Loop.Run` releases every goroutine it starts, on every exit path.**
+- **An in-flight batch is never dropped** (`TestAnInFlightBatchIsNeverDropped`).
+- **A failed state write never deletes batch files**, so seqs are not reused (`TestTrimWithAFailedStateWriteKeepsFilesSoSeqsAreNotReused`).
+- **Stream ids are safe path components** (`TestUnsafeStreamIdsAreRefused`).
+- **One stream break counts as one failure** (`TestOneStreamBreakIsOneFailure`).
+- **An unresolved batch waits two report intervals from when it was produced**, not from stream open (`TestAnUnresolvedBatchWaitsTwoReportIntervalsFromWhenItWasProduced`).
 - **Secrets stay out of logs.**
   - `CommandOffer` logs `payload_len`, never the payload.
   - `EnrollRequest` logs `token_present` and prints `token=[REDACTED]`.

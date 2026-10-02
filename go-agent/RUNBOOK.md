@@ -232,7 +232,7 @@ session opens. It is not an error if lines follow (they did).
 | When | Terminal 1 (recorded) |
 |---|---|
 | Steady state | `telemetry tele-demo-1 seq=12 cache.hit_rate=0.93 cache.miss_count=12 -> acked` |
-| After `docker exec sm-telemetry-demo sh -c 'echo "{\"hitRate\":0.5,\"missCount\":13}" > /www/stats.json'` | `telemetry tele-demo-1 seq=13 cache.hit_rate=0.5 cache.miss_count=13 -> acked` (first line with the new values, within one 5 s interval) |
+| After `docker exec sm-telemetry-demo sh -c 'echo "{\"hitRate\":0.5,\"missCount\":13}" > /www/stats.json'` | `telemetry tele-demo-1 seq=13 cache.hit_rate=0.5 cache.miss_count=13 -> acked` (first line with the new values) |
 | `pause` | `telemetry paused: acks grant no credits`, then four more lines (`seq=16`…`seq=19`, the four credits the agent held), then silence |
 | `resume` | `telemetry resumed: 4 credits granted`, then the buffered batches in order: `seq=20`, `seq=21`, `seq=22` … `seq=29`, then live lines |
 | `disconnect` | `session closed; the agent will reconnect`, then `fakegw: agent connected`, then `seq=30`, `seq=31` … with no `duplicate` line |
@@ -244,9 +244,9 @@ curl -s localhost:9464/metrics | grep sm_agent_telemetry_
 ```
 
 - `sm_agent_telemetry_credits` falls to `0`.
-- `sm_agent_telemetry_buffer_batches` rises, one per 5 s (recorded: 4, then 9 after about a minute), and
+- `sm_agent_telemetry_buffer_batches` rises, one per 5 s (recorded: 4 at about 45 s, 9 at about 100 s), and
   `sm_agent_telemetry_buffer_bytes` with it. After `resume` they return to `0` and credits to `4`.
-- `sm_agent_telemetry_dropped_batches_total{reason}` stays at `0` unless the byte cap or the age cap drops a batch.
+- `sm_agent_telemetry_dropped_batches_total{reason}` has no series until the first drop; a series appears when the byte cap, the age cap or another gap reason drops a batch.
 - `sm_agent_telemetry_scrape_errors_total{reason}` counts failed scrapes.
 
 ### 5. Clean up
@@ -257,7 +257,7 @@ curl -s localhost:9464/metrics | grep sm_agent_telemetry_
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Agent log: `port 8080 is neither published nor reachable` | The container does not publish the port. | Recreate it with `-p 127.0.0.1:<host>:8080`. |
+| `sm_agent_telemetry_scrape_errors_total{reason="addr"}` rises (the log line, `docker: port is neither published nor reachable on a container network: 8080 (container …)`, is DEBUG-level, so run with `--log-level debug` to see it) | The container does not publish the port. | Recreate it with `-p 127.0.0.1:<host>:8080`. |
 | No `telemetry …` lines at all | Still inside the first report interval, or every scrape fails. | Wait one minute; then `curl -s localhost:9464/metrics \| grep scrape_errors_total` and read the `reason` label. |
 | Agent log: `declared binding is not in the lease; not collecting`, and it stays | `examples/telemetry.yaml` names a binding the gateway's lease does not grant. | Rename the binding to one in the lease, or give the gateway a `--scenario` whose `lease: {binding_ids: [...]}` lists it. |
 

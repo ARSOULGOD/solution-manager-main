@@ -45,7 +45,7 @@
 
 The input classes the spec implies but no task's own tests would otherwise exercise. Each has a test in the task named.
 
-1. **A container restarted before its new incarnation was ever reported.** Its batches' ids never resolve, so the stream must not stall until the 24 h age cap. Expected: dropped as gap `UNREGISTERED` after 2 × `report_interval` of an open stream (Task 11, `TestUnresolvedIdsAreDroppedAfterTwoReportIntervals`).
+1. **A container restarted before its new incarnation was ever reported.** Its batches' ids never resolve, so the stream must not stall until the 24 h age cap. Expected: dropped as gap `UNREGISTERED` after 2 × `report_interval` (measured from the later of stream open and the batch's `produced_at`, deviation 14) (Task 11, `TestUnresolvedIdsAreDroppedAfterTwoReportIntervals`).
 2. **A metrics endpoint returning a huge body** (a 2 MiB array). Expected: the read stops at 1 MiB, the scrape counts as `decode`, nothing is appended, and memory stays flat (Task 10, `TestOversizedBodyIsRefused`).
 3. **The agent's clock stepping backwards**, so `produced_at` lies in the future. Expected: such batches do not expire early, but the byte cap still bounds the buffer (Task 7, `TestFutureTimestampsStillObeyTheByteCap`).
 4. **More bindings than credits** (six streams, four credits). Expected: oldest-first across streams; no stream starves while others keep sending (Task 11, `TestMoreStreamsThanCreditsNeverStarves`).
@@ -5649,7 +5649,7 @@ Executed 2026-10-02 against a BusyBox stand-in. All four demonstrations ran: ste
 ### Deviations beyond the plan's eight
 
 1. **Package layout.** `jsonptr`, `view` and `tmetrics` are subpackages of `internal/telemetry/`, where spec §2.2 put the JSON Pointer in `collect/` and the view and metrics in `telemetry/`. `agent` imports `telemetry`, `telemetry/view` and `telemetry/declare`. No behaviour change.
-2. **Buffer: a failed state write never causes seq reuse.** `Trim` writes `state.json` first; if that fails it still trims its in-memory index but keeps the batch files, which reload above the stale `acked_seq` after a restart and are trimmed again by the gateway's watermark ack. The drop path keeps delete-then-save, because deleting first frees space on a full disk; its residual window loses gap markers for never-acked batches only.
+2. **Buffer: a failed state write never causes seq reuse.** `Trim` writes `state.json` first; if that fails it still trims its in-memory index but keeps the batch files, which reload above the stale `acked_seq` after a restart and are trimmed again by the gateway's watermark ack. The drop path keeps delete-then-save, because deleting first frees space on a full disk; its residual window loses gap markers for never-acked batches only. The reviewer's note: batch files kept after a failed `Trim` save are outside the byte cap and the bytes gauge until the next restart.
 3. **Buffer: load errors are reported, never silent, never fatal.** Only `store.ErrNotFound` means "no state"; any other `state.json` error and any delete failure during load goes to `OnWriteError`, and loading continues.
 4. **Stream ids are safe path components.** The buffer refuses empty, `.`, `..` and anything outside `[A-Za-z0-9._-]` (`Append` errors; `Trim` and `DropAsGap` ignore them; `Open` skips such directories), which blocks path traversal from the gateway's `TelemetryAck.stream_id`. `declare` refuses `.` and `..` as binding ids.
 5. **Reducer: `Unsendable` gates the stream for 1 s.** Without it a batch the runner could not read was re-selected forever inside one step.
@@ -5662,9 +5662,14 @@ Executed 2026-10-02 against a BusyBox stand-in. All four demonstrations ran: ste
 12. **Integration tests use a 500 ms report interval** (`telemetryScenario()`), for the reason under Timing.
 13. **Behavioural mutation for the reducer's in-flight guard.** The guard was tested with `|| (busy && false)`, because the plan's mutation, which drops `|| busy`, does not compile (`busy` becomes unused).
 
+14. **Reducer: the `UNREGISTERED` deadline runs from `max(UpSince, ProducedAt)`** (final review I-1). Measured from stream open alone, a batch collected on a long-open stream was dropped on first sight, contradicting spec §8 and `AG-D23`. Test: `TestAnUnresolvedBatchWaitsTwoReportIntervalsFromWhenItWasProduced`.
+15. **Collector: the default scrape client uses no proxy and follows no redirects** (final review I-2). `http.DefaultClient` honoured `HTTP_PROXY` for container IPs and followed redirects to any host; a 3xx is now a `status` scrape error. Test: `TestARedirectIsAStatusErrorAndIsNeverFollowed`.
+16. **Buffer: `Trim` clears gaps at the watermark** (final review M-1). A gap with `To <= hwm` is removed and one straddling the watermark is clamped to `hwm+1`; before, `To == hwm` survived as a false gap. Test: `TestTrimClearsAGapAtTheWatermarkAndClampsOneStraddlingIt`. Residual under `AG-17`/`AG-19`.
+17. **Collector: a JSON `null` body counts each metric unavailable** (final review M-6). Fetch success is tracked apart from the decoded value. Test: `TestANullBodyCountsEachMetricUnavailable`.
+
 ### Timing
 
-The agent takes no actual-state observation at `SessionAccept`, so the first `ActualStateReport` goes out one report interval after the session opens: about 60 s with `fake-gateway`'s default of 1 m. That report mints the `replica_id` and `incarnation_id` every sample must carry, so telemetry correctly waits (spec §8). `reports.go` says a full report precedes any telemetry; it does, but only after a full interval. The `UNREGISTERED` drop fires after two report intervals of an open stream, so on a fresh agent the first report lands about halfway to that deadline. Routed as the proposed open item `AG-21` (design §13.2); the owners are the `AG-D*` owners, because it changes slice 1's report cadence.
+The agent takes no actual-state observation at `SessionAccept`, so the first `ActualStateReport` goes out one report interval after the session opens: about 60 s with `fake-gateway`'s default of 1 m. That report mints the `replica_id` and `incarnation_id` every sample must carry, so telemetry correctly waits (spec §8). `reports.go` says a full report precedes any telemetry; it does, but only after a full interval. The `UNREGISTERED` drop fires two report intervals after the later of stream open and the batch's `produced_at` (final review, deviation 14), so on a fresh agent the first report lands about halfway to that deadline, and a restarted container's batches wait up to two report intervals for the next report rather than being dropped on sight. Routed as the proposed open item `AG-21` (design §13.2); the owners are the `AG-D*` owners, because it changes slice 1's report cadence.
 
 ### Policy note
 

@@ -86,10 +86,10 @@ cat /tmp/sm-conf/application.yml
 | `--enrollment-token` | `SM_AGENT_ENROLL_TOKEN` | single-use, never persisted |
 | `--trust-bundle` | — | PEM the DP server is verified against |
 | `--admin-addr` | — | `/healthz` + `/metrics`; default `127.0.0.1:9464` (loopback). Both are unauthenticated, so binding a non-loopback address — e.g. for a Prometheus scrape — exposes them; that is the operator's decision |
-| `--roles` | — | `control` (default), `control,telemetry` or `telemetry`; a telemetry-only agent refuses commands `CAPABILITY_MISSING` |
-| `--telemetry-config` | — | the declarations file: bindings, intervals and `http_json` metrics (`AG-D22`) |
-| `--telemetry-buffer-bytes` | — | global byte cap on the on-disk telemetry buffer; oldest batch dropped first (`AG-D24`) |
-| `--telemetry-buffer-age` | — | global age cap on buffered batches; older ones dropped as gaps (`AG-D24`) |
+| `--roles` | `SM_AGENT_ROLES` | `control` (default), `control,telemetry` or `telemetry`; a telemetry-only agent refuses commands `CAPABILITY_MISSING` |
+| `--telemetry-config` | — | no default; required with the telemetry role. The declarations file: bindings, intervals and `http_json` metrics (`AG-D22`) |
+| `--telemetry-buffer-bytes` | — | default `64MiB`. Global byte cap on the on-disk telemetry buffer; oldest batch dropped first (`AG-D24`) |
+| `--telemetry-buffer-age` | — | default `24h`; must be positive. Global age cap on buffered batches; older ones dropped as gaps (`AG-D24`) |
 | `--log-level` | — | `debug` \| `info` \| `warn` \| `error` |
 
 ## Where the design lives

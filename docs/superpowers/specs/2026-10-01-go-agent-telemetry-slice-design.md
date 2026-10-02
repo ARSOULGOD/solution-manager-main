@@ -1,6 +1,6 @@
 # go-agent — telemetry role, thin end-to-end slice
 
-**Component:** `go-agent` · **Locus:** `host-local`, Docker runtime · **Date:** 2026-10-01 · **Status:** DESIGN, approved in brainstorming; implementation plan pending
+**Component:** `go-agent` · **Locus:** `host-local`, Docker runtime · **Date:** 2026-10-01 · **Status:** DESIGN, approved in brainstorming; implementation plan [`006-telemetry-slice.md`](../../plans/go-agent/006-telemetry-slice.md), built on `feat/go-agent-telemetry`
 **Authority:** [`../../design/backend/agent-gateway/design.md`](../../design/backend/agent-gateway/design.md) (§4.1, §4.3, §4.10, §4.13, §5.5, §6.1–§6.3) — which overrules anything below it collides with — then the baseline agent family [`../../design/go-agent/design.md`](../../design/go-agent/design.md) (§2, §6, `AG-D9`), [`../../design/architecture.md`](../../design/architecture.md) §10, and the canonical `metric`/`source` shapes in [`../../../contracts/solution-package.schema.json`](../../../contracts/solution-package.schema.json).
 **Builds on:** slice 1, [`2026-09-21-go-agent-control-path-design.md`](2026-09-21-go-agent-control-path-design.md), merged.
 
@@ -279,11 +279,11 @@ Each send takes one credit; a reject restores it except `OUT_OF_CREDITS`, and a 
 | `SessionUp` | `OpenStream`; credits = `limits.initial_credits`; `maxBatchBytes` = `limits.max_batch_bytes` |
 | `Ack{stream, hwm, n}` | `Trim`; clear the in-flight entry if ≤ hwm; credits += n |
 | `Credit{n}` | credits += n |
-| `Reject` `INTERNAL_UNAVAILABLE` | the batch goes back to unsent, its credit restored (corrected while planning, plan 006, deviation 5: a rejected batch's credit is restored, except for `OUT_OF_CREDITS`); `retryAt` = now + `retry_after` |
+| `Reject` `INTERNAL_UNAVAILABLE` | the batch goes back to unsent, its credit restored (corrected while planning, plan 006, deviation 6: a rejected batch's credit is restored, except for `OUT_OF_CREDITS`); `retryAt` = now + `retry_after` |
 | `Reject` `PAYLOAD_TOO_LARGE`, `UNKNOWN_REPLICA`, `INCARNATION_RETIRED`, `UNDECLARED_LABEL`, `LABEL_INVALID`, `BINDING_NOT_IN_LEASE`, `TENANT_MISMATCH` | `DropAsGap` with the code as the reason — retrying the same bytes cannot succeed |
 | `Reject` `OUT_OF_CREDITS` | credits = 0; the batch goes back to unsent; wait for `TelemetryCredit` (an agent/gateway disagreement, counted) |
 | A batch whose stored JSON size > `maxBatchBytes` | `DropAsGap` with reason `OVERSIZE`, before sending. Corrected while planning (plan 006, deviation 7): the telemetry packages cannot import `pb`, so the stored JSON size is compared; it is larger than the protobuf encoding, so the check is conservative |
-| `StreamBroken` while the session is `ACTIVE` | in-flight batches go back to unsent; credits restored by one per in-flight batch (corrected while planning, plan 006, deviation 6: each held a credit its ack would have returned) rather than reset to 0; `OpenStream` after full-jitter backoff (1 s base, 30 s cap, the existing `fullJitter`) |
+| `StreamBroken` while the session is `ACTIVE` | in-flight batches go back to unsent; credits restored by one per in-flight batch (corrected while planning, plan 006, deviation 5: each held a credit its ack would have returned) rather than reset to 0; `OpenStream` after full-jitter backoff (1 s base, 30 s cap, the existing `fullJitter`) |
 | `SessionDown` | as `StreamBroken`, but nothing reopens until `SessionUp` |
 
 Labels are written at send time: `binding_id`, `replica_id` and `incarnation_id` — **exactly these three** (gateway §6.1). `series_key` is the metric name.
