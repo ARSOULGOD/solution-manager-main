@@ -209,3 +209,48 @@ func TestIntegrationTelemetryRejectDropsTheBatchAsAGap(t *testing.T) {
 		t.Fatalf("second batch %+v", b)
 	}
 }
+
+func TestIntegrationTelemetryAgentRestartSkipsAckedBatches(t *testing.T) {
+	gw := startGateway(t, telemetryScenario())
+	h, _ := startTelemetryAgent(t, gw, "", both, 1<<20)
+	if !gw.WaitFor("TelemetryBatch", 3, 10*time.Second) {
+		t.Fatal("no telemetry")
+	}
+	h.stop()
+	before := batches(gw)
+	n0 := len(before)
+	var w uint64 // the gateway's watermark: it commits every batch it receives, in order
+	for _, b := range before {
+		if b.BatchSeq > w {
+			w = b.BatchSeq
+		}
+	}
+	startTelemetryAgent(t, gw, h.dir, both, 1<<20)
+	if !gw.WaitFor("TelemetryBatch", n0+3, 10*time.Second) {
+		t.Fatalf("telemetry did not resume after restart: %d batches", len(batches(gw)))
+	}
+	var seqs []uint64
+	atW := 0
+	for _, b := range batches(gw)[n0:] {
+		if b.BatchSeq < w {
+			t.Fatalf("batch %d resent after restart; watermark %d", b.BatchSeq, w)
+		}
+		if b.BatchSeq == w {
+			atW++
+		}
+		if len(seqs) == 0 || seqs[len(seqs)-1] != b.BatchSeq {
+			seqs = append(seqs, b.BatchSeq)
+		}
+	}
+	if atW > 1 {
+		t.Fatalf("watermark batch %d sent %d times after restart", w, atW)
+	}
+	if seqs[0] != w && seqs[0] != w+1 {
+		t.Fatalf("first seq after restart %d, want %d or %d", seqs[0], w, w+1)
+	}
+	for i := 1; i < len(seqs); i++ {
+		if seqs[i] != seqs[i-1]+1 {
+			t.Fatalf("seqs after restart not contiguous: %v", seqs)
+		}
+	}
+}
