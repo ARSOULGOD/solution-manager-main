@@ -1,6 +1,6 @@
 # go-agent — DP-set telemetry pull and push intervals
 
-**Component:** `go-agent` · **Locus:** `host-local`, Docker runtime · **Date:** 2026-10-09 · **Status:** DESIGN, approved section by section in brainstorming; implementation plan [`007-telemetry-cadence.md`](../../plans/go-agent/007-telemetry-cadence.md)
+**Component:** `go-agent` · **Locus:** `host-local`, Docker runtime · **Date:** 2026-10-09 · **Status:** DESIGN, approved section by section in brainstorming; built on `feat/go-agent-telemetry`; implementation plan [`007-telemetry-cadence.md`](../../plans/go-agent/007-telemetry-cadence.md)
 **Authority:** [`../../design/backend/agent-gateway/design.md`](../../design/backend/agent-gateway/design.md) (§4.3 `SessionAccept.limits`, §4.10 credits, §5.8 limits) — which overrules anything below it collides with — then the baseline agent family [`../../design/go-agent/design.md`](../../design/go-agent/design.md) and slice 2's [`2026-10-01-go-agent-telemetry-slice-design.md`](2026-10-01-go-agent-telemetry-slice-design.md).
 **Builds on:** slice 2 (the telemetry role), built and reviewed on `feat/go-agent-telemetry`, not merged.
 **Requirement:** [`REQ-013`](../../requirements/REQ-013-dp-set-telemetry-cadence.md).

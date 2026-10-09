@@ -22,7 +22,7 @@ With pull 5 s and push 1 m set at the Data Plane, an agent writes a batch every 
 
 ## Satisfied by
 
-`AG-D26` (PROPOSED, once the implementation plan adds it to [`../design/go-agent/decisions.md`](../design/go-agent/decisions.md)) · design [`../superpowers/specs/2026-10-09-go-agent-telemetry-cadence-design.md`](../superpowers/specs/2026-10-09-go-agent-telemetry-cadence-design.md)
+`AG-D26` (PROPOSED) in [`../design/go-agent/decisions.md`](../design/go-agent/decisions.md) · design [`../superpowers/specs/2026-10-09-go-agent-telemetry-cadence-design.md`](../superpowers/specs/2026-10-09-go-agent-telemetry-cadence-design.md) · built by [`../plans/go-agent/007-telemetry-cadence.md`](../plans/go-agent/007-telemetry-cadence.md). The status stays `PROPOSED` until the project owner accepts this requirement into scope.
 
 ## Conflicts
 

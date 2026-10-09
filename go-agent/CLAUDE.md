@@ -38,6 +38,8 @@ from its final whole-branch review.
 | Implementation plan | [`../docs/plans/go-agent/006-telemetry-slice.md`](../docs/plans/go-agent/006-telemetry-slice.md) — its Results section records what was built and every deviation |
 | Agent decisions | `AG-D21`–`AG-D25` in [`../docs/design/go-agent/decisions.md`](../docs/design/go-agent/decisions.md), all PROPOSED; open items `AG-14`–`AG-21` in design §13.2 |
 
+**The DP-set telemetry intervals (`AG-D26`) are specified, planned and built on the same branch, not merged.** Design: [`../docs/superpowers/specs/2026-10-09-go-agent-telemetry-cadence-design.md`](../docs/superpowers/specs/2026-10-09-go-agent-telemetry-cadence-design.md); plan: [`../docs/plans/go-agent/007-telemetry-cadence.md`](../docs/plans/go-agent/007-telemetry-cadence.md). The two `Limits` fields are a DRAFT ask, open item `AG-23`.
+
 The plan is now the historical record of what was built, not forward guidance — read it to
 understand why the code is shaped the way it is, not as a task list to execute.
 
@@ -115,7 +117,7 @@ internal/identity/     key, CSR (persisted before first Enroll), cert chain, tru
 internal/runtime/      Adapter seam; docker/ implementation; configwriter (atomic, 0600, symlink refusal, in-memory rollback)
 internal/store/        durable records; one write primitive with parent-dir fsync
 internal/clock/        DP clock offset → CLOCK_SUSPECT input
-internal/telemetry/    pipeline wiring (AG-D21); view/ declare/ jsonptr/ collect/ buffer/ send/ tmetrics/
+internal/telemetry/    pipeline wiring (AG-D21); view/ declare/ jsonptr/ collect/ buffer/ send/ tmetrics/ cadence/
 internal/fakegw/       fake gateway server, shared by the binary and integration tests
 oldGo-Agent/           the archived scaffold — reference only, not built, not maintained
 ```
@@ -146,6 +148,7 @@ Each one was a real defect, and each has a test that fails without its fix.
 - **Stream ids are safe path components** (`TestUnsafeStreamIdsAreRefused`).
 - **One stream break counts as one failure** (`TestOneStreamBreakIsOneFailure`).
 - **An unresolved batch waits two report intervals from when it was produced**, not from stream open (`TestAnUnresolvedBatchWaitsTwoReportIntervalsFromWhenItWasProduced`).
+- **A reconnect that repeats the DP's intervals resets no ticker**, or a session flapping faster than the push interval would postpone every push (`TestSettingTheSameValuesDoesNotSignalAChange`, `TestSessionUpArmsThePushTickerOnlyWhenTheIntervalChanges`).
 - **Secrets stay out of logs.**
   - `CommandOffer` logs `payload_len`, never the payload.
   - `EnrollRequest` logs `token_present` and prints `token=[REDACTED]`.

@@ -249,7 +249,38 @@ curl -s localhost:9464/metrics | grep sm_agent_telemetry_
 - `sm_agent_telemetry_dropped_batches_total{reason}` has no series until the first drop; a series appears when the byte cap, the age cap or another gap reason drops a batch.
 - `sm_agent_telemetry_scrape_errors_total{reason}` counts failed scrapes.
 
-### 5. Clean up
+### 5. Pull and push intervals set by the gateway
+
+The gateway can set how often the agent pulls every binding and how often it pushes what it has stored (`AG-D26`).
+Both travel on `SessionAccept`, so a change applies when the agent next connects.
+
+**Status: not yet executed.**
+
+In terminal 1:
+
+```
+set pull 2s
+set push 1m
+disconnect
+```
+
+| When | Terminal 1 |
+|---|---|
+| `set pull 2s` | `next session: pull=2s push=0s (disconnect to apply)` |
+| `set push 1m` | `next session: pull=2s push=1m0s (disconnect to apply)` |
+| `disconnect` | `session closed; the agent will reconnect`; whatever was stored while it reconnected is sent at once |
+| Then, once a minute | about thirty `[hh:mm:ss] telemetry binding-1 seq=…` lines with the same time, then a minute of silence |
+
+In terminal 3:
+
+```bash
+curl -s localhost:9464/metrics | grep -E 'sm_agent_telemetry_(pull|push)_interval_seconds'
+```
+
+expect `sm_agent_telemetry_pull_interval_seconds{binding="binding-1"} 2` and `sm_agent_telemetry_push_interval_seconds 60`.
+`set push 0` followed by `disconnect` returns to sending each batch as soon as it is written.
+
+### 6. Clean up
 
 `Ctrl-C` both processes, then `docker rm -f sm-telemetry-demo` and `rm -rf ~/sm-telemetry-demo`.
 
@@ -260,6 +291,7 @@ curl -s localhost:9464/metrics | grep sm_agent_telemetry_
 | `sm_agent_telemetry_scrape_errors_total{reason="addr"}` rises (the log line, `docker: port is neither published nor reachable on a container network: 8080 (container …)`, is DEBUG-level, so run with `--log-level debug` to see it) | The container does not publish the port. | Recreate it with `-p 127.0.0.1:<host>:8080`. |
 | No `telemetry …` lines at all | Still inside the first report interval, or every scrape fails. | Wait one minute; then `curl -s localhost:9464/metrics \| grep scrape_errors_total` and read the `reason` label. |
 | Agent log: `declared binding is not in the lease; not collecting`, and it stays | `examples/telemetry.yaml` names a binding the gateway's lease does not grant. | Rename the binding to one in the lease, or give the gateway a `--scenario` whose `lease: {binding_ids: [...]}` lists it. |
+| `sm_agent_telemetry_limit_ignored_total{limit}` rises, and the agent logs `DP interval refused` | The gateway sent a pull below 1 s, or a push not below `--telemetry-buffer-age`. | `set` a value in range and `disconnect`; the log line names the value and the reason. |
 
 ## Rollback
 

@@ -13,7 +13,10 @@ reviewed on branch `feat/go-agent-telemetry`, not merged. **No Kubernetes yet.**
 **Telemetry.** With `--roles control,telemetry` (or `telemetry`) the agent scrapes
 the `http_json` metrics declared in a local file, buffers each batch on disk
 under a byte and an age cap, and sends them on the Telemetry stream within the
-gateway's credits. Samples carry only `binding_id`, `replica_id` and
+gateway's credits. The Data Plane may set how often every binding is pulled and
+how often stored batches are pushed, on `SessionAccept.limits` (`AG-D26`, a
+DRAFT ask); without them the declared intervals apply and each batch is sent as
+soon as it is written. Samples carry only `binding_id`, `replica_id` and
 `incarnation_id`. The first batch waits for the first actual-state report, about
 one report interval after the session opens. See [`RUNBOOK.md`](RUNBOOK.md).
 
