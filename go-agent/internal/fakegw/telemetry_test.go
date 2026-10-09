@@ -5,9 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/solace/solution-manager/go-agent/internal/identity"
 	"github.com/solace/solution-manager/go-agent/internal/msg"
@@ -209,5 +211,34 @@ func TestTelemetryRejectNextRejectsOnceWithoutCommitting(t *testing.T) {
 	}
 	if strings.Contains(out.String(), "duplicate") {
 		t.Fatalf("a rejected batch must not advance the watermark:\n%s", out.String())
+	}
+}
+
+func TestTheNextSessionAcceptCarriesTheTelemetryIntervals(t *testing.T) {
+	s, _ := telemetryServer(t, func(sc *Scenario) { sc.Limits.TelemetryPullInterval = 2 * time.Second })
+	if err := s.SetTelemetryInterval("push", time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	conn := agentConn(t, s, false)
+	if err := conn.Send(msg.SessionOpen{Envelope: msg.Envelope{MessageID: "open"}, ProtocolVersion: 1}); err != nil {
+		t.Fatal(err)
+	}
+	m, err := conn.Recv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, ok := m.(msg.SessionAccept)
+	if !ok || a.Limits.TelemetryPullInterval != 2*time.Second || a.Limits.TelemetryPushInterval != time.Minute {
+		t.Fatalf("got %T %+v", m, m)
+	}
+}
+
+func TestTelemetryLinesCarryTheTime(t *testing.T) {
+	s, out := telemetryServer(t, nil)
+	ts := openTelemetry(t, agentConn(t, s, true))
+	sendBatch(t, ts, 1)
+	recvAck(t, ts)
+	if !regexp.MustCompile(`(?m)^\[\d{2}:\d{2}:\d{2}\] telemetry binding-1 seq=1 `).MatchString(out.String()) {
+		t.Fatalf("no time prefix:\n%s", out.String())
 	}
 }

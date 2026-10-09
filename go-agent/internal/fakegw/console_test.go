@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestConsoleRejectsLinesItCannotOffer covers every line the console must
@@ -70,5 +71,31 @@ func TestConsoleTelemetryVerbsWithoutAnAgent(t *testing.T) {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("%q: want %q, got %q", line, want, out.String())
 		}
+	}
+}
+
+func TestConsoleSetStoresIntervalsForTheNextSession(t *testing.T) {
+	s, err := Start(Config{Listen: "127.0.0.1:0"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Stop()
+	for _, tc := range []struct{ line, want string }{
+		{"set pull 5s", "next session: pull=5s push=0s (disconnect to apply)"},
+		{"set push 1m", "next session: pull=5s push=1m0s (disconnect to apply)"},
+		{"set push 0", "next session: pull=5s push=0s (disconnect to apply)"},
+		// Review Focus 5: a malformed line prints why and changes nothing
+		{"set push", "usage: set pull|push <duration>"},
+		{"set push abc", `set: time: invalid duration "abc"`},
+		{"set foo 1s", "usage: set pull|push <duration>"},
+	} {
+		var out bytes.Buffer
+		s.Console(strings.NewReader(tc.line+"\n"), &out)
+		if !strings.Contains(out.String(), tc.want) {
+			t.Errorf("%q: want %q, got %q", tc.line, tc.want, out.String())
+		}
+	}
+	if pull, push := s.TelemetryIntervals(); pull != 5*time.Second || push != 0 {
+		t.Fatalf("stored pull %v push %v", pull, push)
 	}
 }

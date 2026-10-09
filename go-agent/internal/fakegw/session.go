@@ -138,8 +138,10 @@ func (ss *session) newGrant(now time.Time) msg.LeaseGrant {
 
 func (ss *session) limits() msg.Limits {
 	l := ss.sc.Limits
+	pull, push := ss.s.TelemetryIntervals()
 	return msg.Limits{MaxMessageBytes: l.MaxMessageBytes, MaxBatchBytes: l.MaxBatchBytes, InitialCredits: l.InitialCredits,
-		HeartbeatInterval: l.HeartbeatInterval, KeepaliveInterval: l.KeepaliveInterval, SkewTolerance: l.SkewTolerance, ReportInterval: l.ReportInterval}
+		HeartbeatInterval: l.HeartbeatInterval, KeepaliveInterval: l.KeepaliveInterval, SkewTolerance: l.SkewTolerance, ReportInterval: l.ReportInterval,
+		TelemetryPullInterval: pull, TelemetryPushInterval: push}
 }
 
 // next waits for the next inbound message or the stream ending.

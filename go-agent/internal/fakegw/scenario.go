@@ -28,6 +28,9 @@ type LimitsSpec struct {
 	KeepaliveInterval time.Duration `yaml:"keepalive_interval"`
 	SkewTolerance     time.Duration `yaml:"skew_tolerance"`
 	ReportInterval    time.Duration `yaml:"report_interval"`
+	// AG-D26, a DRAFT ask (AG-23); 0 leaves the agent's local defaults.
+	TelemetryPullInterval time.Duration `yaml:"telemetry_pull_interval"`
+	TelemetryPushInterval time.Duration `yaml:"telemetry_push_interval"`
 }
 
 type HeartbeatPolicy struct {

@@ -1,12 +1,14 @@
 package fakegw
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/solace/solution-manager/go-agent/internal/msg"
 	"github.com/solace/solution-manager/go-agent/internal/wire/codec"
@@ -123,7 +125,8 @@ func (s *Server) printf(format string, a ...any) {
 	}
 	s.outMu.Lock()
 	defer s.outMu.Unlock()
-	fmt.Fprintf(s.cfg.Out, format+"\n", a...)
+	// local time first, so a push burst is visible (AG-D26)
+	fmt.Fprintf(s.cfg.Out, "[%s] %s\n", time.Now().Format("15:04:05"), fmt.Sprintf(format, a...))
 }
 
 // PauseTelemetry makes every ack grant no credit, so the agent spends what it
@@ -144,4 +147,29 @@ func (s *Server) ResumeTelemetry(n uint32) {
 	if ts != nil {
 		ts.send(msg.TelemetryCredit{Envelope: s.env(), CreditsGranted: n})
 	}
+}
+
+// SetTelemetryInterval stores the pull or push interval the next SessionAccept
+// carries (AG-D26). The live session keeps the limits it was accepted with;
+// Disconnect makes the agent take the new ones. Any value is stored, including
+// one the agent will refuse: this is a test double.
+func (s *Server) SetTelemetryInterval(which string, d time.Duration) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	switch which {
+	case "pull":
+		s.pull = d
+	case "push":
+		s.push = d
+	default:
+		return errors.New("usage: set pull|push <duration>")
+	}
+	return nil
+}
+
+// TelemetryIntervals returns what the next SessionAccept carries.
+func (s *Server) TelemetryIntervals() (pull, push time.Duration) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.pull, s.push
 }
