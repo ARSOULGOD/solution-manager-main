@@ -1807,4 +1807,47 @@ Then use `superpowers:requesting-code-review` for the commits since `1899cff`.
 
 ## Results
 
-Written at the end of execution (Task 10, Step 2).
+Executed 2026-10-09 on `feat/go-agent-telemetry`, inline (`superpowers:executing-plans`), Go 1.26.4.
+
+### What was built
+
+| Task | Commit | Built |
+|---|---|---|
+| 1 | `8311e02` | DRAFT `Limits` fields 8 and 9, the `.proto` header note, regenerated `pb`, `msg.Limits` fields, codec mapping both ways |
+| 2 | `ea28c37` | `internal/telemetry/cadence`: `Settings`, `Ignored`, `MinPull`, `Resolve`, `Holder` |
+| 3 | `fff9619` | Sender reducer: `PushInterval`, `DueBy`, `BufferAge`; `PushDue`; `ArmPush`; the due check in `selectSends` |
+| 4 | `f2a5a30` | Sender runner: `BufferAge`, the push ticker, `DueBy` at start |
+| 5 | `17520da` | Collector: `Cadence`, the ticker follows it, the timeout clamp |
+| 6 | `5877aee` | Pipeline: the holder, `watchCadence`, the two interval gauges and the refusal counter |
+| 7 | `aa34eed` | `fake-gateway`: scenario fields, `SetTelemetryInterval`/`TelemetryIntervals`, the `set` verb, `[hh:mm:ss]` on telemetry lines |
+| 8 | `cbd224d` | Three integration scenarios |
+| 9 | `e887784` | `AG-D26` (and the amendment note in `AG-D22`), `AG-23`, the `AG-14` note, `REQ-013`/traceability, README, CLAUDE.md, the RUNBOOK walk-through |
+
+### Mutation checks — observed
+
+| Mutation | Observed |
+|---|---|
+| Task 3: due check removed | FAIL in all five named tests: `TestANotYetDueHeadWaitsForThePushTick`, `TestTheCutoffAdvancesOverAnUnfinishedPush`, `TestOverdueHeadsGoAtOnceAfterAReconnect`, `TestSwitchingFromImmediateKeepsWhatIsStoredDue`, `TestABatchFromTheFutureIsSentOnceTheClockPassesIt` |
+| Task 4: `DueBy` at start removed | **Survived** — `TestRunnerSendsWhatWasStoredBeforeItStartedAtOnce` stayed green (deviation 6). With deviation 1's `DueBy = env.Now` also removed: `runner_test.go:311: nothing sent`. Deviation 1's line alone removed: `TestSwitchingFromImmediateKeepsWhatIsStoredDue` FAIL |
+| Task 5: `t.Reset(every)` removed | `1 ticks: the ticker kept the declared 1s after the change` |
+| Task 5: timeout clamp removed | `a 300ms answer was accepted under a 100ms pull interval: 1 batches` |
+| Task 8.1: due check removed | `1 bursts for 30 batches: batches were not held for the push tick` |
+| Task 8.2: `t.Reset(every)` removed | `seq 2 and 3 produced 99.522239ms apart; the DP set 1s` |
+| Task 8.3: `fake-gateway` sends push `0` | `1 bursts after the reconnect: the new push interval was not applied` (deviation 7) |
+
+Each mutation was restored and its package re-run green.
+
+### Final verification (Task 10, Step 1)
+
+All five exit 0: `go vet ./...` and `go vet -tags integration ./...`; `go test ./...`; `go test -race ./internal/telemetry/... ./internal/fakegw/`; `go test -tags integration ./internal/agent/ -run Integration` — 35 pass, 1 skip (`TestIntegrationRenewAtHalfLifeAndSameIDOnResend`, open item `AG-5`, unchanged); `make build`.
+
+### RUNBOOK run — not executed
+
+Docker Desktop was stopped on the execution host (its user service inactive, its socket stale), and the telemetry walk-through needs a container to scrape. Starting it was a host side effect outside the change, so the RUNBOOK's step 5 keeps **Status: not yet executed** (Task 9 Step 5's fallback). Its expected lines are read from the code and the integration tests, not from a run.
+
+### Deviations found during execution
+
+6. **Task 4's mutation check cannot fail as written.** A fresh runner has `PushInterval` 0, so the first `SessionUp` that sets a push interval already moves `DueBy` to now (deviation 1). That makes `DueBy` at start redundant. The line stays, because spec §3.5 names it and it costs nothing. The restart behaviour is still guarded: removing **both** sources fails `TestRunnerSendsWhatWasStoredBeforeItStartedAtOnce`.
+7. **Task 8's third mutation does not compile as written.** Replacing `TelemetryPushInterval: push` with `0` leaves `push` unused, which Go rejects. It was applied as `pull, _ := ss.s.TelemetryIntervals()` plus `TelemetryPushInterval: 0`, which has the same effect.
+8. **`design.md`'s `AG-14` row ended without a full stop**, so a `.` was inserted before the appended `AG-D26` sentence.
+9. **Task 9's link check found six broken links that predate this plan.** Three in `go-agent/decisions.md` (rows 24–26) used a repo-root path as a relative link. Three in `traceability.md` pointed at `../design/agent-gateway/`, which does not exist. The targets were corrected so the check reports `broken: 0`, and `traceability.md` was added to the check because Task 9 edits it.
