@@ -254,3 +254,89 @@ func TestIntegrationTelemetryAgentRestartSkipsAckedBatches(t *testing.T) {
 		}
 	}
 }
+
+// arrivals is when each TelemetryBatch reached the gateway after a moment, in order.
+func arrivals(gw *fakegw.Server, after time.Time) []time.Time {
+	var out []time.Time
+	for _, e := range gw.Transcript() {
+		if e.Dir == "in" && e.Kind == "TelemetryBatch" && e.At.After(after) {
+			out = append(out, e.At)
+		}
+	}
+	return out
+}
+
+// bursts splits arrivals wherever two are more than quiet apart.
+func bursts(ts []time.Time, quiet time.Duration) [][]time.Time {
+	var out [][]time.Time
+	for i, at := range ts {
+		if i == 0 || at.Sub(ts[i-1]) > quiet {
+			out = append(out, nil)
+		}
+		out[len(out)-1] = append(out[len(out)-1], at)
+	}
+	return out
+}
+
+func TestIntegrationTelemetryPushIntervalSendsInBursts(t *testing.T) {
+	sc := telemetryScenario()
+	sc.Limits.TelemetryPushInterval = time.Second // pull stays fastDecl's 100 ms
+	gw := startGateway(t, sc)
+	startTelemetryAgent(t, gw, "", both, 1<<20)
+	if !gw.WaitFor("TelemetryBatch", 30, 20*time.Second) {
+		t.Fatalf("only %d batches", len(batches(gw)))
+	}
+	bs := bursts(arrivals(gw, time.Time{}), 300*time.Millisecond)
+	if len(bs) < 3 {
+		t.Fatalf("%d bursts for 30 batches: batches were not held for the push tick", len(bs))
+	}
+	for i := 1; i < len(bs); i++ {
+		if gap := bs[i][0].Sub(bs[i-1][len(bs[i-1])-1]); gap < 600*time.Millisecond {
+			t.Fatalf("burst %d began %v after the previous one ended; push is 1s", i, gap)
+		}
+	}
+}
+
+func TestIntegrationTelemetryDPPullIntervalOverridesYAML(t *testing.T) {
+	sc := telemetryScenario()
+	sc.Limits.TelemetryPullInterval = time.Second // fastDecl declares 100 ms
+	gw := startGateway(t, sc)
+	startTelemetryAgent(t, gw, "", both, 1<<20)
+	if !gw.WaitFor("TelemetryBatch", 5, 20*time.Second) {
+		t.Fatalf("only %d batches", len(batches(gw)))
+	}
+	bs := batches(gw)
+	// The first may be scraped at 100 ms, before the session's limits reached the collector.
+	for i := len(bs) - 3; i < len(bs); i++ {
+		if d := bs[i].ProducedAt.Sub(bs[i-1].ProducedAt); d < 900*time.Millisecond || d > 1500*time.Millisecond {
+			t.Fatalf("seq %d and %d produced %v apart; the DP set 1s", bs[i-1].BatchSeq, bs[i].BatchSeq, d)
+		}
+	}
+}
+
+func TestIntegrationTelemetryLimitsApplyAtNextSession(t *testing.T) {
+	gw := startGateway(t, telemetryScenario())
+	startTelemetryAgent(t, gw, "", both, 1<<20)
+	if !gw.WaitFor("TelemetryBatch", 5, 10*time.Second) {
+		t.Fatal("no telemetry")
+	}
+	out := &syncBuffer{}
+	gw.Console(strings.NewReader("set push 1s\n"), out)
+	waitOutput(t, out, "next session: pull=0s push=1s (disconnect to apply)", 5*time.Second)
+	mark := time.Now()
+	time.Sleep(time.Second)
+	if bs := bursts(arrivals(gw, mark), 300*time.Millisecond); len(bs) != 1 || len(bs[0]) < 5 {
+		t.Fatalf("the live session changed schedule before a reconnect: %d bursts", len(bs))
+	}
+	gw.Console(strings.NewReader("disconnect\n"), out)
+	waitOutput(t, out, "session closed", 5*time.Second)
+	mark = time.Now()
+	deadline := time.Now().Add(30 * time.Second)
+	for len(arrivals(gw, mark)) == 0 && time.Now().Before(deadline) {
+		time.Sleep(50 * time.Millisecond)
+	}
+	time.Sleep(3500 * time.Millisecond) // what was stored during the reconnect, then about three push ticks
+	if bs := bursts(arrivals(gw, mark), 300*time.Millisecond); len(bs) < 3 {
+		t.Fatalf("%d bursts after the reconnect: the new push interval was not applied", len(bs))
+	}
+}
