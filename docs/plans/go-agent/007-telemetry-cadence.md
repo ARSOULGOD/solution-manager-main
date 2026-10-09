@@ -1851,3 +1851,12 @@ Docker Desktop was stopped on the execution host (its user service inactive, its
 7. **Task 8's third mutation does not compile as written.** Replacing `TelemetryPushInterval: push` with `0` leaves `push` unused, which Go rejects. It was applied as `pull, _ := ss.s.TelemetryIntervals()` plus `TelemetryPushInterval: 0`, which has the same effect.
 8. **`design.md`'s `AG-14` row ended without a full stop**, so a `.` was inserted before the appended `AG-D26` sentence.
 9. **Task 9's link check found six broken links that predate this plan.** Three in `go-agent/decisions.md` (rows 24–26) used a repo-root path as a relative link. Three in `traceability.md` pointed at `../design/agent-gateway/`, which does not exist. The targets were corrected so the check reports `broken: 0`, and `traceability.md` was added to the check because Task 9 edits it.
+
+### Final review
+
+A **self-review** of `1899cff..92f6e69` against `superpowers:requesting-code-review`'s checklist. No fresh reviewer was dispatched, because the repo's `CLAUDE.md` reserves the Agent tool for an explicit request. An author's self-review is weaker than a fresh reviewer's.
+
+**One finding, not fixed, because the fix is a design change.** Push has no lower bound: spec §2.2 says valid when `> 0`, and Review Focus 4 accepts 1 ns. Measured on the execution host, a `time.Ticker` at 1 ns or 1 µs keeps a receiving loop at about one CPU-second per second (234 000 and 197 000 ticks/s); at 1 ms it costs about 37 ms/s. A gateway that mis-encodes a push interval (60 ns for 60 s, say) would therefore keep one core busy on every agent until a session carries a sane value. Pull is protected by its 1 s floor. The recommended amendment to `AG-D26` is a push floor (1 s, like pull), refused and counted like the other bounds. It is routed to the design owner, not decided here.
+
+**Deferred minors.** `RUNBOOK.md`'s Steps §1 still quotes the console usage line without `set pull|push <duration>`. Telemetry step 4's recorded lines predate the `[hh:mm:ss]` prefix. `set` parses the duration before checking `pull|push`, so `set foo abc` reports the parse error, not the usage. A few timing-window tests could flake under heavy load. Spec §7's "no batch before the first push tick after its `produced_at`" is asserted in the reducer and runner tests, not in the integration test.
+
