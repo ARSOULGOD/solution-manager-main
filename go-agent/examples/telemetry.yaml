@@ -1,0 +1,15 @@
+# Declarations for RUNBOOK.md's telemetry section (AG-D22, interim). Each
+# metrics[] entry is the Solution Package schema's metric object.
+schema_version: 1
+bindings:
+  binding-1:
+    interval: 5s
+    metrics:
+      - name: cache.hit_rate
+        metricType: gauge
+        unit: ratio
+        source: {kind: http_json, port: 8080, path: /stats.json, pointer: /hitRate, onUnavailable: degrade}
+      - name: cache.miss_count
+        metricType: counter
+        unit: count
+        source: {kind: http_json, port: 8080, path: /stats.json, pointer: /missCount, onUnavailable: degrade}

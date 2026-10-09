@@ -5,6 +5,7 @@ package reports
 
 import (
 	"errors"
+	"maps"
 	"time"
 
 	"github.com/solace/solution-manager/go-agent/internal/msg"
@@ -214,4 +215,23 @@ func (s State) ack(m msg.ReportAck, env reactor.Env) (State, []reactor.Effect) {
 		effs = append([]reactor.Effect{reactor.Persist{Rec: store.JSON{RelPath: relRegistry, Value: s.Registry}}}, effs...)
 	}
 	return s, effs
+}
+
+// IDTable is an immutable copy of the registry for readers off the loop
+// goroutine — the telemetry pipeline. The loop takes it after reducing, on
+// its own goroutine; nobody mutates it afterwards.
+type IDTable struct {
+	replicas     map[string]string
+	incarnations map[string]string
+}
+
+func (s State) IDTable() IDTable {
+	return IDTable{replicas: maps.Clone(s.Registry.ReplicaIDs), incarnations: maps.Clone(s.Registry.IncarnationIDs)}
+}
+
+// IDs is the DP-minted pair a sample is labelled with; ok only when both exist.
+func (t IDTable) IDs(binding, replicaRef, incarnation string) (replicaID, incarnationID string, ok bool) {
+	replicaID = t.replicas[replicaKey(binding, replicaRef)]
+	incarnationID = t.incarnations[incarnationKey(binding, replicaRef, incarnation)]
+	return replicaID, incarnationID, replicaID != "" && incarnationID != ""
 }

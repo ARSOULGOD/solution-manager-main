@@ -6,7 +6,9 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"sync"
@@ -31,6 +33,7 @@ type Config struct {
 	Tokens   []string
 	Scenario *Scenario
 	Log      *slog.Logger
+	Out      io.Writer // telemetry lines; nil discards
 }
 
 type enrolledAgent struct {
@@ -61,6 +64,15 @@ type Server struct {
 	replicas map[string]string // binding|replica_ref → replica_id
 	incarn   map[string]string // binding|replica_ref|incarnation → incarnation_id
 	sessions int
+	live     *session          // the latest accepted session; console commands go here
+	gens     map[string]uint64 // binding → highest generation offered, scripted or typed
+
+	tele       map[string]map[string]uint64 // agent_id → stream → watermark: the DP's telemetry_ingest_watermark (§6.2)
+	tstream    *teleStream                  // the live Telemetry stream, for unsolicited credits
+	paused     bool
+	rejectNext string
+	pull, push time.Duration // the telemetry intervals the next SessionAccept carries (AG-D26)
+	outMu      sync.Mutex
 }
 
 func Start(cfg Config) (*Server, error) {
@@ -86,7 +98,9 @@ func Start(cfg Config) (*Server, error) {
 	s := &Server{
 		cfg: cfg, ca: ca, lis: lis, tr: newTranscript(), log: cfg.Log,
 		tokens: map[string]*enrolledAgent{}, byThumb: map[string]*enrolledAgent{},
-		replicas: map[string]string{}, incarn: map[string]string{},
+		replicas: map[string]string{}, incarn: map[string]string{}, gens: map[string]uint64{},
+		tele: map[string]map[string]uint64{}, rejectNext: cfg.Scenario.Policy.Telemetry.RejectNext,
+		pull: cfg.Scenario.Limits.TelemetryPullInterval, push: cfg.Scenario.Limits.TelemetryPushInterval,
 	}
 	for _, t := range cfg.Tokens {
 		s.tokens[t] = nil
@@ -110,6 +124,65 @@ func (s *Server) Sessions() int {
 	defer s.mu.Unlock()
 	return s.sessions
 }
+
+var ErrNoAgent = errors.New("no agent connected")
+
+// Offered is a command Offer sent; Ack delivers the agent's CommandAck.
+type Offered struct {
+	CommandID  string
+	Generation uint64
+	Ack        <-chan msg.CommandAck
+}
+
+// Offer sends one command to the connected agent, for the lease's first
+// binding, at the next generation this gateway has not offered for it. The
+// agent refuses a generation below its watermark and answers a repeated one
+// from its journal, so the gateway — like the real DP — must never reuse one.
+func (s *Server) Offer(op msg.Operation, payload []byte) (Offered, error) {
+	s.mu.Lock()
+	ss := s.live
+	if ss == nil {
+		s.mu.Unlock()
+		return Offered{}, ErrNoAgent
+	}
+	if len(ss.sc.Lease.BindingIDs) == 0 {
+		s.mu.Unlock()
+		return Offered{}, errors.New("the lease names no binding")
+	}
+	binding := ss.sc.Lease.BindingIDs[0]
+	gen := s.gens[binding] + 1
+	s.gens[binding] = gen
+	s.mu.Unlock()
+	id := fmt.Sprintf("%s-%d", op, gen)
+	cs := ss.offer(OfferStep{CommandID: id, BindingID: binding, Generation: gen, Operation: string(op), Payload: string(payload)})
+	return Offered{CommandID: id, Generation: gen, Ack: cs.ack}, nil
+}
+
+func (s *Server) setLive(ss *session) {
+	s.mu.Lock()
+	s.live = ss
+	s.mu.Unlock()
+	s.log.Info("fakegw: agent connected", "agent", ss.ag.agentID)
+}
+
+// clearLive forgets ss only if no newer session has replaced it.
+func (s *Server) clearLive(ss *session) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.live == ss {
+		s.live = nil
+	}
+}
+
+func (s *Server) sawGeneration(binding string, gen uint64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if gen > s.gens[binding] {
+		s.gens[binding] = gen
+	}
+}
+
+func (s *Server) env() msg.Envelope { return msg.Envelope{MessageID: s.newID(), SentAt: time.Now()} }
 
 func (s *Server) newID() string {
 	id, err := uuid.NewV7()
@@ -194,3 +267,17 @@ func (s *Server) agentFor(ctx context.Context) (*enrolledAgent, error) {
 
 var _ = tls.VersionTLS13
 var _ = x509.ErrUnsupportedAlgorithm
+
+// Disconnect ends the live agent's Connect stream. The CA and the enrolment
+// survive, so the agent reconnects with its identity — a gateway restart
+// cannot do that, because the CA lives in memory.
+func (s *Server) Disconnect() error {
+	s.mu.Lock()
+	ss := s.live
+	s.mu.Unlock()
+	if ss == nil {
+		return ErrNoAgent
+	}
+	ss.kickOnce.Do(func() { close(ss.kick) })
+	return nil
+}

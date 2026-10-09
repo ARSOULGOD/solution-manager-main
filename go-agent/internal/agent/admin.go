@@ -33,6 +33,9 @@ type Metrics struct {
 	commands    *prometheus.CounterVec
 }
 
+// Register adds collectors (the telemetry pipeline's) to /metrics.
+func (m *Metrics) Register(cs ...prometheus.Collector) { m.reg.MustRegister(cs...) }
+
 func NewMetrics() *Metrics {
 	m := &Metrics{reg: prometheus.NewRegistry()}
 	m.events = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "sm_agent_events_total"}, []string{"kind"})

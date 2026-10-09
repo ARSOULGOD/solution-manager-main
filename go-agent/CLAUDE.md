@@ -21,13 +21,24 @@ to live in `go-agent/docs/`; the gateway `decisions.md` "Fork inventory" lists t
 
 ## Status — read this before writing code
 
-**Slice 1 (the control path) is specified, planned, built and reviewed.**
+**Slice 1 (the control path) is specified, planned, built, reviewed and merged to `main`**, including the fixes
+from its final whole-branch review.
 
 | Artifact | Where |
 |---|---|
 | Design | [`../docs/superpowers/specs/2026-09-21-go-agent-control-path-design.md`](../docs/superpowers/specs/2026-09-21-go-agent-control-path-design.md) |
 | Implementation plan | [`../docs/plans/go-agent/005-control-path.md`](../docs/plans/go-agent/005-control-path.md) — 24 TDD tasks, phases P1–P5 |
 | Agent decisions | [`../docs/design/go-agent/decisions.md`](../docs/design/go-agent/decisions.md) — `AG-D1`–`AG-D12` baseline, `AG-D13`–`AG-D20` from the plan |
+
+**Slice 2 (the telemetry role) is specified, planned, built and reviewed on branch `feat/go-agent-telemetry`, not merged.**
+
+| Artifact | Where |
+|---|---|
+| Design | [`../docs/superpowers/specs/2026-10-01-go-agent-telemetry-slice-design.md`](../docs/superpowers/specs/2026-10-01-go-agent-telemetry-slice-design.md) |
+| Implementation plan | [`../docs/plans/go-agent/006-telemetry-slice.md`](../docs/plans/go-agent/006-telemetry-slice.md) — its Results section records what was built and every deviation |
+| Agent decisions | `AG-D21`–`AG-D25` in [`../docs/design/go-agent/decisions.md`](../docs/design/go-agent/decisions.md), all PROPOSED; open items `AG-14`–`AG-21` in design §13.2 |
+
+**The DP-set telemetry intervals (`AG-D26`) are specified, planned and built on the same branch, not merged.** Design: [`../docs/superpowers/specs/2026-10-09-go-agent-telemetry-cadence-design.md`](../docs/superpowers/specs/2026-10-09-go-agent-telemetry-cadence-design.md); plan: [`../docs/plans/go-agent/007-telemetry-cadence.md`](../docs/plans/go-agent/007-telemetry-cadence.md). The two `Limits` fields are a DRAFT ask, open item `AG-23`.
 
 The plan is now the historical record of what was built, not forward guidance — read it to
 understand why the code is shaped the way it is, not as a task list to execute.
@@ -43,6 +54,16 @@ understand why the code is shaped the way it is, not as a task list to execute.
 
 The walking-skeleton gate — product code blocked until the `dp-remote` apply engine merged — is
 **discharged** (recorded in the plan's §1.3) and no longer applies.
+
+**Open items slice 1 leaves.** None stops the agent running. The `AG-*` rows are in
+[`../docs/design/go-agent/design.md`](../docs/design/go-agent/design.md) §13:
+
+- **`AG-5`**: renewal backoff and jitter are unspecified (§13.1).
+  `TestIntegrationRenewAtHalfLifeAndSameIDOnResend` is skipped on it, not deleted.
+- **`AG-12`**: nothing prunes terminated journal records (§13.2).
+- **`AG-13`**: pending actual-state reports are unbounded during a DP outage (§13.2).
+- **`make test-docker` skips on Docker Desktop.** The E2E test bind-mounts `t.TempDir()`, which is under `/tmp`,
+  and Docker Desktop mounts only the paths it shares. The fix, a temp dir under `$HOME`, is not done yet.
 
 `SM-D*`, `AG-D*` and `AGW-D*` are all **PROPOSED**, not ratified (`I4`).
 
@@ -64,7 +85,12 @@ make build              # bin/sm-agent, bin/fake-gateway
 make test               # go vet + unit tests
 make test-integration   # scenarios against an in-process fake gateway
 make test-docker        # Docker adapter against a real container (needs a socket)
+
+bin/sm-agent --roles control,telemetry --telemetry-config telemetry.yaml ...   # roles: control (default) | control,telemetry | telemetry
 ```
+
+**On Docker Desktop:** export `DOCKER_HOST=unix://$HOME/.docker/desktop/docker.sock`. Bind-mount only directories
+under `$HOME`, never `/tmp`, because Docker Desktop refuses a mount of a path it does not share.
 
 ## Architecture
 
@@ -78,19 +104,20 @@ clock, do I/O or spawn goroutines — impurities arrive only through `reactor.En
 
 ```
 cmd/sm-agent/          flags+env (AG-D7), wiring, run
-cmd/fake-gateway/      scenario-driven test double (AG-D16)
+cmd/fake-gateway/      scenario-driven test double (AG-D16); --interactive adds a stdin console (RUNBOOK.md)
 proto/…/v1draft/       DRAFT wire, transcribed from gateway §4.3/§4.11 (AG-D13)
 internal/msg/          the message catalogue as Go structs — what every package except wire speaks
 internal/reactor/      Event, Effect, Env, TimerKind
 internal/agent/        the loop, the session reducer, effect executor, op worker, admin surface
 internal/authority/    lease reducer — SM-D28's phases, DP-time timers, admission
-internal/commands/     command journal (AG-D4) — offer gate, idempotency, resume, outcomes
+internal/commands/     command journal (AG-D4) — offer gate, idempotency, one-at-a-time dispatch queue, resume, outcomes
 internal/reports/      actual-state reports — item_id/sequence (AG-D17), cadence (AG-D18)
 internal/wire/         gRPC/mTLS binding; wire + wire/codec are the only production importers of wire/pb (fakegw, the test double, must implement its server)
 internal/identity/     key, CSR (persisted before first Enroll), cert chain, trust bundle
-internal/runtime/      Adapter seam; docker/ implementation; configwriter (atomic, 0600, symlink refusal)
+internal/runtime/      Adapter seam; docker/ implementation; configwriter (atomic, 0600, symlink refusal, in-memory rollback)
 internal/store/        durable records; one write primitive with parent-dir fsync
 internal/clock/        DP clock offset → CLOCK_SUSPECT input
+internal/telemetry/    pipeline wiring (AG-D21); view/ declare/ jsonptr/ collect/ buffer/ send/ tmetrics/ cadence/
 internal/fakegw/       fake gateway server, shared by the binary and integration tests
 oldGo-Agent/           the archived scaffold — reference only, not built, not maintained
 ```
@@ -99,7 +126,35 @@ Reducer dispatch order is fixed: **`session → authority → commands → repor
 reading the earlier ones' *new* state. That is how `commands` refuses an offer because `authority`
 just left `ACTIVE`.
 
-**Slice 1 does not build:** the `Telemetry` stream, credits and the disk buffer (`AG-D9`, slice 2);
+### Invariants the final review paid for — do not undo
+
+Each one was a real defect, and each has a test that fails without its fix.
+
+- **One runtime op at a time.** `commands.State.InFlight` is set when a `RunOp` is dispatched and cleared **only**
+  by that command's `OpFinished`. Closing its record, for example on a step deadline or `SUPERSEDED`, does not clear
+  it, because the worker is still busy. Later offers wait in `Queue`.
+  - Admission and the step deadline are evaluated **at dispatch**, not at offer.
+  - Why: without the queue, a stop that interleaved with an outstanding apply was acked `FAILED_NO_EFFECT` after
+    it had succeeded.
+- **The replaced config never touches disk (`I6`).** `configwriter` keeps the previous content in memory, and
+  only for `FAILED_ROLLED_BACK`. The journal may lag the filesystem but never lead it. That is safe because the
+  write is idempotent.
+- **`Snapshot` must not alias mutable state.** `cloneState` deep-copies every map and slice that a reducer mutates
+  (`L23` in [`../docs/design/common/lessons.md`](../docs/design/common/lessons.md)). A new field of that kind in any
+  reducer's `State` needs a matching line there.
+- **`Loop.Run` releases every goroutine it starts, on every exit path.**
+- **An in-flight batch is never dropped** (`TestAnInFlightBatchIsNeverDropped`).
+- **A failed state write never deletes batch files**, so seqs are not reused (`TestTrimWithAFailedStateWriteKeepsFilesSoSeqsAreNotReused`).
+- **Stream ids are safe path components** (`TestUnsafeStreamIdsAreRefused`).
+- **One stream break counts as one failure** (`TestOneStreamBreakIsOneFailure`).
+- **An unresolved batch waits two report intervals from when it was produced**, not from stream open (`TestAnUnresolvedBatchWaitsTwoReportIntervalsFromWhenItWasProduced`).
+- **A reconnect that repeats the DP's intervals resets no ticker**, or a session flapping faster than the push interval would postpone every push (`TestSettingTheSameValuesDoesNotSignalAChange`, `TestSessionUpArmsThePushTickerOnlyWhenTheIntervalChanges`).
+- **Secrets stay out of logs.**
+  - `CommandOffer` logs `payload_len`, never the payload.
+  - `EnrollRequest` logs `token_present` and prints `token=[REDACTED]`.
+  - A test that claims to prove a redaction must fail when the redaction is removed (`L24`).
+
+**Slice 1 did not build (slice 2 now does, on `feat/go-agent-telemetry`):** the `Telemetry` stream, credits and the disk buffer (`AG-D9`, slice 2);
 Kubernetes leader election (`AG-D6`) and the ConfigMap writer (`SM-D25`, slice 3); the `solace_event`
 collector (open item 35 / `AGW-3` — the vendor Go API is cgo and `AG-D1` requires a cgo-free binary);
 the report-only credential (`AGW-12`, undesigned plane-side).

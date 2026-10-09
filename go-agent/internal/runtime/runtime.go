@@ -46,6 +46,8 @@ type Adapter interface {
 	Restart(ctx context.Context, p Placement) error
 	Stop(ctx context.Context, p Placement) error
 	Observe(ctx context.Context, p Placement) (ReplicaFacts, error)
+	// ScrapeAddr is the host:port the agent fetches a container port from.
+	ScrapeAddr(ctx context.Context, p Placement, port int) (string, error)
 }
 
 type OpResult struct {

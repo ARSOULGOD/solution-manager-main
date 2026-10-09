@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/solace/solution-manager/go-agent/internal/msg"
+	"github.com/solace/solution-manager/go-agent/internal/wire/pb"
 )
 
 var now = time.Date(2026, 9, 22, 12, 0, 0, 0, time.UTC)
@@ -60,7 +61,8 @@ func TestGatewayMessagesRoundTrip(t *testing.T) {
 		AdmissionMargin: 30 * time.Second, ServerClock: now}
 	cases := []msg.Inbound{
 		msg.SessionAccept{Envelope: env, SessionID: "s", AssignedTargetID: "t", RequiredCapabilities: []msg.Capability{msg.CapLifecycle}, Lease: grant,
-			Limits: msg.Limits{MaxMessageBytes: 1, MaxBatchBytes: 2, InitialCredits: 3, HeartbeatInterval: time.Second, KeepaliveInterval: 2 * time.Second, SkewTolerance: 3 * time.Second, ReportInterval: 4 * time.Second}, ServerClock: now},
+			Limits: msg.Limits{MaxMessageBytes: 1, MaxBatchBytes: 2, InitialCredits: 3, HeartbeatInterval: time.Second, KeepaliveInterval: 2 * time.Second, SkewTolerance: 3 * time.Second, ReportInterval: 4 * time.Second,
+				TelemetryPullInterval: 5 * time.Second, TelemetryPushInterval: time.Minute}, ServerClock: now},
 		msg.SessionReject{Envelope: env, Code: msg.ErrReEnrollRequired, RetryAfter: nil, MinAgentVersion: "2"},
 		msg.SessionReject{Envelope: env, Code: msg.ErrAdmissionLimited, RetryAfter: &ra},
 		grant,
@@ -87,6 +89,20 @@ func TestGatewayMessagesRoundTrip(t *testing.T) {
 		if !reflect.DeepEqual(in, out) {
 			t.Errorf("%T round trip:\n in=%+v\nout=%+v", in, in, out)
 		}
+	}
+}
+
+// A gateway that predates AG-D26 sends neither field; the agent must read 0,
+// its local default.
+func TestAbsentTelemetryIntervalsDecodeToZero(t *testing.T) {
+	out, err := GatewayFromPB(&pb.GatewayToAgent{Msg: &pb.GatewayToAgent_SessionAccept{SessionAccept: &pb.SessionAccept{
+		Limits: &pb.Limits{ReportInterval: dur(time.Minute)}}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	l := out.(msg.SessionAccept).Limits
+	if l.TelemetryPullInterval != 0 || l.TelemetryPushInterval != 0 || l.ReportInterval != time.Minute {
+		t.Fatalf("limits %+v", l)
 	}
 }
 
@@ -134,5 +150,60 @@ func TestCommandAckOperationIsNotOnTheWire(t *testing.T) {
 	}
 	if got.CommandID != "c1" || got.Outcome != msg.OutcomeRefused || got.Generation != 3 {
 		t.Fatalf("the rest of the ack must still round-trip: %+v", got)
+	}
+}
+
+func TestTelemetryMessagesRoundTrip(t *testing.T) {
+	env := msg.Envelope{MessageID: "m", SentAt: now}
+	ra := 3 * time.Second
+	up := msg.TelemetryBatch{Envelope: env, StreamID: "binding-1", BatchSeq: 7, ProducedAt: now,
+		Samples: []msg.Sample{{SeriesKey: "cache.hit_rate", Type: msg.MetricGauge, TS: now, Value: 0.93,
+			Labels: map[string]string{"binding_id": "binding-1", "replica_id": "r", "incarnation_id": "i"}}},
+		GapMarkers: []msg.GapMarker{{FromSeq: 3, ToSeq: 6, Reason: "DROPPED_OLDEST"}}}
+	got, err := TelemetryUpFromPB(TelemetryUpToPB(up))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(up, got) {
+		t.Errorf("batch round trip:\n in=%+v\nout=%+v", up, got)
+	}
+	for _, in := range []msg.TelemetryInbound{
+		msg.TelemetryAck{Envelope: env, StreamID: "binding-1", HighWatermarkSeq: 7, CreditsGranted: 1},
+		msg.TelemetryCredit{Envelope: env, StreamID: "binding-1", CreditsGranted: 4},
+		msg.TelemetryReject{Envelope: env, StreamID: "binding-1", Code: msg.ErrUnknownReplica, RetryAfter: &ra},
+	} {
+		p, err := TelemetryDownToPB(in)
+		if err != nil {
+			t.Fatalf("%T: %v", in, err)
+		}
+		out, err := TelemetryDownFromPB(p)
+		if err != nil {
+			t.Fatalf("%T: %v", in, err)
+		}
+		if !reflect.DeepEqual(in, out) {
+			t.Errorf("%T round trip:\n in=%+v\nout=%+v", in, in, out)
+		}
+	}
+}
+
+func TestMetricTypeCrossesTheWireAsItsNamedValue(t *testing.T) {
+	for mt, want := range map[msg.MetricType]pb.MetricType{
+		msg.MetricCounter:   pb.MetricType_METRIC_TYPE_COUNTER,
+		msg.MetricGauge:     pb.MetricType_METRIC_TYPE_GAUGE,
+		msg.MetricHistogram: pb.MetricType_METRIC_TYPE_HISTOGRAM,
+	} {
+		p := TelemetryUpToPB(msg.TelemetryBatch{Samples: []msg.Sample{{Type: mt}}})
+		if got := p.GetTelemetryBatch().Samples[0].Type; got != want {
+			t.Errorf("%s encodes as %v, want %v", mt, got, want)
+		}
+	}
+}
+
+func TestEmptyTelemetryEnvelopesAreErrors(t *testing.T) {
+	if _, err := TelemetryUpFromPB(&pb.TelemetryUp{}); err == nil {
+		t.Error("an up message with no batch must be an error")
+	}
+	if _, err := TelemetryDownFromPB(&pb.TelemetryDown{}); err == nil {
+		t.Error("a down message with nothing in it must be an error")
 	}
 }

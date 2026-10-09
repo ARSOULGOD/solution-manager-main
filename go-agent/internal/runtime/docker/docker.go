@@ -9,8 +9,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"net"
 	"path"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,6 +22,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	dockerclient "github.com/docker/docker/client"
+	"github.com/docker/go-connections/nat"
 
 	"github.com/solace/solution-manager/go-agent/internal/msg"
 	"github.com/solace/solution-manager/go-agent/internal/runtime"
@@ -36,10 +41,11 @@ const (
 )
 
 var (
-	ErrNotFound       = errors.New("docker: no container carries the binding label")
-	ErrAmbiguous      = errors.New("docker: more than one container carries the binding label")
-	ErrNoDeclaredPath = errors.New("docker: the container declares no external config location")
-	ErrNoBindMount    = errors.New("docker: the declared config directory is not a bind mount")
+	ErrNotFound        = errors.New("docker: no container carries the binding label")
+	ErrAmbiguous       = errors.New("docker: more than one container carries the binding label")
+	ErrNoDeclaredPath  = errors.New("docker: the container declares no external config location")
+	ErrNoBindMount     = errors.New("docker: the declared config directory is not a bind mount")
+	ErrPortUnreachable = errors.New("docker: port is neither published nor reachable on a container network")
 )
 
 type engineAPI interface {
@@ -240,4 +246,34 @@ func (a *Adapter) Observe(ctx context.Context, p runtime.Placement) (runtime.Rep
 		}
 	}
 	return f, nil
+}
+
+// ScrapeAddr is where a container port is fetched from (spec §3.4): its
+// published binding first — on Docker Desktop the only way in from the host
+// (docs.docker.com, "Networking on Docker Desktop", fetched 2026-10-01) —
+// then its IP, for an agent attached to the container's own network, which is
+// the control architecture.md §10 prescribes for Cache.
+func (a *Adapter) ScrapeAddr(ctx context.Context, p runtime.Placement, port int) (string, error) {
+	insp, err := a.cli.ContainerInspect(ctx, p.ContainerID)
+	if err != nil {
+		return "", err
+	}
+	if ns := insp.NetworkSettings; ns != nil {
+		for _, b := range ns.Ports[nat.Port(fmt.Sprintf("%d/tcp", port))] {
+			if b.HostPort == "" {
+				continue
+			}
+			host := b.HostIP
+			if host == "" || host == "0.0.0.0" || host == "::" {
+				host = "127.0.0.1"
+			}
+			return net.JoinHostPort(host, b.HostPort), nil
+		}
+		for _, name := range slices.Sorted(maps.Keys(ns.Networks)) {
+			if ep := ns.Networks[name]; ep != nil && ep.IPAddress != "" {
+				return net.JoinHostPort(ep.IPAddress, strconv.Itoa(port)), nil
+			}
+		}
+	}
+	return "", fmt.Errorf("%w: %d (container %s)", ErrPortUnreachable, port, p.Name)
 }

@@ -16,8 +16,12 @@ import (
 type cmdState struct {
 	offer      msg.CommandOffer
 	superseded bool
-	state      string // OFFERED | DELIVERED | ACKED | REFUSED | SUPERSEDED
+	state      string              // OFFERED | DELIVERED | ACKED | REFUSED | SUPERSEDED
+	ack        chan msg.CommandAck // the first CommandAck, for whoever offered it
 }
+
+// offerDeadline is an offer's deadline when its step names none.
+const offerDeadline = 5 * time.Minute
 
 type session struct {
 	s      *Server
@@ -27,6 +31,9 @@ type session struct {
 	policy Policy
 
 	sendMu sync.Mutex
+
+	kick     chan struct{} // closed by Server.Disconnect: end this stream, keep the enrolment
+	kickOnce sync.Once
 
 	// mu guards commands and policy. Once the steady-state phase starts,
 	// run() has two live goroutines touching session state: the scripted
@@ -44,10 +51,15 @@ type session struct {
 	// mustClose's one read (in run(), after <-stepDone) is already ordered
 	// after every write to it by the stepDone channel close, which is
 	// itself a happens-before edge per the Go memory model.
-	mu        sync.Mutex
-	commands  map[string]*cmdState
-	inbox     chan msg.Outbound
-	done      chan struct{}
+	mu       sync.Mutex
+	commands map[string]*cmdState
+	inbox    chan msg.Outbound
+	done     chan struct{}
+	// accepted is closed once SessionAccept is on the stream. The session is
+	// live (Offer, Telemetry) a moment before that, so an agent that opens
+	// Telemetry straight after SessionAccept is never refused; an offer
+	// waits here so it can never overtake SessionAccept.
+	accepted  chan struct{}
 	cursor    int  // transcript index the next `expect` scans from
 	mustClose bool // set by disconnect/drain/revoke steps: drop the stream when steps finish
 }
@@ -68,7 +80,7 @@ func (s *Server) Connect(stream pb.AgentGateway_ConnectServer) error {
 	s.mu.Unlock()
 
 	ss := &session{s: s, ag: ag, stream: stream, sc: s.cfg.Scenario, policy: s.cfg.Scenario.Policy,
-		commands: map[string]*cmdState{}, inbox: make(chan msg.Outbound, 256), done: make(chan struct{}),
+		commands: map[string]*cmdState{}, inbox: make(chan msg.Outbound, 256), done: make(chan struct{}), accepted: make(chan struct{}), kick: make(chan struct{}),
 		cursor: s.tr.length()}
 	go ss.reader()
 	return ss.run()
@@ -126,8 +138,10 @@ func (ss *session) newGrant(now time.Time) msg.LeaseGrant {
 
 func (ss *session) limits() msg.Limits {
 	l := ss.sc.Limits
-	return msg.Limits{MaxMessageBytes: l.MaxMessageBytes, HeartbeatInterval: l.HeartbeatInterval, KeepaliveInterval: l.KeepaliveInterval,
-		SkewTolerance: l.SkewTolerance, ReportInterval: l.ReportInterval}
+	pull, push := ss.s.TelemetryIntervals()
+	return msg.Limits{MaxMessageBytes: l.MaxMessageBytes, MaxBatchBytes: l.MaxBatchBytes, InitialCredits: l.InitialCredits,
+		HeartbeatInterval: l.HeartbeatInterval, KeepaliveInterval: l.KeepaliveInterval, SkewTolerance: l.SkewTolerance, ReportInterval: l.ReportInterval,
+		TelemetryPullInterval: pull, TelemetryPushInterval: push}
 }
 
 // next waits for the next inbound message or the stream ending.
@@ -180,8 +194,11 @@ func (ss *session) run() error {
 		g := ss.grantForRenew(lr, now)
 		lease = &g
 	}
+	ss.s.setLive(ss)
+	defer ss.s.clearLive(ss)
 	ss.send(msg.SessionAccept{Envelope: ss.env(), SessionID: "sess-" + ss.s.newID()[:8], AssignedTargetID: ss.sc.Lease.TargetID,
 		RequiredCapabilities: nil, Lease: *lease, Limits: ss.limits(), ServerClock: now})
+	close(ss.accepted)
 
 	// 2. steady state: auto-responders + scripted steps
 	steps := ss.sc.Steps
@@ -200,6 +217,8 @@ func (ss *session) run() error {
 			ss.respond(m)
 		case <-ss.done:
 			return nil
+		case <-ss.kick:
+			return nil
 		case <-stepDone:
 			if ss.mustClose {
 				return nil // returning ends the stream: the agent sees EOF
@@ -210,6 +229,8 @@ func (ss *session) run() error {
 				case m := <-ss.inbox:
 					ss.respond(m)
 				case <-ss.done:
+					return nil
+				case <-ss.kick:
 					return nil
 				}
 			}
@@ -302,6 +323,10 @@ func (ss *session) respond(m msg.Outbound) {
 			} else {
 				c.state = "ACKED"
 			}
+			select {
+			case c.ack <- v:
+			default: // a replayed ack: the first one was already delivered
+			}
 		}
 		ss.mu.Unlock()
 	case msg.ActualStateReportBatch:
@@ -340,6 +365,37 @@ func (ss *session) ackReports(b msg.ActualStateReportBatch) {
 	ss.send(ack)
 }
 
+// offer registers a command and notifies the agent of it. Scripted steps and
+// the console both offer through here.
+func (ss *session) offer(o OfferStep) *cmdState {
+	<-ss.accepted
+	sum := sha256.Sum256([]byte(o.Payload))
+	h := hex.EncodeToString(sum[:])
+	if o.BadHash {
+		h = "deadbeef"
+	}
+	dl := o.Deadline
+	if dl == 0 {
+		dl = offerDeadline
+	}
+	key := o.IdempotencyKey
+	if key == "" {
+		key = "key-" + o.CommandID
+	}
+	cs := &cmdState{state: "OFFERED", ack: make(chan msg.CommandAck, 1), offer: msg.CommandOffer{
+		CommandID: o.CommandID, Generation: o.Generation, IdempotencyKey: key, BindingID: o.BindingID,
+		Operation: msg.Operation(o.Operation), Payload: []byte(o.Payload), ConfigSHA256: h,
+		SupersedesGeneration: o.SupersedesGeneration, Deadline: time.Now().Add(dl),
+	}}
+	ss.mu.Lock()
+	ss.commands[o.CommandID] = cs
+	ss.mu.Unlock()
+	ss.s.sawGeneration(o.BindingID, o.Generation)
+	ss.send(msg.GenerationAvailable{Envelope: ss.env(), CommandID: o.CommandID, BindingID: o.BindingID, Generation: o.Generation,
+		Operation: msg.Operation(o.Operation), ConfigSHA256: h, Deadline: time.Now().Add(dl)})
+	return cs
+}
+
 // runStep returns false when the session should stop.
 func (ss *session) runStep(st Step) bool {
 	switch {
@@ -355,30 +411,7 @@ func (ss *session) runStep(st Step) bool {
 		}
 		ss.cursor = next
 	case st.Offer != nil:
-		o := st.Offer
-		sum := sha256.Sum256([]byte(o.Payload))
-		h := hex.EncodeToString(sum[:])
-		if o.BadHash {
-			h = "deadbeef"
-		}
-		dl := o.Deadline
-		if dl == 0 {
-			dl = 5 * time.Minute
-		}
-		key := o.IdempotencyKey
-		if key == "" {
-			key = "key-" + o.CommandID
-		}
-		cs := &cmdState{state: "OFFERED", offer: msg.CommandOffer{
-			CommandID: o.CommandID, Generation: o.Generation, IdempotencyKey: key, BindingID: o.BindingID,
-			Operation: msg.Operation(o.Operation), Payload: []byte(o.Payload), ConfigSHA256: h,
-			SupersedesGeneration: o.SupersedesGeneration, Deadline: time.Now().Add(dl),
-		}}
-		ss.mu.Lock()
-		ss.commands[o.CommandID] = cs
-		ss.mu.Unlock()
-		ss.send(msg.GenerationAvailable{Envelope: ss.env(), CommandID: o.CommandID, BindingID: o.BindingID, Generation: o.Generation,
-			Operation: msg.Operation(o.Operation), ConfigSHA256: h, Deadline: time.Now().Add(dl)})
+		ss.offer(*st.Offer)
 	case st.Superseded != nil:
 		ss.mu.Lock()
 		if c := ss.commands[*st.Superseded]; c != nil {

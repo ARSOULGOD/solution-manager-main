@@ -48,6 +48,9 @@ func (s *stubAdapter) WriteConfig(_ context.Context, _ runtime.Placement, payloa
 	_ = p(msg.StepPersisted)
 	return runtime.WriteResult{Hash: "h"}, nil
 }
+func (*stubAdapter) ScrapeAddr(context.Context, runtime.Placement, int) (string, error) {
+	return "", errors.New("unused")
+}
 
 func TestOpRunnerRestartNeedsNewStartedAt(t *testing.T) {
 	t1 := time.Unix(100, 0)
@@ -156,6 +159,9 @@ func (d *diskAdapter) Observe(context.Context, runtime.Placement) (runtime.Repli
 }
 func (d *diskAdapter) WriteConfig(_ context.Context, p runtime.Placement, payload []byte, sha string, pr runtime.Progress) (runtime.WriteResult, error) {
 	return configwriter.Write(p.HostPath, payload, sha, p.UID, p.GID, pr)
+}
+func (*diskAdapter) ScrapeAddr(context.Context, runtime.Placement, int) (string, error) {
+	return "", errors.New("unused")
 }
 
 // The configuration being REPLACED may hold secrets (I6), and nothing ever

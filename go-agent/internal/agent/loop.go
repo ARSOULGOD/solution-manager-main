@@ -19,6 +19,7 @@ import (
 	"github.com/solace/solution-manager/go-agent/internal/reports"
 	"github.com/solace/solution-manager/go-agent/internal/runtime"
 	"github.com/solace/solution-manager/go-agent/internal/store"
+	"github.com/solace/solution-manager/go-agent/internal/telemetry/view"
 )
 
 var ErrFatalPersist = errors.New("agent: persist failed; refusing to continue without durability")
@@ -54,6 +55,10 @@ type Deps struct {
 	Now      func() time.Time
 	Log      *slog.Logger
 	Observe  func(reactor.Event, []reactor.Effect)
+
+	View            *view.Hub                         // nil: no telemetry role
+	Telemetry       interface{ Run(context.Context) } // the pipeline; Run returns when ctx ends
+	TelemetryResume func() map[string]uint64
 }
 
 // loop-private events
@@ -94,6 +99,8 @@ type Loop struct {
 	// connection in the same batch as arming an immediate (zero-delay)
 	// reconnect, so a fresh Dial is already racing to replace it.
 	intentionalCloseGen int
+
+	viewPublished bool
 }
 
 func New(d Deps, initial State) *Loop {
@@ -172,11 +179,16 @@ func (l *Loop) Run(ctx context.Context) error {
 	// would otherwise post into an inbox nobody reads). One defer, so no exit
 	// path can skip it.
 	ctx, cancel := context.WithCancel(ctx)
+	var tele sync.WaitGroup
 	defer func() {
 		cancel()
 		l.stopTimers()
 		close(l.ops)
+		tele.Wait() // Loop.Run releases every goroutine it starts, on every exit path
 	}()
+	if l.d.Telemetry != nil {
+		tele.Go(func() { l.d.Telemetry.Run(ctx) })
+	}
 	go l.worker(ctx)
 	go func() {
 		<-ctx.Done()
@@ -214,6 +226,7 @@ func (l *Loop) Run(ctx context.Context) error {
 		next, effs := Reduce(l.d.Config, st, ev, env)
 		l.state = next
 		l.mu.Unlock()
+		l.publish(st, next, ev)
 		effs = reactor.Sort(effs)
 		if l.d.Observe != nil {
 			l.d.Observe(ev, effs)
@@ -275,7 +288,7 @@ func (l *Loop) translate(raw reactor.Event) (reactor.Event, bool) {
 			return reactor.Disconnected{At: e.at, Cause: e.err}, true
 		}
 		l.attach(e.conn)
-		return reactor.Connected{At: e.at}, true
+		return reactor.Connected{At: e.at, TelemetryResume: l.telemetryResume()}, true
 	case connClosed:
 		// The second condition catches only the immediate-redial echo (see
 		// closeConn/intentionalCloseGen) — any other intentional close is
@@ -504,5 +517,58 @@ func (l *Loop) observeAll(ctx context.Context, st State, persistedGen map[string
 			obs.RestartObservedAt = &at
 		}
 		l.Push(reactor.Observed{At: l.d.Now(), Obs: obs})
+	}
+}
+
+func (l *Loop) telemetryResume() map[string]uint64 {
+	if l.d.TelemetryResume == nil {
+		return nil
+	}
+	return l.d.TelemetryResume()
+}
+
+// publish hands the telemetry pipeline a new view when what it reads may have
+// changed: the session phase or id, the lease (replaced wholesale on every
+// grant), or the id registry (changed only by a ReportAck). It runs on the
+// loop goroutine, the only writer of these maps, so taking IDTable is safe.
+func (l *Loop) publish(prev, next State, ev reactor.Event) {
+	if l.d.View == nil {
+		return
+	}
+	reportAck := false
+	if w, ok := ev.(reactor.WireIn); ok {
+		_, reportAck = w.Msg.(msg.ReportAck)
+	}
+	if l.viewPublished && !reportAck && prev.Session.Phase == next.Session.Phase &&
+		prev.Session.SessionID == next.Session.SessionID && prev.Authority.Grant == next.Authority.Grant {
+		return
+	}
+	l.viewPublished = true
+	snap := view.Snapshot{IDs: next.Reports.IDTable(), Halted: next.Session.Phase == PhaseHalted, Bindings: map[string]bool{}}
+	if g := next.Authority.Grant; g != nil {
+		for _, b := range g.BindingIDs {
+			snap.Bindings[b] = true
+		}
+	}
+	if next.Session.Phase == PhaseActive && l.conn != nil {
+		snap.Session = &view.SessionInfo{ID: next.Session.SessionID, Limits: next.Session.Limits, Open: telemetryOpener(l.conn)}
+	}
+	l.d.View.Publish(snap)
+}
+
+type telemetryConn interface {
+	OpenTelemetry(ctx context.Context) (view.Stream, error)
+}
+
+// telemetryOpener binds the opener to this connection: after a reconnect a
+// stale opener fails instead of opening on the new connection behind the
+// sender's back.
+func telemetryOpener(c Conn) func(context.Context) (view.Stream, error) {
+	return func(ctx context.Context) (view.Stream, error) {
+		tc, ok := c.(telemetryConn)
+		if !ok {
+			return nil, errors.New("agent: this connection carries no Telemetry stream")
+		}
+		return tc.OpenTelemetry(ctx)
 	}
 }

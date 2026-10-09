@@ -267,3 +267,13 @@ func TestBackoffCapsAtFiveMinutes(t *testing.T) {
 		t.Fatal("backoff schedule wrong")
 	}
 }
+
+func TestSessionOpenCarriesTheTelemetryResumeHint(t *testing.T) {
+	e := reactor.Env{Now: time.Unix(0, 0), NewID: func() string { return "id" }}
+	_, effs := reduceSession(cfg, SessionState{Phase: PhaseConnecting},
+		reactor.Connected{At: time.Unix(0, 0), TelemetryResume: map[string]uint64{"binding-1": 7}}, e, SessionInputs{})
+	open, ok := effs[0].(reactor.Send).Msg.(msg.SessionOpen)
+	if !ok || open.Resume.LastTelemetrySeqByStream["binding-1"] != 7 {
+		t.Fatalf("SessionOpen %+v", effs)
+	}
+}
