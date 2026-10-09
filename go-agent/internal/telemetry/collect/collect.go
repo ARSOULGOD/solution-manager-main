@@ -15,6 +15,7 @@ import (
 
 	"github.com/solace/solution-manager/go-agent/internal/runtime"
 	"github.com/solace/solution-manager/go-agent/internal/telemetry/buffer"
+	"github.com/solace/solution-manager/go-agent/internal/telemetry/cadence"
 	"github.com/solace/solution-manager/go-agent/internal/telemetry/declare"
 	"github.com/solace/solution-manager/go-agent/internal/telemetry/jsonptr"
 	"github.com/solace/solution-manager/go-agent/internal/telemetry/tmetrics"
@@ -37,6 +38,7 @@ type Collector struct {
 	Now     func() time.Time
 	Log     *slog.Logger
 	Metrics *tmetrics.Metrics
+	Cadence *cadence.Holder // the DP's pull interval (AG-D26); nil: always Decl.Interval
 
 	warnedNotLeased bool
 }
@@ -46,20 +48,58 @@ type endpoint struct {
 	path string
 }
 
-// Run ticks every interval until ctx ends. A tick is synchronous, so one
-// binding never has two scrapes in flight; a slow tick makes the ticker drop
-// beats rather than queue them.
+// Run ticks every interval until ctx ends. The interval is the DP's pull
+// interval when it set one (AG-D26), else the declared one. A change resets
+// the ticker, so the next scrape comes one new interval later, never at once.
+// A tick is synchronous, so one binding never has two scrapes in flight; a
+// slow tick makes the ticker drop beats rather than queue them.
 func (c *Collector) Run(ctx context.Context) {
-	t := time.NewTicker(c.Decl.Interval)
+	changed, every := c.cadence()
+	t := time.NewTicker(every)
 	defer t.Stop()
 	for {
 		c.Tick(ctx)
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
+	wait:
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				break wait
+			case <-changed:
+				var d time.Duration
+				if changed, d = c.cadence(); d != every {
+					every = d
+					t.Reset(every) // every > 0: a DP pull is ≥ 1 s, a declared one validated ≥ 1 s
+				}
+			}
 		}
 	}
+}
+
+// cadence returns the interval in use and the channel its next change closes.
+// With no holder nothing changes: a nil channel never fires in a select.
+func (c *Collector) cadence() (<-chan struct{}, time.Duration) {
+	if c.Cadence == nil {
+		return nil, c.Decl.Interval
+	}
+	ch := c.Cadence.Changed() // before Current, so a Set between them is not missed
+	return ch, c.interval(c.Cadence.Current())
+}
+
+func (c *Collector) interval(s cadence.Settings) time.Duration {
+	if s.Pull > 0 {
+		return s.Pull
+	}
+	return c.Decl.Interval
+}
+
+// timeout keeps timeout ≤ interval when the DP shortens the interval (spec §2.2).
+func (c *Collector) timeout() time.Duration {
+	if c.Cadence == nil {
+		return c.Decl.Timeout
+	}
+	return min(c.Decl.Timeout, c.interval(c.Cadence.Current()))
 }
 
 // Tick runs one collection. It never panics outward and never blocks past
@@ -79,7 +119,7 @@ func (c *Collector) Tick(ctx context.Context) {
 		return
 	}
 	c.warnedNotLeased = false
-	ctx, cancel := context.WithTimeout(ctx, c.Decl.Timeout)
+	ctx, cancel := context.WithTimeout(ctx, c.timeout())
 	defer cancel()
 	p, err := c.Adapter.Resolve(ctx, c.Binding)
 	if err != nil {

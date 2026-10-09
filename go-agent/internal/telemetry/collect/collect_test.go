@@ -19,6 +19,7 @@ import (
 	"github.com/solace/solution-manager/go-agent/internal/msg"
 	"github.com/solace/solution-manager/go-agent/internal/runtime"
 	"github.com/solace/solution-manager/go-agent/internal/telemetry/buffer"
+	"github.com/solace/solution-manager/go-agent/internal/telemetry/cadence"
 	"github.com/solace/solution-manager/go-agent/internal/telemetry/declare"
 	"github.com/solace/solution-manager/go-agent/internal/telemetry/tmetrics"
 )
@@ -253,5 +254,70 @@ func TestANullBodyCountsEachMetricUnavailable(t *testing.T) {
 		if v := testutil.ToFloat64(m.Unavailable.WithLabelValues("binding-1", name)); v != 1 {
 			t.Errorf("unavailable{%s} = %v", name, v)
 		}
+	}
+}
+
+func okTarget(t *testing.T) string {
+	return serve(t, func(w http.ResponseWriter, _ *http.Request) { _, _ = io.WriteString(w, `{"hitRate": 1}`) })
+}
+
+func runFor(c *Collector, d time.Duration) {
+	ctx, cancel := context.WithTimeout(context.Background(), d)
+	defer cancel()
+	c.Run(ctx)
+}
+
+func TestTheDPPullIntervalReplacesTheDeclaredOne(t *testing.T) {
+	out := &sink{}
+	c := collector(okTarget(t), out, nil, decl(time.Second, metric("cache.hit_rate", "gauge", "/hitRate")))
+	c.Cadence = cadence.NewHolder()
+	c.Cadence.Set(cadence.Settings{Pull: 50 * time.Millisecond})
+	runFor(c, 400*time.Millisecond)
+	if n := len(out.all()); n < 5 {
+		t.Fatalf("%d ticks in 400ms at a 50ms DP interval; the declared 1s gives 1", n)
+	}
+}
+
+func TestAZeroDPPullKeepsTheDeclaredInterval(t *testing.T) {
+	out := &sink{}
+	c := collector(okTarget(t), out, nil, decl(time.Second, metric("cache.hit_rate", "gauge", "/hitRate")))
+	c.Cadence = cadence.NewHolder()
+	c.Cadence.Set(cadence.Settings{Push: time.Minute})
+	runFor(c, 400*time.Millisecond)
+	if n := len(out.all()); n != 1 {
+		t.Fatalf("%d ticks in 400ms; the declared 1s gives exactly 1", n)
+	}
+}
+
+func TestACadenceChangeResetsTheTicker(t *testing.T) {
+	out := &sink{}
+	c := collector(okTarget(t), out, nil, decl(time.Second, metric("cache.hit_rate", "gauge", "/hitRate")))
+	c.Cadence = cadence.NewHolder()
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		c.Cadence.Set(cadence.Settings{Pull: 50 * time.Millisecond})
+	}()
+	runFor(c, 600*time.Millisecond)
+	if n := len(out.all()); n < 5 {
+		t.Fatalf("%d ticks: the ticker kept the declared 1s after the change", n)
+	}
+}
+
+func TestTheTimeoutIsClampedToTheDPPullInterval(t *testing.T) {
+	addr := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-time.After(300 * time.Millisecond):
+		case <-r.Context().Done():
+			return
+		}
+		_, _ = io.WriteString(w, `{"hitRate": 1}`)
+	})
+	out, m := &sink{}, tmetrics.New()
+	c := collector(addr, out, m, decl(time.Second, metric("cache.hit_rate", "gauge", "/hitRate")))
+	c.Cadence = cadence.NewHolder()
+	c.Cadence.Set(cadence.Settings{Pull: 100 * time.Millisecond})
+	c.Tick(context.Background())
+	if len(out.all()) != 0 || testutil.ToFloat64(m.ScrapeErrors.WithLabelValues("binding-1", "http")) != 1 {
+		t.Fatalf("a 300ms answer was accepted under a 100ms pull interval: %d batches", len(out.all()))
 	}
 }
