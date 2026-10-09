@@ -16,6 +16,11 @@
 //    puts ADMISSION_BLOCKED in CommandAck.detail.code and §4.8 uses
 //    LEASE_NOT_ACTIVE as a reason. Both are carried here beside a reused
 //    ErrorCode.
+//
+// One deliberate departure from 1:1 transcription: Limits fields 8 and 9,
+// telemetry_pull_interval and telemetry_push_interval, are NOT in §4.3. They
+// are an agent-side ask (AG-D26), routed to the AG-D* and AGW owners as open
+// item AG-23. A gateway that sends neither leaves the agent's defaults.
 syntax = "proto3";
 
 package solace.sm.agentgateway.v1draft;
@@ -187,6 +192,10 @@ message Limits {
   google.protobuf.Duration keepalive_interval = 5;
   google.protobuf.Duration skew_tolerance = 6;
   google.protobuf.Duration report_interval = 7;
+  // NOT transcribed from §4.3: an agent-side ask (AG-D26, open item AG-23).
+  // Absent or zero means the agent's local default.
+  google.protobuf.Duration telemetry_pull_interval = 8;
+  google.protobuf.Duration telemetry_push_interval = 9;
 }
 
 message LeaseGrant {

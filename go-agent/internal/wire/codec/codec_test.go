@@ -61,7 +61,8 @@ func TestGatewayMessagesRoundTrip(t *testing.T) {
 		AdmissionMargin: 30 * time.Second, ServerClock: now}
 	cases := []msg.Inbound{
 		msg.SessionAccept{Envelope: env, SessionID: "s", AssignedTargetID: "t", RequiredCapabilities: []msg.Capability{msg.CapLifecycle}, Lease: grant,
-			Limits: msg.Limits{MaxMessageBytes: 1, MaxBatchBytes: 2, InitialCredits: 3, HeartbeatInterval: time.Second, KeepaliveInterval: 2 * time.Second, SkewTolerance: 3 * time.Second, ReportInterval: 4 * time.Second}, ServerClock: now},
+			Limits: msg.Limits{MaxMessageBytes: 1, MaxBatchBytes: 2, InitialCredits: 3, HeartbeatInterval: time.Second, KeepaliveInterval: 2 * time.Second, SkewTolerance: 3 * time.Second, ReportInterval: 4 * time.Second,
+				TelemetryPullInterval: 5 * time.Second, TelemetryPushInterval: time.Minute}, ServerClock: now},
 		msg.SessionReject{Envelope: env, Code: msg.ErrReEnrollRequired, RetryAfter: nil, MinAgentVersion: "2"},
 		msg.SessionReject{Envelope: env, Code: msg.ErrAdmissionLimited, RetryAfter: &ra},
 		grant,
@@ -88,6 +89,20 @@ func TestGatewayMessagesRoundTrip(t *testing.T) {
 		if !reflect.DeepEqual(in, out) {
 			t.Errorf("%T round trip:\n in=%+v\nout=%+v", in, in, out)
 		}
+	}
+}
+
+// A gateway that predates AG-D26 sends neither field; the agent must read 0,
+// its local default.
+func TestAbsentTelemetryIntervalsDecodeToZero(t *testing.T) {
+	out, err := GatewayFromPB(&pb.GatewayToAgent{Msg: &pb.GatewayToAgent_SessionAccept{SessionAccept: &pb.SessionAccept{
+		Limits: &pb.Limits{ReportInterval: dur(time.Minute)}}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	l := out.(msg.SessionAccept).Limits
+	if l.TelemetryPullInterval != 0 || l.TelemetryPushInterval != 0 || l.ReportInterval != time.Minute {
+		t.Fatalf("limits %+v", l)
 	}
 }
 

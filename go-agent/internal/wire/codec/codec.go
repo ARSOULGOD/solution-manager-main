@@ -356,7 +356,8 @@ func GatewayToPB(m msg.Inbound) (*pb.GatewayToAgent, error) {
 		return &pb.GatewayToAgent{Msg: &pb.GatewayToAgent_SessionAccept{SessionAccept: &pb.SessionAccept{
 			Envelope: envToPB(v.Envelope), SessionId: v.SessionID, AssignedTargetId: v.AssignedTargetID, RequiredCapabilities: capsToPB(v.RequiredCapabilities), Lease: grantToPB(v.Lease),
 			Limits: &pb.Limits{MaxMessageBytes: v.Limits.MaxMessageBytes, MaxBatchBytes: v.Limits.MaxBatchBytes, InitialCredits: v.Limits.InitialCredits,
-				HeartbeatInterval: dur(v.Limits.HeartbeatInterval), KeepaliveInterval: dur(v.Limits.KeepaliveInterval), SkewTolerance: dur(v.Limits.SkewTolerance), ReportInterval: dur(v.Limits.ReportInterval)},
+				HeartbeatInterval: dur(v.Limits.HeartbeatInterval), KeepaliveInterval: dur(v.Limits.KeepaliveInterval), SkewTolerance: dur(v.Limits.SkewTolerance), ReportInterval: dur(v.Limits.ReportInterval),
+				TelemetryPullInterval: dur(v.Limits.TelemetryPullInterval), TelemetryPushInterval: dur(v.Limits.TelemetryPushInterval)},
 			ServerClock: ts(v.ServerClock)}}}, nil
 	case msg.SessionReject:
 		return &pb.GatewayToAgent{Msg: &pb.GatewayToAgent_SessionReject{SessionReject: &pb.SessionReject{Envelope: envToPB(v.Envelope), Code: errToPB(v.Code), RetryAfter: durPtr(v.RetryAfter), MinAgentVersion: strPtr(v.MinAgentVersion)}}}, nil
@@ -400,7 +401,8 @@ func GatewayFromPB(p *pb.GatewayToAgent) (msg.Inbound, error) {
 		return msg.SessionAccept{Envelope: envFromPB(m.GetEnvelope()), SessionID: m.GetSessionId(), AssignedTargetID: m.GetAssignedTargetId(),
 			RequiredCapabilities: capsFromPB(m.GetRequiredCapabilities()), Lease: grantFromPB(m.GetLease()),
 			Limits: msg.Limits{MaxMessageBytes: l.GetMaxMessageBytes(), MaxBatchBytes: l.GetMaxBatchBytes(), InitialCredits: l.GetInitialCredits(),
-				HeartbeatInterval: durFrom(l.GetHeartbeatInterval()), KeepaliveInterval: durFrom(l.GetKeepaliveInterval()), SkewTolerance: durFrom(l.GetSkewTolerance()), ReportInterval: durFrom(l.GetReportInterval())},
+				HeartbeatInterval: durFrom(l.GetHeartbeatInterval()), KeepaliveInterval: durFrom(l.GetKeepaliveInterval()), SkewTolerance: durFrom(l.GetSkewTolerance()), ReportInterval: durFrom(l.GetReportInterval()),
+				TelemetryPullInterval: durFrom(l.GetTelemetryPullInterval()), TelemetryPushInterval: durFrom(l.GetTelemetryPushInterval())},
 			ServerClock: tsFrom(m.GetServerClock())}, nil
 	case *pb.GatewayToAgent_SessionReject:
 		m := v.SessionReject

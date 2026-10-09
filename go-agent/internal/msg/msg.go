@@ -220,6 +220,9 @@ type Limits struct {
 	KeepaliveInterval time.Duration
 	SkewTolerance     time.Duration
 	ReportInterval    time.Duration
+	// AG-D26, a DRAFT ask not in gateway §4.3 (AG-23). 0 = the local default.
+	TelemetryPullInterval time.Duration
+	TelemetryPushInterval time.Duration
 }
 
 type LeaseGrant struct {
