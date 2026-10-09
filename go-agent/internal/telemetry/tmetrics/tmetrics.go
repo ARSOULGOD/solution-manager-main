@@ -20,6 +20,9 @@ type Metrics struct {
 	BatchesAcked    prometheus.Counter
 	Rejects         *prometheus.CounterVec
 	Credits         prometheus.Gauge
+	PullInterval    *prometheus.GaugeVec
+	PushInterval    prometheus.Gauge
+	LimitsIgnored   *prometheus.CounterVec
 	all             []prometheus.Collector
 }
 
@@ -39,9 +42,12 @@ func New() *Metrics {
 		BatchesAcked:    prometheus.NewCounter(prometheus.CounterOpts{Name: "sm_agent_telemetry_batches_acked_total", Help: "In-flight batches released by a TelemetryAck."}),
 		Rejects:         counterVec("sm_agent_telemetry_rejects_total", "TelemetryReject messages received, by code.", "code"),
 		Credits:         prometheus.NewGauge(prometheus.GaugeOpts{Name: "sm_agent_telemetry_credits", Help: "Telemetry credits held."}),
+		PullInterval:    prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "sm_agent_telemetry_pull_interval_seconds", Help: "The interval each binding is pulled at: the DP's (AG-D26) or the declared one."}, []string{"binding"}),
+		PushInterval:    prometheus.NewGauge(prometheus.GaugeOpts{Name: "sm_agent_telemetry_push_interval_seconds", Help: "The push interval in use (AG-D26); 0 sends each batch as soon as it is written."}),
+		LimitsIgnored:   counterVec("sm_agent_telemetry_limit_ignored_total", "DP-set telemetry intervals the agent refused, by limit (AG-D26).", "limit"),
 	}
 	m.all = []prometheus.Collector{m.DroppedBatches, m.DroppedSamples, m.Unavailable, m.ScrapeErrors, m.CollectorPanics,
-		m.WriteErrors, m.BatchesSent, m.BatchesAcked, m.Rejects, m.Credits}
+		m.WriteErrors, m.BatchesSent, m.BatchesAcked, m.Rejects, m.Credits, m.PullInterval, m.PushInterval, m.LimitsIgnored}
 	return m
 }
 
@@ -121,5 +127,22 @@ func (m *Metrics) Reject(code string) {
 func (m *Metrics) SetCredits(n uint32) {
 	if m != nil {
 		m.Credits.Set(float64(n))
+	}
+}
+
+// SetCadence exports the intervals in use: per binding for pull, one for push.
+func (m *Metrics) SetCadence(pull map[string]time.Duration, push time.Duration) {
+	if m == nil {
+		return
+	}
+	for b, d := range pull {
+		m.PullInterval.WithLabelValues(b).Set(d.Seconds())
+	}
+	m.PushInterval.Set(push.Seconds())
+}
+
+func (m *Metrics) LimitIgnored(limit string) {
+	if m != nil {
+		m.LimitsIgnored.WithLabelValues(limit).Inc()
 	}
 }

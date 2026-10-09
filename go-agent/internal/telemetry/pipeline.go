@@ -13,6 +13,7 @@ import (
 	"github.com/solace/solution-manager/go-agent/internal/runtime"
 	"github.com/solace/solution-manager/go-agent/internal/store"
 	"github.com/solace/solution-manager/go-agent/internal/telemetry/buffer"
+	"github.com/solace/solution-manager/go-agent/internal/telemetry/cadence"
 	"github.com/solace/solution-manager/go-agent/internal/telemetry/collect"
 	"github.com/solace/solution-manager/go-agent/internal/telemetry/declare"
 	"github.com/solace/solution-manager/go-agent/internal/telemetry/send"
@@ -36,6 +37,7 @@ type Pipeline struct {
 	cfg     Config
 	buf     *buffer.Buffer
 	metrics *tmetrics.Metrics
+	cadence *cadence.Holder // the DP's intervals in use (AG-D26)
 }
 
 func New(cfg Config) (*Pipeline, error) {
@@ -52,7 +54,9 @@ func New(cfg Config) (*Pipeline, error) {
 		s := buf.Stats()
 		return s.Bytes, s.Batches, s.Oldest
 	}, cfg.BufferBytes, cfg.BufferAge, time.Now)
-	return &Pipeline{cfg: cfg, buf: buf, metrics: m}, nil
+	p := &Pipeline{cfg: cfg, buf: buf, metrics: m, cadence: cadence.NewHolder()}
+	m.SetCadence(p.pulls(cadence.Settings{}), 0)
+	return p, nil
 }
 
 func (p *Pipeline) Metrics() *tmetrics.Metrics { return p.metrics }
@@ -67,11 +71,12 @@ func (p *Pipeline) Run(ctx context.Context) {
 	for _, id := range slices.Sorted(maps.Keys(p.cfg.Declarations.Bindings)) {
 		c := &collect.Collector{Binding: id, Decl: p.cfg.Declarations.Bindings[id], Adapter: p.cfg.Adapter,
 			InLease: func(b string) bool { return p.cfg.View.Current().InLease(b) },
-			Out:     p.buf, Now: time.Now, Log: p.cfg.Log, Metrics: p.metrics}
+			Out:     p.buf, Now: time.Now, Log: p.cfg.Log, Metrics: p.metrics, Cadence: p.cadence}
 		wg.Go(func() { c.Run(ctx) })
 	}
-	r := &send.Runner{Buf: p.buf, View: p.cfg.View, NewID: p.cfg.NewID, Now: time.Now, Jitter: p.cfg.Jitter, Log: p.cfg.Log, Metrics: p.metrics}
+	r := &send.Runner{Buf: p.buf, View: p.cfg.View, NewID: p.cfg.NewID, Now: time.Now, Jitter: p.cfg.Jitter, Log: p.cfg.Log, Metrics: p.metrics, BufferAge: p.cfg.BufferAge}
 	wg.Go(func() { r.Run(ctx) })
+	wg.Go(func() { p.watchCadence(ctx) })
 	wg.Go(func() {
 		t := time.NewTicker(time.Minute)
 		defer t.Stop()
@@ -85,4 +90,42 @@ func (p *Pipeline) Run(ctx context.Context) {
 		}
 	})
 	wg.Wait()
+}
+
+// watchCadence applies the DP's telemetry intervals (AG-D26) when a new
+// session's limits arrive. A session drop changes nothing (spec §2.3).
+func (p *Pipeline) watchCadence(ctx context.Context) {
+	var seen string
+	for {
+		ch := p.cfg.View.Changed()
+		if s := p.cfg.View.Current().Session; s != nil && s.ID != seen {
+			seen = s.ID
+			set, ignored := cadence.Resolve(s.Limits, p.cfg.BufferAge)
+			for _, ig := range ignored {
+				p.cfg.Log.Warn("telemetry: DP interval refused; using the local default",
+					"limit", ig.Limit, "value", ig.Value.String(), "reason", ig.Reason)
+				p.metrics.LimitIgnored(ig.Limit)
+			}
+			if p.cadence.Set(set) {
+				p.metrics.SetCadence(p.pulls(set), set.Push)
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ch:
+		}
+	}
+}
+
+// pulls is the interval each declared binding is collected at.
+func (p *Pipeline) pulls(set cadence.Settings) map[string]time.Duration {
+	out := map[string]time.Duration{}
+	for id, b := range p.cfg.Declarations.Bindings {
+		out[id] = b.Interval
+		if set.Pull > 0 {
+			out[id] = set.Pull
+		}
+	}
+	return out
 }
