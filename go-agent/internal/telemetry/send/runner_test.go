@@ -265,3 +265,48 @@ func TestAnUnreadableBatchIsDroppedAsCorruptAndTheNextOneGoes(t *testing.T) {
 		t.Fatalf("batch %+v", b)
 	}
 }
+
+func appendAt(t *testing.T, buf *buffer.Buffer, at time.Time) {
+	t.Helper()
+	if _, err := buf.Append("binding-1", at, []buffer.Sample{{Name: "cache.hit_rate", Type: "gauge", TS: time.Unix(0, 0).UTC(), Value: 0.93, ReplicaRef: "java1", Incarnation: "c1"}}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func pushSession(push time.Duration, open func(context.Context) (view.Stream, error)) *view.SessionInfo {
+	s := session(open)
+	s.Limits.TelemetryPushInterval = push
+	return s
+}
+
+func TestRunnerHoldsANewBatchUntilThePushTick(t *testing.T) {
+	hub := view.NewHub()
+	_, buf, _ := runnerWith(t, hub, t.TempDir(), func(r *Runner) { r.BufferAge = time.Hour })
+	s := newFakeStream()
+	opened := make(chan struct{})
+	var once sync.Once
+	hub.Publish(view.Snapshot{Session: pushSession(600*time.Millisecond, func(context.Context) (view.Stream, error) {
+		once.Do(func() { close(opened) })
+		return s, nil
+	}), Bindings: map[string]bool{"binding-1": true}, IDs: registered})
+	<-opened // the runner has armed the push ticker: appending now is after its start
+	appendOne(t, buf)
+	select {
+	case b := <-s.sent:
+		t.Fatalf("seq %d sent before the push tick", b.BatchSeq)
+	case <-time.After(300 * time.Millisecond):
+	}
+	receive(t, s) // at the tick, about 600 ms after the session
+}
+
+func TestRunnerSendsWhatWasStoredBeforeItStartedAtOnce(t *testing.T) {
+	hub := view.NewHub()
+	runnerWith(t, hub, t.TempDir(), func(r *Runner) {
+		r.BufferAge = 2 * time.Hour
+		appendAt(t, r.Buf, time.Now().Add(-time.Second))
+	})
+	s := newFakeStream()
+	hub.Publish(view.Snapshot{Session: pushSession(time.Hour, func(context.Context) (view.Stream, error) { return s, nil }),
+		Bindings: map[string]bool{"binding-1": true}, IDs: registered})
+	receive(t, s) // within 5 s, though the first push tick is an hour away
+}
