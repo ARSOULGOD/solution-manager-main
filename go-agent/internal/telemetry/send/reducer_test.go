@@ -239,3 +239,153 @@ func TestAnUnresolvedBatchWaitsTwoReportIntervalsFromWhenItWasProduced(t *testin
 		t.Fatalf("effects %+v", effs)
 	}
 }
+
+func withPush(push time.Duration) msg.Limits {
+	l := limits
+	l.TelemetryPushInterval = push
+	return l
+}
+
+// upWithPush is up() with a push interval from the session's limits, a one-hour
+// age cap and the cutoff at t0, as the runner starts it.
+func upWithPush(credits uint32, push time.Duration) State {
+	s := NewState()
+	s.BufferAge, s.DueBy = time.Hour, t0
+	s, _ = Reduce(s, SessionUp{ID: "s1", Limits: withPush(push)}, env(t0))
+	s, _ = Reduce(s, StreamOpened{}, env(t0))
+	s.Credits = credits
+	return s
+}
+
+func TestANotYetDueHeadWaitsForThePushTick(t *testing.T) {
+	s := upWithPush(4, time.Minute)
+	s, effs := Reduce(s, Wake{}, env(t0.Add(10*time.Second), head("a", 1, 5)))
+	if len(effs) != 0 {
+		t.Fatalf("sent before the push tick: %+v", effs)
+	}
+	_, effs = Reduce(s, PushDue{}, env(t0.Add(60*time.Second), head("a", 1, 5)))
+	if !reflect.DeepEqual(effs, []Effect{Send{Stream: "a", Seq: 1}}) {
+		t.Fatalf("effects %+v", effs)
+	}
+}
+
+func TestAPushTickReleasesEveryHeadProducedAtOrBeforeIt(t *testing.T) {
+	s := upWithPush(4, time.Minute)
+	_, effs := Reduce(s, PushDue{}, env(t0.Add(60*time.Second), head("a", 1, 5), head("b", 1, 10), head("c", 1, 60)))
+	if !reflect.DeepEqual(effs, []Effect{Send{"a", 1}, Send{"b", 1}, Send{"c", 1}}) {
+		t.Fatalf("effects %+v", effs)
+	}
+}
+
+func TestTheCutoffAdvancesOverAnUnfinishedPush(t *testing.T) {
+	s := upWithPush(1, time.Minute)
+	s, effs := Reduce(s, PushDue{}, env(t0.Add(60*time.Second), head("a", 1, 5), head("b", 1, 10)))
+	if !reflect.DeepEqual(effs, []Effect{Send{"a", 1}}) {
+		t.Fatalf("first tick: %+v", effs)
+	}
+	// b was due at the tick and stays due; c, produced after it, is not
+	s, effs = Reduce(s, Credit{N: 2}, env(t0.Add(70*time.Second), head("b", 1, 10), head("c", 1, 65)))
+	if !reflect.DeepEqual(effs, []Effect{Send{"b", 1}}) {
+		t.Fatalf("credit: %+v", effs)
+	}
+	_, effs = Reduce(s, PushDue{}, env(t0.Add(120*time.Second), head("c", 1, 65)))
+	if !reflect.DeepEqual(effs, []Effect{Send{"c", 1}}) {
+		t.Fatalf("second tick: %+v", effs)
+	}
+}
+
+func TestDropsDoNotWaitForThePushTick(t *testing.T) {
+	big := head("a", 1, 5)
+	big.Bytes = 70000
+	lost := head("b", 1, 5)
+	lost.IDsKnown = false
+	s := upWithPush(4, 30*time.Minute)
+	_, effs := Reduce(s, Wake{}, env(t0.Add(130*time.Second), big, lost))
+	want := []Effect{DropAsGap{Stream: "a", Seq: 1, Reason: buffer.ReasonOversize}, DropAsGap{Stream: "b", Seq: 1, Reason: buffer.ReasonUnregistered}}
+	if !reflect.DeepEqual(effs, want) {
+		t.Fatalf("effects %+v", effs)
+	}
+}
+
+func TestSessionUpArmsThePushTickerOnlyWhenTheIntervalChanges(t *testing.T) {
+	s := NewState()
+	s.BufferAge = time.Hour
+	s, effs := Reduce(s, SessionUp{ID: "s1", Limits: withPush(time.Minute)}, env(t0))
+	if !reflect.DeepEqual(effs, []Effect{OpenStream{}, ArmPush{Every: time.Minute}}) || s.PushInterval != time.Minute {
+		t.Fatalf("first session: %+v", effs)
+	}
+	s, _ = Reduce(s, SessionDown{}, env(t0))
+	if s.PushInterval != time.Minute {
+		t.Fatalf("a session drop changed the push interval to %v", s.PushInterval)
+	}
+	// Review Focus 1: the same value again re-arms nothing
+	s, effs = Reduce(s, SessionUp{ID: "s2", Limits: withPush(time.Minute)}, env(t0))
+	if !reflect.DeepEqual(effs, []Effect{OpenStream{}}) {
+		t.Fatalf("the same interval re-armed the ticker: %+v", effs)
+	}
+	s, _ = Reduce(s, SessionDown{}, env(t0))
+	s, effs = Reduce(s, SessionUp{ID: "s3", Limits: limits}, env(t0))
+	if !reflect.DeepEqual(effs, []Effect{OpenStream{}, ArmPush{Every: 0}}) || s.PushInterval != 0 {
+		t.Fatalf("push turned off: %+v", effs)
+	}
+}
+
+func TestAPushIntervalNotBelowTheBufferAgeIsRefused(t *testing.T) {
+	s := NewState()
+	s.BufferAge = time.Hour
+	s, effs := Reduce(s, SessionUp{ID: "s1", Limits: withPush(time.Hour)}, env(t0))
+	if !reflect.DeepEqual(effs, []Effect{OpenStream{}}) || s.PushInterval != 0 {
+		t.Fatalf("effects %+v push %v", effs, s.PushInterval)
+	}
+}
+
+func TestOverdueHeadsGoAtOnceAfterAReconnect(t *testing.T) {
+	s := upWithPush(0, time.Minute) // no credits: the tick's batch stays stored
+	s, _ = Reduce(s, PushDue{}, env(t0.Add(60*time.Second), head("a", 1, 30)))
+	s, _ = Reduce(s, SessionDown{}, env(t0.Add(61*time.Second)))
+	s, _ = Reduce(s, SessionUp{ID: "s2", Limits: withPush(time.Minute)}, env(t0.Add(70*time.Second)))
+	_, effs := Reduce(s, StreamOpened{}, env(t0.Add(71*time.Second), head("a", 1, 30), head("b", 1, 65)))
+	if !reflect.DeepEqual(effs, []Effect{Send{Stream: "a", Seq: 1}}) {
+		t.Fatalf("effects %+v", effs)
+	}
+}
+
+// Deviation 1: batches stored while push was immediate were already due.
+func TestSwitchingFromImmediateKeepsWhatIsStoredDue(t *testing.T) {
+	s := NewState()
+	s.BufferAge, s.DueBy = time.Hour, t0
+	s, _ = Reduce(s, SessionUp{ID: "s1", Limits: limits}, env(t0))
+	s, _ = Reduce(s, SessionDown{}, env(t0.Add(10*time.Second)))
+	s, _ = Reduce(s, SessionUp{ID: "s2", Limits: withPush(time.Minute)}, env(t0.Add(40*time.Second)))
+	_, effs := Reduce(s, StreamOpened{}, env(t0.Add(41*time.Second), head("a", 1, 30), head("b", 1, 41)))
+	if !reflect.DeepEqual(effs, []Effect{Send{Stream: "a", Seq: 1}}) {
+		t.Fatalf("effects %+v", effs)
+	}
+}
+
+// Review Focus 2.
+func TestTurningThePushIntervalOffReleasesEverythingStored(t *testing.T) {
+	s := upWithPush(0, time.Minute)
+	s, _ = Reduce(s, SessionDown{}, env(t0.Add(30*time.Second)))
+	s, _ = Reduce(s, SessionUp{ID: "s2", Limits: limits}, env(t0.Add(40*time.Second)))
+	_, effs := Reduce(s, StreamOpened{}, env(t0.Add(41*time.Second), head("a", 1, 20), head("b", 1, 35)))
+	if !reflect.DeepEqual(sends(effs), []Send{{"a", 1}, {"b", 1}}) {
+		t.Fatalf("effects %+v", effs)
+	}
+}
+
+// Review Focus 3: the wall clock stepped back, so a stored batch claims a
+// produced_at after the latest tick. It waits, bounded by the step, and goes
+// at the first tick after the clock passes it.
+func TestABatchFromTheFutureIsSentOnceTheClockPassesIt(t *testing.T) {
+	s := upWithPush(4, time.Minute)
+	future := head("a", 1, 100)
+	s, effs := Reduce(s, PushDue{}, env(t0.Add(60*time.Second), future))
+	if len(effs) != 0 {
+		t.Fatalf("sent a batch produced after the tick: %+v", effs)
+	}
+	_, effs = Reduce(s, PushDue{}, env(t0.Add(120*time.Second), future))
+	if !reflect.DeepEqual(effs, []Effect{Send{Stream: "a", Seq: 1}}) {
+		t.Fatalf("effects %+v", effs)
+	}
+}
