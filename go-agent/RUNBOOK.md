@@ -33,7 +33,8 @@ container, and see each outcome — as many commands as you like, in any order.
 
 ## Preconditions
 
-1. **Docker Desktop is running:** `docker version` shows a `Server:` section.
+1. **Docker Desktop is running:** `docker version` shows a `Server:` section. On Linux, start it with
+   `systemctl --user start docker-desktop`; on macOS, open the app.
 2. **The binaries are built**, from `go-agent/`:
 
    ```bash
@@ -87,7 +88,7 @@ Open two terminals, both in `go-agent/`.
   --enroll-token demo-token --ca-out bin/ca.pem
 ```
 
-It prints `type: preflight | apply <file> | restart | stop | pause | resume | disconnect` and `fake gateway listening`. No `--scenario` is needed:
+It prints `type: preflight | apply <file> | restart | stop | pause | resume | disconnect | set pull|push <duration>` and `fake gateway listening`. No `--scenario` is needed:
 the built-in one grants a one-hour lease for `binding-1` with both capabilities, and sends nothing on its own.
 
 ### 2. Terminal 2 — start the agent from an empty data dir
@@ -188,6 +189,10 @@ lines in the output table carry the binding id as recorded (`tele-demo-1`), so r
 
 Check nothing else carries the label, then start it. Docker Desktop shares only `$HOME`.
 
+⚠️ **`java1` from the steps above carries the same label.** Remove it (`docker rm -f java1`) or recreate it without
+the label first. Otherwise every scrape fails to resolve the binding and no `telemetry …` line ever appears (see
+[Telemetry: if it goes wrong](#telemetry-if-it-goes-wrong)).
+
 ```bash
 docker ps -a --filter label=com.solace.sm.binding-id=binding-1     # must print only your own container
 mkdir -p ~/sm-telemetry-demo
@@ -207,9 +212,10 @@ The port must be **published** (`-p`): the agent reaches the container through t
 
 ### 3. Start the gateway and the agent
 
-Terminal 1 is step 1 above, unchanged. Terminal 2 is step 2 with two flags added:
+Terminal 1 is step 1 above, unchanged. Terminal 2 is step 2 with two flags added, **including its `export`**:
 
 ```bash
+export DOCKER_HOST=unix://$HOME/.docker/desktop/docker.sock   # Docker Desktop only; see step 2
 rm -rf bin/agent-data
 ./bin/sm-agent --data-dir bin/agent-data \
   --connect-endpoint 127.0.0.1:8443 \
@@ -228,6 +234,9 @@ On start the agent may log `telemetry: declared binding is not in the lease; not
 session opens. It is not an error if lines follow (they did).
 
 ### 4. What terminal 1 prints
+
+The gateway now starts each `telemetry …`, `gap …` and `duplicate` line with its local time, `[hh:mm:ss] `
+(`AG-D26`, so a push burst is visible). The lines below were recorded before that and show without it.
 
 | When | Terminal 1 (recorded) |
 |---|---|
@@ -252,17 +261,21 @@ curl -s localhost:9464/metrics | grep sm_agent_telemetry_
 ### 5. Pull and push intervals set by the gateway
 
 The gateway can set how often the agent pulls every binding and how often it pushes what it has stored (`AG-D26`).
-Both travel on `SessionAccept`, so a change applies when the agent next connects.
+Both travel on `SessionAccept`, so a change applies when the agent next connects: until you `disconnect`, the live
+session keeps the values it was accepted with. `set` stores any value, including one the agent will refuse; the
+gateway is a test double.
 
 **Status: not yet executed.**
 
-In terminal 1:
+In terminal 1, with step 4's lines arriving every 5 s:
 
 ```
 set pull 2s
 set push 1m
 disconnect
 ```
+
+For a quicker demo, use `set push 15s`: about seven lines per burst instead of thirty.
 
 | When | Terminal 1 |
 |---|---|
@@ -274,11 +287,31 @@ disconnect
 In terminal 3:
 
 ```bash
-curl -s localhost:9464/metrics | grep -E 'sm_agent_telemetry_(pull|push)_interval_seconds'
+curl -s localhost:9464/metrics | grep -E 'sm_agent_telemetry_((pull|push)_interval_seconds|limit_ignored_total)'
 ```
 
-expect `sm_agent_telemetry_pull_interval_seconds{binding="binding-1"} 2` and `sm_agent_telemetry_push_interval_seconds 60`.
-`set push 0` followed by `disconnect` returns to sending each batch as soon as it is written.
+Expect `sm_agent_telemetry_pull_interval_seconds{binding="binding-1"} 2` and `sm_agent_telemetry_push_interval_seconds 60`.
+`sm_agent_telemetry_limit_ignored_total` has no series until a value is refused.
+
+**A refused value.** In terminal 1:
+
+```
+set pull 500ms
+set push 25h
+disconnect
+```
+
+A pull below 1 s is refused, and so is a push not below `--telemetry-buffer-age` (24 h by default). Terminal 2 logs
+`telemetry: DP interval refused; using the local default` once for each, naming the `limit`, the `value` and the
+`reason` (`below 1s`, `not below the buffer age cap`). Terminal 3 shows
+`sm_agent_telemetry_limit_ignored_total{limit="pull"} 1` and `{limit="push"} 1`, and the two interval gauges back at
+the declared `5` and `0`: lines arrive every 5 s again.
+
+⚠️ **Do not set a push of nanoseconds or microseconds.** The push interval has no lower bound yet, and a ticker that
+fast keeps one CPU core busy (plan 007's [final review](../docs/plans/go-agent/007-telemetry-cadence.md#final-review)).
+
+`set pull 0`, `set push 0` and `disconnect` return to the declared interval and to sending each batch as soon as it
+is written.
 
 ### 6. Clean up
 
@@ -292,6 +325,9 @@ expect `sm_agent_telemetry_pull_interval_seconds{binding="binding-1"} 2` and `sm
 | No `telemetry …` lines at all | Still inside the first report interval, or every scrape fails. | Wait one minute; then `curl -s localhost:9464/metrics \| grep scrape_errors_total` and read the `reason` label. |
 | Agent log: `declared binding is not in the lease; not collecting`, and it stays | `examples/telemetry.yaml` names a binding the gateway's lease does not grant. | Rename the binding to one in the lease, or give the gateway a `--scenario` whose `lease: {binding_ids: [...]}` lists it. |
 | `sm_agent_telemetry_limit_ignored_total{limit}` rises, and the agent logs `DP interval refused` | The gateway sent a pull below 1 s, or a push not below `--telemetry-buffer-age`. | `set` a value in range and `disconnect`; the log line names the value and the reason. |
+| `sm_agent_telemetry_scrape_errors_total{reason="resolve"}` rises and no `telemetry …` line appears (with `--log-level debug`: `docker: more than one container carries the binding label`) | Another container, often `java1`, also carries `binding-1`. | Remove or relabel it; step 1's check must print only `sm-telemetry-demo`. |
+| `set` printed `next session: …` but lines still arrive on the old schedule | The values apply at the next session; the live one keeps its own. | Type `disconnect`. |
+| No `telemetry …` lines, and about a minute after start the agent logs `periodic report: resolve … Cannot connect to the Docker daemon at unix:///var/run/docker.sock`. *Observed 2026-10-10.* | `DOCKER_HOST` is not exported in the agent's terminal, so the first actual-state report, which mints the ids every sample needs, never goes out. | `Ctrl-C` the agent, `export` it, start the agent again **without** the `rm -rf`: the gateway is still the same one. |
 
 ## Rollback
 
