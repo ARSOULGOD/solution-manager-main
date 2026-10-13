@@ -54,7 +54,7 @@ func (m ids) IDs(b, r, i string) (string, string, bool) {
 var registered = ids{"binding-1|java1|c1": {"rep-1", "inc-1"}}
 
 func session(open func(context.Context) (view.Stream, error)) *view.SessionInfo {
-	return &view.SessionInfo{ID: "s1", Limits: msg.Limits{InitialCredits: 2, MaxBatchBytes: 65536, ReportInterval: time.Minute}, Open: open}
+	return &view.SessionInfo{ID: "s1", Limits: msg.Limits{InitialCredits: 2, MaxBatchBytes: 65536, ReportInterval: time.Minute, TelemetryPushInterval: durp(0)}, Open: open}
 }
 
 func runner(t *testing.T, hub *view.Hub) (*Runner, *buffer.Buffer) {
@@ -264,4 +264,50 @@ func TestAnUnreadableBatchIsDroppedAsCorruptAndTheNextOneGoes(t *testing.T) {
 	if b.BatchSeq != 2 || !reflect.DeepEqual(b.GapMarkers, []msg.GapMarker{{FromSeq: 1, ToSeq: 1, Reason: buffer.ReasonCorrupt}}) {
 		t.Fatalf("batch %+v", b)
 	}
+}
+func appendAt(t *testing.T, buf *buffer.Buffer, at time.Time) {
+	t.Helper()
+	if _, err := buf.Append("binding-1", at, []buffer.Sample{{Name: "cache.hit_rate", Type: "gauge", TS: time.Unix(0, 0).UTC(), Value: 0.93, ReplicaRef: "java1", Incarnation: "c1"}}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func pushSession(push time.Duration, open func(context.Context) (view.Stream, error)) *view.SessionInfo {
+	s := session(open)
+	s.Limits.TelemetryPushInterval = durp(push)
+	return s
+}
+
+func TestRunnerHoldsANewBatchUntilThePushTick(t *testing.T) {
+	hub := view.NewHub()
+	_, buf, _ := runnerWith(t, hub, t.TempDir(), func(r *Runner) { r.BufferAge = time.Hour })
+	s := newFakeStream()
+	opened := make(chan struct{})
+	var once sync.Once
+	hub.Publish(view.Snapshot{Session: pushSession(time.Second, func(context.Context) (view.Stream, error) {
+		once.Do(func() { close(opened) })
+		return s, nil
+	}), Bindings: map[string]bool{"binding-1": true}, IDs: registered})
+	<-opened // the runner has armed the push ticker: appending now is after its start
+	appendOne(t, buf)
+	select {
+	case b := <-s.sent:
+		t.Fatalf("seq %d sent before the push tick", b.BatchSeq)
+	case <-time.After(500 * time.Millisecond):
+	}
+	receive(t, s) // at the tick, about 1 s after the session
+}
+
+// Review Focus 4: a backlog stored before a restart goes on the first session,
+// though the first push tick is an hour away.
+func TestRunnerSendsWhatWasStoredBeforeItStartedAtOnce(t *testing.T) {
+	hub := view.NewHub()
+	runnerWith(t, hub, t.TempDir(), func(r *Runner) {
+		r.BufferAge = 2 * time.Hour
+		appendAt(t, r.Buf, time.Now().Add(-time.Second))
+	})
+	s := newFakeStream()
+	hub.Publish(view.Snapshot{Session: pushSession(time.Hour, func(context.Context) (view.Stream, error) { return s, nil }),
+		Bindings: map[string]bool{"binding-1": true}, IDs: registered})
+	receive(t, s)
 }

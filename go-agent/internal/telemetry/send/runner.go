@@ -14,13 +14,14 @@ import (
 // Runner executes Reduce's effects. One goroutine — Run — owns the state and
 // the stream; the stream's reader posts back through in.
 type Runner struct {
-	Buf     *buffer.Buffer
-	View    view.View
-	NewID   func() string
-	Now     func() time.Time
-	Jitter  func(time.Duration) time.Duration
-	Log     *slog.Logger
-	Metrics *tmetrics.Metrics
+	Buf       *buffer.Buffer
+	View      view.View
+	NewID     func() string
+	Now       func() time.Time
+	Jitter    func(time.Duration) time.Duration
+	Log       *slog.Logger
+	Metrics   *tmetrics.Metrics
+	BufferAge time.Duration // --telemetry-buffer-age, the push interval's upper bound (AG-D30)
 
 	state   State
 	session *view.SessionInfo
@@ -28,6 +29,7 @@ type Runner struct {
 	gen     int // bumped per OpenStream; stale stream events are dropped
 	cancel  context.CancelFunc
 	retry   *time.Timer
+	push    *time.Ticker // fires PushDue; stopped while the push interval is 0
 	in      chan any
 	queue   []Event
 	dead    bool // a Send failed on this stream: skip Sends until the next OpenStream
@@ -50,9 +52,14 @@ const wakeEvery = 5 * time.Second
 
 func (r *Runner) Run(ctx context.Context) {
 	r.state = NewState()
+	// Everything stored before the agent started is already due (spec §4.3).
+	r.state.DueBy, r.state.BufferAge = r.Now(), r.BufferAge
 	r.in = make(chan any, 64)
 	r.retry = time.NewTimer(time.Hour)
 	r.retry.Stop()
+	r.push = time.NewTicker(time.Hour)
+	r.push.Stop()
+	defer r.push.Stop()
 	tick := time.NewTicker(wakeEvery)
 	defer tick.Stop()
 	defer r.closeStream()
@@ -75,6 +82,8 @@ func (r *Runner) Run(ctx context.Context) {
 			r.step(ctx, Wake{})
 		case <-r.retry.C:
 			r.step(ctx, Wake{})
+		case <-r.push.C:
+			r.step(ctx, PushDue{})
 		case m := <-r.in:
 			switch m := m.(type) {
 			case opened:
@@ -217,6 +226,12 @@ func (r *Runner) exec(ctx context.Context, e Effect, snap view.Snapshot) {
 		r.Buf.ClearInFlight(e.Stream)
 	case ArmRetry:
 		r.retry.Reset(time.Until(e.At))
+	case ArmPush:
+		if e.Every > 0 {
+			r.push.Reset(e.Every) // Reset panics on a non-positive duration
+		} else {
+			r.push.Stop()
+		}
 	}
 }
 
