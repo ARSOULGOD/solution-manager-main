@@ -20,6 +20,8 @@ type Metrics struct {
 	BatchesAcked    prometheus.Counter
 	Rejects         *prometheus.CounterVec
 	Credits         prometheus.Gauge
+	PushInterval    prometheus.Gauge
+	LimitsIgnored   *prometheus.CounterVec
 	all             []prometheus.Collector
 }
 
@@ -39,9 +41,11 @@ func New() *Metrics {
 		BatchesAcked:    prometheus.NewCounter(prometheus.CounterOpts{Name: "sm_agent_telemetry_batches_acked_total", Help: "In-flight batches released by a TelemetryAck."}),
 		Rejects:         counterVec("sm_agent_telemetry_rejects_total", "TelemetryReject messages received, by code.", "code"),
 		Credits:         prometheus.NewGauge(prometheus.GaugeOpts{Name: "sm_agent_telemetry_credits", Help: "Telemetry credits held."}),
+		PushInterval:    prometheus.NewGauge(prometheus.GaugeOpts{Name: "sm_agent_telemetry_push_interval_seconds", Help: "The push interval in use (AG-D30); 0 sends each batch as soon as it is written."}),
+		LimitsIgnored:   counterVec("sm_agent_telemetry_limit_ignored_total", "DP-set telemetry limits the agent refused, by limit (AG-D30).", "limit"),
 	}
 	m.all = []prometheus.Collector{m.DroppedBatches, m.DroppedSamples, m.Unavailable, m.ScrapeErrors, m.CollectorPanics,
-		m.WriteErrors, m.BatchesSent, m.BatchesAcked, m.Rejects, m.Credits}
+		m.WriteErrors, m.BatchesSent, m.BatchesAcked, m.Rejects, m.Credits, m.PushInterval, m.LimitsIgnored}
 	return m
 }
 
@@ -121,5 +125,18 @@ func (m *Metrics) Reject(code string) {
 func (m *Metrics) SetCredits(n uint32) {
 	if m != nil {
 		m.Credits.Set(float64(n))
+	}
+}
+
+// SetPushInterval exports the push interval in use (AG-D30).
+func (m *Metrics) SetPushInterval(push time.Duration) {
+	if m != nil {
+		m.PushInterval.Set(push.Seconds())
+	}
+}
+
+func (m *Metrics) LimitIgnored(limit string) {
+	if m != nil {
+		m.LimitsIgnored.WithLabelValues(limit).Inc()
 	}
 }

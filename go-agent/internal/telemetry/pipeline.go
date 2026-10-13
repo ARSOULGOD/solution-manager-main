@@ -11,9 +11,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/solace/solution-manager/go-agent/internal/msg"
 	"github.com/solace/solution-manager/go-agent/internal/runtime"
 	"github.com/solace/solution-manager/go-agent/internal/store"
 	"github.com/solace/solution-manager/go-agent/internal/telemetry/buffer"
+	"github.com/solace/solution-manager/go-agent/internal/telemetry/cadence"
 	"github.com/solace/solution-manager/go-agent/internal/telemetry/collect"
 	"github.com/solace/solution-manager/go-agent/internal/telemetry/declare"
 	"github.com/solace/solution-manager/go-agent/internal/telemetry/send"
@@ -55,6 +57,8 @@ func New(cfg Config) (*Pipeline, error) {
 		s := buf.Stats()
 		return s.Bytes, s.Batches, s.Oldest
 	}, cfg.BufferBytes, cfg.BufferAge, time.Now)
+	push, _ := cadence.Resolve(msg.Limits{}, cfg.BufferAge) // what applies until the first session says otherwise
+	m.SetPushInterval(push)
 	return &Pipeline{cfg: cfg, buf: buf, metrics: m}, nil
 }
 
@@ -71,8 +75,9 @@ func (p *Pipeline) Run(ctx context.Context) {
 	// binding's collector when its declared set changes (the replacement is atomic
 	// at the Set; a collector only ever runs one complete set).
 	wg.Go(func() { p.supervise(ctx) })
-	r := &send.Runner{Buf: p.buf, View: p.cfg.View, NewID: p.cfg.NewID, Now: time.Now, Jitter: p.cfg.Jitter, Log: p.cfg.Log, Metrics: p.metrics}
+	r := &send.Runner{Buf: p.buf, View: p.cfg.View, NewID: p.cfg.NewID, Now: time.Now, Jitter: p.cfg.Jitter, Log: p.cfg.Log, Metrics: p.metrics, BufferAge: p.cfg.BufferAge}
 	wg.Go(func() { r.Run(ctx) })
+	wg.Go(func() { p.watchPush(ctx) })
 	wg.Go(func() {
 		t := time.NewTicker(time.Minute)
 		defer t.Stop()
@@ -131,6 +136,36 @@ func (p *Pipeline) supervise(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-p.cfg.Declarations.Changed():
+		}
+	}
+}
+
+// watchPush reports the push interval each new session resolves to (AG-D30):
+// a log line and a count for a refused value, and the gauge. The sender
+// resolves the same value inside its own SessionUp; this only reports it. A
+// session drop changes nothing (spec §3.1).
+func (p *Pipeline) watchPush(ctx context.Context) {
+	var seen string
+	for {
+		ch := p.cfg.View.Changed()
+		if s := p.cfg.View.Current().Session; s != nil && s.ID != seen {
+			seen = s.ID
+			push, ig := cadence.Resolve(s.Limits, p.cfg.BufferAge)
+			switch {
+			case ig != nil && ig.Refused:
+				p.cfg.Log.Warn("telemetry: DP push interval refused; using the default",
+					"limit", "push", "value", ig.Value.String(), "reason", ig.Reason, "push", push.String())
+				p.metrics.LimitIgnored("push")
+			case ig != nil:
+				p.cfg.Log.Warn("telemetry: the default push interval is not below the buffer age cap; sending each batch at once",
+					"default", cadence.DefaultPush.String(), "buffer_age", p.cfg.BufferAge.String())
+			}
+			p.metrics.SetPushInterval(push)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ch:
 		}
 	}
 }
