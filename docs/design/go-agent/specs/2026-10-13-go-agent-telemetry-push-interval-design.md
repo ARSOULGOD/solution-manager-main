@@ -212,12 +212,14 @@ as `clock_skew` for having waited.
 
 **Integration** (`-tags integration`, `internal/agent`):
 
-- `TestIntegrationPushIntervalSendsInBursts`: pull 1 s (declared), push 3 s. Arrivals cluster, and no batch arrives before the first push
-  tick after its `produced_at`.
-- `TestIntegrationPushIntervalAppliesAtNextSession`: push `0` → batches arrive about every pull; `set push 3s` → unchanged until
+- `TestIntegrationTelemetryPushIntervalSendsInBursts`: pull 100 ms (declared), push 1 s (the floor). Arrivals cluster into bursts at
+  least about one push apart. (That no batch goes before the first tick after its `produced_at` is asserted in the reducer and runner
+  tests.)
+- `TestIntegrationTelemetryPushIntervalAppliesAtNextSession`: push `0` → batches arrive about every pull; `set push 1s` → unchanged until
   `disconnect`; after it, bursts.
-- `TestIntegrationPushIntervalUnsetUsesTheDefault`: the scenario sends no field; the agent's `sm_agent_telemetry_push_interval_seconds`
-  reads `60` (the gauge, not a 60 s wait).
+- `TestIntegrationTelemetryPushIntervalUnsetUsesTheDefault`: the scenario sends no field. Over 3 s of 100 ms pulls at most one batch is
+  sent (one pulled in the instant before the sender saw the session is due at once, §4.3), the buffer holds the rest, and the agent's
+  `sm_agent_telemetry_push_interval_seconds` reads `60` (the gauge and the buffer, not a 60 s wait).
 - Every existing UAT integration test (telemetry, declarations, discovery, rematerialize, drain) runs unchanged.
 
 **Race:** `go test -race` on `internal/telemetry/...` and `internal/fakegw/...`.
