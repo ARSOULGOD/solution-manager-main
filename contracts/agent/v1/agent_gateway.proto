@@ -193,6 +193,10 @@ message Limits {
   google.protobuf.Duration keepalive_interval = 5;
   google.protobuf.Duration skew_tolerance = 6;
   google.protobuf.Duration report_interval = 7;
+  // AG-D30 (go-agent plan 008). The telemetry push interval for this session: stored batches are sent at each tick.
+  // Unset: the agent's default, OR-73's 1 min (AGW-D27 item 4). Set to 0: each batch is sent as soon as it is written.
+  // Valid: 0, or at least 1 s and below the agent's --telemetry-buffer-age; any other value is refused and the default applies.
+  google.protobuf.Duration telemetry_push_interval = 8;
 }
 
 message LeaseGrant {

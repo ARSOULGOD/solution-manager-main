@@ -384,7 +384,8 @@
    "4": "google.protobuf.Duration heartbeat_interval",
    "5": "google.protobuf.Duration keepalive_interval",
    "6": "google.protobuf.Duration skew_tolerance",
-   "7": "google.protobuf.Duration report_interval"
+   "7": "google.protobuf.Duration report_interval",
+   "8": "google.protobuf.Duration telemetry_push_interval"
   },
   "OperationCorrelation": {
    "1": "string apply_id",

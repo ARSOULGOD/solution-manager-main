@@ -233,6 +233,10 @@ type Limits struct {
 	KeepaliveInterval time.Duration
 	SkewTolerance     time.Duration
 	ReportInterval    time.Duration
+	// TelemetryPushInterval is Limits.telemetry_push_interval (AG-D30): nil when
+	// the DP sent none (the agent's default, OR-73's 1 min); 0 sends each batch
+	// as soon as it is written.
+	TelemetryPushInterval *time.Duration
 }
 
 type LeaseGrant struct {
