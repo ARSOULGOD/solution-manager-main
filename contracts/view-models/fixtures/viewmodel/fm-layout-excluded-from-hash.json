@@ -1,0 +1,2637 @@
+{
+  "name": "fm-layout-excluded-from-hash",
+  "pins": "Two components carry layout coordinates; neither reaches `rendered`, so hashInput is unaffected (UI-D20).",
+  "selection": {
+    "instances": [
+      {
+        "instanceKey": "src",
+        "type": "COMP_SOURCE_FTP@FILETOFILE",
+        "layout": {
+          "x": 999,
+          "y": 999
+        }
+      },
+      {
+        "instanceKey": "snk",
+        "type": "COMP_SINK_SOLACE@FILETOFILE",
+        "layout": {
+          "x": 1,
+          "y": 1
+        }
+      }
+    ]
+  },
+  "draft": {
+    "src": {},
+    "snk": {}
+  },
+  "observed": {
+    "version": {
+      "declared": "2.4",
+      "state": "VERSION_UNVERIFIED"
+    }
+  },
+  "package": "filemesh-ftp-solace",
+  "expected": {
+    "engineVersion": 2,
+    "solution": "file-mesh",
+    "packageVersion": 1,
+    "components": [
+      {
+        "instanceKey": "src",
+        "type": "COMP_SOURCE_FTP@FILETOFILE",
+        "role": "source",
+        "sections": [
+          {
+            "title": "FILE MESH MANAGER",
+            "order": 0,
+            "fields": [
+              {
+                "key": "file.source.command_center.enabled",
+                "renderedPath": "file.source.command_center.enabled",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "1",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "ENABLED",
+                "helperText": "0 -> disabled, 1 -> enabled, sends data to Command Center",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.command_center.useoutputdestinationsolacecredentials",
+                "renderedPath": "file.source.command_center.useoutputdestinationsolacecredentials",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "true",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "USEOUTPUTDESTINATIONSOLACECREDENTIALS",
+                "helperText": "true ->  uses output destination solace credentials, false -> use below commented properties to configure",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.command_center.solace_base_publish_topic",
+                "renderedPath": "file.source.command_center.solace_base_publish_topic",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "SOLACE_BASE_PUBLISH_TOPIC",
+                "helperText": "base publish topic for command center event",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.command_center.solace_messaging_mode",
+                "renderedPath": "file.source.command_center.solace_messaging_mode",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "PERSISTENT",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "SOLACE_MESSAGING_MODE",
+                "helperText": "message mode (DIRECT, PERSISTENT, NON-PERSISTENT)",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.command_center.heartbeat_enabled",
+                "renderedPath": "file.source.command_center.heartbeat_enabled",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "1",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "HEARTBEAT_ENABLED",
+                "helperText": "0 -> disabled 1 -> enabled",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.command_center.heartbeat_interval",
+                "renderedPath": "file.source.command_center.heartbeat_interval",
+                "controlKind": "number",
+                "value": {
+                  "kind": "value",
+                  "value": 5,
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "HEARTBEAT_INTERVAL",
+                "helperText": "integer value representing number of seconds between each hearbeat",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.command_center.solace_base_publish_topic_heartbeat",
+                "renderedPath": "file.source.command_center.solace_base_publish_topic_heartbeat",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "SOLACE_BASE_PUBLISH_TOPIC_HEARTBEAT",
+                "helperText": "base publish topic for hearbeat event",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.command_center.events.fileStart",
+                "renderedPath": "file.source.command_center.events.fileStart",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "true",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "FILE_START_EVENT",
+                "helperText": "true -> Send file start events for every file to Command Center\n\nfalse -> No file start event",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.command_center.events.fileComplete",
+                "renderedPath": "file.source.command_center.events.fileComplete",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "true",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "FILE_COMPLETE_EVENT",
+                "helperText": "true -> Send file complete events for every file to Command Center\n\nfalse -> No file complete event",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "SELECT_BROKER",
+                "renderedPath": null,
+                "controlKind": "select",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": true,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "SELECT_BROKER",
+                "validations": [
+                  {
+                    "severity": "block",
+                    "code": "REQUIRED",
+                    "message": "This field is required."
+                  }
+                ],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.command_center.solace.host",
+                "renderedPath": "file.source.command_center.solace.host",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": false,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "SMF_URL",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.command_center.solace.msg-vpn",
+                "renderedPath": "file.source.command_center.solace.msg-vpn",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": false,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "MSG_VPN",
+                "helperText": "Solace Message VPN used by Command Center client",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.command_center.solace.client-username",
+                "renderedPath": "file.source.command_center.solace.client-username",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": false,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "CLIENT_USERNAME",
+                "helperText": "Solace client username used for Command Center connection",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.command_center.solace.client-password",
+                "renderedPath": "file.source.command_center.solace.client-password",
+                "controlKind": "secret",
+                "value": {
+                  "kind": "secretUnset"
+                },
+                "visible": true,
+                "enabled": false,
+                "virtual": false,
+                "advanced": true,
+                "masked": true,
+                "discriminator": false,
+                "label": "CLIENT_PASSWORD",
+                "helperText": "Solace client password used for Command Center connection",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.command_center.solace.clientName",
+                "renderedPath": "file.source.command_center.solace.clientName",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "CLIENT_NAME",
+                "helperText": "Solace client name used by Command Center",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.command_center.solace.connectRetries",
+                "renderedPath": "file.source.command_center.solace.connectRetries",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "-1",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "CONNECT_RETRIES",
+                "helperText": "Number of connection retry attempts when establishing initial connection",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.command_center.solace.reconnectRetries",
+                "renderedPath": "file.source.command_center.solace.reconnectRetries",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "-1",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "RECONNECT_RETRIES",
+                "helperText": "Number of reconnect retries after connection loss. -1 indicates infinite retries",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.command_center.solace.connectRetriesPerHost",
+                "renderedPath": "file.source.command_center.solace.connectRetriesPerHost",
+                "controlKind": "number",
+                "value": {
+                  "kind": "value",
+                  "value": 20,
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "CONNECT_RETRIES_PER_HOST",
+                "helperText": "Number of connection retries per Solace host",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.command_center.solace.reconnectRetryWaitInMillis",
+                "renderedPath": "file.source.command_center.solace.reconnectRetryWaitInMillis",
+                "controlKind": "number",
+                "value": {
+                  "kind": "value",
+                  "value": 3000,
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "RECONNECT_RETRY_WAIT_IN_MILLIS",
+                "helperText": "Wait time in milliseconds between reconnect attempts",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.command_center.solace.apiProperties",
+                "renderedPath": "file.source.command_center.solace.apiProperties",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "API_PROPERTIES",
+                "helperText": "Number of connection retries per Solace host",
+                "validations": [],
+                "hiddenBy": []
+              }
+            ],
+            "actions": [],
+            "allVisibleFieldsAdvanced": false
+          },
+          {
+            "title": "SOLACE LVQ",
+            "order": 1,
+            "fields": [
+              {
+                "key": "file.source.solace_out.lvq",
+                "renderedPath": "file.source.solace_out.lvq",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "LVQ",
+                "validations": [
+                  {
+                    "severity": "block",
+                    "code": "REQUIRED",
+                    "message": "This field is required."
+                  }
+                ],
+                "hiddenBy": []
+              },
+              {
+                "key": "AUTO_CREATE_TOPIC",
+                "renderedPath": null,
+                "controlKind": "switch",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": false,
+                "virtual": true,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "AUTO_CREATE_TOPIC",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.solace_out.destination",
+                "renderedPath": "file.source.solace_out.destination",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "DESTINATION",
+                "validations": [
+                  {
+                    "severity": "block",
+                    "code": "REQUIRED",
+                    "message": "This field is required."
+                  }
+                ],
+                "hiddenBy": []
+              },
+              {
+                "key": "AUTO_CREATE_QUEUE",
+                "renderedPath": null,
+                "controlKind": "switch",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": false,
+                "virtual": true,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "AUTO_CREATE_QUEUE",
+                "validations": [],
+                "hiddenBy": []
+              }
+            ],
+            "actions": [],
+            "allVisibleFieldsAdvanced": false
+          },
+          {
+            "title": "DIRECTORY REPLICATION",
+            "order": 2,
+            "fields": [
+              {
+                "key": "file.source.directory_replication.start_time",
+                "renderedPath": "file.source.directory_replication.start_time",
+                "controlKind": "number",
+                "value": {
+                  "kind": "value",
+                  "value": -1,
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "START_TIME",
+                "helperText": "epoch time - used to filter files modified after this time",
+                "validations": [],
+                "hiddenBy": []
+              }
+            ],
+            "actions": [],
+            "allVisibleFieldsAdvanced": false
+          },
+          {
+            "title": "FTP_SETTINGS",
+            "order": 3,
+            "fields": [
+              {
+                "key": "file.source.ftp_settings.enabled",
+                "renderedPath": "file.source.ftp_settings.enabled",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "1",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "ENABLED",
+                "helperText": "Set this value to 0 to disable and 1 to enable FTP/FTPs source location. Default 0, the file will be searched for on the local source machine and if set to 1, the files will be pulled from a remote location on the ftp server. Enabling this shifts the connector from local file system operations to remote FTP/FTPs interactions, allowing integration with external servers for file polling, listing, and transfer.",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "SELECT_FTP_CONFIG",
+                "renderedPath": null,
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": true,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "SELECT_FTP_CONFIG",
+                "validations": [
+                  {
+                    "severity": "block",
+                    "code": "REQUIRED",
+                    "message": "This field is required."
+                  }
+                ],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.ftp_settings.user",
+                "renderedPath": "file.source.ftp_settings.user",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": false,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "SERVER_USERNAME",
+                "helperText": "FTP user username. The credentials for authenticating with the FTP server. Anonymous access may use 'anonymous' if supported by the server, but a valid username is typically required.",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.ftp_settings.password",
+                "renderedPath": "file.source.ftp_settings.password",
+                "controlKind": "secret",
+                "value": {
+                  "kind": "secretUnset"
+                },
+                "visible": true,
+                "enabled": false,
+                "virtual": false,
+                "advanced": false,
+                "masked": true,
+                "discriminator": false,
+                "label": "SERVER_PASSWORD",
+                "helperText": "FTP user password. The password corresponding to the username for server authentication. For security, store this in a secure vault or environment variable rather than plaintext configuration.",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.ftp_settings.ip",
+                "renderedPath": "file.source.ftp_settings.ip",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": false,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "SERVER_IP",
+                "helperText": "FTP Server IP. Specify the hostname or IP address of the remote FTP/FTPs server to connect to. This is required when enabled is true; empty value defaults to local file system if not set.",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.ftp_settings.port",
+                "renderedPath": "file.source.ftp_settings.port",
+                "controlKind": "number",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": false,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "SERVER_PORT",
+                "helperText": "FTP server port number. The default port is 21 for plain FTP; use 990 for implicit FTPS. Ensure the port matches the server's configuration to establish successful connections.",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.ftp_settings.traceEnabled",
+                "renderedPath": "file.source.ftp_settings.traceEnabled",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "false",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "TRACE_ENABLED",
+                "helperText": "Enable detailed FTP command/response tracing. Logs all FTP protocol exchanges at TRACE level via SLF4J disable in production to reduce log volume.",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.ftp_settings.useFTPS",
+                "renderedPath": "file.source.ftp_settings.useFTPS",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "false",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "USE_FTPS",
+                "helperText": "Enables FTPS (TLS-secured FTP) for encrypted control and data channels. Requires proper SSL/TLS configuration.",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.ftp_settings.implicit",
+                "renderedPath": "file.source.ftp_settings.implicit",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "false",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "IMPLICIT_FTPS",
+                "helperText": "Use implicit FTPS mode (typically port 990). Entire session is encrypted from the start. Effective only when useFTPS=true.",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.ftp_settings.strictHostKeyChecking",
+                "renderedPath": "file.source.ftp_settings.strictHostKeyChecking",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "yes",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "STRICT_HOST_KEY_CHECKING",
+                "helperText": "Verifies the server hostname against its certificate to prevent spoofing. Disable only for non-production or self-signed certificates.",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.ftp_settings.keyStorePath",
+                "renderedPath": "file.source.ftp_settings.keyStorePath",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "KEY_STORE_PATH",
+                "helperText": "Path to the keystore file containing the client certificate for mutual TLS authentication.",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.ftp_settings.keyStorePassword",
+                "renderedPath": "file.source.ftp_settings.keyStorePassword",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "KEY_STORE_PASSWORD",
+                "helperText": "Password to unlock the keystore file. Required if keyStorePath is provided.",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.ftp_settings.trustStorePath",
+                "renderedPath": "file.source.ftp_settings.trustStorePath",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "TRUST_STORE_PATH",
+                "helperText": "Path to the truststore containing trusted CA certificates to validate the FTPS server.",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.ftp_settings.trustStorePassword",
+                "renderedPath": "file.source.ftp_settings.trustStorePassword",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "TRUST_STORE_PASSWORD",
+                "helperText": "Password for the truststore file; required when trustStorePath is provided.",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.ftp_settings.enabledProtocols",
+                "renderedPath": "file.source.ftp_settings.enabledProtocols",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "TLSv1.2,TLSv1.3",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "ENABLED_TLS_PROTOCOLS",
+                "helperText": "Comma-separated list of enabled TLS protocols (e.g., TLSv1.2,TLSv1.3). Effective only when useFTPS=true.",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.ftp_settings.passiveMode",
+                "renderedPath": "file.source.ftp_settings.passiveMode",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "false",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "PASSIVE_MODE",
+                "helperText": "Enables passive mode for data connections. Recommended for clients behind NAT or firewalls.",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.ftp_settings.activeMinPort",
+                "renderedPath": "file.source.ftp_settings.activeMinPort",
+                "controlKind": "number",
+                "value": {
+                  "kind": "value",
+                  "value": 0,
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "ACTIVE_MIN_PORT",
+                "helperText": "Minimum local port for active mode data connections (0 for system-assigned).",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.ftp_settings.activeMaxPort",
+                "renderedPath": "file.source.ftp_settings.activeMaxPort",
+                "controlKind": "number",
+                "value": {
+                  "kind": "value",
+                  "value": 0,
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "ACTIVE_MAX_PORT",
+                "helperText": "Maximum local port for active mode data connections. Must be >= activeMinPort.",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.ftp_settings.listHiddenFiles",
+                "renderedPath": "file.source.ftp_settings.listHiddenFiles",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "false",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "LIST_HIDDEN_FILES",
+                "helperText": "Include hidden files in directory listings.",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.ftp_settings.useEPSVwithIPv4",
+                "renderedPath": "file.source.ftp_settings.useEPSVwithIPv4",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "false",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "USE_EPSV_WITH_IPV4",
+                "helperText": "Enable EPSV command in passive mode for IPv4 networks.",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.ftp_settings.remoteVerificationEnabled",
+                "renderedPath": "file.source.ftp_settings.remoteVerificationEnabled",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "false",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "REMOTE_VERIFICATION_ENABLED",
+                "helperText": "Verify remote hostname/IP in passive mode responses to detect misrouting.",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.ftp_settings.serverSystemKey",
+                "renderedPath": "file.source.ftp_settings.serverSystemKey",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "UNIX",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "SERVER_SYSTEM_KEY",
+                "helperText": "Server system type used for parsing directory listings.",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.ftp_settings.defaultFileTransferType",
+                "renderedPath": "file.source.ftp_settings.defaultFileTransferType",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "BINARY",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "DEFAULT_FILE_TRANSFER_TYPE",
+                "helperText": "Default file transfer mode. Use BINARY to avoid data corruption.",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.ftp_settings.serverTimezone",
+                "renderedPath": "file.source.ftp_settings.serverTimezone",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "SERVER_TIMEZONE",
+                "helperText": "Timezone of the FTP server used for parsing timestamps.",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.ftp_settings.connectTimeout",
+                "renderedPath": "file.source.ftp_settings.connectTimeout",
+                "controlKind": "number",
+                "value": {
+                  "kind": "value",
+                  "value": 5000,
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "CONNECT_TIMEOUT",
+                "helperText": "Connection timeout in milliseconds.",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.ftp_settings.keepAliveInterval",
+                "renderedPath": "file.source.ftp_settings.keepAliveInterval",
+                "controlKind": "number",
+                "value": {
+                  "kind": "value",
+                  "value": 60000,
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "KEEP_ALIVE_INTERVAL",
+                "helperText": "Control keep-alive interval in milliseconds.",
+                "validations": [],
+                "hiddenBy": []
+              }
+            ],
+            "actions": [],
+            "allVisibleFieldsAdvanced": false
+          },
+          {
+            "title": "GENERAL",
+            "order": 4,
+            "fields": [
+              {
+                "key": "file.source.general.adapter_id",
+                "renderedPath": "file.source.general.adapter_id",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "ADAPTER_ID",
+                "helperText": "unique ID for the connector",
+                "validations": [
+                  {
+                    "severity": "block",
+                    "code": "REQUIRED",
+                    "message": "This field is required."
+                  }
+                ],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.general.file_type",
+                "renderedPath": "file.source.general.file_type",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "4",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": false,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "FILE_TYPE",
+                "helperText": "type of file (1 -> static 2 -> Dynamic 3 -> Directory first level 4 -> Directory recursive)",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.general.ignoreEmptyFiles",
+                "renderedPath": "file.source.general.ignoreEmptyFiles",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "true",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "IGNORE_EMPTY_FILES",
+                "helperText": "true->Ignores replication for empty files, false->Replicates empty files too",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.general.multiple_files_flag",
+                "renderedPath": "file.source.general.multiple_files_flag",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "0",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "MULTIPLE_FILES_FLAG",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.general.copy_file_mode_permissions",
+                "renderedPath": "file.source.general.copy_file_mode_permissions",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "1",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "COPY_FILE_MODE_PERMISSIONS",
+                "helperText": "(0 -> do not copy 1 -> copy)",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.general.max_file_transfer_size",
+                "renderedPath": "file.source.general.max_file_transfer_size",
+                "controlKind": "number",
+                "value": {
+                  "kind": "value",
+                  "value": 999000,
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "MAX_FILE_TRANSFER_SIZE",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.general.max_files_allowed",
+                "renderedPath": "file.source.general.max_files_allowed",
+                "controlKind": "number",
+                "value": {
+                  "kind": "value",
+                  "value": 99999,
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "MAX_FILES_ALLOWED",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.general.max_bandwidth_limit",
+                "renderedPath": "file.source.general.max_bandwidth_limit",
+                "controlKind": "number",
+                "value": {
+                  "kind": "value",
+                  "value": 100000000,
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "MAX_BANDWIDTH_LIMIT",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.general.clear_state_on_eod",
+                "renderedPath": "file.source.general.clear_state_on_eod",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "1",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "CLEAR_STATE_ON_EOD",
+                "helperText": "(0 -> doesn't clear state in LVQ 1 -> clears state in LVQ)",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "file.source.general.eod_time_sec",
+                "renderedPath": "file.source.general.eod_time_sec",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "-1",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "EOD_TIME_SEC",
+                "helperText": "-1 -> disabled 0 -> midnight time  (Hours to Seconds) - connector will check if configured time has passed number of seconds and exits.",
+                "validations": [],
+                "hiddenBy": []
+              }
+            ],
+            "actions": [],
+            "allVisibleFieldsAdvanced": false
+          },
+          {
+            "title": "INFO",
+            "order": 5,
+            "fields": [
+              {
+                "key": "CONNECTOR_RUNTIME_VERSION",
+                "renderedPath": null,
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": false,
+                "virtual": true,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "CONNECTOR_RUNTIME_VERSION",
+                "validations": [],
+                "hiddenBy": []
+              }
+            ],
+            "actions": [],
+            "allVisibleFieldsAdvanced": false
+          },
+          {
+            "title": "DIRECTORY WILDCARD",
+            "order": 6,
+            "fields": [
+              {
+                "key": "file.source.directory_wildcard.wildcard_type",
+                "renderedPath": "file.source.directory_wildcard.wildcard_type",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "0",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "WILDCARD_TYPE",
+                "helperText": "0 -> disabled 1 -> whitelist 2 -> blacklist",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "DIR_REGEXPS_CONFIG",
+                "renderedPath": null,
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": true,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "DIR_REGEXPS_CONFIG",
+                "helperText": "Regex values seperated by |",
+                "validations": [],
+                "hiddenBy": []
+              }
+            ],
+            "actions": [],
+            "allVisibleFieldsAdvanced": false
+          },
+          {
+            "title": "SCHEDULER",
+            "order": 7,
+            "fields": [
+              {
+                "key": "file.source.scheduler.restart_time_sec",
+                "renderedPath": "file.source.scheduler.restart_time_sec",
+                "controlKind": "number",
+                "value": {
+                  "kind": "value",
+                  "value": 10,
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "RESTART_TIME_SEC",
+                "helperText": "integer value representing number of seconds between each restart",
+                "validations": [],
+                "hiddenBy": []
+              }
+            ],
+            "actions": [],
+            "allVisibleFieldsAdvanced": false
+          }
+        ]
+      },
+      {
+        "instanceKey": "snk",
+        "type": "COMP_SINK_SOLACE@FILETOFILE",
+        "role": "sink",
+        "sections": [
+          {
+            "title": "BROKER_LIST",
+            "order": 0,
+            "fields": [
+              {
+                "key": "BROKER_NAME",
+                "renderedPath": null,
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": true,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "BROKER_NAME",
+                "validations": [
+                  {
+                    "severity": "block",
+                    "code": "REQUIRED",
+                    "message": "This field is required."
+                  }
+                ],
+                "hiddenBy": []
+              },
+              {
+                "key": "BROKER_LIST.SMF_URL",
+                "renderedPath": null,
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": true,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "SMF_URL",
+                "helperText": "tcp,smf host and port :e.g:<PROTOCOL>://<HOST>:<PORT>/slug , seperated by comma",
+                "validations": [
+                  {
+                    "severity": "block",
+                    "code": "REQUIRED",
+                    "message": "This field is required."
+                  }
+                ],
+                "hiddenBy": []
+              },
+              {
+                "key": "ORGANIZATION",
+                "renderedPath": null,
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": true,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "ORGANIZATION",
+                "validations": [
+                  {
+                    "severity": "block",
+                    "code": "REQUIRED",
+                    "message": "This field is required."
+                  }
+                ],
+                "hiddenBy": []
+              },
+              {
+                "key": "SELECT_ENV",
+                "renderedPath": null,
+                "controlKind": "select",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": true,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "SELECT_ENV",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "SUB_ORG",
+                "renderedPath": null,
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": true,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "SUB_ORG",
+                "validations": [
+                  {
+                    "severity": "block",
+                    "code": "REQUIRED",
+                    "message": "This field is required."
+                  }
+                ],
+                "hiddenBy": []
+              },
+              {
+                "key": "BROKER_LIST.MSG_VPN",
+                "renderedPath": null,
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": true,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "MSG_VPN",
+                "validations": [
+                  {
+                    "severity": "block",
+                    "code": "REQUIRED",
+                    "message": "This field is required."
+                  }
+                ],
+                "hiddenBy": []
+              },
+              {
+                "key": "BROKER_LIST.CLIENT_USERNAME",
+                "renderedPath": null,
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": true,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "CLIENT_USERNAME",
+                "validations": [
+                  {
+                    "severity": "block",
+                    "code": "REQUIRED",
+                    "message": "This field is required."
+                  }
+                ],
+                "hiddenBy": []
+              },
+              {
+                "key": "BROKER_LIST.CLIENT_PASSWORD",
+                "renderedPath": null,
+                "controlKind": "secret",
+                "value": {
+                  "kind": "secretUnset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": true,
+                "advanced": false,
+                "masked": true,
+                "discriminator": false,
+                "label": "CLIENT_PASSWORD",
+                "validations": [
+                  {
+                    "severity": "block",
+                    "code": "REQUIRED",
+                    "message": "This field is required."
+                  }
+                ],
+                "hiddenBy": []
+              },
+              {
+                "key": "ALLOW_SSL",
+                "renderedPath": null,
+                "controlKind": "select",
+                "value": {
+                  "kind": "value",
+                  "value": "yes",
+                  "source": "default"
+                },
+                "options": [
+                  "yes"
+                ],
+                "visible": true,
+                "enabled": false,
+                "virtual": true,
+                "advanced": false,
+                "masked": false,
+                "discriminator": true,
+                "label": "ALLOW_SSL",
+                "helperText": "To enable broker ssl",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "ALLOW_SEMP",
+                "renderedPath": null,
+                "controlKind": "select",
+                "value": {
+                  "kind": "value",
+                  "value": "yes",
+                  "source": "default"
+                },
+                "options": [
+                  "yes"
+                ],
+                "visible": true,
+                "enabled": false,
+                "virtual": true,
+                "advanced": false,
+                "masked": false,
+                "discriminator": true,
+                "label": "ALLOW_SEMP",
+                "helperText": "To create broker objects",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "MANAGEMENT_PROTOCOL",
+                "renderedPath": null,
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "http",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": true,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "MANAGEMENT_PROTOCOL",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "MANAGEMENT_USERNAME",
+                "renderedPath": null,
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": true,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "MANAGEMENT_USERNAME",
+                "validations": [
+                  {
+                    "severity": "block",
+                    "code": "REQUIRED",
+                    "message": "This field is required."
+                  }
+                ],
+                "hiddenBy": []
+              },
+              {
+                "key": "MANAGEMENT_PASSWORD",
+                "renderedPath": null,
+                "controlKind": "secret",
+                "value": {
+                  "kind": "secretUnset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": true,
+                "advanced": false,
+                "masked": true,
+                "discriminator": false,
+                "label": "MANAGEMENT_PASSWORD",
+                "validations": [
+                  {
+                    "severity": "block",
+                    "code": "REQUIRED",
+                    "message": "This field is required."
+                  }
+                ],
+                "hiddenBy": []
+              },
+              {
+                "key": "MANAGEMENT_PORT",
+                "renderedPath": null,
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": true,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "MANAGEMENT_PORT",
+                "validations": [
+                  {
+                    "severity": "block",
+                    "code": "REQUIRED",
+                    "message": "This field is required."
+                  }
+                ],
+                "hiddenBy": []
+              },
+              {
+                "key": "CERTIFICATE_AUTHORITY_FILE_PATH",
+                "renderedPath": null,
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": true,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "CERTIFICATE_AUTHORITY_FILE_PATH",
+                "validations": [
+                  {
+                    "severity": "block",
+                    "code": "REQUIRED",
+                    "message": "This field is required."
+                  }
+                ],
+                "hiddenBy": []
+              }
+            ],
+            "actions": [
+              {
+                "key": "ADD_OR_EDIT_BROKER",
+                "kind": "manage-catalog-entry",
+                "visible": true,
+                "enabled": true,
+                "inputs": [],
+                "label": "Add Or Edit Broker"
+              },
+              {
+                "key": "TEST_CONNECTION",
+                "kind": "test-connection",
+                "visible": true,
+                "enabled": true,
+                "inputs": [
+                  "BROKER_LIST.MSG_VPN",
+                  "MANAGEMENT_PORT",
+                  "BROKER_LIST.CLIENT_PASSWORD",
+                  "BROKER_LIST.SMF_URL",
+                  "MANAGEMENT_PASSWORD",
+                  "MANAGEMENT_USERNAME",
+                  "BROKER_LIST.CLIENT_USERNAME"
+                ],
+                "label": "Test Connection"
+              },
+              {
+                "key": "ADD_BROKER",
+                "kind": "manage-catalog-entry",
+                "visible": true,
+                "enabled": true,
+                "inputs": [],
+                "label": "Add Broker"
+              }
+            ],
+            "allVisibleFieldsAdvanced": false
+          },
+          {
+            "title": "DATA_PLANE",
+            "order": 1,
+            "fields": [
+              {
+                "key": "DATA_PLANE.SELECT_BROKER",
+                "renderedPath": null,
+                "controlKind": "select",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": true,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "SELECT_BROKER",
+                "validations": [
+                  {
+                    "severity": "block",
+                    "code": "REQUIRED",
+                    "message": "This field is required."
+                  }
+                ],
+                "hiddenBy": []
+              },
+              {
+                "key": "solace.java.host",
+                "renderedPath": "solace.java.host",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": false,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "SMF_URL",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "solace.java.msg-vpn",
+                "renderedPath": "solace.java.msg-vpn",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": false,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "MSG_VPN",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "solace.java.client-username",
+                "renderedPath": "solace.java.client-username",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": false,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "CLIENT_USERNAME",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "solace.java.client-password",
+                "renderedPath": "solace.java.client-password",
+                "controlKind": "secret",
+                "value": {
+                  "kind": "secretUnset"
+                },
+                "visible": true,
+                "enabled": false,
+                "virtual": false,
+                "advanced": false,
+                "masked": true,
+                "discriminator": false,
+                "label": "CLIENT_PASSWORD",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "solace.java.connectRetries",
+                "renderedPath": "solace.java.connectRetries",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "-1",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "CONNECT_RETRIES",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "solace.java.reconnectRetries",
+                "renderedPath": "solace.java.reconnectRetries",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "-1",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "RECONNECT_RETRIES",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "spring.cloud.stream.bindings.output-0.destination",
+                "renderedPath": "spring.cloud.stream.bindings.output-0.destination",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "TOPIC",
+                "helperText": "destination file location path",
+                "validations": [
+                  {
+                    "severity": "block",
+                    "code": "REQUIRED",
+                    "message": "This field is required."
+                  }
+                ],
+                "hiddenBy": []
+              },
+              {
+                "key": "AUTO_CREATE_TOPIC",
+                "renderedPath": null,
+                "controlKind": "switch",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": false,
+                "virtual": true,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "AUTO_CREATE_TOPIC",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "DATA_PLANE.QUEUE",
+                "renderedPath": null,
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": true,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "QUEUE",
+                "helperText": "Will create a queue with provided topic subscription",
+                "validations": [
+                  {
+                    "severity": "block",
+                    "code": "REQUIRED",
+                    "message": "This field is required."
+                  }
+                ],
+                "hiddenBy": []
+              },
+              {
+                "key": "DATA_PLANE.AUTO_CREATE_QUEUE",
+                "renderedPath": null,
+                "controlKind": "switch",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": false,
+                "virtual": true,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "AUTO_CREATE_QUEUE",
+                "validations": [],
+                "hiddenBy": []
+              }
+            ],
+            "actions": [],
+            "allVisibleFieldsAdvanced": false
+          },
+          {
+            "title": "MANAGEMENT_PLANE",
+            "order": 2,
+            "fields": [
+              {
+                "key": "MANAGEMENT_PLANE.SELECT_BROKER",
+                "renderedPath": null,
+                "controlKind": "select",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": true,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "SELECT_BROKER",
+                "validations": [
+                  {
+                    "severity": "block",
+                    "code": "REQUIRED",
+                    "message": "This field is required."
+                  }
+                ],
+                "hiddenBy": []
+              },
+              {
+                "key": "solace.connector.management.session.host",
+                "renderedPath": "solace.connector.management.session.host",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": false,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "SMF_URL",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "solace.connector.management.session.msg-vpn",
+                "renderedPath": "solace.connector.management.session.msg-vpn",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": false,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "MSG_VPN",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "solace.connector.management.session.client-username",
+                "renderedPath": "solace.connector.management.session.client-username",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": false,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "CLIENT_USERNAME",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "solace.connector.management.session.client-password",
+                "renderedPath": "solace.connector.management.session.client-password",
+                "controlKind": "secret",
+                "value": {
+                  "kind": "secretUnset"
+                },
+                "visible": true,
+                "enabled": false,
+                "virtual": false,
+                "advanced": false,
+                "masked": true,
+                "discriminator": false,
+                "label": "CLIENT_PASSWORD",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "solace.connector.management.leader-election.mode",
+                "renderedPath": "solace.connector.management.leader-election.mode",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "standalone",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "MODE",
+                "helperText": "The connector’s leader election mode. (values: standalone, active_active, active_standby)",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "solace.connector.management.leader-election.fail-over.max-attempts",
+                "renderedPath": "solace.connector.management.leader-election.fail-over.max-attempts",
+                "controlKind": "number",
+                "value": {
+                  "kind": "value",
+                  "value": 3,
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "MAX_ATTEMPTS",
+                "helperText": "The maximum number of attempts to perform a fail-over.",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "solace.connector.management.leader-election.fail-over.back-off-initial-interval",
+                "renderedPath": "solace.connector.management.leader-election.fail-over.back-off-initial-interval",
+                "controlKind": "number",
+                "value": {
+                  "kind": "value",
+                  "value": 1000,
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "BACK_OFF_INITIAL_INTERVAL",
+                "helperText": "The initial interval (milliseconds) to back-off when retrying a fail-over.",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "solace.connector.management.leader-election.fail-over.back-off-max-interval",
+                "renderedPath": "solace.connector.management.leader-election.fail-over.back-off-max-interval",
+                "controlKind": "number",
+                "value": {
+                  "kind": "value",
+                  "value": 10000,
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "BACK_OFF_MAX_INTERVAL",
+                "helperText": "The maximum interval (milliseconds) to back-off when retrying a fail-over.",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "solace.connector.management.leader-election.fail-over.back-off-multiplier",
+                "renderedPath": "solace.connector.management.leader-election.fail-over.back-off-multiplier",
+                "controlKind": "number",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "BACK_OFF_MULTIPLIER",
+                "helperText": "The multiplier to apply to the back-off interval between each retry of a fail-over.",
+                "validations": [
+                  {
+                    "severity": "block",
+                    "code": "REQUIRED",
+                    "message": "This field is required."
+                  }
+                ],
+                "hiddenBy": []
+              },
+              {
+                "key": "solace.connector.management.queue",
+                "renderedPath": "solace.connector.management.queue",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "QUEUE",
+                "helperText": "The management queue name.",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "MANAGEMENT_PLANE.AUTO_CREATE_QUEUE",
+                "renderedPath": null,
+                "controlKind": "switch",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": false,
+                "virtual": true,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "AUTO_CREATE_QUEUE",
+                "validations": [],
+                "hiddenBy": []
+              }
+            ],
+            "actions": [],
+            "allVisibleFieldsAdvanced": false
+          }
+        ]
+      }
+    ],
+    "rendered": [
+      {
+        "instanceKey": "snk",
+        "renderedPath": "solace.connector.management.leader-election.fail-over.back-off-initial-interval",
+        "value": 1000
+      },
+      {
+        "instanceKey": "snk",
+        "renderedPath": "solace.connector.management.leader-election.fail-over.back-off-max-interval",
+        "value": 10000
+      },
+      {
+        "instanceKey": "snk",
+        "renderedPath": "solace.connector.management.leader-election.fail-over.max-attempts",
+        "value": 3
+      },
+      {
+        "instanceKey": "snk",
+        "renderedPath": "solace.connector.management.leader-election.mode",
+        "value": "standalone"
+      },
+      {
+        "instanceKey": "snk",
+        "renderedPath": "solace.java.connectRetries",
+        "value": "-1"
+      },
+      {
+        "instanceKey": "snk",
+        "renderedPath": "solace.java.reconnectRetries",
+        "value": "-1"
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.command_center.enabled",
+        "value": "1"
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.command_center.events.fileComplete",
+        "value": "true"
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.command_center.events.fileStart",
+        "value": "true"
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.command_center.heartbeat_enabled",
+        "value": "1"
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.command_center.heartbeat_interval",
+        "value": 5
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.command_center.solace.connectRetries",
+        "value": "-1"
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.command_center.solace.connectRetriesPerHost",
+        "value": 20
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.command_center.solace.reconnectRetries",
+        "value": "-1"
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.command_center.solace.reconnectRetryWaitInMillis",
+        "value": 3000
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.command_center.solace_messaging_mode",
+        "value": "PERSISTENT"
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.command_center.useoutputdestinationsolacecredentials",
+        "value": "true"
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.directory_replication.start_time",
+        "value": -1
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.directory_wildcard.wildcard_type",
+        "value": "0"
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.ftp_settings.activeMaxPort",
+        "value": 0
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.ftp_settings.activeMinPort",
+        "value": 0
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.ftp_settings.connectTimeout",
+        "value": 5000
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.ftp_settings.defaultFileTransferType",
+        "value": "BINARY"
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.ftp_settings.enabled",
+        "value": "1"
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.ftp_settings.enabledProtocols",
+        "value": "TLSv1.2,TLSv1.3"
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.ftp_settings.implicit",
+        "value": "false"
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.ftp_settings.keepAliveInterval",
+        "value": 60000
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.ftp_settings.listHiddenFiles",
+        "value": "false"
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.ftp_settings.passiveMode",
+        "value": "false"
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.ftp_settings.remoteVerificationEnabled",
+        "value": "false"
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.ftp_settings.serverSystemKey",
+        "value": "UNIX"
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.ftp_settings.strictHostKeyChecking",
+        "value": "yes"
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.ftp_settings.traceEnabled",
+        "value": "false"
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.ftp_settings.useEPSVwithIPv4",
+        "value": "false"
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.ftp_settings.useFTPS",
+        "value": "false"
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.general.clear_state_on_eod",
+        "value": "1"
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.general.copy_file_mode_permissions",
+        "value": "1"
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.general.eod_time_sec",
+        "value": "-1"
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.general.file_type",
+        "value": "4"
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.general.ignoreEmptyFiles",
+        "value": "true"
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.general.max_bandwidth_limit",
+        "value": 100000000
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.general.max_file_transfer_size",
+        "value": 999000
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.general.max_files_allowed",
+        "value": 99999
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.general.multiple_files_flag",
+        "value": "0"
+      },
+      {
+        "instanceKey": "src",
+        "renderedPath": "file.source.scheduler.restart_time_sec",
+        "value": 10
+      }
+    ],
+    "excluded": [
+      {
+        "instanceKey": "snk",
+        "key": "ADD_BROKER",
+        "reason": "action"
+      },
+      {
+        "instanceKey": "snk",
+        "key": "ADD_OR_EDIT_BROKER",
+        "reason": "action"
+      },
+      {
+        "instanceKey": "snk",
+        "key": "ALLOW_SEMP",
+        "reason": "virtual"
+      },
+      {
+        "instanceKey": "snk",
+        "key": "ALLOW_SSL",
+        "reason": "virtual"
+      },
+      {
+        "instanceKey": "snk",
+        "key": "AUTO_CREATE_TOPIC",
+        "reason": "virtual"
+      },
+      {
+        "instanceKey": "snk",
+        "key": "BROKER_LIST.CLIENT_PASSWORD",
+        "reason": "virtual"
+      },
+      {
+        "instanceKey": "snk",
+        "key": "BROKER_LIST.CLIENT_USERNAME",
+        "reason": "virtual"
+      },
+      {
+        "instanceKey": "snk",
+        "key": "BROKER_LIST.MSG_VPN",
+        "reason": "virtual"
+      },
+      {
+        "instanceKey": "snk",
+        "key": "BROKER_LIST.SMF_URL",
+        "reason": "virtual"
+      },
+      {
+        "instanceKey": "snk",
+        "key": "BROKER_NAME",
+        "reason": "virtual"
+      },
+      {
+        "instanceKey": "snk",
+        "key": "CERTIFICATE_AUTHORITY_FILE_PATH",
+        "reason": "virtual"
+      },
+      {
+        "instanceKey": "snk",
+        "key": "DATA_PLANE.AUTO_CREATE_QUEUE",
+        "reason": "virtual"
+      },
+      {
+        "instanceKey": "snk",
+        "key": "DATA_PLANE.QUEUE",
+        "reason": "virtual"
+      },
+      {
+        "instanceKey": "snk",
+        "key": "DATA_PLANE.SELECT_BROKER",
+        "reason": "virtual"
+      },
+      {
+        "instanceKey": "snk",
+        "key": "MANAGEMENT_PASSWORD",
+        "reason": "virtual"
+      },
+      {
+        "instanceKey": "snk",
+        "key": "MANAGEMENT_PLANE.AUTO_CREATE_QUEUE",
+        "reason": "virtual"
+      },
+      {
+        "instanceKey": "snk",
+        "key": "MANAGEMENT_PLANE.SELECT_BROKER",
+        "reason": "virtual"
+      },
+      {
+        "instanceKey": "snk",
+        "key": "MANAGEMENT_PORT",
+        "reason": "virtual"
+      },
+      {
+        "instanceKey": "snk",
+        "key": "MANAGEMENT_PROTOCOL",
+        "reason": "virtual"
+      },
+      {
+        "instanceKey": "snk",
+        "key": "MANAGEMENT_USERNAME",
+        "reason": "virtual"
+      },
+      {
+        "instanceKey": "snk",
+        "key": "ORGANIZATION",
+        "reason": "virtual"
+      },
+      {
+        "instanceKey": "snk",
+        "key": "SELECT_ENV",
+        "reason": "virtual"
+      },
+      {
+        "instanceKey": "snk",
+        "key": "SUB_ORG",
+        "reason": "virtual"
+      },
+      {
+        "instanceKey": "snk",
+        "key": "TEST_CONNECTION",
+        "reason": "action"
+      },
+      {
+        "instanceKey": "src",
+        "key": "AUTO_CREATE_QUEUE",
+        "reason": "virtual"
+      },
+      {
+        "instanceKey": "src",
+        "key": "AUTO_CREATE_TOPIC",
+        "reason": "virtual"
+      },
+      {
+        "instanceKey": "src",
+        "key": "CONNECTOR_RUNTIME_VERSION",
+        "reason": "virtual"
+      },
+      {
+        "instanceKey": "src",
+        "key": "DIR_REGEXPS_CONFIG",
+        "reason": "virtual"
+      },
+      {
+        "instanceKey": "src",
+        "key": "SELECT_BROKER",
+        "reason": "virtual"
+      },
+      {
+        "instanceKey": "src",
+        "key": "SELECT_FTP_CONFIG",
+        "reason": "virtual"
+      }
+    ],
+    "metrics": [],
+    "status": {
+      "version": {
+        "state": "VERSION_UNVERIFIED",
+        "declared": "2.4",
+        "editingBlocked": false
+      },
+      "config": {},
+      "replicas": [],
+      "healthRollup": "NOT_APPLICABLE",
+      "healthAvailability": "not-declared"
+    },
+    "diagnostics": [
+      {
+        "code": "CATALOG_UNRESOLVED",
+        "message": "Options for SELECT_BROKER come from the connection catalog, which was not supplied.",
+        "instanceKey": "src",
+        "key": "SELECT_BROKER"
+      },
+      {
+        "code": "CATALOG_UNRESOLVED",
+        "message": "Options for SELECT_ENV come from the environment catalog, which was not supplied.",
+        "instanceKey": "snk",
+        "key": "SELECT_ENV"
+      },
+      {
+        "code": "CATALOG_UNRESOLVED",
+        "message": "Options for DATA_PLANE.SELECT_BROKER come from the connection catalog, which was not supplied.",
+        "instanceKey": "snk",
+        "key": "DATA_PLANE.SELECT_BROKER"
+      },
+      {
+        "code": "CATALOG_UNRESOLVED",
+        "message": "Options for MANAGEMENT_PLANE.SELECT_BROKER come from the connection catalog, which was not supplied.",
+        "instanceKey": "snk",
+        "key": "MANAGEMENT_PLANE.SELECT_BROKER"
+      }
+    ]
+  }
+}

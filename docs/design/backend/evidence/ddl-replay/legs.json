@@ -1,0 +1,3383 @@
+[
+ {
+  "status": "OK",
+  "label": "(s) SETUP: create the SM database smdb",
+  "container": "main",
+  "role": "postgres",
+  "db": "postgres",
+  "sql": "CREATE DATABASE smdb;",
+  "signature": [],
+  "group": "s-pre",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(s) PRE-STATE: executor identity, db owner, schema public owner + ACL BEFORE Phase 0",
+  "container": "main",
+  "role": "postgres",
+  "db": "smdb",
+  "sql": "SELECT current_user AS executor,\n       (SELECT rolsuper FROM pg_roles WHERE rolname=current_user) AS executor_is_superuser;\nSELECT datname, pg_get_userbyid(datdba) AS db_owner FROM pg_database WHERE datname='smdb';\nSELECT nspname, pg_get_userbyid(nspowner) AS schema_owner, nspacl::text AS acl_before\n  FROM pg_namespace WHERE nspname='public';",
+  "signature": [],
+  "group": "s-pre",
+  "type": "sql"
+ },
+ {
+  "type": "file",
+  "file": "phase0",
+  "container": "main",
+  "role": "postgres",
+  "db": "smdb",
+  "label": "PHASE 0 — bootstrap superuser, over stdin",
+  "expect_errors": 0,
+  "expect_warnings": 0,
+  "group": "phase0",
+  "expect_tags": [
+   "CREATE ROLE",
+   "CREATE ROLE",
+   "CREATE ROLE",
+   "CREATE SCHEMA",
+   "GRANT",
+   "GRANT ROLE",
+   "REVOKE"
+  ],
+  "signature": []
+ },
+ {
+  "status": "OK",
+  "label": "(s) POST-STATE: schema public ACL AFTER Phase 0 (the C must be gone from PUBLIC)",
+  "container": "main",
+  "role": "postgres",
+  "db": "smdb",
+  "sql": "SELECT nspname, nspacl::text AS acl_after FROM pg_namespace WHERE nspname='public';",
+  "signature": [],
+  "group": "s-post",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(s) THE ASSERTION: has_schema_privilege('sm_dp_runtime','public','CREATE') must be FALSE",
+  "container": "main",
+  "role": "postgres",
+  "db": "smdb",
+  "sql": "SELECT has_schema_privilege('sm_dp_runtime','public','CREATE') AS runtime_can_create_in_public;",
+  "signature": [],
+  "expect_contains": [
+   " f"
+  ],
+  "group": "s-post",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(s) BEHAVIOURAL PROOF: runtime CREATE TABLE public.smuggled must be REFUSED",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "CREATE TABLE public.smuggled(x int);",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "s-post",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(s) sm_data schema owner + ACL created by Phase 0",
+  "container": "main",
+  "role": "postgres",
+  "db": "smdb",
+  "sql": "SELECT nspname, pg_get_userbyid(nspowner) AS owner, nspacl::text FROM pg_namespace WHERE nspname='sm_data';",
+  "signature": [],
+  "group": "s-post",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(s) role attributes created by Phase 0",
+  "container": "main",
+  "role": "postgres",
+  "db": "smdb",
+  "sql": "SELECT rolname, rolsuper, rolcanlogin, rolinherit FROM pg_roles\n WHERE rolname LIKE 'sm_dp%' ORDER BY rolname;",
+  "signature": [],
+  "group": "s-post",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(s-negA) SETUP: non-superuser owner role + second database smdb2 OWNER sm_installer",
+  "container": "main",
+  "role": "postgres",
+  "db": "postgres",
+  "sql": "CREATE ROLE sm_installer LOGIN CREATEROLE;\nCREATE DATABASE smdb2 OWNER sm_installer;",
+  "signature": [],
+  "group": "s-negA",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(s-negA) confirm sm_installer is NOT a superuser and owns smdb2",
+  "container": "main",
+  "role": "postgres",
+  "db": "postgres",
+  "sql": "SELECT rolname, rolsuper, rolcreaterole FROM pg_roles WHERE rolname='sm_installer';\nSELECT datname, pg_get_userbyid(datdba) AS db_owner FROM pg_database WHERE datname='smdb2';",
+  "signature": [],
+  "group": "s-negA",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(s-negA) WHY the control cannot be a LITERAL Phase 0 re-run: roles are CLUSTER-scoped",
+  "container": "main",
+  "role": "sm_installer",
+  "db": "smdb2",
+  "sql": "CREATE ROLE sm_dp_owner    NOLOGIN;",
+  "signature": [
+   "ERROR: 42710"
+  ],
+  "group": "s-negA",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(s-negA) ACL of schema public in smdb2 BEFORE the revoke",
+  "container": "main",
+  "role": "postgres",
+  "db": "smdb2",
+  "sql": "SELECT nspname, pg_get_userbyid(nspowner) AS schema_owner, nspacl::text AS acl_before FROM pg_namespace WHERE nspname='public';",
+  "signature": [],
+  "group": "s-negA",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(s-negA) the REVOKE in isolation, as the non-superuser DATABASE OWNER",
+  "container": "main",
+  "role": "sm_installer",
+  "db": "smdb2",
+  "sql": "REVOKE CREATE ON SCHEMA public FROM PUBLIC;",
+  "signature": [
+   "WARNING:  01006: no privileges could be revoked for \"public\""
+  ],
+  "group": "s-negA",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(s-negA) ACL AFTER + the assertion, which must be TRUE (the no-op)",
+  "container": "main",
+  "role": "postgres",
+  "db": "smdb2",
+  "sql": "SELECT nspacl::text AS acl_after FROM pg_namespace WHERE nspname='public';\nSELECT has_schema_privilege('sm_dp_runtime','public','CREATE') AS runtime_can_create_in_public;",
+  "signature": [],
+  "group": "s-negA",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(s-negA) BEHAVIOURAL: runtime CREATE TABLE public.smuggled SUCCEEDS here",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb2",
+  "sql": "CREATE TABLE public.smuggled(x int);",
+  "signature": [],
+  "group": "s-negA",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(s-negB) SETUP: fresh cluster, non-superuser owner, smdb OWNER sm_installer",
+  "container": "negctl",
+  "role": "postgres",
+  "db": "postgres",
+  "sql": "CREATE ROLE sm_installer LOGIN CREATEROLE;\nCREATE DATABASE smdb OWNER sm_installer;",
+  "signature": [],
+  "group": "s-negB",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(s-negB) confirm executor is non-superuser and owns the db",
+  "container": "negctl",
+  "role": "postgres",
+  "db": "postgres",
+  "sql": "SELECT rolname, rolsuper, rolcreaterole FROM pg_roles WHERE rolname='sm_installer';\nSELECT datname, pg_get_userbyid(datdba) AS db_owner FROM pg_database WHERE datname='smdb';",
+  "signature": [],
+  "group": "s-negB",
+  "type": "sql"
+ },
+ {
+  "type": "file",
+  "file": "phase0",
+  "container": "negctl",
+  "role": "sm_installer",
+  "db": "smdb",
+  "label": "(s-negB) the LITERAL full Phase 0 as a NON-superuser database owner — must WARN on the REVOKE, not error",
+  "expect_errors": 0,
+  "expect_warnings": 1,
+  "group": "phase0-negB",
+  "expect_tags": [
+   "CREATE ROLE",
+   "CREATE ROLE",
+   "CREATE ROLE",
+   "CREATE SCHEMA",
+   "GRANT",
+   "GRANT ROLE",
+   "REVOKE"
+  ],
+  "signature": [
+   "WARNING:  01006: no privileges could be revoked for \"public\""
+  ]
+ },
+ {
+  "status": "OK",
+  "label": "(s-negB) ACL AFTER + the assertion, which must be TRUE",
+  "container": "negctl",
+  "role": "postgres",
+  "db": "smdb",
+  "sql": "SELECT nspacl::text AS acl_after FROM pg_namespace WHERE nspname='public';\nSELECT has_schema_privilege('sm_dp_runtime','public','CREATE') AS runtime_can_create_in_public;",
+  "signature": [],
+  "group": "s-negB",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(s-negB) BEHAVIOURAL: runtime CREATE TABLE public.smuggled SUCCEEDS",
+  "container": "negctl",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "CREATE TABLE public.smuggled(x int);",
+  "signature": [],
+  "group": "s-negB",
+  "type": "sql"
+ },
+ {
+  "type": "file",
+  "file": "phase1",
+  "container": "main",
+  "role": "sm_dp_migrator",
+  "db": "smdb",
+  "label": "PHASE 1 — sm_dp_migrator, over stdin (first statement SET ROLE sm_dp_owner)",
+  "expect_errors": 0,
+  "expect_warnings": 0,
+  "group": "phase1",
+  "expect_tags": [
+   "ALTER DEFAULT PRIVILEGES",
+   "ALTER TABLE",
+   "CREATE FUNCTION",
+   "CREATE FUNCTION",
+   "CREATE FUNCTION",
+   "CREATE INDEX",
+   "CREATE INDEX",
+   "CREATE INDEX",
+   "CREATE INDEX",
+   "CREATE INDEX",
+   "CREATE INDEX",
+   "CREATE TABLE",
+   "CREATE TABLE",
+   "CREATE TABLE",
+   "CREATE TABLE",
+   "CREATE TABLE",
+   "CREATE TRIGGER",
+   "CREATE TRIGGER",
+   "CREATE TRIGGER",
+   "GRANT",
+   "GRANT",
+   "GRANT",
+   "GRANT",
+   "GRANT",
+   "SET"
+  ],
+  "signature": []
+ },
+ {
+  "status": "OK",
+  "label": "(s) Phase 1 topology: every table+index owned by sm_dp_owner",
+  "container": "main",
+  "role": "postgres",
+  "db": "smdb",
+  "sql": "SELECT count(*) FILTER (WHERE pg_get_userbyid(relowner)='sm_dp_owner') AS owned_by_sm_dp_owner,\n       count(*) AS total\n  FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace\n WHERE n.nspname='sm_data' AND relkind IN ('r','i');",
+  "signature": [],
+  "group": "topology",
+  "type": "sql",
+  "expect_contains": [
+   "                   22 |    22"
+  ]
+ },
+ {
+  "status": "OK",
+  "label": "(s) Phase 1 topology: functions and trigger wiring (per-table guards)",
+  "container": "main",
+  "role": "postgres",
+  "db": "smdb",
+  "sql": "SELECT p.proname, pg_get_userbyid(p.proowner) AS owner FROM pg_proc p\n  JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='sm_data' ORDER BY 1;\nSELECT t.tgname, t.tgrelid::regclass AS tbl, p.proname AS fn, t.tgenabled\n  FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid WHERE NOT t.tgisinternal ORDER BY 1;",
+  "signature": [],
+  "group": "topology",
+  "type": "sql",
+  "expect_contains": [
+   " forbid_terminal_regression     | sm_dp_owner",
+   " instance_watermark_only_rises  | sm_dp_owner",
+   " placement_watermark_only_rises | sm_dp_owner",
+   " apply_request_terminal_guard  | sm_data.apply_request       | forbid_terminal_regression     | O",
+   " apply_scope_monotonic         | sm_data.apply_scope         | instance_watermark_only_rises  | O",
+   " placement_watermark_monotonic | sm_data.placement_watermark | placement_watermark_only_rises | O",
+   "(3 rows)"
+  ]
+ },
+ {
+  "status": "OK",
+  "label": "(s) DCL: runtime UPDATE column-scoping + DELETE grants",
+  "container": "main",
+  "role": "postgres",
+  "db": "smdb",
+  "sql": "SELECT table_name, string_agg(column_name,', ' ORDER BY column_name) AS updatable_columns\n  FROM information_schema.column_privileges\n WHERE grantee='sm_dp_runtime' AND table_schema='sm_data' AND privilege_type='UPDATE'\n GROUP BY 1 ORDER BY 1;\nSELECT coalesce(string_agg(table_name,', '),'(none)') AS runtime_delete_tables\n  FROM information_schema.table_privileges\n WHERE grantee='sm_dp_runtime' AND table_schema='sm_data' AND privilege_type='DELETE';",
+  "signature": [],
+  "expect_contains": [
+   "apply_request       | attempt_summary, resolution_observed, resolution_outcome, resolved_by, state, terminal_at",
+   "apply_scope         | instance_watermark",
+   "placement_watermark | generation"
+  ],
+  "group": "topology",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(s/I6) DCL: runtime INSERT is column-scoped too — resolution_note in neither list",
+  "container": "main",
+  "role": "postgres",
+  "db": "smdb",
+  "sql": "SELECT privilege_type, string_agg(column_name,', ' ORDER BY column_name) AS cols FROM information_schema.column_privileges WHERE grantee='sm_dp_runtime' AND table_schema='sm_data' AND table_name='apply_request' GROUP BY 1 ORDER BY 1;\nSELECT count(*) AS note_grants FROM information_schema.column_privileges WHERE grantee='sm_dp_runtime' AND table_schema='sm_data' AND table_name='apply_request' AND column_name='resolution_note';",
+  "signature": [],
+  "expect_contains": [
+   "INSERT         | apply_id, attempt_summary, generation, instance_id, operation, outage_confirmed_by, placement_id, requested_at, requested_by, resolution_observed, resolution_outcome, resolved_by, state, strategy, tenant_id, terminal_at",
+   "UPDATE         | attempt_summary, resolution_observed, resolution_outcome, resolved_by, state, terminal_at"
+  ],
+  "group": "topology",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(s) ALTER DEFAULT PRIVILEGES: new owner table -> runtime SELECT yes, INSERT no",
+  "container": "main",
+  "role": "sm_dp_migrator",
+  "db": "smdb",
+  "sql": "SET ROLE sm_dp_owner;\nCREATE TABLE sm_data.future_table(x int);\nSELECT has_table_privilege('sm_dp_runtime','sm_data.future_table','SELECT') AS runtime_select,\n       has_table_privilege('sm_dp_runtime','sm_data.future_table','INSERT') AS runtime_insert;\nDROP TABLE sm_data.future_table;",
+  "signature": [],
+  "group": "topology",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(t) POS: admission upsert INSERT..ON CONFLICT DO NOTHING",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_scope(tenant_id,instance_id) VALUES ('11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1') ON CONFLICT DO NOTHING;",
+  "signature": [],
+  "group": "t",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(t) POS: repeat upsert is idempotent",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_scope(tenant_id,instance_id) VALUES ('11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1') ON CONFLICT DO NOTHING;",
+  "signature": [],
+  "group": "t",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "seed: further scope rows",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_scope(tenant_id,instance_id) VALUES ('11111111-1111-4111-8111-111111111111','a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2'),('22222222-2222-4222-8222-222222222222','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1'),('22222222-2222-4222-8222-222222222222','a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2') ON CONFLICT DO NOTHING;",
+  "signature": [],
+  "group": "t",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(t) POS: SELECT ... FOR UPDATE on the scope row in a transaction",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "BEGIN;\nSELECT tenant_id,instance_watermark FROM sm_data.apply_scope WHERE tenant_id='11111111-1111-4111-8111-111111111111' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1' FOR UPDATE;\nCOMMIT;",
+  "signature": [],
+  "group": "t",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(t) POS: apply_scope RISE 0 -> 5",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_scope SET instance_watermark=5 WHERE tenant_id='11111111-1111-4111-8111-111111111111' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1';",
+  "signature": [],
+  "group": "t",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(t) POS: apply_scope RISE 5 -> 10",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_scope SET instance_watermark=10 WHERE tenant_id='11111111-1111-4111-8111-111111111111' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1';",
+  "signature": [],
+  "group": "t",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(t) POS: apply_scope EQUAL 10 -> 10 (not a decrease)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_scope SET instance_watermark=10 WHERE tenant_id='11111111-1111-4111-8111-111111111111' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1';",
+  "signature": [],
+  "group": "t",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(t) REFUSE: apply_scope DECREASE 10 -> 3 (instance_watermark_only_rises)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_scope SET instance_watermark=3 WHERE tenant_id='11111111-1111-4111-8111-111111111111' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1';",
+  "signature": [
+   "ERROR: P0001"
+  ],
+  "group": "t",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(t) POS: INSERT placement_watermark generation=3",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.placement_watermark(tenant_id,instance_id,placement_id,generation) VALUES ('11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b1b1b1b1-1111-4111-8111-b1b1b1b1b1b1',3);",
+  "signature": [],
+  "group": "t",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(t) POS: placement_watermark RISE 3 -> 7",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.placement_watermark SET generation=7 WHERE tenant_id='11111111-1111-4111-8111-111111111111' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1' AND placement_id='b1b1b1b1-1111-4111-8111-b1b1b1b1b1b1';",
+  "signature": [],
+  "group": "t",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(t) POS: placement_watermark EQUAL 7 -> 7",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.placement_watermark SET generation=7 WHERE tenant_id='11111111-1111-4111-8111-111111111111' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1' AND placement_id='b1b1b1b1-1111-4111-8111-b1b1b1b1b1b1';",
+  "signature": [],
+  "group": "t",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(t) REFUSE: placement_watermark DECREASE 7 -> 1 (placement_watermark_only_rises)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.placement_watermark SET generation=1 WHERE tenant_id='11111111-1111-4111-8111-111111111111' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1' AND placement_id='b1b1b1b1-1111-4111-8111-b1b1b1b1b1b1';",
+  "signature": [
+   "ERROR: P0001"
+  ],
+  "group": "t",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(t) REFUSE: UPDATE apply_scope SET tenant_id (identity)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_scope SET tenant_id='22222222-2222-4222-8222-222222222222' WHERE tenant_id='11111111-1111-4111-8111-111111111111' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1';",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "t",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(t) REFUSE: UPDATE apply_scope SET instance_id (identity)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_scope SET instance_id='a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2' WHERE tenant_id='11111111-1111-4111-8111-111111111111' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1';",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "t",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(t) REFUSE: DELETE FROM apply_scope",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "DELETE FROM sm_data.apply_scope WHERE tenant_id='11111111-1111-4111-8111-111111111111' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1';",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "t",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(t) REFUSE: UPDATE placement_watermark SET tenant_id (identity)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.placement_watermark SET tenant_id='22222222-2222-4222-8222-222222222222' WHERE tenant_id='11111111-1111-4111-8111-111111111111' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1' AND placement_id='b1b1b1b1-1111-4111-8111-b1b1b1b1b1b1';",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "t",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(t) REFUSE: UPDATE placement_watermark SET instance_id (identity)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.placement_watermark SET instance_id='a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2' WHERE tenant_id='11111111-1111-4111-8111-111111111111' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1' AND placement_id='b1b1b1b1-1111-4111-8111-b1b1b1b1b1b1';",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "t",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(t) REFUSE: UPDATE placement_watermark SET placement_id (identity)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.placement_watermark SET placement_id='b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2' WHERE tenant_id='11111111-1111-4111-8111-111111111111' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1' AND placement_id='b1b1b1b1-1111-4111-8111-b1b1b1b1b1b1';",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "t",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(t) REFUSE: DELETE FROM placement_watermark",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "DELETE FROM sm_data.placement_watermark WHERE tenant_id='11111111-1111-4111-8111-111111111111' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1' AND placement_id='b1b1b1b1-1111-4111-8111-b1b1b1b1b1b1';",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "t",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(t) REFUSE: nil sentinel -> real_placements_only",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.placement_watermark(tenant_id,instance_id,placement_id,generation) VALUES ('11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','00000000-0000-0000-0000-000000000000',1);",
+  "signature": [
+   "CONSTRAINT NAME:  real_placements_only",
+   "ERROR: 23514"
+  ],
+  "group": "t",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(t) REFUSE: generation 0 -> placement_watermark_positive",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.placement_watermark(tenant_id,instance_id,placement_id,generation) VALUES ('11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2',0);",
+  "signature": [
+   "CONSTRAINT NAME:  placement_watermark_positive",
+   "ERROR: 23514"
+  ],
+  "group": "t",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(t) OWNER CONTROL: owner CAN write apply_scope identity on a dependency-free row",
+  "container": "main",
+  "role": "sm_dp_migrator",
+  "db": "smdb",
+  "sql": "SET ROLE sm_dp_owner;\nBEGIN;\nUPDATE sm_data.apply_scope SET tenant_id='44444444-4444-4444-8444-444444444444' WHERE tenant_id='33333333-3333-4333-8333-333333333333' AND instance_id='a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2';\nSELECT 'owner re-tenanted rows='||count(*) FROM sm_data.apply_scope WHERE tenant_id='44444444-4444-4444-8444-444444444444' AND instance_id='a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2';\nUPDATE sm_data.apply_scope SET instance_id='a9a9a9a9-9999-4999-8999-a9a9a9a9a9a9' WHERE tenant_id='44444444-4444-4444-8444-444444444444' AND instance_id='a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2';\nSELECT 'owner re-instanced rows='||count(*) FROM sm_data.apply_scope WHERE instance_id='a9a9a9a9-9999-4999-8999-a9a9a9a9a9a9';\nROLLBACK;",
+  "signature": [],
+  "group": "t-owner",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(t) MATCHING NEGATIVE on the same row: runtime refused",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_scope SET tenant_id='44444444-4444-4444-8444-444444444444' WHERE tenant_id='33333333-3333-4333-8333-333333333333' AND instance_id='a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2';",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "t-owner",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(t) OWNER CONTROL: owner CAN re-key placement_watermark and DELETE from both",
+  "container": "main",
+  "role": "sm_dp_migrator",
+  "db": "smdb",
+  "sql": "SET ROLE sm_dp_owner;\nBEGIN;\nUPDATE sm_data.placement_watermark SET placement_id='b3b3b3b3-3333-4333-8333-b3b3b3b3b3b3' WHERE tenant_id='11111111-1111-4111-8111-111111111111' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1' AND placement_id='b1b1b1b1-1111-4111-8111-b1b1b1b1b1b1';\nSELECT 'owner re-keyed placement rows='||count(*) FROM sm_data.placement_watermark WHERE placement_id='b3b3b3b3-3333-4333-8333-b3b3b3b3b3b3';\nDELETE FROM sm_data.placement_watermark WHERE tenant_id='11111111-1111-4111-8111-111111111111' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1';\nSELECT 'owner deleted placement rows ok' AS r;\nROLLBACK;",
+  "signature": [],
+  "group": "t-owner",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(t) the monotonic guard binds the OWNER too (trigger, not grant)",
+  "container": "main",
+  "role": "sm_dp_migrator",
+  "db": "smdb",
+  "sql": "SET ROLE sm_dp_owner;\nUPDATE sm_data.apply_scope SET instance_watermark=1 WHERE tenant_id='11111111-1111-4111-8111-111111111111' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1';",
+  "signature": [
+   "ERROR: P0001"
+  ],
+  "group": "t-owner",
+  "type": "sql",
+  "expect_contains": [
+   "may not decrease"
+  ]
+ },
+ {
+  "status": "OK",
+  "label": "(a/b) SETUP: instance-wide apply A1 RUNNING on T1/IN1/NIL",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state)\nVALUES ('c0000001-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','00000000-0000-0000-0000-000000000000','apply',1,'rolling-health-gated','op:alice',now(),'RUNNING');",
+  "signature": [],
+  "group": "abce",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(b) REFUSE: second APPLY same scope while A1 RUNNING",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state)\nVALUES ('c0000002-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','00000000-0000-0000-0000-000000000000','apply',2,'rolling-health-gated','op:bob',now(),'REQUESTED');",
+  "signature": [
+   "CONSTRAINT NAME:  apply_inflight_fence",
+   "ERROR: 23505"
+  ],
+  "group": "abce",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(b) REFUSE: second RESTART same scope while A1 RUNNING",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,strategy,requested_by,requested_at,state)\nVALUES ('c0000002-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','00000000-0000-0000-0000-000000000000','restart','rolling-health-gated','op:bob',now(),'REQUESTED');",
+  "signature": [
+   "CONSTRAINT NAME:  apply_inflight_fence",
+   "ERROR: 23505"
+  ],
+  "group": "abce",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(a) ADMIT: stop on the same scope while the apply is RUNNING",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,requested_by,requested_at,state)\nVALUES ('c0000011-0000-4000-8000-000000000011','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','00000000-0000-0000-0000-000000000000','stop','op:carol',now(),'RUNNING');",
+  "signature": [],
+  "group": "abce",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(c) REFUSE: a SECOND in-flight stop for the same scope",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,requested_by,requested_at,state)\nVALUES ('c0000012-0000-4000-8000-000000000012','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','00000000-0000-0000-0000-000000000000','stop','op:dave',now(),'REQUESTED');",
+  "signature": [
+   "CONSTRAINT NAME:  stop_inflight_fence",
+   "ERROR: 23505"
+  ],
+  "group": "abce",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "SETUP: A1 -> APPLY_INDETERMINATE ; retire stop S1 -> STOPPED",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='APPLY_INDETERMINATE' WHERE apply_id='c0000001-0000-4000-8000-000000000001';\nUPDATE sm_data.apply_request SET state='STOPPED', terminal_at=now() WHERE apply_id='c0000011-0000-4000-8000-000000000011';",
+  "signature": [],
+  "group": "abce",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(b) REFUSE: apply while A1 is APPLY_INDETERMINATE (arch 16.1 blocking)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state)\nVALUES ('c0000002-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','00000000-0000-0000-0000-000000000000','apply',2,'rolling-health-gated','op:bob',now(),'REQUESTED');",
+  "signature": [
+   "CONSTRAINT NAME:  apply_inflight_fence",
+   "ERROR: 23505"
+  ],
+  "group": "abce",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(a) ADMIT: stop while A1 is APPLY_INDETERMINATE",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,requested_by,requested_at,state)\nVALUES ('c0000012-0000-4000-8000-000000000012','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','00000000-0000-0000-0000-000000000000','stop','op:dave',now(),'REQUESTED');",
+  "signature": [],
+  "group": "abce",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(d) ADMIT cross-scope: PLACEMENT-scoped stop while the instance-wide apply is APPLY_INDETERMINATE",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,requested_by,requested_at,state)\nVALUES ('c0000013-0000-4000-8000-000000000013','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b1b1b1b1-1111-4111-8111-b1b1b1b1b1b1','stop','op:eve',now(),'REQUESTED');",
+  "signature": [],
+  "group": "abce",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(e) ADMIT: same (instance_id, placement_id) under a DIFFERENT tenant",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state)\nVALUES ('c0000021-0000-4000-8000-000000000021','22222222-2222-4222-8222-222222222222','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','00000000-0000-0000-0000-000000000000','apply',1,'rolling-health-gated','op:frank',now(),'RUNNING');",
+  "signature": [],
+  "group": "abce",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(e) REFUSE: same tenant AND same scope still collides",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state)\nVALUES ('c0000022-0000-4000-8000-000000000022','22222222-2222-4222-8222-222222222222','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','00000000-0000-0000-0000-000000000000','apply',2,'rolling-health-gated','op:frank',now(),'REQUESTED');",
+  "signature": [
+   "CONSTRAINT NAME:  apply_inflight_fence",
+   "ERROR: 23505"
+  ],
+  "group": "abce",
+  "type": "sql"
+ },
+ {
+  "type": "sessions",
+  "a": "sessA.sql",
+  "b": "sessB.sql",
+  "label": "(d) two live sessions: A holds the scope row 6 s, B blocks on it then sees inflight=1; third session observes the lock wait",
+  "observe": true,
+  "min_block_ms": 2000,
+  "b_contains": [
+   "instance_wide_inflight",
+   "1"
+  ],
+  "group": "d"
+ },
+ {
+  "type": "sessions",
+  "a": "sessA2.sql",
+  "b": "sessB2.sql",
+  "label": "(d) the other direction",
+  "observe": true,
+  "min_block_ms": 2000,
+  "b_contains": [
+   "placement_scoped_inflight",
+   "1"
+  ],
+  "group": "d"
+ },
+ {
+  "status": "OK",
+  "label": "(f) POS: MATERIALIZE intent WITH config_hash",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_step_intent(intent_id,tenant_id,apply_id,replica_ref,step,idempotency_key,config_hash,created_at)\nVALUES ('e0000001-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','replica-0','MATERIALIZE','idem-mat-0','sha256:aaa',now());",
+  "signature": [],
+  "group": "fg",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(f) REFUSE dir1: ROLLBACK intent WITHOUT config_hash",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_step_intent(intent_id,tenant_id,apply_id,replica_ref,step,idempotency_key,created_at)\nVALUES ('e0000002-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','@placement','ROLLBACK','idem-rb-0',now());",
+  "signature": [
+   "CONSTRAINT NAME:  hash_on_config_steps",
+   "ERROR: 23514"
+  ],
+  "group": "fg",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(f) REFUSE dir1: VERIFY intent WITHOUT config_hash",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_step_intent(intent_id,tenant_id,apply_id,replica_ref,step,idempotency_key,created_at)\nVALUES ('e0000003-0000-4000-8000-000000000003','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','replica-0','VERIFY','idem-ver-0',now());",
+  "signature": [
+   "CONSTRAINT NAME:  hash_on_config_steps",
+   "ERROR: 23514"
+  ],
+  "group": "fg",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(f) REFUSE dir2: STOP intent WITH a config_hash",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_step_intent(intent_id,tenant_id,apply_id,replica_ref,step,idempotency_key,config_hash,created_at)\nVALUES ('e0000004-0000-4000-8000-000000000004','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','replica-0','STOP','idem-stop-0','sha256:bbb',now());",
+  "signature": [
+   "CONSTRAINT NAME:  hash_on_config_steps",
+   "ERROR: 23514"
+  ],
+  "group": "fg",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(f) REFUSE dir2: PREFLIGHT intent WITH a config_hash",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_step_intent(intent_id,tenant_id,apply_id,replica_ref,step,idempotency_key,config_hash,created_at)\nVALUES ('e0000005-0000-4000-8000-000000000005','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','@placement','PREFLIGHT','idem-pre-0','sha256:ccc',now());",
+  "signature": [
+   "CONSTRAINT NAME:  hash_on_config_steps",
+   "ERROR: 23514"
+  ],
+  "group": "fg",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(f) REFUSE dir2: LIFECYCLE intent WITH a config_hash",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_step_intent(intent_id,tenant_id,apply_id,replica_ref,step,idempotency_key,config_hash,created_at)\nVALUES ('e0000006-0000-4000-8000-000000000006','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','replica-0','LIFECYCLE','idem-lc-0','sha256:ddd',now());",
+  "signature": [
+   "CONSTRAINT NAME:  hash_on_config_steps",
+   "ERROR: 23514"
+  ],
+  "group": "fg",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(f) REFUSE dir2: ROLLBACK_ASSESS intent WITH a config_hash",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_step_intent(intent_id,tenant_id,apply_id,replica_ref,step,idempotency_key,config_hash,created_at)\nVALUES ('e0000007-0000-4000-8000-000000000007','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','@placement','ROLLBACK_ASSESS','idem-ra-0','sha256:eee',now());",
+  "signature": [
+   "CONSTRAINT NAME:  hash_on_config_steps",
+   "ERROR: 23514"
+  ],
+  "group": "fg",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(f) extra: placement_scoped_steps refuses PREFLIGHT on a non-@placement replica",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_step_intent(intent_id,tenant_id,apply_id,replica_ref,step,idempotency_key,created_at)\nVALUES ('e0000008-0000-4000-8000-000000000008','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','replica-0','PREFLIGHT','idem-pre-bad',now());",
+  "signature": [
+   "CONSTRAINT NAME:  placement_scoped_steps",
+   "ERROR: 23514"
+  ],
+  "group": "fg",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(f) extra: step_known refuses an unknown step",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_step_intent(intent_id,tenant_id,apply_id,replica_ref,step,idempotency_key,created_at)\nVALUES ('e000000f-0000-4000-8000-00000000000f','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','replica-0','TELEPORT','idem-tp',now());",
+  "signature": [
+   "CONSTRAINT NAME:  step_known",
+   "ERROR: 23514"
+  ],
+  "group": "fg",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(g) REFUSE: 2nd intent, SAME (apply,step,replica), different key",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_step_intent(intent_id,tenant_id,apply_id,replica_ref,step,idempotency_key,config_hash,created_at)\nVALUES ('e0000010-0000-4000-8000-000000000010','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','replica-0','MATERIALIZE','idem-mat-0-DIFFERENT','sha256:aaa',now());",
+  "signature": [
+   "CONSTRAINT NAME:  apply_step_intent_tenant_id_apply_id_step_replica_ref_key",
+   "ERROR: 23505"
+  ],
+  "group": "fg",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(g) REFUSE: REUSED idempotency_key under another step",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_step_intent(intent_id,tenant_id,apply_id,replica_ref,step,idempotency_key,config_hash,created_at)\nVALUES ('e0000011-0000-4000-8000-000000000011','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','replica-1','VERIFY','idem-mat-0','sha256:zzz',now());",
+  "signature": [
+   "CONSTRAINT NAME:  apply_step_intent_idempotency_key_key",
+   "ERROR: 23505"
+  ],
+  "group": "fg",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(g) engine half shown: the read-compare query the retry rule rests on",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "SELECT idempotency_key, config_hash AS recorded, 'sha256:DIFFERENT' AS presented,\n       (config_hash='sha256:DIFFERENT') AS retry_admissible\n  FROM sm_data.apply_step_intent WHERE idempotency_key='idem-mat-0';",
+  "signature": [],
+  "group": "fg",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(h) REFUSE: state outside the enum -> state_known",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at) VALUES ('f0000001-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','apply',9,'manual','op:x',now(),'TOTALLY_BOGUS',now());",
+  "signature": [
+   "CONSTRAINT NAME:  state_known",
+   "ERROR: 23514"
+  ],
+  "group": "h",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(h) REFUSE: stop in state APPLIED -> state_fits_operation",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,requested_by,requested_at,state,terminal_at) VALUES ('f0000002-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','stop','op:x',now(),'APPLIED',now());",
+  "signature": [
+   "CONSTRAINT NAME:  state_fits_operation",
+   "ERROR: 23514"
+  ],
+  "group": "h",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(h) REFUSE: restart in state STOPPED -> state_fits_operation",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,strategy,requested_by,requested_at,state,terminal_at) VALUES ('f0000007-0000-4000-8000-000000000007','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','restart','rolling-health-gated','op:x',now(),'STOPPED',now());",
+  "signature": [
+   "CONSTRAINT NAME:  state_fits_operation",
+   "ERROR: 23514"
+  ],
+  "group": "h",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(h) REFUSE: apply WITHOUT generation -> apply_has_generation",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,strategy,requested_by,requested_at,state) VALUES ('f0000003-0000-4000-8000-000000000003','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','apply','manual','op:x',now(),'REQUESTED');",
+  "signature": [
+   "CONSTRAINT NAME:  apply_has_generation",
+   "ERROR: 23514"
+  ],
+  "group": "h",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(h) REFUSE: stop WITH a generation -> apply_has_generation",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,requested_by,requested_at,state) VALUES ('f0000004-0000-4000-8000-000000000004','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','stop',7,'op:x',now(),'REQUESTED');",
+  "signature": [
+   "CONSTRAINT NAME:  apply_has_generation",
+   "ERROR: 23514"
+  ],
+  "group": "h",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(h) REFUSE: restart WITHOUT strategy -> lifecycle_has_strategy",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,requested_by,requested_at,state) VALUES ('f0000005-0000-4000-8000-000000000005','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','restart','op:x',now(),'REQUESTED');",
+  "signature": [
+   "CONSTRAINT NAME:  lifecycle_has_strategy",
+   "ERROR: 23514"
+  ],
+  "group": "h",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(h) REFUSE: stop WITH a strategy -> lifecycle_has_strategy",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,strategy,requested_by,requested_at,state) VALUES ('f0000006-0000-4000-8000-000000000006','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','stop','manual','op:x',now(),'REQUESTED');",
+  "signature": [
+   "CONSTRAINT NAME:  lifecycle_has_strategy",
+   "ERROR: 23514"
+  ],
+  "group": "h",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(h) extra: restart_not_manual",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,strategy,requested_by,requested_at,state) VALUES ('f0000008-0000-4000-8000-000000000008','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','restart','manual','op:x',now(),'REQUESTED');",
+  "signature": [
+   "CONSTRAINT NAME:  restart_not_manual",
+   "ERROR: 23514"
+  ],
+  "group": "h",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(h) extra: full_outage_confirmed (restart-all without outage_confirmed_by)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state) VALUES ('f0000009-0000-4000-8000-000000000009','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','apply',9,'restart-all','op:x',now(),'REQUESTED');",
+  "signature": [
+   "CONSTRAINT NAME:  full_outage_confirmed",
+   "ERROR: 23514"
+  ],
+  "group": "h",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(h) extra: terminal_has_timestamp (APPLIED with NULL terminal_at)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state) VALUES ('f000000a-0000-4000-8000-00000000000a','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','apply',9,'manual','op:x',now(),'APPLIED');",
+  "signature": [
+   "CONSTRAINT NAME:  terminal_has_timestamp",
+   "ERROR: 23514"
+  ],
+  "group": "h",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(h) extra: generation_positive (generation 0)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state) VALUES ('f000000b-0000-4000-8000-00000000000b','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','apply',0,'manual','op:x',now(),'REQUESTED');",
+  "signature": [
+   "CONSTRAINT NAME:  generation_positive",
+   "ERROR: 23514"
+  ],
+  "group": "h",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(h) extra: strategy_known (unknown strategy)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state) VALUES ('f000000c-0000-4000-8000-00000000000c','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','apply',9,'yolo','op:x',now(),'REQUESTED');",
+  "signature": [
+   "CONSTRAINT NAME:  strategy_known",
+   "ERROR: 23514"
+  ],
+  "group": "h",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(h) extra: op_known (unknown operation) — also violates apply_has_generation and lifecycle_has_strategy, since 'nuke' matches neither 'apply' nor 'restart' while generation/strategy are still present; PostgreSQL reports apply_has_generation, not op_known (sorts first lexically) — see the ISOLATED leg immediately below for a clean op_known-only exemplar",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state) VALUES ('f000000d-0000-4000-8000-00000000000d','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','nuke',9,'manual','op:x',now(),'REQUESTED');",
+  "signature": [
+   "CONSTRAINT NAME:  apply_has_generation",
+   "ERROR: 23514"
+  ],
+  "group": "h",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(h) extra ISOLATED: op_known (unknown operation, no generation, no strategy)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,requested_by,requested_at,state)\nVALUES ('f000000e-0000-4000-8000-00000000000e','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','nuke','op:x',now(),'REQUESTED');",
+  "signature": [
+   "CONSTRAINT NAME:  op_known",
+   "ERROR: 23514"
+  ],
+  "group": "h",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(h) REFUSE: apply strategy=rolling-health-gated in state STAGED -> staged_requires_manual",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at) VALUES ('f0000011-0000-4000-8000-000000000011','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','apply',9,'rolling-health-gated','op:x',now(),'STAGED',now());",
+  "signature": [
+   "CONSTRAINT NAME:  staged_requires_manual",
+   "ERROR: 23514"
+  ],
+  "group": "h",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(h) REFUSE: apply strategy=rolling-no-validation in state STAGED -> staged_requires_manual",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at) VALUES ('f0000012-0000-4000-8000-000000000012','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','apply',9,'rolling-no-validation','op:x',now(),'STAGED',now());",
+  "signature": [
+   "CONSTRAINT NAME:  staged_requires_manual",
+   "ERROR: 23514"
+  ],
+  "group": "h",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(h) REFUSE: apply strategy=restart-all (outage confirmed) in state STAGED -> staged_requires_manual",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,outage_confirmed_by,requested_by,requested_at,state,terminal_at) VALUES ('f0000013-0000-4000-8000-000000000013','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','apply',9,'restart-all','duty-manager-3','op:x',now(),'STAGED',now());",
+  "signature": [
+   "CONSTRAINT NAME:  staged_requires_manual",
+   "ERROR: 23514"
+  ],
+  "group": "h",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(h) REFUSE: apply strategy=scheduled in state STAGED -> staged_requires_manual",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at) VALUES ('f0000014-0000-4000-8000-000000000014','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','apply',9,'scheduled','op:x',now(),'STAGED',now());",
+  "signature": [
+   "CONSTRAINT NAME:  staged_requires_manual",
+   "ERROR: 23514"
+  ],
+  "group": "h",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(h) POS: apply strategy=manual in state STAGED succeeds — the positive control for staged_requires_manual",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at) VALUES ('f0000015-0000-4000-8000-000000000015','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','apply',9,'manual','op:x',now(),'STAGED',now());",
+  "signature": [],
+  "group": "h",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(h) REFUSE: stop in state STAGED -> staged_requires_manual (also violates state_fits_operation; staged_requires_manual sorts first lexically)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,requested_by,requested_at,state,terminal_at) VALUES ('f0000016-0000-4000-8000-000000000016','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','stop','op:x',now(),'STAGED',now());",
+  "signature": [
+   "CONSTRAINT NAME:  staged_requires_manual",
+   "ERROR: 23514"
+  ],
+  "group": "h",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(h) REFUSE: restart in state STAGED -> staged_requires_manual (also violates state_fits_operation; staged_requires_manual sorts first lexically)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,strategy,requested_by,requested_at,state,terminal_at) VALUES ('f0000017-0000-4000-8000-000000000017','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','restart','rolling-health-gated','op:x',now(),'STAGED',now());",
+  "signature": [
+   "CONSTRAINT NAME:  staged_requires_manual",
+   "ERROR: 23514"
+  ],
+  "group": "h",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(i) POS: attempt with the CORRECT (tenant, apply, intent) triple",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_attempt(attempt_id,tenant_id,apply_id,intent_id,step,attempt_no,started_at,step_deadline) VALUES ('a0000001-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','e0000001-0000-4000-8000-000000000001','MATERIALIZE',1,now(),now()+interval '5 min');",
+  "signature": [],
+  "group": "im",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(m) SETUP: close attempt_no=1 (BE-D20) so the FK/legal-retry legs below test their own named constraint, not attempt_open_fence",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_attempt SET outcome='SUCCEEDED' WHERE attempt_id='a0000001-0000-4000-8000-000000000001';",
+  "signature": [],
+  "group": "im",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(i) REFUSE isolated (unused attempt_no=9): same tenant, WRONG apply_id -> triple FK",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_attempt(attempt_id,tenant_id,apply_id,intent_id,step,attempt_no,started_at,step_deadline) VALUES ('a0000008-0000-4000-8000-000000000008','11111111-1111-4111-8111-111111111111','c0000001-0000-4000-8000-000000000001','e0000001-0000-4000-8000-000000000001','MATERIALIZE',9,now(),now()+interval '5 min');",
+  "signature": [
+   "CONSTRAINT NAME:  apply_attempt_tenant_id_apply_id_intent_id_fkey",
+   "ERROR: 23503"
+  ],
+  "group": "im",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(i) REFUSE: DIFFERENT tenant, right apply/intent -> triple FK",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_attempt(attempt_id,tenant_id,apply_id,intent_id,step,attempt_no,started_at,step_deadline) VALUES ('a0000009-0000-4000-8000-000000000009','22222222-2222-4222-8222-222222222222','d0000001-0000-4000-8000-000000000001','e0000001-0000-4000-8000-000000000001','MATERIALIZE',10,now(),now()+interval '5 min');",
+  "signature": [
+   "CONSTRAINT NAME:  apply_attempt_tenant_id_apply_id_intent_id_fkey",
+   "ERROR: 23503"
+  ],
+  "group": "im",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(i) REFUSE: attempt step DISAGREES with its intent -> (intent_id, step) FK",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_attempt(attempt_id,tenant_id,apply_id,intent_id,step,attempt_no,started_at,step_deadline) VALUES ('a0000003-0000-4000-8000-000000000003','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','e0000001-0000-4000-8000-000000000001','VERIFY',11,now(),now()+interval '5 min');",
+  "signature": [
+   "CONSTRAINT NAME:  apply_attempt_intent_id_step_fkey",
+   "ERROR: 23503"
+  ],
+  "group": "im",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(i) extra: baseline_only_for_lifecycle",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_attempt(attempt_id,tenant_id,apply_id,intent_id,step,attempt_no,started_at,step_deadline,pre_baseline) VALUES ('a000000a-0000-4000-8000-00000000000a','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','e0000001-0000-4000-8000-000000000001','MATERIALIZE',12,now(),now()+interval '5 min','{\"pid\":1}'::jsonb);",
+  "signature": [
+   "CONSTRAINT NAME:  baseline_only_for_lifecycle",
+   "ERROR: 23514"
+  ],
+  "group": "im",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(i) extra: attempt_time_ordered",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_attempt(attempt_id,tenant_id,apply_id,intent_id,step,attempt_no,started_at,ended_at,step_deadline) VALUES ('a000000b-0000-4000-8000-00000000000b','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','e0000001-0000-4000-8000-000000000001','MATERIALIZE',13,now(),now()-interval '1 min',now()+interval '5 min');",
+  "signature": [
+   "CONSTRAINT NAME:  attempt_time_ordered",
+   "ERROR: 23514"
+  ],
+  "group": "im",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(i) extra: outcome_known",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_attempt(attempt_id,tenant_id,apply_id,intent_id,step,attempt_no,started_at,step_deadline,outcome) VALUES ('a000000c-0000-4000-8000-00000000000c','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','e0000001-0000-4000-8000-000000000001','MATERIALIZE',14,now(),now()+interval '5 min','EXPLODED');",
+  "signature": [
+   "CONSTRAINT NAME:  outcome_known",
+   "ERROR: 23514"
+  ],
+  "group": "im",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(m) REFUSE: attempt_no = 0 -> attempt_no_positive",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_attempt(attempt_id,tenant_id,apply_id,intent_id,step,attempt_no,started_at,step_deadline) VALUES ('a0000004-0000-4000-8000-000000000004','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','e0000001-0000-4000-8000-000000000001','MATERIALIZE',0,now(),now()+interval '5 min');",
+  "signature": [
+   "CONSTRAINT NAME:  attempt_no_positive",
+   "ERROR: 23514"
+  ],
+  "group": "im",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(m) REFUSE: attempt_no = -1 -> attempt_no_positive",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_attempt(attempt_id,tenant_id,apply_id,intent_id,step,attempt_no,started_at,step_deadline) VALUES ('a0000005-0000-4000-8000-000000000005','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','e0000001-0000-4000-8000-000000000001','MATERIALIZE',-1,now(),now()+interval '5 min');",
+  "signature": [
+   "CONSTRAINT NAME:  attempt_no_positive",
+   "ERROR: 23514"
+  ],
+  "group": "im",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(m) POS: attempt_no = 2 (a legal retry)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_attempt(attempt_id,tenant_id,apply_id,intent_id,step,attempt_no,started_at,step_deadline) VALUES ('a0000006-0000-4000-8000-000000000006','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','e0000001-0000-4000-8000-000000000001','MATERIALIZE',2,now(),now()+interval '5 min');",
+  "signature": [],
+  "group": "im",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(m) SETUP: close attempt_no=2 / a0000006 (BE-D20) so the duplicate-number leg below tests ATTEMPT_NO_UNIQUE alone, not attempt_open_fence",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_attempt SET outcome='SUCCEEDED' WHERE attempt_id='a0000006-0000-4000-8000-000000000006';",
+  "signature": [],
+  "group": "im",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(m) REFUSE: duplicate (intent_id, attempt_no)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_attempt(attempt_id,tenant_id,apply_id,intent_id,step,attempt_no,started_at,step_deadline) VALUES ('a0000007-0000-4000-8000-000000000007','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','e0000001-0000-4000-8000-000000000001','MATERIALIZE',2,now(),now()+interval '5 min');",
+  "signature": [
+   "CONSTRAINT NAME:  apply_attempt_intent_id_attempt_no_key",
+   "ERROR: 23505"
+  ],
+  "group": "im",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(m) SETUP: a FRESH intent (e0000020, under d0000001) with attempt_no=1 opened, dedicated to BE-D20's own attempt_open_fence-by-name leg (not the entangled e0000001 sequence)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_step_intent(intent_id,tenant_id,apply_id,replica_ref,step,idempotency_key,config_hash,created_at)\nVALUES ('e0000020-0000-4000-8000-000000000020','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','replica-fence','MATERIALIZE','idem-fence-test','sha256:fence',now());\nINSERT INTO sm_data.apply_attempt(attempt_id,tenant_id,apply_id,intent_id,step,attempt_no,started_at,step_deadline) VALUES ('a0000020-0000-4000-8000-000000000020','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','e0000020-0000-4000-8000-000000000020','MATERIALIZE',1,now(),now()+interval '5 min');",
+  "signature": [],
+  "group": "im",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(m) REFUSE, NO RACE: a second open attempt (attempt_no=2, same intent, outcome NULL) while attempt_no=1 is still open -> attempt_open_fence (BE-D20's own obligation; NOT apply_attempt_intent_id_attempt_no_key, since the two numbers differ)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_attempt(attempt_id,tenant_id,apply_id,intent_id,step,attempt_no,started_at,step_deadline) VALUES ('a0000021-0000-4000-8000-000000000021','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','e0000020-0000-4000-8000-000000000020','MATERIALIZE',2,now(),now()+interval '5 min');",
+  "signature": [
+   "CONSTRAINT NAME:  attempt_open_fence",
+   "ERROR: 23505"
+  ],
+  "group": "im",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(m) POS control: close attempt_no=1, then a fresh attempt_no=2 for the SAME intent succeeds — the fence forbids a concurrent second open, not a legitimate sequential retry (BE-D20's own obligation 2)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_attempt SET outcome='SUCCEEDED' WHERE attempt_id='a0000020-0000-4000-8000-000000000020';\nINSERT INTO sm_data.apply_attempt(attempt_id,tenant_id,apply_id,intent_id,step,attempt_no,started_at,step_deadline) VALUES ('a0000022-0000-4000-8000-000000000022','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','e0000020-0000-4000-8000-000000000020','MATERIALIZE',2,now(),now()+interval '5 min');",
+  "signature": [],
+  "group": "im",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: MISSING resolved_by",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 1, \"replicas\": [{\"ref\": \"r0\", \"restarted\": true, \"observedHash\": null}, {\"ref\": \"r1\", \"restarted\": true, \"observedHash\": null}]}'::jsonb WHERE apply_id='c0000001-0000-4000-8000-000000000001';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: resolution_observed = '{}'::jsonb",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{}'::jsonb WHERE apply_id='c0000001-0000-4000-8000-000000000001';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: resolution_observed = JSON null",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='null'::jsonb WHERE apply_id='c0000001-0000-4000-8000-000000000001';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: {stagedGeneration:null, replicas:[]} (present keys, worthless values)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": null, \"replicas\": []}'::jsonb WHERE apply_id='c0000001-0000-4000-8000-000000000001';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: stagedGeneration as a STRING",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": \"7\", \"replicas\": [{\"ref\": \"r0\", \"restarted\": true, \"observedHash\": null}]}'::jsonb WHERE apply_id='c0000001-0000-4000-8000-000000000001';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: replicas as a NUMBER (not an array), stagedGeneration MATCHING generation — also, unavoidably, refuses via the element-type-check and well-formedness predicates: any non-array, non-object scalar auto-wraps under lax mode into one non-object element, so a NUMBER can never isolate jsonb_typeof(replicas)='array' alone (structural, not a fixable fixture defect)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 1, \"replicas\": 3}'::jsonb WHERE apply_id='c0000001-0000-4000-8000-000000000001';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: replicas EMPTY array, stagedGeneration MATCHING generation (BE-D17: isolates the array clause, not the equality clause — corrected from a stagedGeneration filler that confounded the two; now duplicates the adjacent 'isolates the array clause' leg's proof)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 1, \"replicas\": []}'::jsonb WHERE apply_id='c0000001-0000-4000-8000-000000000001';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: bogus resolution_outcome -> resolution_known",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='maybe', resolution_observed='{\"stagedGeneration\": 1, \"replicas\": [{\"ref\": \"r0\", \"restarted\": true, \"observedHash\": null}, {\"ref\": \"r1\", \"restarted\": true, \"observedHash\": null}]}'::jsonb WHERE apply_id='c0000001-0000-4000-8000-000000000001';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_known",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: non-null resolution field on state APPLIED -> resolution_only_when_resolved",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at,resolved_by)\nVALUES ('f0000010-0000-4000-8000-000000000010','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','apply',9,'manual','op:x',now(),'APPLIED',now(),'op:sneaky');",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_only_when_resolved",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j/I6) REFUSE: the LEGAL resolution UPDATE also writing resolution_note — runtime has no column grant (42501, not a CHECK)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 1, \"replicas\": [{\"ref\": \"r0\", \"restarted\": true, \"observedHash\": null}, {\"ref\": \"r1\", \"restarted\": true, \"observedHash\": null}]}'::jsonb, resolution_note='pasted: token=SNTL-note-9d2e' WHERE apply_id='c0000001-0000-4000-8000-000000000001';",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j/I6) REFUSE: resolution_note alone, even to NULL — the column privilege itself is absent",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET resolution_note = NULL WHERE apply_id='c0000001-0000-4000-8000-000000000001';",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(j/I6) POS control: the OWNER may write resolution_note (row still APPLY_INDETERMINATE, note stays NULL)",
+  "container": "main",
+  "role": "sm_dp_migrator",
+  "db": "smdb",
+  "sql": "SET ROLE sm_dp_owner;\nUPDATE sm_data.apply_request SET resolution_note = NULL WHERE apply_id='c0000001-0000-4000-8000-000000000001';\nSELECT state, resolution_note IS NULL AS note_null FROM sm_data.apply_request WHERE apply_id='c0000001-0000-4000-8000-000000000001';",
+  "signature": [],
+  "expect_contains": [
+   "APPLY_INDETERMINATE | t"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(j/I6) row unchanged by the two refusals: still APPLY_INDETERMINATE, no note",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "SELECT state, resolution_note, resolved_by FROM sm_data.apply_request WHERE apply_id='c0000001-0000-4000-8000-000000000001';",
+  "signature": [],
+  "expect_contains": [
+   "APPLY_INDETERMINATE |                 |"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(j/I6) SETUP: scope row for an otherwise-unused tenant T5 (request_has_scope)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_scope(tenant_id,instance_id) VALUES ('55555555-5555-4555-8555-555555555555','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1') ON CONFLICT DO NOTHING;",
+  "signature": [],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j/I6) REFUSE: a row BORN INDETERMINATE_RESOLVED with a resolution_note — runtime lacks the INSERT column grant (42501)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at,resolved_by,resolution_outcome,resolution_observed,resolution_note) VALUES ('f0000090-0000-4000-8000-000000000090','55555555-5555-4555-8555-555555555555','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b3b3b3b3-3333-4333-8333-b3b3b3b3b3b3','apply',3,'manual','op:born',now(),'INDETERMINATE_RESOLVED',now(),'op:res','applied','{\"stagedGeneration\": 3, \"replicas\": [{\"ref\": \"r0\", \"restarted\": true, \"observedHash\": null}]}'::jsonb,'pasted: token=SNTL-born-4c7a');",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j/I6) REFUSE: the same INSERT naming resolution_note even as NULL — the column privilege itself is absent",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at,resolved_by,resolution_outcome,resolution_observed,resolution_note) VALUES ('f0000090-0000-4000-8000-000000000090','55555555-5555-4555-8555-555555555555','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b3b3b3b3-3333-4333-8333-b3b3b3b3b3b3','apply',3,'manual','op:born',now(),'INDETERMINATE_RESOLVED',now(),'op:res','applied','{\"stagedGeneration\": 3, \"replicas\": [{\"ref\": \"r0\", \"restarted\": true, \"observedHash\": null}]}'::jsonb,NULL);",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(j/I6) POS control: the OWNER may insert the row naming resolution_note",
+  "container": "main",
+  "role": "sm_dp_migrator",
+  "db": "smdb",
+  "sql": "SET ROLE sm_dp_owner;\nINSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at,resolved_by,resolution_outcome,resolution_observed,resolution_note) VALUES ('f0000090-0000-4000-8000-000000000090','55555555-5555-4555-8555-555555555555','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b3b3b3b3-3333-4333-8333-b3b3b3b3b3b3','apply',3,'manual','op:born',now(),'INDETERMINATE_RESOLVED',now(),'op:res','applied','{\"stagedGeneration\": 3, \"replicas\": [{\"ref\": \"r0\", \"restarted\": true, \"observedHash\": null}]}'::jsonb,NULL);",
+  "signature": [],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(j/I6) POS control: the runtime's OWN insert of a resolved row succeeds WITHOUT naming the column",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at,resolved_by,resolution_outcome,resolution_observed) VALUES ('f0000091-0000-4000-8000-000000000091','55555555-5555-4555-8555-555555555555','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b3b3b3b3-3333-4333-8333-b3b3b3b3b3b3','apply',3,'manual','op:born',now(),'INDETERMINATE_RESOLVED',now(),'op:res','applied','{\"stagedGeneration\": 3, \"replicas\": [{\"ref\": \"r0\", \"restarted\": true, \"observedHash\": null}]}'::jsonb);",
+  "signature": [],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: apply resolution with a MISMATCHED stagedGeneration, otherwise fully evidenced (BE-D17, rejection class ii)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 99, \"replicas\": [{\"ref\": \"r0\", \"restarted\": true, \"observedHash\": null}, {\"ref\": \"r1\", \"restarted\": true, \"observedHash\": null}]}'::jsonb WHERE apply_id='c0000001-0000-4000-8000-000000000001';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: apply resolution, replicas EMPTY array, stagedGeneration MATCHING generation (BE-D17: isolates the array clause, not the equality clause)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 1, \"replicas\": []}'::jsonb WHERE apply_id='c0000001-0000-4000-8000-000000000001';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: apply resolution, replicas NOT an array, stagedGeneration MATCHING generation (BE-D17: isolates the array clause, not the equality clause; replicas is a well-formed OBJECT rather than a bare scalar, because a scalar also trips the element-type/well-formedness predicates under lax-mode auto-wrap)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 1, \"replicas\": {\"ref\": \"r1\", \"restarted\": true, \"observedHash\": null}}'::jsonb WHERE apply_id='c0000001-0000-4000-8000-000000000001';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(j) POS: a FULLY-EVIDENCED INDETERMINATE_RESOLVED succeeds",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 1, \"replicas\": [{\"ref\": \"r0\", \"restarted\": true, \"observedHash\": null}, {\"ref\": \"r1\", \"restarted\": true, \"observedHash\": null}]}'::jsonb WHERE apply_id='c0000001-0000-4000-8000-000000000001';",
+  "signature": [],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(j) SETUP: a RESTART request and a second APPLY request, both APPLY_INDETERMINATE (BE-D17 restart-branch fixtures)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,strategy,requested_by,requested_at,state) VALUES ('c0000031-0000-4000-8000-000000000031','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','00000000-0000-0000-0000-000000000000','restart','rolling-health-gated','op:res-setup',now(),'APPLY_INDETERMINATE');\nINSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state) VALUES ('c0000032-0000-4000-8000-000000000032','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b4b4b4b4-4444-4444-8444-b4b4b4b4b4b4','apply',1,'rolling-health-gated','op:res-setup',now(),'APPLY_INDETERMINATE');",
+  "signature": [],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: restart resolution with an INVENTED stagedGeneration — refused by the key's mere presence, and unavoidably also by the top-level key-set predicate, since any stagedGeneration key is itself a disallowed top-level key on a restart resolution (BE-D17, rejection class iv; the restart mirror of the already-documented permanently-subsumed NOT jsonb_exists(...) situation — the two clauses cannot be isolated from each other for this input)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 1, \"restartsObserved\": [{\"ref\": \"r1\", \"restarted\": true}]}'::jsonb WHERE apply_id='c0000031-0000-4000-8000-000000000031';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: restart resolution with NO restartsObserved key at all (BE-D17, rejection class iii)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{}'::jsonb WHERE apply_id='c0000031-0000-4000-8000-000000000031';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: restart resolution, restartsObserved EMPTY array (BE-D17, rejection class iii)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"restartsObserved\": []}'::jsonb WHERE apply_id='c0000031-0000-4000-8000-000000000031';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: restart resolution, restartsObserved NOT an array (BE-D17, rejection class iii; restartsObserved is a well-formed OBJECT rather than a bare scalar, because a scalar also trips the element-type/well-formedness predicates under lax-mode auto-wrap)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"restartsObserved\": {\"ref\": \"r1\", \"restarted\": true}}'::jsonb WHERE apply_id='c0000031-0000-4000-8000-000000000031';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: apply-shaped evidence (stagedGeneration + replicas) resolving a RESTART request (BE-D17, rejection class i, direction 1)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 1, \"replicas\": [{\"ref\": \"r1\", \"restarted\": true}]}'::jsonb WHERE apply_id='c0000031-0000-4000-8000-000000000031';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: restart-shaped evidence (restartsObserved, no stagedGeneration) resolving an APPLY request (BE-D17, rejection class i, direction 2)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"restartsObserved\": [{\"ref\": \"r1\", \"restarted\": true}]}'::jsonb WHERE apply_id='c0000032-0000-4000-8000-000000000032';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(j) POS: a FULLY-EVIDENCED restart INDETERMINATE_RESOLVED succeeds (BE-D17's own positive control)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"restartsObserved\": [{\"ref\": \"r1\", \"restarted\": true}]}'::jsonb WHERE apply_id='c0000031-0000-4000-8000-000000000031';",
+  "signature": [],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(j) SETUP: two fresh APPLY_INDETERMINATE fixtures for BE-D18's per-element predicates (apply c0000041 gen=5, restart c0000042)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state) VALUES ('c0000041-0000-4000-8000-000000000041','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','00000000-0000-0000-0000-000000000000','apply',5,'rolling-health-gated','op:d18-setup',now(),'APPLY_INDETERMINATE');\nINSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,strategy,requested_by,requested_at,state) VALUES ('c0000042-0000-4000-8000-000000000042','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b6b6b6b6-6666-4666-8666-b6b6b6b6b6b6','restart','rolling-health-gated','op:d18-setup',now(),'APPLY_INDETERMINATE');",
+  "signature": [],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D18 apply replicas element that is itself an EMPTY ARRAY (lax-mode unwrap escape)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 5, \"replicas\": [[]]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D18 apply replicas element wrapping an otherwise WELL-FORMED object in an array",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 5, \"replicas\": [[{\"ref\": \"r1\", \"restarted\": true, \"observedHash\": null}]]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D18 apply replicas element is an EMPTY OBJECT",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 5, \"replicas\": [{}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D18 apply replicas element is JSON NULL",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 5, \"replicas\": [null]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D18 apply replicas element MISSING ref",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 5, \"replicas\": [{\"restarted\": true, \"observedHash\": null}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D18 apply replicas element BLANK ref",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 5, \"replicas\": [{\"ref\": \"   \", \"restarted\": true, \"observedHash\": null}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D18 apply replicas element NON-STRING ref",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 5, \"replicas\": [{\"ref\": 7, \"restarted\": true, \"observedHash\": null}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D18 apply replicas element MISSING restarted",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 5, \"replicas\": [{\"ref\": \"r1\", \"observedHash\": null}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D18 apply replicas element NON-BOOLEAN restarted",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 5, \"replicas\": [{\"ref\": \"r1\", \"restarted\": \"yes\", \"observedHash\": null}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D18 apply replicas element observedHash key ABSENT entirely (distinct from present null)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 5, \"replicas\": [{\"ref\": \"r1\", \"restarted\": true}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D18 apply replicas element carries an UNEXPECTED KEY",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 5, \"replicas\": [{\"ref\": \"r1\", \"restarted\": true, \"observedHash\": null, \"extra\": 1}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D18 apply resolution carries an UNEXPECTED TOP-LEVEL KEY",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 5, \"replicas\": [{\"ref\": \"r1\", \"restarted\": true, \"observedHash\": null}], \"extra\": 1}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D18 apply observedHash with NO algorithm-colon-hex shape at all",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 5, \"replicas\": [{\"ref\": \"r1\", \"restarted\": true, \"observedHash\": \"nope\"}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D18 apply observedHash NON-STRING (numeric)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 5, \"replicas\": [{\"ref\": \"r1\", \"restarted\": true, \"observedHash\": 7}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D18 apply observedHash 15-HEX, one short of the {16,128} floor",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 5, \"replicas\": [{\"ref\": \"r1\", \"restarted\": true, \"observedHash\": \"sha256:012345678901234\"}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D18 apply observedHash 129-HEX, one past the {16,128} cap",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 5, \"replicas\": [{\"ref\": \"r1\", \"restarted\": true, \"observedHash\": \"sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0\"}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D18 apply observedHash UPPERCASE — the grammar is lowercase-only",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 5, \"replicas\": [{\"ref\": \"r1\", \"restarted\": true, \"observedHash\": \"SHA256:0123456789ABCDEF\"}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D18 apply observedHash that is itself an EMPTY ARRAY (lax-mode unwrap escape)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 5, \"replicas\": [{\"ref\": \"r1\", \"restarted\": true, \"observedHash\": []}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D18 apply observedHash as an ARRAY holding an otherwise-valid hash string",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 5, \"replicas\": [{\"ref\": \"r1\", \"restarted\": true, \"observedHash\": [\"sha256:0123456789abcdef\"]}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(j) POS: BE-D18 apply fixture resolves cleanly once well-formed (proves the 19 refusals above test the malformation, not a broken row)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 5, \"replicas\": [{\"ref\": \"r1\", \"restarted\": true, \"observedHash\": null}]}'::jsonb WHERE apply_id='c0000041-0000-4000-8000-000000000041';",
+  "signature": [],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D18 restart restartsObserved element that is itself an EMPTY ARRAY (lax-mode unwrap escape)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"restartsObserved\": [[]]}'::jsonb WHERE apply_id='c0000042-0000-4000-8000-000000000042';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D18 restart restartsObserved element wrapping an otherwise WELL-FORMED object in an array",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"restartsObserved\": [[{\"ref\": \"r1\", \"restarted\": true}]]}'::jsonb WHERE apply_id='c0000042-0000-4000-8000-000000000042';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D18 restart restartsObserved element is an EMPTY OBJECT",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"restartsObserved\": [{}]}'::jsonb WHERE apply_id='c0000042-0000-4000-8000-000000000042';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D18 restart restartsObserved element is JSON NULL — the exact escape BE-D18 exists to close",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"restartsObserved\": [null]}'::jsonb WHERE apply_id='c0000042-0000-4000-8000-000000000042';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D18 restart restartsObserved element MISSING ref",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"restartsObserved\": [{\"restarted\": true}]}'::jsonb WHERE apply_id='c0000042-0000-4000-8000-000000000042';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D18 restart restartsObserved element BLANK ref",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"restartsObserved\": [{\"ref\": \"  \", \"restarted\": true}]}'::jsonb WHERE apply_id='c0000042-0000-4000-8000-000000000042';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D18 restart restartsObserved element NON-STRING ref",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"restartsObserved\": [{\"ref\": 7, \"restarted\": true}]}'::jsonb WHERE apply_id='c0000042-0000-4000-8000-000000000042';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D18 restart restartsObserved element MISSING restarted",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"restartsObserved\": [{\"ref\": \"r1\"}]}'::jsonb WHERE apply_id='c0000042-0000-4000-8000-000000000042';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D18 restart restartsObserved element NON-BOOLEAN restarted",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"restartsObserved\": [{\"ref\": \"r1\", \"restarted\": \"yes\"}]}'::jsonb WHERE apply_id='c0000042-0000-4000-8000-000000000042';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D18 restart restartsObserved element carries observedHash — no such key exists for a restart element",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"restartsObserved\": [{\"ref\": \"r1\", \"restarted\": true, \"observedHash\": null}]}'::jsonb WHERE apply_id='c0000042-0000-4000-8000-000000000042';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D18 restart resolution carries an UNEXPECTED TOP-LEVEL KEY",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"restartsObserved\": [{\"ref\": \"r1\", \"restarted\": true}], \"extra\": 1}'::jsonb WHERE apply_id='c0000042-0000-4000-8000-000000000042';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(j) POS: BE-D18 restart fixture resolves cleanly once well-formed (proves the 11 refusals above test the malformation, not a broken row)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"restartsObserved\": [{\"ref\": \"r1\", \"restarted\": true}]}'::jsonb WHERE apply_id='c0000042-0000-4000-8000-000000000042';",
+  "signature": [],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(j) POS: BE-D18 apply positive control — a valid 16-hex observedHash (the {16,128} floor)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at,resolved_by,resolution_outcome,resolution_observed) VALUES ('f0000100-0000-4000-8000-000000000100','55555555-5555-4555-8555-555555555555','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b3b3b3b3-3333-4333-8333-b3b3b3b3b3b3','apply',7,'rolling-health-gated','op:d18-pos',now(),'INDETERMINATE_RESOLVED',now(),'op:res','applied','{\"stagedGeneration\": 7, \"replicas\": [{\"ref\": \"r1\", \"restarted\": true, \"observedHash\": \"sha256:0123456789abcdef\"}]}'::jsonb);",
+  "signature": [],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(j) POS: BE-D18 apply positive control — a valid 128-hex observedHash (the {16,128} cap)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at,resolved_by,resolution_outcome,resolution_observed) VALUES ('f0000101-0000-4000-8000-000000000101','55555555-5555-4555-8555-555555555555','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b3b3b3b3-3333-4333-8333-b3b3b3b3b3b3','apply',7,'rolling-health-gated','op:d18-pos',now(),'INDETERMINATE_RESOLVED',now(),'op:res','applied','{\"stagedGeneration\": 7, \"replicas\": [{\"ref\": \"r1\", \"restarted\": true, \"observedHash\": \"sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\"}]}'::jsonb);",
+  "signature": [],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(j) POS: BE-D18 apply positive control — several replicas, one present-null observedHash and one present-hash",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at,resolved_by,resolution_outcome,resolution_observed) VALUES ('f0000102-0000-4000-8000-000000000102','55555555-5555-4555-8555-555555555555','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b3b3b3b3-3333-4333-8333-b3b3b3b3b3b3','apply',7,'rolling-health-gated','op:d18-pos',now(),'INDETERMINATE_RESOLVED',now(),'op:res','applied','{\"stagedGeneration\": 7, \"replicas\": [{\"ref\": \"r1\", \"restarted\": true, \"observedHash\": null}, {\"ref\": \"r2\", \"restarted\": false, \"observedHash\": \"sha256:0123456789abcdef\"}]}'::jsonb);",
+  "signature": [],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(j) POS: BE-D18 restart positive control — several restartsObserved elements",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,strategy,requested_by,requested_at,state,terminal_at,resolved_by,resolution_outcome,resolution_observed) VALUES ('f0000103-0000-4000-8000-000000000103','55555555-5555-4555-8555-555555555555','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b3b3b3b3-3333-4333-8333-b3b3b3b3b3b3','restart','rolling-health-gated','op:d18-pos',now(),'INDETERMINATE_RESOLVED',now(),'op:res','applied','{\"restartsObserved\": [{\"ref\": \"r1\", \"restarted\": true}, {\"ref\": \"r2\", \"restarted\": false}]}'::jsonb);",
+  "signature": [],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(j) SETUP: fresh APPLY_INDETERMINATE apply/restart fixtures dedicated to BE-D19's ref-grammar legs (apply c0000051 gen=6, restart c0000052)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state) VALUES ('c0000051-0000-4000-8000-000000000051','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','00000000-0000-0000-0000-000000000000','apply',6,'rolling-health-gated','op:d19-setup',now(),'APPLY_INDETERMINATE');\nINSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,strategy,requested_by,requested_at,state) VALUES ('c0000052-0000-4000-8000-000000000052','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b9b9b9b9-9999-4999-8999-b9b9b9b9b9b9','restart','rolling-health-gated','op:d19-setup',now(),'APPLY_INDETERMINATE');",
+  "signature": [],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D19 apply replicas[0].ref is a lone U+001C control character (the write-direction gap BE-D19 exists to close)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 6, \"replicas\": [{\"ref\": \"\\u001c\", \"restarted\": true, \"observedHash\": null}]}'::jsonb WHERE apply_id='c0000051-0000-4000-8000-000000000051';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D19 apply replicas[0].ref is a lone U+001F control character",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 6, \"replicas\": [{\"ref\": \"\\u001f\", \"restarted\": true, \"observedHash\": null}]}'::jsonb WHERE apply_id='c0000051-0000-4000-8000-000000000051';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D19 apply replicas[0].ref carries quotes, a backslash, a space, '=' and an accented letter (the hostile-ref control literal that flips accepted->refused under REPLICA_REF)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 6, \"replicas\": [{\"ref\": \"r1 \\\"q\\\" \\\\ = café\", \"restarted\": true, \"observedHash\": null}]}'::jsonb WHERE apply_id='c0000051-0000-4000-8000-000000000051';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D19 apply replicas[0].ref carries an embedded newline (the literal that flips accepted->refused under REPLICA_REF)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 6, \"replicas\": [{\"ref\": \"r1\\nwith-a-newline\", \"restarted\": true, \"observedHash\": null}]}'::jsonb WHERE apply_id='c0000051-0000-4000-8000-000000000051';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D19 apply replicas[0].ref is the empty string",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 6, \"replicas\": [{\"ref\": \"\", \"restarted\": true, \"observedHash\": null}]}'::jsonb WHERE apply_id='c0000051-0000-4000-8000-000000000051';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D19 apply replicas[0].ref is a CJK string",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 6, \"replicas\": [{\"ref\": \"日本語\", \"restarted\": true, \"observedHash\": null}]}'::jsonb WHERE apply_id='c0000051-0000-4000-8000-000000000051';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D19 apply replicas[0].ref is 256 characters, one past the REPLICA_REF {1,255} length boundary",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 6, \"replicas\": [{\"ref\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"restarted\": true, \"observedHash\": null}]}'::jsonb WHERE apply_id='c0000051-0000-4000-8000-000000000051';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(j) POS: BE-D19 apply fixture resolves cleanly once well-formed, closing the REFUSE chain above (proves the refusals test the ref content, not a broken row)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 6, \"replicas\": [{\"ref\": \"cache-engine-1\", \"restarted\": true, \"observedHash\": null}]}'::jsonb WHERE apply_id='c0000051-0000-4000-8000-000000000051';",
+  "signature": [],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(j) POS: BE-D19 apply positive control — a 200-character Kubernetes-shaped ref, past the withdrawn VALUE grammar's 128 cap, accepted under REPLICA_REF",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at,resolved_by,resolution_outcome,resolution_observed) VALUES ('f0000110-0000-4000-8000-000000000110','55555555-5555-4555-8555-555555555555','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b3b3b3b3-3333-4333-8333-b3b3b3b3b3b3','apply',7,'rolling-health-gated','op:d19-pos',now(),'INDETERMINATE_RESOLVED',now(),'op:res','applied','{\"stagedGeneration\": 7, \"replicas\": [{\"ref\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"restarted\": true, \"observedHash\": null}]}'::jsonb);",
+  "signature": [],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(j) POS: BE-D19 apply positive control — a systemd-escaped-name fragment carrying one literal backslash, accepted under REPLICA_REF",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at,resolved_by,resolution_outcome,resolution_observed) VALUES ('f0000111-0000-4000-8000-000000000111','55555555-5555-4555-8555-555555555555','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b3b3b3b3-3333-4333-8333-b3b3b3b3b3b3','apply',7,'rolling-health-gated','op:d19-pos',now(),'INDETERMINATE_RESOLVED',now(),'op:res','applied','{\"stagedGeneration\": 7, \"replicas\": [{\"ref\": \"foo\\\\x2dbar.mount\", \"restarted\": true, \"observedHash\": null}]}'::jsonb);",
+  "signature": [],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(j) POS: BE-D19 apply positive control — a ref of exactly 255 characters (the REPLICA_REF length boundary)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at,resolved_by,resolution_outcome,resolution_observed) VALUES ('f0000112-0000-4000-8000-000000000112','55555555-5555-4555-8555-555555555555','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b3b3b3b3-3333-4333-8333-b3b3b3b3b3b3','apply',7,'rolling-health-gated','op:d19-pos',now(),'INDETERMINATE_RESOLVED',now(),'op:res','applied','{\"stagedGeneration\": 7, \"replicas\": [{\"ref\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"restarted\": true, \"observedHash\": null}]}'::jsonb);",
+  "signature": [],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D19 restart restartsObserved[0].ref is a lone U+001C control character",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"restartsObserved\": [{\"ref\": \"\\u001c\", \"restarted\": true}]}'::jsonb WHERE apply_id='c0000052-0000-4000-8000-000000000052';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(j) REFUSE: BE-D19 restart restartsObserved[0].ref is a lone U+001F control character",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"restartsObserved\": [{\"ref\": \"\\u001f\", \"restarted\": true}]}'::jsonb WHERE apply_id='c0000052-0000-4000-8000-000000000052';",
+  "signature": [
+   "CONSTRAINT NAME:  resolution_is_evidence",
+   "ERROR: 23514"
+  ],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(j) POS: BE-D19 restart fixture resolves cleanly once well-formed, closing the REFUSE chain above",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res', resolution_outcome='applied', resolution_observed='{\"restartsObserved\": [{\"ref\": \"cache-engine-2\", \"restarted\": true}]}'::jsonb WHERE apply_id='c0000052-0000-4000-8000-000000000052';",
+  "signature": [],
+  "group": "j",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(k) REFUSE: UPDATE apply_step_intent under runtime",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_step_intent SET config_hash='sha256:tampered' WHERE intent_id='e0000001-0000-4000-8000-000000000001';",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "klo",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(k) REFUSE: DELETE apply_step_intent under runtime",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "DELETE FROM sm_data.apply_step_intent WHERE intent_id='e0000001-0000-4000-8000-000000000001';",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "klo",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(k) OWNER CONTROL: the SAME UPDATE succeeds via sm_dp_migrator",
+  "container": "main",
+  "role": "sm_dp_migrator",
+  "db": "smdb",
+  "sql": "SET ROLE sm_dp_owner;\nBEGIN;\nUPDATE sm_data.apply_step_intent SET config_hash='sha256:tampered' WHERE intent_id='e0000001-0000-4000-8000-000000000001';\nSELECT 'owner updated intent rows='||count(*) FROM sm_data.apply_step_intent WHERE config_hash='sha256:tampered';\nROLLBACK;",
+  "signature": [],
+  "group": "klo",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(k) OWNER CONTROL: the SAME DELETE succeeds via sm_dp_migrator",
+  "container": "main",
+  "role": "sm_dp_migrator",
+  "db": "smdb",
+  "sql": "SET ROLE sm_dp_owner;\nBEGIN;\nDELETE FROM sm_data.apply_attempt WHERE intent_id='e0000001-0000-4000-8000-000000000001';\nDELETE FROM sm_data.apply_step_intent WHERE intent_id='e0000001-0000-4000-8000-000000000001';\nSELECT 'owner deleted intent ok' AS r;\nROLLBACK;",
+  "signature": [],
+  "group": "klo",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(l) REFUSE: SET ROLE sm_dp_owner under sm_dp_runtime",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "SET ROLE sm_dp_owner;",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "klo",
+  "type": "sql",
+  "expect_contains": [
+   "permission denied to set role"
+  ]
+ },
+ {
+  "status": "OK",
+  "label": "(l) ASSERT: role topology cannot drift silently",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "SELECT pg_has_role('sm_dp_runtime','sm_dp_owner','MEMBER')  AS runtime_is_owner_member,\n       pg_has_role('sm_dp_migrator','sm_dp_owner','MEMBER') AS migrator_is_owner_member,\n       (SELECT rolinherit FROM pg_roles WHERE rolname='sm_dp_runtime') AS runtime_inherits,\n       (SELECT rolsuper   FROM pg_roles WHERE rolname='sm_dp_runtime') AS runtime_is_superuser;",
+  "signature": [],
+  "group": "klo",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(o) REFUSE on a NON-TERMINAL row: UPDATE apply_request.tenant_id",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET tenant_id='11111111-1111-4111-8111-111111111111' WHERE apply_id='c0000021-0000-4000-8000-000000000021';",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "klo",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(o) REFUSE on a NON-TERMINAL row: UPDATE apply_request.requested_by",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET requested_by='op:forged' WHERE apply_id='c0000021-0000-4000-8000-000000000021';",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "klo",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(o) OWNER CONTROL: the SAME identity UPDATE succeeds on the non-terminal row",
+  "container": "main",
+  "role": "sm_dp_migrator",
+  "db": "smdb",
+  "sql": "SET ROLE sm_dp_owner;\nBEGIN;\nUPDATE sm_data.apply_request SET requested_by='op:forged' WHERE apply_id='c0000021-0000-4000-8000-000000000021';\nSELECT 'owner rewrote requested_by rows='||count(*) FROM sm_data.apply_request WHERE requested_by='op:forged';\nROLLBACK;",
+  "signature": [],
+  "group": "klo",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(o) POS: legal RUNNING -> APPLIED walk succeeds",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='APPLIED', terminal_at=now() WHERE apply_id='d0000001-0000-4000-8000-000000000001';",
+  "signature": [],
+  "group": "klo",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(o) REFUSE: terminal walk-back APPLIED -> REQUESTED (apply_request_terminal_guard)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='REQUESTED', terminal_at=NULL WHERE apply_id='d0000001-0000-4000-8000-000000000001';",
+  "signature": [
+   "ERROR: P0001"
+  ],
+  "group": "klo",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(o) NOTE: the terminal guard binds the OWNER too (trigger, not grant)",
+  "container": "main",
+  "role": "sm_dp_migrator",
+  "db": "smdb",
+  "sql": "SET ROLE sm_dp_owner;\nUPDATE sm_data.apply_request SET state='REQUESTED', terminal_at=NULL WHERE apply_id='d0000001-0000-4000-8000-000000000001';",
+  "signature": [
+   "ERROR: P0001"
+  ],
+  "group": "klo",
+  "type": "sql",
+  "expect_contains": [
+   "is terminal (APPLIED) and immutable"
+  ]
+ },
+ {
+  "status": "OK",
+  "label": "(p) SETUP: STAGED request R1 on T2/IN2/P2 (the manual strategy's terminal state)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at)\nVALUES ('90000001-0000-4000-8000-000000000001','22222222-2222-4222-8222-222222222222','a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','apply',1,'manual','op:p',now(),'STAGED',now());",
+  "signature": [],
+  "group": "pu",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(p) REFUSE: 2nd STAGED for the scope WITHOUT marking the elder -> staged_fence",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at)\nVALUES ('90000002-0000-4000-8000-000000000002','22222222-2222-4222-8222-222222222222','a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','apply',2,'manual','op:p',now(),'STAGED',now());",
+  "signature": [
+   "CONSTRAINT NAME:  staged_fence",
+   "ERROR: 23505"
+  ],
+  "group": "pu",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(p) POS: the sanctioned STAGED -> SUPERSEDED mark passes the terminal guard",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='SUPERSEDED', terminal_at=now() WHERE apply_id='90000001-0000-4000-8000-000000000001';",
+  "signature": [],
+  "group": "pu",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(p) POS: full mark-then-insert order succeeds end to end",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at)\nVALUES ('90000002-0000-4000-8000-000000000002','22222222-2222-4222-8222-222222222222','a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','apply',2,'manual','op:p',now(),'STAGED',now());",
+  "signature": [],
+  "group": "pu",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(p) REFUSE: STAGED -> APPLIED walk (not the sanctioned transition)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='APPLIED', terminal_at=now() WHERE apply_id='90000002-0000-4000-8000-000000000002';",
+  "signature": [
+   "ERROR: P0001"
+  ],
+  "group": "pu",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(p) REFUSE: STAGED -> FAILED_NO_EFFECT (confirms SUPERSEDED is the ONLY one)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='FAILED_NO_EFFECT', terminal_at=now() WHERE apply_id='90000002-0000-4000-8000-000000000002';",
+  "signature": [
+   "ERROR: P0001"
+  ],
+  "group": "pu",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(p) REFUSE: SUPERSEDED -> STAGED regression",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='STAGED', terminal_at=now() WHERE apply_id='90000001-0000-4000-8000-000000000001';",
+  "signature": [
+   "ERROR: P0001"
+  ],
+  "group": "pu",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(u) POS: attempt_summary-ONLY UPDATE on a terminal (APPLIED) row succeeds",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET attempt_summary='{\"MATERIALIZE\":{\"count\":2,\"last\":\"SUCCEEDED\"}}'::jsonb WHERE apply_id='d0000001-0000-4000-8000-000000000001';",
+  "signature": [],
+  "group": "pu",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(u) POS: attempt_summary fold on a SUPERSEDED row too",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET attempt_summary='{\"folded\":true}'::jsonb WHERE apply_id='90000001-0000-4000-8000-000000000001';",
+  "signature": [],
+  "group": "pu",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(u) REFUSE: the same UPDATE ALSO touching resolved_by (a granted column, so the TRIGGER is what refuses)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET attempt_summary='{\"x\":1}'::jsonb, resolved_by='sneaky' WHERE apply_id='d0000001-0000-4000-8000-000000000001';",
+  "signature": [
+   "ERROR: P0001"
+  ],
+  "group": "pu",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(u/I6) REFUSE: fold + resolution_note on a terminal row — refused by the GRANT (42501) before the trigger can",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET attempt_summary='{\"x\":1}'::jsonb, resolution_note='sneaky' WHERE apply_id='d0000001-0000-4000-8000-000000000001';",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "pu",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(u) REFUSE: attempt_summary + terminal_at on a terminal row",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET attempt_summary='{\"x\":2}'::jsonb, terminal_at=now() WHERE apply_id='d0000001-0000-4000-8000-000000000001';",
+  "signature": [
+   "ERROR: P0001"
+  ],
+  "group": "pu",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "(u) REFUSE: request whose scope row does NOT exist -> request_has_scope",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state)\nVALUES ('90000003-0000-4000-8000-000000000003','22222222-2222-4222-8222-222222222222','99999999-9999-4999-8999-999999999999','00000000-0000-0000-0000-000000000000','apply',1,'manual','op:u',now(),'REQUESTED');",
+  "signature": [
+   "CONSTRAINT NAME:  request_has_scope",
+   "ERROR: 23503"
+  ],
+  "group": "pu",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(u) POS: the attempt-pruning DELETE half works under the runtime grant",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "DELETE FROM sm_data.apply_attempt WHERE tenant_id='11111111-1111-4111-8111-111111111111' AND started_at < now()+interval '1 day';",
+  "signature": [],
+  "group": "pu",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(n) SETUP: build watermarks the way admission does — upsert then RAISE",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_scope(tenant_id,instance_id) VALUES ('44444444-4444-4444-8444-444444444444','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1') ON CONFLICT DO NOTHING;\nUPDATE sm_data.apply_scope SET instance_watermark=10 WHERE tenant_id='44444444-4444-4444-8444-444444444444' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1';\nINSERT INTO sm_data.placement_watermark(tenant_id,instance_id,placement_id,generation) VALUES ('44444444-4444-4444-8444-444444444444','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b1b1b1b1-1111-4111-8111-b1b1b1b1b1b1',12);\nUPDATE sm_data.placement_watermark SET generation=20 WHERE tenant_id='44444444-4444-4444-8444-444444444444' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1' AND placement_id='b1b1b1b1-1111-4111-8111-b1b1b1b1b1b1';\nSELECT (SELECT instance_watermark FROM sm_data.apply_scope WHERE tenant_id='44444444-4444-4444-8444-444444444444' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1') AS instance_wm,\n       (SELECT generation FROM sm_data.placement_watermark WHERE tenant_id='44444444-4444-4444-8444-444444444444' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1' AND placement_id='b1b1b1b1-1111-4111-8111-b1b1b1b1b1b1') AS p1_wm;",
+  "signature": [],
+  "group": "n",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(n) THE ADMISSION COMPARISON: all four refuse-directions + the legal admit",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "WITH wm AS (SELECT s.tenant_id,s.instance_id,s.instance_watermark,\n      (SELECT max(generation) FROM sm_data.placement_watermark p WHERE p.tenant_id=s.tenant_id AND p.instance_id=s.instance_id) AS any_p,\n      (SELECT generation FROM sm_data.placement_watermark p WHERE p.tenant_id=s.tenant_id AND p.instance_id=s.instance_id AND p.placement_id='b1b1b1b1-1111-4111-8111-b1b1b1b1b1b1') AS own_p1\n    FROM sm_data.apply_scope s WHERE s.tenant_id='44444444-4444-4444-8444-444444444444' AND s.instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1'),\ncases(direction,scope,g,bar) AS (\n  SELECT '1 placement-scoped apply <= INSTANCE watermark','placement P2',10::bigint,\n    GREATEST(w.instance_watermark, coalesce((SELECT generation FROM sm_data.placement_watermark WHERE tenant_id='44444444-4444-4444-8444-444444444444' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1' AND placement_id='b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2'),0)) FROM wm w\n  UNION ALL SELECT '2 placement-scoped apply <= its OWN placement watermark','placement P1',15, GREATEST(w.instance_watermark, coalesce(w.own_p1,0)) FROM wm w\n  UNION ALL SELECT '3 instance-wide apply <= INSTANCE watermark','instance-wide',10, GREATEST(w.instance_watermark,0) FROM wm w\n  UNION ALL SELECT '4 instance-wide apply <= ANY placement watermark','instance-wide',15, GREATEST(w.instance_watermark, coalesce(w.any_p,0)) FROM wm w\n  UNION ALL SELECT '5 LEGAL: G strictly above every bar','instance-wide',21, GREATEST(w.instance_watermark, coalesce(w.any_p,0)) FROM wm w)\nSELECT direction, scope, g AS \"G\", bar, CASE WHEN g <= bar THEN 'REFUSE' ELSE 'ADMIT' END AS verdict FROM cases ORDER BY 1;",
+  "signature": [],
+  "group": "n",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(n) SETUP: T4/IN2 scope + APPLY_INDETERMINATE request at G=30",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_scope(tenant_id,instance_id) VALUES ('44444444-4444-4444-8444-444444444444','a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2') ON CONFLICT DO NOTHING;\nINSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state)\nVALUES ('70000001-0000-4000-8000-000000000001','44444444-4444-4444-8444-444444444444','a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2','00000000-0000-0000-0000-000000000000','apply',30,'rolling-health-gated','op:n',now(),'APPLY_INDETERMINATE');",
+  "signature": [],
+  "group": "n",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(n) RESOLVE 'applied' AND RAISE the watermark in ONE transaction, then compare in-txn",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "BEGIN;\nUPDATE sm_data.apply_request SET state='INDETERMINATE_RESOLVED', terminal_at=now(), resolved_by='op:res',\n  resolution_outcome='applied', resolution_observed='{\"stagedGeneration\": 30, \"replicas\": [{\"ref\": \"r0\", \"restarted\": true, \"observedHash\": null}]}'::jsonb\n WHERE apply_id='70000001-0000-4000-8000-000000000001';\nUPDATE sm_data.apply_scope SET instance_watermark=30 WHERE tenant_id='44444444-4444-4444-8444-444444444444' AND instance_id='a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2';\nSELECT g AS \"candidate_G\", s.instance_watermark AS bar,\n       CASE WHEN g <= s.instance_watermark THEN 'REFUSE' ELSE 'ADMIT' END AS verdict\n  FROM sm_data.apply_scope s, (VALUES (29::bigint),(30::bigint),(31::bigint)) v(g)\n WHERE s.tenant_id='44444444-4444-4444-8444-444444444444' AND s.instance_id='a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2' ORDER BY g;\nCOMMIT;",
+  "signature": [],
+  "group": "n",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(n) DURABILITY after COMMIT: resolution and watermark both persisted, comparison unchanged",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "SELECT state, resolution_outcome, generation FROM sm_data.apply_request WHERE apply_id='70000001-0000-4000-8000-000000000001';\nSELECT g AS \"candidate_G\", s.instance_watermark AS bar,\n       CASE WHEN g <= s.instance_watermark THEN 'REFUSE' ELSE 'ADMIT' END AS verdict\n  FROM sm_data.apply_scope s, (VALUES (29::bigint),(30::bigint),(31::bigint)) v(g)\n WHERE s.tenant_id='44444444-4444-4444-8444-444444444444' AND s.instance_id='a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2' ORDER BY g;",
+  "signature": [],
+  "group": "n",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(q) NO DB ARTIFACT (measured): an intent against a TERMINAL request is ACCEPTED by the database",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_step_intent(intent_id,tenant_id,apply_id,replica_ref,step,idempotency_key,config_hash,created_at)\nVALUES ('e0000099-0000-4000-8000-000000000099','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','replica-9','MATERIALIZE','idem-terminal-9','sha256:qqq',now());",
+  "signature": [],
+  "group": "q",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "(q) confirm that request was indeed terminal when the intent was accepted",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "SELECT apply_id, state FROM sm_data.apply_request WHERE apply_id='d0000001-0000-4000-8000-000000000001';",
+  "signature": [],
+  "group": "q",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "P1 (a) CREATE TABLE in sm_data",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "CREATE TABLE sm_data.evil(x int);",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "probes",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "P2 (a) CREATE TABLE in public (F2 regression probe)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "CREATE TABLE public.smuggled2(x int);",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "probes",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "P3 (a) CREATE SCHEMA",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "CREATE SCHEMA evilschema;",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "probes",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "P4 (a) CREATE FUNCTION in sm_data",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "CREATE FUNCTION sm_data.evilfn() RETURNS int LANGUAGE sql AS 'SELECT 1';",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "probes",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "P5 (a) CREATE TEMP TABLE",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "CREATE TEMP TABLE eviltmp(x int);",
+  "signature": [],
+  "group": "probes",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "P6 (b) UPDATE apply_request.placement_id",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET placement_id='b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2' WHERE apply_id='c0000021-0000-4000-8000-000000000021';",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "probes",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "P7 (b) UPDATE apply_request.generation",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET generation=999 WHERE apply_id='c0000021-0000-4000-8000-000000000021';",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "probes",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "P8 (b) UPDATE apply_request.operation",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET operation='stop' WHERE apply_id='c0000021-0000-4000-8000-000000000021';",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "probes",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "P9 (b) UPDATE apply_request.requested_at",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET requested_at=now() WHERE apply_id='c0000021-0000-4000-8000-000000000021';",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "probes",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "P10 (b) UPDATE apply_step_intent.tenant_id",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_step_intent SET tenant_id='22222222-2222-4222-8222-222222222222' WHERE intent_id='e0000001-0000-4000-8000-000000000001';",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "probes",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "P11 (c) lower a watermark by DELETE then re-INSERT",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "DELETE FROM sm_data.placement_watermark WHERE tenant_id='44444444-4444-4444-8444-444444444444' AND instance_id='a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1' AND placement_id='b1b1b1b1-1111-4111-8111-b1b1b1b1b1b1';",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "probes",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "P12 (c) lower placement watermark via INSERT..ON CONFLICT DO UPDATE",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.placement_watermark(tenant_id,instance_id,placement_id,generation) VALUES ('44444444-4444-4444-8444-444444444444','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b1b1b1b1-1111-4111-8111-b1b1b1b1b1b1',1)\nON CONFLICT (tenant_id,instance_id,placement_id) DO UPDATE SET generation=1;",
+  "signature": [
+   "ERROR: P0001"
+  ],
+  "group": "probes",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "P13 (c) lower apply_scope watermark via INSERT..ON CONFLICT DO UPDATE",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_scope(tenant_id,instance_id,instance_watermark) VALUES ('44444444-4444-4444-8444-444444444444','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1',1)\nON CONFLICT (tenant_id,instance_id) DO UPDATE SET instance_watermark=1;",
+  "signature": [
+   "ERROR: P0001"
+  ],
+  "group": "probes",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "P14 (d) regress a terminal apply_request to RUNNING",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_request SET state='RUNNING', terminal_at=NULL WHERE apply_id='d0000001-0000-4000-8000-000000000001';",
+  "signature": [
+   "ERROR: P0001"
+  ],
+  "group": "probes",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "P15 (e) DELETE apply_step_intent",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "DELETE FROM sm_data.apply_step_intent WHERE intent_id='e0000001-0000-4000-8000-000000000001';",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "probes",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "P16 (e) UPDATE apply_step_intent.idempotency_key",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_step_intent SET idempotency_key='rekeyed' WHERE intent_id='e0000001-0000-4000-8000-000000000001';",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "probes",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "P17 (f) request pointing at an instance that exists only under another tenant",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_scope(tenant_id,instance_id) VALUES ('44444444-4444-4444-8444-444444444444','a9a9a9a9-9999-4999-8999-a9a9a9a9a9a9') ON CONFLICT DO NOTHING;\nINSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state)\nVALUES ('80000003-0000-4000-8000-000000000003','11111111-1111-4111-8111-111111111111','a9a9a9a9-9999-4999-8999-a9a9a9a9a9a9','00000000-0000-0000-0000-000000000000','apply',77,'manual','op:evil',now(),'REQUESTED');",
+  "signature": [
+   "CONSTRAINT NAME:  request_has_scope",
+   "ERROR: 23503"
+  ],
+  "group": "probes",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "P18 (g) placement_watermark with the NIL sentinel",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.placement_watermark(tenant_id,instance_id,placement_id,generation) VALUES ('44444444-4444-4444-8444-444444444444','a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2','00000000-0000-0000-0000-000000000000',5);",
+  "signature": [
+   "CONSTRAINT NAME:  real_placements_only",
+   "ERROR: 23514"
+  ],
+  "group": "probes",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "P19 (h) fence bypass with NULL placement_id",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state)\nVALUES ('80000002-0000-4000-8000-000000000002','22222222-2222-4222-8222-222222222222','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1',NULL,'apply',3,'manual','op:evil',now(),'REQUESTED');",
+  "signature": [
+   "ERROR: 23502"
+  ],
+  "group": "probes",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "P20 (i) SET ROLE sm_dp_migrator (sideways)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "SET ROLE sm_dp_migrator;",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "probes",
+  "type": "sql",
+  "expect_contains": [
+   "permission denied to set role"
+  ]
+ },
+ {
+  "status": "REFUSED",
+  "label": "P21 (j) TRUNCATE apply_attempt",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "TRUNCATE sm_data.apply_attempt;",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "probes",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "P22 (j) TRUNCATE apply_request",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "TRUNCATE sm_data.apply_request;",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "probes",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "P23 ALTER TABLE .. DISABLE TRIGGER (defeat the guard)",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "ALTER TABLE sm_data.apply_scope DISABLE TRIGGER apply_scope_monotonic;",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "probes",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "P24 DROP the watermark guard function",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "DROP FUNCTION sm_data.instance_watermark_only_rises() CASCADE;",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "probes",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "P25 CREATE OR REPLACE the guard function as a no-op",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "CREATE OR REPLACE FUNCTION sm_data.instance_watermark_only_rises() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$;",
+  "signature": [
+   "ERROR: 42501"
+  ],
+  "group": "probes",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "P26 SETUP for P27: create an attempt row that definitely exists",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_attempt(attempt_id,tenant_id,apply_id,intent_id,step,attempt_no,started_at,step_deadline)\nVALUES ('a0000030-0000-4000-8000-000000000030','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','e0000001-0000-4000-8000-000000000001','MATERIALIZE',30,now(),now()+interval '5 min');",
+  "signature": [],
+  "group": "probes",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "P27 re-point that apply_attempt to a DIFFERENT tenant",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_attempt SET tenant_id='22222222-2222-4222-8222-222222222222' WHERE attempt_id='a0000030-0000-4000-8000-000000000030';",
+  "signature": [
+   "CONSTRAINT NAME:  apply_attempt_tenant_id_apply_id_intent_id_fkey",
+   "ERROR: 23503"
+  ],
+  "group": "probes",
+  "type": "sql"
+ },
+ {
+  "status": "REFUSED",
+  "label": "P28 re-point that apply_attempt to a DIFFERENT apply_id",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "UPDATE sm_data.apply_attempt SET apply_id='c0000001-0000-4000-8000-000000000001' WHERE attempt_id='a0000030-0000-4000-8000-000000000030';",
+  "signature": [
+   "CONSTRAINT NAME:  apply_attempt_tenant_id_apply_id_intent_id_fkey",
+   "ERROR: 23503"
+  ],
+  "group": "probes",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "P5-detail: where the TEMP table landed and whether TEMP is granted",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "CREATE TEMP TABLE eviltmp2(x int);\nSELECT n.nspname AS schema, c.relname, c.relpersistence\n  FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE c.relname='eviltmp2';\nSELECT has_database_privilege('sm_dp_runtime','smdb','TEMP') AS runtime_has_temp;",
+  "signature": [],
+  "group": "probes",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "P29 (I5 note) runtime can READ every tenant's rows — no RLS on these tables",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "SELECT tenant_id, count(*) FROM sm_data.apply_request GROUP BY 1 ORDER BY 1;",
+  "signature": [],
+  "group": "probes",
+  "type": "sql"
+ },
+ {
+  "status": "OK",
+  "label": "P30 (I5 note) runtime can INSERT under any tenant it names",
+  "container": "main",
+  "role": "sm_dp_runtime",
+  "db": "smdb",
+  "sql": "INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state)\nVALUES ('80000004-0000-4000-8000-000000000004','44444444-4444-4444-8444-444444444444','a9a9a9a9-9999-4999-8999-a9a9a9a9a9a9','b1b1b1b1-1111-4111-8111-b1b1b1b1b1b1','apply',88,'manual','op:evil',now(),'REQUESTED');",
+  "signature": [],
+  "group": "probes",
+  "type": "sql"
+ }
+]

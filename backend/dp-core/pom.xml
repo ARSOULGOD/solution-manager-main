@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.solace.sm</groupId>
+    <artifactId>backend-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>dp-core</artifactId>
+  <name>Solution Manager :: dp-core</name>
+  <description>
+    Data-plane implementation, owns sm_data and hosts mesh-bridge (backend design §2). Depends on
+    dp-api and mesh-events — never on cp-api or cp-core (I7).
+  </description>
+
+  <properties>
+    <!--
+      I2: resolved from Maven Central's own maven-metadata.xml, never from memory —
+        curl https://repo1.maven.org/maven2/com/solacesystems/sol-jcsmp/maven-metadata.xml
+      served <release>10.30.1</release> (lastUpdated 20260525153717) on 2026-08-28. The Spring Boot
+      BOM does not manage JCSMP, so the version is pinned here rather than inherited.
+    -->
+    <sol-jcsmp.version>10.30.1</sol-jcsmp.version>
+
+    <!-- SSH transport for the first remote RuntimeAdapter. The adapter owns host-key verification
+         and SFTP; neither the engine nor controllers receive SSH types (SM-D11a demo waiver). -->
+    <sshj.version>0.40.0</sshj.version>
+
+    <!-- netty.version is NOT set here. JCSMP forces it, but it must be set reactor-wide, at
+         backend/pom.xml — see the comment there for why a per-module override was wrong. -->
+
+    <!-- The integration-test gate. Empty = JcsmpEventPublisherIT is skipped; override with
+         -Dbroker.host=localhost once the G1 spike compose stack is up. -->
+    <broker.host/>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.solace.sm</groupId>
+      <artifactId>dp-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.solace.sm</groupId>
+      <artifactId>mesh-events</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter</artifactId>
+    </dependency>
+    <!--
+      spring-boot-starter does NOT bring spring-tx transitively (verified with dependency:tree before
+      this line existed: spring-context/-aop/-beans/-expression/-core only). SpringTransactionBoundary
+      compiles directly against org.springframework.transaction.support, so the dependency is declared
+      explicitly here; the version comes from the Boot 3.5.16 BOM.
+    -->
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-tx</artifactId>
+    </dependency>
+    <!-- The mesh transport. dp-core is the only module that may know JCSMP exists: every other
+         module publishes through the meshbridge EventPublisher seam (backend design §3). -->
+    <dependency>
+      <groupId>com.solacesystems</groupId>
+      <artifactId>sol-jcsmp</artifactId>
+      <version>${sol-jcsmp.version}</version>
+    </dependency>
+    <!--
+      sm_data (design §3). All BOM-managed by the Boot 3.5.16 parent — no <version> here,
+      deliberately: a pinned version would silently diverge from the Hikari/JDBC pair Boot tests
+      together. dp-core is the ONLY module that gets these; arch-tests' jdbcIsConfinedToApplyPersistence
+      keeps the packages from spreading beyond com.solace.sm.dp.apply.persistence.
+    -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-jdbc</artifactId>
+    </dependency>
+    <!--
+      COMPILE scope, not runtime, and the reason is the design's: the engine branches on the
+      CONSTRAINT NAME behind a 23505 (which intent UNIQUE refused, which fence lost a race), and the
+      name lives on org.postgresql.util.PSQLException.getServerErrorMessage(). java.sql.SQLException
+      exposes only SQLSTATE, and Spring's DataAccessException hierarchy collapses both intent UNIQUEs
+      into one DuplicateKeyException. PgConstraintViolation is the one class that unwraps it, and
+      arch-tests' jdbcIsConfinedToApplyPersistence keeps org.postgresql.. inside this package.
+      ApplyPersistenceConfiguration still resolves the DRIVER through DriverManager rather than naming
+      the class, so the vendor stays out of the bean wiring.
+    -->
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-core</artifactId>
+    </dependency>
+    <!--
+      Flyway 10+ moved every database dialect out of flyway-core into per-database modules; without
+      this artifact `Flyway.configure()...load()` throws at runtime on a jdbc:postgresql URL. Measured,
+      not assumed.
+    -->
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-database-postgresql</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!--
+      Wanted for ApplicationContextRunner (MeshBridgeConfigurationTest), which handles property-source
+      plumbing and guaranteed context cleanup. BOM-managed, so version-less. The transitively included
+      libraries this module does not use (Mockito, AssertJ) stay unused — JUnit assertions remain the
+      house style.
+    -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!--
+      The contract-artifact resolver (com.solace.sm.events.contracttest.ContractArtifacts) lives in
+      mesh-events' TEST sources and is published as a test-jar, so this module's tests reach
+      contracts/ through the one resolver instead of hand-rolling a third copy of the walk-up.
+      Compile-scope mesh-events is declared above; this is an additional test-jar edge, not a
+      replacement for it.
+    -->
+    <dependency>
+      <groupId>com.solace.sm</groupId>
+      <artifactId>mesh-events</artifactId>
+      <version>${project.version}</version>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+    <!-- The agent-gateway port contract kits (dp-api test sources, plan 015 T2.1b): the ITs here extend them. -->
+    <dependency>
+      <groupId>com.solace.sm</groupId>
+      <artifactId>dp-api</artifactId>
+      <version>${project.version}</version>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+    <!--
+      A REAL PostgreSQL 14 for the sm_data ITs — the pinned floor (SM-D26), not an embedded
+      substitute: the obligations under test are ROLE, GRANT, partial-index and PL/pgSQL trigger
+      behaviour, none of which H2 or an in-memory shim reproduces. Testcontainers' BOM is imported by
+      the Boot parent, so both artifacts are version-less here.
+    -->
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>postgresql</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!--
+      The Docker Engine transport, and ONLY the transport.
+
+      I2, measured 2026-09-11: Maven Central's own metadata serves 3.5.1 as the release, and this pin
+      is deliberately NOT that. `testcontainers:1.21.4` — the version the Spring Boot 3.5.16 BOM
+      manages — declares `docker-java-transport-zerodep:3.4.2` at compile scope in its own POM, and
+      `testcontainers-bom` does not manage docker-java at all. Declaring 3.5.1 here would put a newer
+      transport under a Testcontainers compiled against the older one, on the same test classpath,
+      for no gain: the calls this adapter makes are HTTP verbs, not client features. Revisit when
+      Testcontainers itself moves.
+
+      `docker-java-core` is deliberately absent. Core is the command/model layer — Jackson-bound
+      DTOs, an SSL stack, commons-compress — and this adapter issues four requests and one HEAD
+      against a version-pinned path. The transport is what is genuinely hard (unix socket, npipe,
+      tcp+TLS, all behind one URI), and it is dependency-light: docker-java-transport, slf4j-api,
+      jna, with Apache HttpClient shaded in.
+    -->
+    <dependency>
+      <groupId>com.github.docker-java</groupId>
+      <artifactId>docker-java-transport-zerodep</artifactId>
+      <version>3.4.2</version>
+    </dependency>
+    <!--
+      Already on the compile classpath transitively through mesh-events, and declared here because
+      this module now compiles against it directly. BOM-managed, so no <version> (I2).
+
+      This is a SECOND ObjectMapper in the module, and that is allowed by design: PlaneBoundaryTest's
+      `meshbridgeHoldsNoOwnMapper` is scoped to `com.solace.sm.dp.meshbridge..` precisely because the
+      one-mapper rule is about the EVENT contract, which has goldens watching it. Docker API JSON is
+      not the event contract and has none.
+    -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.dataformat</groupId>
+      <artifactId>jackson-dataformat-yaml</artifactId>
+    </dependency>
+    <!--
+      Declared, not new: SnakeYAML 2.4 is already on this module's resolved classpath as jackson-dataformat-yaml's own
+      dependency (the BOM manages the version, so none is written here). D-ACCEPT's pre-scan (BE-D40) reads the YAML
+      EVENT stream directly, to refuse the constructs Jackson reads wrongly (an alias becomes its anchor's name); a
+      transitive dependency the code compiles against must be a declared one.
+    -->
+    <dependency>
+      <groupId>org.yaml</groupId>
+      <artifactId>snakeyaml</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.hierynomus</groupId>
+      <artifactId>sshj</artifactId>
+      <version>${sshj.version}</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <!--
+        Publishes this module's test-classes as a second artifact, exactly as mesh-events already
+        does for its own test sources (see the test-jar dependency declared above). The ONLY reason:
+        `launcher` (Task 4a/4b) needs `com.solace.sm.dp.apply.runtime.InMemoryRuntimeAdapter` — the
+        one RuntimeAdapter fake this module owns, already `public`, with its own contract-kit
+        pedigree — to prove the durable worker's and the startup sweep's full lifecycle without a
+        real SSH/Docker target. Every OTHER class this jar carries stays package-private
+        (ApplyEngineHarness, SmDataPostgres, ApplyRows, ...); publishing the jar does not widen their
+        visibility, and `launcher` reaching for one of them would still fail to compile.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <executions>
+          <execution>
+            <goals>
+              <goal>test-jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <!--
+        Surefire's default includes are Test*/*Test/*Tests/*TestCase, so a class named *IT is
+        invisible to it: without failsafe, JcsmpEventPublisherIT would simply never run and the
+        "compose-gated integration test" would be a file, not a check. Failsafe binds it to
+        integration-test/verify, and its `verify` goal is what turns an IT failure into a build
+        failure. Version comes from the Boot parent's pluginManagement.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <executions>
+          <execution>
+            <goals>
+              <goal>integration-test</goal>
+              <goal>verify</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <!--
+            Maven's -D lands in the Maven JVM, not the forked test JVM, so the gate property has to
+            be handed across explicitly. `broker.host` defaults to empty (see <properties>), which
+            leaves the IT's @EnabledIfSystemProperty(matches=".+") unsatisfied — the IT reports as
+            SKIPPED and the build stays green. `mvn ... -Dbroker.host=localhost` runs it for real.
+          -->
+          <systemPropertyVariables>
+            <broker.host>${broker.host}</broker.host>
+          </systemPropertyVariables>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

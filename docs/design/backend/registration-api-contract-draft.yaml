@@ -1,0 +1,1098 @@
+# DRAFT — the `console.yaml` diff for plan 013 (registration through the API). NOT part of the contract.
+#
+# Status: written 2026-10-07 for plan 013 T0.1 step 4 (`T0.1r`, combined schedule wave 1, lane C), to be reviewed once
+# by an Opus adversarial reviewer (T0.1 step 6) before any operation is built. It lives here, outside `contracts/`,
+# so that no contract check (run-checks 11, 15, 18; `ConsoleOperationsMirrorTest`; the Postman check) sees it:
+# `ConsoleOperationsMirrorTest` fails on a contracted operation with no handler, so EACH OPERATION ENTERS
+# `contracts/openapi/console.yaml`, `ConsoleOperations`, the Postman collection and the launcher's route set IN THE
+# TASK THAT ADDS ITS HANDLER (T1.4: operations 1-3; T1.5: 4-7; T2.3: 8-14; T3.2: 15-22), in the order the combined
+# schedule gives for the contract surface (HF3).
+#
+# PROMOTION STATUS (kept current): operations 8-14 (listEntitlements, setEntitlement, createSubOrganization, createEnvironment,
+# renameOrganization, renameSubOrganization, renameEnvironment) were promoted into contracts/openapi/console.yaml by plan 013
+# T2.3 (wave 4, lane D). console.yaml is the contract; where this file and it differ, it wins. Promotion changed four things
+# (see the plan's T2.3 Results): a case-only sibling difference on a create is 409 CONFLICT (this file's "409 is not used" is
+# superseded), maxInstances is minimum 1, the {solution} parameter carries the catalog grammar, Entitlement.setAt is required.
+# renameOrganization is INSTALL-scoped (OR-125 (3), which closes W2D-2): its install-wide 409 is reachable only by an
+# install-bound principal. console.yaml states it.
+# Operations 15-22 (listUsers, createUser, deactivateUser, resetUserCredential, listRoles, listAssignments, grantAssignment,
+# revokeAssignment) were promoted into contracts/openapi/console.yaml by plan 013 T3.2 (wave 5, lane D). console.yaml wins. Promotion
+# changed: a username is unique PER ORGANIZATION (OR-125 (4)), so createUser's 409 is no longer install-wide; the login body gained
+# `organization`; deactivateUser and revokeAssignment declare 400 (a UUID path value) and grantAssignment declares 409 (a
+# deactivated user); the deactivate path is last in the admin block so the Postman folder ends by deactivating the user it made.
+#
+# Authority: docs/design/backend/registration-api.md (D-REG) sections 4-8 and 10; rulings OR-121 (every open question
+# as recommended), OR-122 (the five D10 catalog rows by name); the verbs are rows 41-43 of
+# docs/design/D10-G2-APPROVAL-2026-09-15.md section 1.9 (target.edit, hierarchy.edit, entitlement.set), which plan 012
+# T1 lands in the catalog (38 -> 43) BEFORE any operation here uses one (check 11).
+#
+# How the draft is shaped. `tags`, `paths` and `components` are spliced into console.yaml as they stand; `patches` are
+# two edits to existing schemas, applied by hand. A scratch merge (see "How this was checked" below) builds a copy of
+# console.yaml with all of it, and runs check 11's own validator against the copy.
+#
+# FOUR THINGS THE REVIEWER IS ASKED TO RULE ON (each is a divergence from D-REG, found while drafting):
+#
+#   1. U3 (`PATCH /cp/admin/users/{id}`) is SPLIT into two operations, `deactivateUser` and `resetUserCredential`.
+#      D-REG 5.4 has one PATCH whose body selects the verb (`user.deactivate` or `user.edit`). The authorization seam
+#      cannot express that: `ConsoleOperations` maps one operationId to ONE `Permission`, and the interceptor
+#      authorizes before the body is read (for credential routes, before the body is read at all, OQ-14). The split
+#      keeps one verb per operation. Cost: the users surface is EIGHT operations, not seven; the plan's "seven" for
+#      T3.2 and the schedule's W5 HF3 count become eight, and the total is 22, not 21.
+#   2. `x-sm-scope: named` is NEW and is used for nine operations: the scope is the one the request's SUBJECT names, which
+#      is a body field for scan / register / grantAssignment (`ownershipScope`, `scope`) and the stored resource's own
+#      value for the rest (a target's `ownershipScope`, an assignment's `scope`), resolved server-side. The first draft
+#      reused `derived`; the W1 review (C-2) found that overloaded, because `console.yaml` uses `derived` only with
+#      `none.authenticationOnly` (the result is derived, nothing to authorize). ADOPTING `named` WHEN THIS DRAFT IS
+#      PROMOTED needs one line in the contracts `SCOPES` list and the check-11 docstring, and the five-level rule must
+#      say what `named` is evaluated against (the subject's scope, never client-supplied authority: `I5`). Nothing under
+#      `contracts/` is changed by this draft.
+#   3. A scope named in a request body cannot be a `ScopePath`: check 14 (`I5`) refuses an `organizationId` property in
+#      any request schema, and `ScopePath` has one. The draft adds `ScopeRef` (the same levels without
+#      `organizationId`; the server derives the parents and the organization is the session's) for `ownershipScope`
+#      (scan, register) and the granted `scope` (grantAssignment). Found by running the validator on the spliced draft,
+#      not by reading. D-REG 5's `ownershipScope` is therefore not a `ScopePath` on the wire.
+#   4. `Target.retiredAt` is added (T7 returns "Target (retiredAt set)"; the schema has no such field today).
+#
+# Also stated, so the reviewer need not hunt: `scanHostKeys` and `testTargetConnection` write nothing to the stores but
+# are audited through `TargetProbeAudit` (D-REG section 9); every credential-bearing request is `writeOnly`, has a
+# redacting `toString` and refuses unknown properties in Java; `INSECURE_TRANSPORT` (403) can answer registerTarget,
+# rotateTargetCredential, createUser and resetUserCredential before the body is read (OQ-14 (b)).
+#
+# How this was checked (2026-10-07, scratch copy, console.yaml NOT edited): the draft was spliced into a copy of
+# console.yaml, the catalog count and the approval-record reader were widened to the 43-verb catalog the same way plan
+# 012 T1 widens them, and `validate-openapi.py` was run on the copy. Result recorded in plan 013's Results.
+
+patches:
+  - target: components.schemas.ErrorCode.enum
+    append: [CREDENTIAL_INVALID, HOST_KEY_NOT_OFFERED, TARGET_ADDRESS_REFUSED, INSECURE_TRANSPORT]
+    note: |
+      422, 422, 422 and 403. ENTITLEMENT_REFUSED (409) and CONFLICT (409) and VALIDATION_FAILED (422) exist already.
+      The ErrorCode description gains four bullets, and `ErrorCode.java` gains the four constants in the same commit
+      (run-checks 18 pins the two lists constant for constant, status for status).
+  - target: components.schemas.Target.properties.retiredAt
+    add:
+      type: string
+      format: date-time
+      readOnly: true
+      description: Present only on a retired target (T7's response); absent on every live target.
+
+tags:
+  - name: entitlements
+    description: The solutions an organization may declare instances of, and how many (`OR-48`, changed by `OR-121`).
+  - name: admin
+    description: Local users and role assignments of the session's organization (`REQ-006`).
+
+paths:
+
+  /dp/host-key-scans:
+    post:
+      tags: [targets]
+      operationId: scanHostKeys
+      summary: Ask a host which SSH host keys it offers (writes nothing)
+      description: |
+        Plan 013 T1 (D-REG 5.1 T1). The DP connects to `host:port` WITHOUT authenticating and reports the keys the
+        host presents, each with its algorithm. They are UNTRUSTED: nothing is pinned by this call. The user
+        confirms one by sending it as `hostKeyFingerprint` to `registerTarget`, which scans again and refuses a pin
+        the host does not offer (`HOST_KEY_NOT_OFFERED`).
+        `target.create` is evaluated at the body's `ownershipScope`. Rate-limited per session (default 10 a minute,
+        `429 RATE_LIMITED`). Recorded in the audit log (verb, scope, outcome; never the keys).
+        The address policy applies (`TARGET_ADDRESS_REFUSED`, OQ-3 (d)).
+      x-sm-permission: target.create
+      x-sm-scope: named
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HostKeyScanRequest' }
+      responses:
+        '200':
+          description: What the host offers. Never an error for a reachable host that offers keys.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HostKeyScan' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+        '422':
+          description: "`VALIDATION_FAILED` (host or port outside the grammar) or `TARGET_ADDRESS_REFUSED`."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '429':
+          description: "`RATE_LIMITED` — this session's scan budget is spent. Retry after `Retry-After` seconds."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '503':
+          description: "`SERVICE_UNAVAILABLE` — the host could not be reached or presented no key."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  # A sibling method of the existing `/cp/targets` (which has `get: listTargets`).
+  /cp/targets:
+    post:
+      tags: [targets]
+      operationId: registerTarget
+      summary: Register a deployment target with its connection record and SSH key
+      description: |
+        Plan 013 T1.4 (D-REG 5.1 T2, 8; `BE-D54`). ONE call composes both planes, in this order: authorize
+        `target.create` at `ownershipScope` (writes nothing); every data-plane pre-check read-only (grammar, the key must
+        open as an UNENCRYPTED private key, the address policy, a fresh scan that must offer `hostKeyFingerprint`, and
+        no other live target of the organization holding any offered host key); then the control-plane row; then the
+        data-plane record with the sealed key. A refusal at any pre-check leaves NOTHING in either plane.
+        `201` new; `200` an identical replay (the same record AND the same key, compared by the fingerprint of the
+        key's PUBLIC half, so a re-export of one key is a replay); `409` the name is taken by a different record, the
+        key differs (rotate instead), or a host key is held by another live target.
+        ⛔ `I6`: `privateKey` is write-only and is never returned, logged, audited or hashed; the only value derived
+        from it that any response carries is the PUBLIC key's fingerprint. `allowedConfigRoot` and
+        `allowedContainerPrefix` are the envelope (`B2`): immutable once registered (`OR-52`).
+        The request is refused `403 INSECURE_TRANSPORT`, before the body is read, unless the connection is secure, a
+        trusted proxy reports `https`, or the peer is loopback (OQ-14 (b)).
+      x-sm-permission: target.create
+      x-sm-scope: named
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterTargetRequest' }
+      responses:
+        '200':
+          description: An identical replay. Nothing was written.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TargetDetail' }
+        '201':
+          description: Registered.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TargetDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403':
+          description: "`FORBIDDEN`, `CSRF_REJECTED`, `ORIGIN_REJECTED` or `INSECURE_TRANSPORT` — switch on `code`."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+        '409':
+          description: "`CONFLICT` — the name is taken by a different record, the key is not the registered one, or a host key of this machine is registered to another target."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '422':
+          description: "`VALIDATION_FAILED`, `CREDENTIAL_INVALID`, `HOST_KEY_NOT_OFFERED` or `TARGET_ADDRESS_REFUSED`."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '503':
+          description: "`SERVICE_UNAVAILABLE` — the host could not be scanned. Nothing was written; retry."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /dp/targets/{targetId}/connection:
+    parameters: [{ $ref: '#/components/parameters/TargetId' }]
+    get:
+      tags: [targets]
+      operationId: getTargetConnection
+      summary: Read a target's connection record (host, user, pin, offered keys, key summary)
+      description: |
+        Plan 013 T1.4 (D-REG 5.1 T3; OQ-13 (a)). A MANAGEMENT read under `target.edit`, not `target.view`: the
+        envelope-only `Target` that `listTargets` returns stays what Viewer and Operator see. `404` when the target is
+        not visible at the caller's scope, not live, or retired.
+        ⛔ No field carries private-key material, its `credential_ref`, or a hash of the private key.
+      x-sm-permission: target.edit
+      x-sm-scope: named
+      responses:
+        '200':
+          description: The record.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TargetConnection' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+    patch:
+      tags: [targets]
+      operationId: editTargetConnection
+      summary: Change a target's host, port, SSH user or pinned host key
+      description: |
+        Plan 013 T1.5 (D-REG 5.1 T4; OQ-12 (a)). Any change of `host`, `port` or `hostKeyFingerprint` re-scans, and the
+        pin (new or kept) must be offered. A re-pin retires the target's recorded host keys the fresh scan no longer
+        offers, and revives ones it offers again. `allowedConfigRoot` and `allowedContainerPrefix` are not accepted
+        (`400`; immutable, `OR-52`). `409 CONFLICT` while any work is in flight on a placement of the target (a
+        change of `sshUser` alone is not refused). Writes a connection event (field names only).
+      x-sm-permission: target.edit
+      x-sm-scope: named
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EditTargetConnectionRequest' }
+      responses:
+        '200':
+          description: Changed. Returns the record as it now stands.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TargetConnection' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+        '409':
+          description: "`CONFLICT` — an apply or a fleet member is in flight on a placement of this target, or the new pin is held by another live target."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '422':
+          description: "`VALIDATION_FAILED`, `HOST_KEY_NOT_OFFERED` or `TARGET_ADDRESS_REFUSED`."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '503':
+          description: "`SERVICE_UNAVAILABLE` — the host could not be scanned."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /dp/targets/{targetId}/credential:
+    parameters: [{ $ref: '#/components/parameters/TargetId' }]
+    put:
+      tags: [targets]
+      operationId: rotateTargetCredential
+      summary: Replace a target's SSH private key
+      description: |
+        Plan 013 T1.5 (D-REG 5.1 T5, 6.4; `OR-85`). The same key again (by the PUBLIC key's fingerprint) is `200` and
+        writes nothing. A different key is stored as a new secret and the record is repointed; the old secret row stays
+        (the runtime cannot delete one). NOT refused while work is in flight: a leaked key must be replaceable at once.
+        Sessions already open keep the key they resolved; the next lease opens with the new one.
+        ⚠️ SM stopping use of the old key does not revoke it: the old public key must be removed from each host's
+        `authorized_keys` (runbook, plan 013 T4.2). `CredentialSummary.publicKeyFingerprint` says which key is stored.
+        Subject to the transport rule (`INSECURE_TRANSPORT`, OQ-14 (b)).
+      x-sm-permission: target.edit
+      x-sm-scope: named
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RotateTargetCredentialRequest' }
+      responses:
+        '200':
+          description: The stored key's summary, after the call.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [credential]
+                properties:
+                  credential: { $ref: '#/components/schemas/CredentialSummary' }
+                additionalProperties: false
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403':
+          description: "`FORBIDDEN`, `CSRF_REJECTED`, `ORIGIN_REJECTED` or `INSECURE_TRANSPORT` — switch on `code`."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+        '422':
+          description: "`VALIDATION_FAILED` or `CREDENTIAL_INVALID` — the key is not an unencrypted private key sshj can open."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /dp/targets/{targetId}/connection/test:
+    parameters: [{ $ref: '#/components/parameters/TargetId' }]
+    post:
+      tags: [targets]
+      operationId: testTargetConnection
+      summary: Check that a target can be reached, authenticated to, and used for Docker
+      description: |
+        Plan 013 T1.5 (D-REG 5.1 T6; OQ-9 (a)). Connects with the pinned host key, authenticates, and runs ONE fixed
+        command (`docker version --format '{{.Server.Version}}'`; no input reaches it). An unreachable host, a failed
+        authentication or a missing Docker daemon is a RESULT here, never a `5xx`. `target.use` at the target's scope.
+        Recorded in the audit log (verb, scope, outcome).
+      x-sm-permission: target.use
+      x-sm-scope: named
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      responses:
+        '200':
+          description: The result of each step.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TargetConnectionTest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+
+  /cp/targets/{targetId}/retire:
+    parameters: [{ $ref: '#/components/parameters/TargetId' }]
+    post:
+      tags: [targets]
+      operationId: retireTarget
+      summary: Retire a target that has no live placement
+      description: |
+        Plan 013 T1.5 (D-REG 5.1 T7; OQ-11 (b)). Data plane first (a retired connection is unusable at once), then the
+        control-plane row. `409 CONFLICT` while any live placement names the target (V007's guard, mapped). Retiring a
+        retired target is `200`. A control-plane row with no connection record (a registration that never reached the
+        data plane) retires on its own. A retired target's name is free for a new registration.
+      x-sm-permission: target.edit
+      x-sm-scope: named
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      responses:
+        '200':
+          description: Retired (or already retired).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Target' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+        '409':
+          description: "`CONFLICT` — a live placement names this target."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /cp/entitlements:
+    get:
+      tags: [entitlements]
+      operationId: listEntitlements
+      summary: The session's organization's entitlements, with how many instances are declared
+      description: |
+        Plan 013 T2.3 (D-REG 5.2 E1). `declaredInstances` counts the instances not retired by plan 012's undeclare
+        (abandoned declares count until retired).
+      x-sm-permission: solution.view
+      x-sm-scope: organization
+      responses:
+        '200':
+          description: One item per entitled solution.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EntitlementList' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /cp/entitlements/{solution}:
+    parameters:
+      - name: solution
+        in: path
+        required: true
+        description: The solution name (`cache`, `file-mesh`, ...).
+        schema: { type: string, minLength: 1, maxLength: 128 }
+    put:
+      tags: [entitlements]
+      operationId: setEntitlement
+      summary: Set how many instances of a solution the organization may declare
+      description: |
+        Plan 013 T2.3 (D-REG 5.2 E2; OQ-4 (a); `OR-121` changes `OR-48`'s "operator command only"). `entitlement.set` is
+        evaluated at INSTALL scope on the session's own organization: an organization-bound Administrator cannot raise
+        its own limit. `409 ENTITLEMENT_REFUSED` when `maxInstances` is below the declared count. Idempotent. There is
+        no delete: an entitlement is lowered, never removed. The operator command `EntitlementMain` remains.
+      x-sm-permission: entitlement.set
+      x-sm-scope: install
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [maxInstances]
+              properties:
+                maxInstances: { type: integer, minimum: 0, maximum: 1000000 }
+              additionalProperties: false
+      responses:
+        '200':
+          description: The entitlement as it now stands.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Entitlement' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+        '409':
+          description: "`ENTITLEMENT_REFUSED` — `maxInstances` is below the number of declared instances."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  # The existing paths below gain a sibling method each; `listSubOrganizations` and `listEnvironments` stay as they are.
+
+  /cp/hierarchy/organizations/{organizationId}/sub-orgs:
+    parameters: [{ $ref: '#/components/parameters/OrganizationId' }]
+    post:
+      tags: [hierarchy]
+      operationId: createSubOrganization
+      summary: Create a sub-organization (top-level only)
+      description: |
+        Plan 013 T2.3 (D-REG 5.3 H1). `hierarchy.edit` at the PARENT (the organization). Sub-organizations are
+        top-level only (`SM-D32`/`OR-16` fix the depth). `201` new; `200` an identical replay (the same name under the
+        same parent); `409` is not used (a same-named sibling IS the replay). No `scope` row is inserted: scope rows
+        are minted when first used. The `organizationId` in the path is an address checked against the session, never
+        authority (`I5`).
+      x-sm-permission: hierarchy.edit
+      x-sm-scope: organization
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NodeNameRequest' }
+      responses:
+        '200':
+          description: An identical replay.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScopeNode' }
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScopeNode' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+
+  /cp/hierarchy/organizations/{organizationId}/sub-orgs/{subOrganizationId}/environments:
+    parameters:
+      - { $ref: '#/components/parameters/OrganizationId' }
+      - { $ref: '#/components/parameters/SubOrganizationId' }
+    post:
+      tags: [hierarchy]
+      operationId: createEnvironment
+      summary: Create an environment in a sub-organization
+      description: |
+        Plan 013 T2.3 (D-REG 5.3 H2). `hierarchy.edit` at the parent sub-organization. `201` new; `200` an identical
+        replay (the same name under the same parent). A new environment can be a target's `ownershipScope` at once.
+      x-sm-permission: hierarchy.edit
+      x-sm-scope: sub-organization
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NodeNameRequest' }
+      responses:
+        '200':
+          description: An identical replay.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScopeNode' }
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScopeNode' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+
+  /cp/hierarchy/organizations/{organizationId}:
+    parameters: [{ $ref: '#/components/parameters/OrganizationId' }]
+    patch:
+      tags: [hierarchy]
+      operationId: renameOrganization
+      summary: Rename the session's organization
+      description: |
+        Plan 013 T2.3 (D-REG 5.3 H3; OQ-5 (a): organizations are renamed, never created, in v1). `hierarchy.edit` at
+        the organization. The path organization must be the session's.
+        SUPERSEDED by OR-125 (3) (W5 review W5C-4): `hierarchy.edit` is evaluated at INSTALL scope, so `x-sm-scope` below
+        reads `organization` only as this draft's record; `console.yaml` (`x-sm-scope: install`) is the contract.
+      x-sm-permission: hierarchy.edit
+      x-sm-scope: organization
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NodeNameRequest' }
+      responses:
+        '200':
+          description: Renamed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScopeNode' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+
+  /cp/hierarchy/organizations/{organizationId}/sub-orgs/{subOrganizationId}:
+    parameters:
+      - { $ref: '#/components/parameters/OrganizationId' }
+      - { $ref: '#/components/parameters/SubOrganizationId' }
+    patch:
+      tags: [hierarchy]
+      operationId: renameSubOrganization
+      summary: Rename a sub-organization
+      description: Plan 013 T2.3 (D-REG 5.3 H4). `hierarchy.edit` at the node. `409 CONFLICT` when a sibling already has the name.
+      x-sm-permission: hierarchy.edit
+      x-sm-scope: sub-organization
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NodeNameRequest' }
+      responses:
+        '200':
+          description: Renamed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScopeNode' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+        '409':
+          description: "`CONFLICT` — a sibling already has this name."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /cp/hierarchy/organizations/{organizationId}/sub-orgs/{subOrganizationId}/environments/{environmentId}:
+    parameters:
+      - { $ref: '#/components/parameters/OrganizationId' }
+      - { $ref: '#/components/parameters/SubOrganizationId' }
+      - { $ref: '#/components/parameters/EnvironmentId' }
+    patch:
+      tags: [hierarchy]
+      operationId: renameEnvironment
+      summary: Rename an environment
+      description: Plan 013 T2.3 (D-REG 5.3 H5). `hierarchy.edit` at the node. `409 CONFLICT` when a sibling already has the name.
+      x-sm-permission: hierarchy.edit
+      x-sm-scope: environment
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NodeNameRequest' }
+      responses:
+        '200':
+          description: Renamed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScopeNode' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+        '409':
+          description: "`CONFLICT` — a sibling already has this name."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /cp/admin/users:
+    get:
+      tags: [admin]
+      operationId: listUsers
+      summary: Users of the session's organization
+      description: |
+        Plan 013 T3.2 (D-REG 5.4 U1). ⚠️ Evaluated at the ORGANIZATION (the code: `ResourceKind.PRINCIPAL`), where
+        `console-integration.md` §5.2 row 21 says `install ↓`; D-REG 4 flags the divergence for the owner. Never carries a
+        credential or a credential hash.
+      x-sm-permission: user.view
+      x-sm-scope: organization
+      responses:
+        '200':
+          description: The users.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserList' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [admin]
+      operationId: createUser
+      summary: Create a local user in the session's organization
+      description: |
+        Plan 013 T3.2 (D-REG 5.4 U2). The user is `local`, `must_rotate = true`: the initial credential is provisional
+        and the first sign-in is refused until it is rotated. `409` the username is taken (install-wide unique).
+        `initialCredential` is write-only, hashed with Argon2id (`OR-7`) and never stored or returned; the 12-character
+        floor of `rotateOwnCredential` applies. Subject to the transport rule (`INSECURE_TRANSPORT`).
+      x-sm-permission: user.create
+      x-sm-scope: organization
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateUserRequest' }
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403':
+          description: "`FORBIDDEN`, `CSRF_REJECTED`, `ORIGIN_REJECTED` or `INSECURE_TRANSPORT` — switch on `code`."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '409':
+          description: "`CONFLICT` — the username is taken."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /cp/admin/users/{userId}/deactivate:
+    parameters: [{ $ref: '#/components/parameters/UserId' }]
+    post:
+      tags: [admin]
+      operationId: deactivateUser
+      summary: Deactivate a local user
+      description: |
+        Plan 013 T3.2 (D-REG 5.4 U3, first half; see the split noted at the top of this draft). Ends the user's live
+        sessions in the same transaction. Reactivation is not offered. `409 CONFLICT` for the caller itself and for any
+        principal holding an Administrator binding (`OR-12`: Administrator standing is made and unmade only outside the
+        API, so one administrator cannot lock out another). Deactivating a deactivated user is `200`.
+      x-sm-permission: user.deactivate
+      x-sm-scope: organization
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      responses:
+        '200':
+          description: Deactivated (or already).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+        '409':
+          description: "`CONFLICT` — the caller itself, or a principal holding an Administrator binding."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /cp/admin/users/{userId}/credential:
+    parameters: [{ $ref: '#/components/parameters/UserId' }]
+    put:
+      tags: [admin]
+      operationId: resetUserCredential
+      summary: Reset another user's credential
+      description: |
+        Plan 013 T3.2 (D-REG 5.4 U3, second half). Sets a new provisional credential and `must_rotate`; the user's
+        live sessions end. `409 CONFLICT` for the caller itself and for any principal holding an Administrator binding.
+        `resetCredential` is write-only and never stored or returned. Subject to the transport rule.
+      x-sm-permission: user.edit
+      x-sm-scope: organization
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [resetCredential]
+              properties:
+                resetCredential: { type: string, format: password, writeOnly: true, minLength: 12, maxLength: 1024 }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Reset.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403':
+          description: "`FORBIDDEN`, `CSRF_REJECTED`, `ORIGIN_REJECTED` or `INSECURE_TRANSPORT` — switch on `code`."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+        '409':
+          description: "`CONFLICT` — the caller itself, or a principal holding an Administrator binding."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /cp/admin/roles:
+    get:
+      tags: [admin]
+      operationId: listRoles
+      summary: The built-in roles and the verbs each holds
+      description: Plan 013 T3.2 (D-REG 5.4 U4). v1 has the three built-in roles only (custom roles need a later migration).
+      x-sm-permission: role.view
+      x-sm-scope: organization
+      responses:
+        '200':
+          description: The roles.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoleList' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /cp/admin/assignments:
+    get:
+      tags: [admin]
+      operationId: listAssignments
+      summary: Role assignments, filtered by what the caller may see
+      description: Plan 013 T3.2 (D-REG 5.4 U5). `role.view` at the organization; each item is returned only where the caller's reach covers its scope.
+      x-sm-permission: role.view
+      x-sm-scope: organization
+      parameters:
+        - name: principalId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The assignments.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AssignmentList' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [admin]
+      operationId: grantAssignment
+      summary: Grant a role to a user at a scope
+      description: |
+        Plan 013 T3.2 (D-REG 5.4 U6; OQ-6 (a)). `role.assign` must be held AT THE GRANTED SCOPE (else a unit
+        administrator would escalate to the organization), the scope canonicalized server-side. Granting the
+        Administrator role is refused `422` (`OR-12`: bootstrap and emergency only). `201` new; `200` a replay.
+      x-sm-permission: role.assign
+      x-sm-scope: named
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GrantAssignmentRequest' }
+      responses:
+        '200':
+          description: An identical replay.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Assignment' }
+        '201':
+          description: Granted.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Assignment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+        '422':
+          description: "`VALIDATION_FAILED` — including a request for the Administrator role."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /cp/admin/assignments/{assignmentId}:
+    parameters:
+      - name: assignmentId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    delete:
+      tags: [admin]
+      operationId: revokeAssignment
+      summary: Revoke a role assignment
+      description: |
+        Plan 013 T3.2 (D-REG 5.4 U7; OQ-6 (a)). `role.assign` at the assignment's own scope. An Administrator binding is
+        never revoked over the API (`409 CONFLICT`), whoever holds it; this mirrors the grant. The revoked user's live
+        sessions are re-evaluated on their next request.
+      x-sm-permission: role.assign
+      x-sm-scope: named
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      responses:
+        '204': { description: Revoked. }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+        '409':
+          description: "`CONFLICT` — the assignment is an Administrator binding."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+components:
+  parameters:
+    TargetId:
+      name: targetId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  schemas:
+
+    ScopeRef:
+      type: object
+      description: |
+        A scope named in a REQUEST body (an `ownershipScope`, a granted `scope`). It is `ScopePath` without
+        `organizationId`: check 14 (`I5`) refuses an `organizationId` property anywhere in a request body, because the
+        organization is the session's, never the client's. Send the DEEPEST id; the server derives the levels above it
+        from the tree and refuses (`404`) an id outside the session's organization. An empty object is the
+        organization itself. Ids that are sent together must agree. The same `ScopePath` is what responses return.
+      properties:
+        subOrganizationId: { type: string, format: uuid }
+        environmentId: { type: string, format: uuid }
+        solutionId: { type: string, format: uuid, description: Only with `environmentId` (a solution scope is an environment's solution). }
+        instanceId: { type: string, format: uuid }
+      additionalProperties: false
+
+    HostKeyScanRequest:
+      type: object
+      required: [host, ownershipScope]
+      properties:
+        host: { type: string, minLength: 1, maxLength: 254, pattern: '^[A-Za-z0-9]([A-Za-z0-9.-]{0,252}[A-Za-z0-9])?$' }
+        port: { type: integer, minimum: 1, maximum: 65535, default: 22 }
+        ownershipScope: { $ref: '#/components/schemas/ScopeRef' }
+      additionalProperties: false
+
+    HostKeyScan:
+      type: object
+      required: [host, port, offered]
+      properties:
+        host: { type: string }
+        port: { type: integer }
+        offered:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/OfferedHostKey' }
+      additionalProperties: false
+
+    OfferedHostKey:
+      type: object
+      required: [fingerprint, algorithm]
+      properties:
+        fingerprint: { type: string, pattern: '^SHA256:[A-Za-z0-9+/]{20,86}={0,2}$' }
+        algorithm: { type: string, description: 'The host KEY TYPE, as T1.2 reports it: for example `ssh-ed25519`, `ecdsa-sha2-nistp256`, `ssh-rsa` (not a signature algorithm such as `rsa-sha2-512`).' }
+      additionalProperties: false
+
+    TargetConnectionSpec:
+      type: object
+      description: |
+        The connection fields of a registration. `allowedConfigRoot` and `allowedContainerPrefix` are the envelope
+        (`B2`): an absolute directory below `/` with no `..`, and a container-name prefix; immutable once registered.
+      required: [host, sshUser, hostKeyFingerprint, allowedConfigRoot, allowedContainerPrefix]
+      properties:
+        host: { type: string, pattern: '^[A-Za-z0-9]([A-Za-z0-9.-]{0,252}[A-Za-z0-9])?$' }
+        port: { type: integer, minimum: 1, maximum: 65535, default: 22 }
+        sshUser: { type: string, pattern: '^[A-Za-z_][A-Za-z0-9_-]{0,31}$' }
+        hostKeyFingerprint: { type: string, pattern: '^SHA256:[A-Za-z0-9+/]{20,86}={0,2}$' }
+        allowedConfigRoot: { type: string, pattern: '^/([A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+$' }
+        allowedContainerPrefix: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$' }
+      additionalProperties: false
+
+    RegisterTargetRequest:
+      type: object
+      description: |
+        ⛔ `I6`: `privateKey` is write-only. The request's `toString` is redacted in the gateway and unknown properties
+        are refused. No `organizationId` (`I5`): the organization is the session's.
+      required: [name, kind, transport, ownershipScope, connection, privateKey]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        kind: { type: string, enum: [docker] }
+        transport: { type: string, enum: [ssh-docker] }
+        ownershipScope: { $ref: '#/components/schemas/ScopeRef' }
+        connection: { $ref: '#/components/schemas/TargetConnectionSpec' }
+        privateKey:
+          type: string
+          format: password
+          writeOnly: true
+          maxLength: 16384
+          description: The key file's text (OpenSSH or PEM), UNENCRYPTED. Never echoed, logged, audited or hashed.
+      additionalProperties: false
+
+    EditTargetConnectionRequest:
+      type: object
+      description: |
+        At least one field. `allowedConfigRoot` and `allowedContainerPrefix` are not properties here, so sending one is
+        `400` (immutable, `OR-52`).
+      minProperties: 1
+      properties:
+        host: { type: string, pattern: '^[A-Za-z0-9]([A-Za-z0-9.-]{0,252}[A-Za-z0-9])?$' }
+        port: { type: integer, minimum: 1, maximum: 65535 }
+        sshUser: { type: string, pattern: '^[A-Za-z_][A-Za-z0-9_-]{0,31}$' }
+        hostKeyFingerprint: { type: string, pattern: '^SHA256:[A-Za-z0-9+/]{20,86}={0,2}$' }
+      additionalProperties: false
+
+    RotateTargetCredentialRequest:
+      type: object
+      required: [privateKey]
+      properties:
+        privateKey:
+          type: string
+          format: password
+          writeOnly: true
+          maxLength: 16384
+          description: The new key file's text, UNENCRYPTED. Never echoed, logged, audited or hashed.
+      additionalProperties: false
+
+    TargetConnection:
+      type: object
+      description: |
+        ⛔ No field, in any response, carries private-key material, its `credential_ref`, or a hash of the private key.
+      required: [targetId, transport, host, port, sshUser, hostKeyFingerprint, offeredHostKeys, allowedConfigRoot, allowedContainerPrefix, credential]
+      properties:
+        targetId: { type: string, format: uuid }
+        transport: { type: string, enum: [ssh-docker] }
+        host: { type: string }
+        port: { type: integer, minimum: 1, maximum: 65535 }
+        sshUser: { type: string }
+        hostKeyFingerprint: { type: string, pattern: '^SHA256:[A-Za-z0-9+/]{20,86}={0,2}$', description: The pin. }
+        offeredHostKeys:
+          type: array
+          items: { type: string }
+          description: Every host-key fingerprint recorded for the host (`OR-89`), the pin included.
+        allowedConfigRoot: { type: string, readOnly: true }
+        allowedContainerPrefix: { type: string, readOnly: true }
+        credential: { $ref: '#/components/schemas/CredentialSummary' }
+      additionalProperties: false
+
+    CredentialSummary:
+      type: object
+      required: [present]
+      properties:
+        present: { type: boolean }
+        publicKeyFingerprint:
+          type: string
+          description: |
+            The SHA-256 fingerprint of the stored key's PUBLIC half (what `ssh-keygen -l` prints for the `.pub`), so the
+            user can compare it with `authorized_keys`. Absent for a key registered before it was recorded.
+        setAt: { type: string, format: date-time }
+      additionalProperties: false
+
+    TargetDetail:
+      description: A `Target` and its connection record. Only `registerTarget` returns it.
+      allOf:
+        - { $ref: '#/components/schemas/Target' }
+        - type: object
+          required: [connection]
+          properties:
+            connection: { $ref: '#/components/schemas/TargetConnection' }
+
+    TargetConnectionTest:
+      type: object
+      required: [hostKeyPinned, authenticated, docker, checkedAt]
+      properties:
+        hostKeyPinned: { type: boolean, description: The host presented the pinned key. }
+        authenticated: { type: boolean }
+        docker:
+          type: object
+          required: [available]
+          properties:
+            available: { type: boolean }
+            serverVersion: { type: string }
+          additionalProperties: false
+        checkedAt: { type: string, format: date-time }
+      additionalProperties: false
+
+    Entitlement:
+      type: object
+      required: [solution, maxInstances, declaredInstances]
+      properties:
+        solution: { type: string }
+        maxInstances: { type: integer, minimum: 0 }
+        declaredInstances: { type: integer, minimum: 0, description: Instances not retired by undeclare. }
+        setAt: { type: string, format: date-time }
+      additionalProperties: false
+
+    EntitlementList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Entitlement' } }
+      additionalProperties: false
+
+    NodeNameRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100, description: "1-100 characters (`OR-120`'s published bound; D-REG's 128 yields)." }
+      additionalProperties: false
+
+    User:
+      type: object
+      description: ⛔ Never carries a credential or a credential hash.
+      required: [id, username, source, status, mustRotate, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string }
+        source: { type: string, enum: [local] }
+        status: { type: string, enum: [active, deactivated] }
+        mustRotate: { type: boolean }
+        createdAt: { type: string, format: date-time }
+      additionalProperties: false
+
+    UserList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/User' } }
+      additionalProperties: false
+
+    CreateUserRequest:
+      type: object
+      required: [username, initialCredential]
+      properties:
+        username: { type: string, minLength: 1, maxLength: 64 }
+        initialCredential: { type: string, format: password, writeOnly: true, minLength: 12, maxLength: 1024 }
+      additionalProperties: false
+
+    Role:
+      type: object
+      required: [id, name, permissions]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, enum: [Administrator, Operator, Viewer] }
+        permissions: { type: array, items: { type: string } }
+      additionalProperties: false
+
+    RoleList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Role' } }
+      additionalProperties: false
+
+    Assignment:
+      type: object
+      required: [assignmentId, principalId, roleId, scope]
+      properties:
+        assignmentId: { type: string, format: uuid }
+        principalId: { type: string, format: uuid }
+        roleId: { type: string, format: uuid }
+        scope: { $ref: '#/components/schemas/ScopePath' }
+      additionalProperties: false
+
+    AssignmentList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Assignment' } }
+      additionalProperties: false
+
+    GrantAssignmentRequest:
+      type: object
+      required: [principalId, roleId, scope]
+      properties:
+        principalId: { type: string, format: uuid }
+        roleId: { type: string, format: uuid }
+        scope: { $ref: '#/components/schemas/ScopeRef' }
+      additionalProperties: false

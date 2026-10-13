@@ -1,0 +1,129 @@
+# The postgres image is pinned by tag AND digest (the index digest of postgres:14.24, read 2026-10-10).
+# Local / on-prem single-host deployment of the Solution Manager launcher.
+#
+#   cp .env.example .env   # edit: every empty value
+#   scripts/init-secrets.sh                                   # once: generates the five database password files and the data-plane master key in ./secrets (gitignored)
+#   put the TLS / CA material in ./certs (gitignored) — see "Secrets" below; `up` fails closed if a file is missing
+#   docker compose --profile bootstrap run --rm bootstrap     # once per cluster (Phase 0, as the DB superuser)
+#   docker compose --profile migrate  run --rm migrate        # at install and every upgrade (Phase 1, migrator roles)
+#   docker compose up -d launcher                             # the application (runtime roles only)
+#
+# The application container is never given a migrator or superuser credential: bootstrap and migrate are different
+# containers with their own secrets, and `launcher` carries only the two runtime roles.
+#
+# Secrets (I6, OR-138). The five database passwords are generated files in ./secrets (or SM_SECRETS_DIR), delivered as compose
+# secrets and read through SM_*_PASSWORD_FILE / POSTGRES_PASSWORD_FILE; none is ever an environment value. The agent-gateway private key, the operator CA keystore and the keystore PASSWORD are compose `secrets`
+# (read-only files under /run/secrets/), never environment values and never in this file or .env. The host files live in
+# ./certs (gitignored) and must be readable by uid 10001 (the image's `sm` user), e.g. `chown 10001 certs/* && chmod 0400 certs/*`.
+# `sm-launcher` reads SM_AGENT_CA_KEYSTORE_PASSWORD_FILE into the one variable the application's property placeholder
+# expects, in the launcher process only.
+name: sm
+services:
+  db:
+    image: postgres:14.24@sha256:14bfab572eec6abf65892e1db7c3ba8d41b2a2855c1b143664907d6e146eb6e1
+    secrets: [ db_superuser_password ]
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_superuser_password
+      POSTGRES_DB: sm
+    volumes: [ "sm-pg:/var/lib/postgresql/data" ]
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d sm" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  bootstrap:
+    profiles: [ bootstrap ]
+    image: postgres:14.24@sha256:14bfab572eec6abf65892e1db7c3ba8d41b2a2855c1b143664907d6e146eb6e1
+    depends_on: { db: { condition: service_healthy } }
+    # The Phase 0 SQL is mounted from where it lives, never copied, so it cannot drift from what the tests execute.
+    volumes:
+      # The whole secrets directory, read-only: Phase 0 needs all five files, and `rotate` reads the *.next files that
+      # init-secrets.sh writes beside them (compose secrets are fixed file mappings and cannot carry those).
+      - ${SM_SECRETS_DIR:-./secrets}:/secrets:ro
+      - ./bootstrap/phase0.sh:/bootstrap/phase0.sh:ro
+      - ../backend/cp-core/src/main/resources/db/bootstrap/sm_control_phase0.sql:/bootstrap/sm_control_phase0.sql:ro
+      - ../backend/dp-core/src/main/resources/db/bootstrap/sm_data_phase0.sql:/bootstrap/sm_data_phase0.sql:ro
+    entrypoint: [ "/bin/sh", "/bootstrap/phase0.sh" ]
+
+  migrate:
+    profiles: [ migrate ]
+    image: ${SM_IMAGE:-sm-launcher:dev}
+    depends_on: { db: { condition: service_healthy } }
+    entrypoint: [ "/opt/sm/bin/sm-migrate" ]
+    secrets: [ cp_migrator_password, dp_migrator_password ]
+    environment: &migrator
+      SM_CONTROL_MIGRATOR_URL: jdbc:postgresql://db:5432/sm
+      SM_CONTROL_MIGRATOR_USERNAME: sm_cp_migrator
+      SM_CONTROL_MIGRATOR_PASSWORD_FILE: /run/secrets/cp_migrator_password
+      SM_CONTROL_BOOTSTRAP_CREDENTIAL_HASH: ${SM_CONTROL_BOOTSTRAP_CREDENTIAL_HASH:?set it in .env}
+      SM_DATA_MIGRATOR_URL: jdbc:postgresql://db:5432/sm
+      SM_DATA_MIGRATOR_USERNAME: sm_dp_migrator
+      SM_DATA_MIGRATOR_PASSWORD_FILE: /run/secrets/dp_migrator_password
+
+  launcher:
+    image: ${SM_IMAGE:-sm-launcher:dev}
+    depends_on: { db: { condition: service_healthy } }
+    restart: unless-stopped
+    # Must exceed SM_SHUTDOWN_TIMEOUT: the gateway drains (up to its drain window) before the JVM exits.
+    stop_grace_period: 90s
+    # The console listens in plain HTTP, so it is published on the loopback only. Browsers reach it through an operator-run
+    # TLS-terminating reverse proxy (OR-136 (4)) that serves exactly the origin in SM_TRUSTED_ORIGIN; the console trusts
+    # X-Forwarded-* only from SM_TRUSTED_PROXY, the address the proxy's connections arrive FROM inside the container (for a
+    # proxy on the host, the Docker network gateway, not 127.0.0.1). The agent port is mTLS and is published on all addresses.
+    ports: [ "127.0.0.1:8080:8080", "9443:9443" ]
+    secrets: [ agent_gateway_cert, agent_gateway_key, agent_ca_trust, agent_ca_keystore, agent_ca_keystore_password, cp_runtime_password, dp_runtime_password, dp_master_key ]
+    environment:
+      SM_CONTROL_RUNTIME_URL: jdbc:postgresql://db:5432/sm
+      SM_CONTROL_RUNTIME_USERNAME: sm_cp_runtime
+      SM_CONTROL_RUNTIME_PASSWORD_FILE: /run/secrets/cp_runtime_password
+      SM_DATA_RUNTIME_URL: jdbc:postgresql://db:5432/sm
+      SM_DATA_RUNTIME_USERNAME: sm_dp_runtime
+      SM_DATA_RUNTIME_PASSWORD_FILE: /run/secrets/dp_runtime_password
+      # The data-plane master key (OR-85): the launcher refuses to start without it. The key is a compose secret read through the _FILE form
+      # (never an environment value); the id only labels it. Losing the key file loses every sealed secret value.
+      SM_DP_MASTER_KEY_FILE: /run/secrets/dp_master_key
+      SM_DP_MASTER_KEY_ID: ${SM_DP_MASTER_KEY_ID:?set it in .env}
+      SM_GATEWAY_TRUSTED_ORIGINS_0: ${SM_TRUSTED_ORIGIN:?set it in .env}
+      SM_GATEWAY_TRUSTED_PROXIES_0: ${SM_TRUSTED_PROXY:?set it in .env}
+      SM_AGENT_GATEWAY_ENABLED: ${SM_AGENT_GATEWAY_ENABLED:-true}
+      SM_AGENT_GATEWAY_CERT: /run/secrets/agent_gateway_cert
+      SM_AGENT_GATEWAY_KEY: /run/secrets/agent_gateway_key
+      SM_AGENT_GATEWAY_TRUST: /run/secrets/agent_ca_trust
+      SM_AGENT_GATEWAY_ENDPOINT: ${SM_AGENT_ENDPOINT:?set it in .env}
+      SM_AGENT_CA_KEYSTORE: /run/secrets/agent_ca_keystore
+      SM_AGENT_CA_KEYSTORE_PASSWORD_FILE: /run/secrets/agent_ca_keystore_password
+      SM_AGENT_CA_KEY_ALIAS: agent-ca
+      # Optional, with the launcher's own defaults (application.properties); the launcher refuses to start when the enrolment-token
+      # default exceeds the maximum. Without these lines a value set in .env would never reach the container.
+      SM_AGENT_CA_LEAF_TTL: ${SM_AGENT_CA_LEAF_TTL:-30d}
+      SM_AGENT_ENROLMENT_TOKEN_DEFAULT_VALIDITY: ${SM_AGENT_ENROLMENT_TOKEN_DEFAULT_VALIDITY:-24h}
+      SM_AGENT_ENROLMENT_TOKEN_MAX_VALIDITY: ${SM_AGENT_ENROLMENT_TOKEN_MAX_VALIDITY:-30d}
+      # The drain window and the shutdown timeout nest inside stop_grace_period above (90s > 60s > 30s + 5s): raise that too if you raise either.
+      SM_AGENT_GATEWAY_DRAIN_WINDOW: ${SM_AGENT_GATEWAY_DRAIN_WINDOW:-30s}
+      SM_SHUTDOWN_TIMEOUT: ${SM_SHUTDOWN_TIMEOUT:-60s}
+      SM_AGENT_SWEEP_ENABLED: ${SM_AGENT_SWEEP_ENABLED:-true}
+      SM_AGENT_SWEEP_INTERVAL: ${SM_AGENT_SWEEP_INTERVAL:-PT1M}
+      SM_AGENT_STALENESS_JOB_ENABLED: ${SM_AGENT_STALENESS_JOB_ENABLED:-true}
+      SM_AGENT_STALENESS_JOB_INTERVAL: ${SM_AGENT_STALENESS_JOB_INTERVAL:-PT30S}
+      # Plan 015 Final (review MINOR-4), launcher defaults: how long the startup apply-recovery sweep waits (one shared window) for an agent's
+      # session after an SM restart (0s turns the wait off), and the cap on placements one agent target may hold.
+      SM_DP_APPLY_AGENT_SESSION_GRACE: ${SM_DP_APPLY_AGENT_SESSION_GRACE:-30s}
+      SM_DP_AGENT_MAX_PLACEMENTS_PER_TARGET: ${SM_DP_AGENT_MAX_PLACEMENTS_PER_TARGET:-16}
+
+secrets:
+  # Generated by scripts/init-secrets.sh into ${SM_SECRETS_DIR:-./secrets}; compose refuses to start while one is missing.
+  db_superuser_password: { file: "${SM_SECRETS_DIR:-./secrets}/db_superuser_password" }
+  cp_migrator_password: { file: "${SM_SECRETS_DIR:-./secrets}/cp_migrator_password" }
+  cp_runtime_password: { file: "${SM_SECRETS_DIR:-./secrets}/cp_runtime_password" }
+  dp_migrator_password: { file: "${SM_SECRETS_DIR:-./secrets}/dp_migrator_password" }
+  dp_runtime_password: { file: "${SM_SECRETS_DIR:-./secrets}/dp_runtime_password" }
+  dp_master_key: { file: "${SM_SECRETS_DIR:-./secrets}/dp_master_key" }
+  agent_gateway_cert: { file: ./certs/gateway.crt }
+  agent_gateway_key: { file: ./certs/gateway.key }
+  agent_ca_trust: { file: ./certs/agent-ca.pem }
+  agent_ca_keystore: { file: ./certs/agent-ca.p12 }
+  agent_ca_keystore_password: { file: ./certs/agent-ca.password }
+
+volumes:
+  sm-pg:

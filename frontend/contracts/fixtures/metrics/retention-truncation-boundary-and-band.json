@@ -1,0 +1,46 @@
+{
+  "name": "retention-truncation-boundary-and-band",
+  "queryResponse": {
+    "queryVersion": 1,
+    "metric": { "name": "cache.hit_rate", "metricType": "gauge", "unit": "ratio" },
+    "render": { "transform": "none" },
+    "resolution": { "requested": "auto", "served": "daily", "bucketSeconds": 86400 },
+    "coverage": { "requestedFrom": "2026-01-01T00:00:00Z", "servedFrom": "2026-02-15T00:00:00Z", "truncatedByRetention": true },
+    "gapThresholdSeconds": 172800,
+    "series": [
+      {
+        "seriesRef": { "instanceId": "a1b2", "placementId": "p1", "sourceKey": null },
+        "label": "cache-prod-01",
+        "replicaComposition": { "total": 1, "inactive": 0 },
+        "state": "ok",
+        "points": [["2026-02-15T00:00:00Z", 0.93, 1, 1]],
+        "gaps": []
+      }
+    ],
+    "partial": { "degraded": false, "unavailable": [] }
+  },
+  "widgetConfig": {},
+  "theme": { "categoricalColors": ["#4E79A7"] },
+  "expected": {
+    "metric": { "name": "cache.hit_rate", "metricType": "gauge", "unit": "ratio" },
+    "render": { "transform": "none" },
+    "coverage": {
+      "requestedFrom": "2026-01-01T00:00:00Z",
+      "servedFrom": "2026-02-15T00:00:00Z",
+      "truncatedByRetention": true,
+      "truncatedBand": { "from": "2026-01-01T00:00:00Z", "to": "2026-02-15T00:00:00Z" }
+    },
+    "series": [
+      {
+        "seriesRef": { "instanceId": "a1b2", "placementId": "p1", "sourceKey": null },
+        "label": "cache-prod-01",
+        "state": "ok",
+        "replicaComposition": { "total": 1, "inactive": 0 },
+        "color": "#4E79A7",
+        "dashPattern": "solid",
+        "points": [{ "ts": "2026-02-15T00:00:00Z", "value": 0.93, "lowCoverage": false }],
+        "gaps": []
+      }
+    ]
+  }
+}

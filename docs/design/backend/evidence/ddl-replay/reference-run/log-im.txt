@@ -1,0 +1,147 @@
+### [OK] (i) POS: attempt with the CORRECT (tenant, apply, intent) triple  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_attempt(attempt_id,tenant_id,apply_id,intent_id,step,attempt_no,started_at,step_deadline) VALUES ('a0000001-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','e0000001-0000-4000-8000-000000000001','MATERIALIZE',1,now(),now()+interval '5 min');
+--- RESULT ---
+
+
+### [OK] (m) SETUP: close attempt_no=1 (BE-D20) so the FK/legal-retry legs below test their own named constraint, not attempt_open_fence  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_attempt SET outcome='SUCCEEDED' WHERE attempt_id='a0000001-0000-4000-8000-000000000001';
+--- RESULT ---
+
+
+### [REFUSED] (i) REFUSE isolated (unused attempt_no=9): same tenant, WRONG apply_id -> triple FK  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_attempt(attempt_id,tenant_id,apply_id,intent_id,step,attempt_no,started_at,step_deadline) VALUES ('a0000008-0000-4000-8000-000000000008','11111111-1111-4111-8111-111111111111','c0000001-0000-4000-8000-000000000001','e0000001-0000-4000-8000-000000000001','MATERIALIZE',9,now(),now()+interval '5 min');
+--- RESULT ---
+ERROR:  23503: insert or update on table "apply_attempt" violates foreign key constraint "apply_attempt_tenant_id_apply_id_intent_id_fkey"
+DETAIL:  Key (tenant_id, apply_id, intent_id)=(11111111-1111-4111-8111-111111111111, c0000001-0000-4000-8000-000000000001, e0000001-0000-4000-8000-000000000001) is not present in table "apply_step_intent".
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_attempt
+CONSTRAINT NAME:  apply_attempt_tenant_id_apply_id_intent_id_fkey
+LOCATION:  ri_ReportViolation, ri_triggers.c:2528
+
+### [REFUSED] (i) REFUSE: DIFFERENT tenant, right apply/intent -> triple FK  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_attempt(attempt_id,tenant_id,apply_id,intent_id,step,attempt_no,started_at,step_deadline) VALUES ('a0000009-0000-4000-8000-000000000009','22222222-2222-4222-8222-222222222222','d0000001-0000-4000-8000-000000000001','e0000001-0000-4000-8000-000000000001','MATERIALIZE',10,now(),now()+interval '5 min');
+--- RESULT ---
+ERROR:  23503: insert or update on table "apply_attempt" violates foreign key constraint "apply_attempt_tenant_id_apply_id_intent_id_fkey"
+DETAIL:  Key (tenant_id, apply_id, intent_id)=(22222222-2222-4222-8222-222222222222, d0000001-0000-4000-8000-000000000001, e0000001-0000-4000-8000-000000000001) is not present in table "apply_step_intent".
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_attempt
+CONSTRAINT NAME:  apply_attempt_tenant_id_apply_id_intent_id_fkey
+LOCATION:  ri_ReportViolation, ri_triggers.c:2528
+
+### [REFUSED] (i) REFUSE: attempt step DISAGREES with its intent -> (intent_id, step) FK  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_attempt(attempt_id,tenant_id,apply_id,intent_id,step,attempt_no,started_at,step_deadline) VALUES ('a0000003-0000-4000-8000-000000000003','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','e0000001-0000-4000-8000-000000000001','VERIFY',11,now(),now()+interval '5 min');
+--- RESULT ---
+ERROR:  23503: insert or update on table "apply_attempt" violates foreign key constraint "apply_attempt_intent_id_step_fkey"
+DETAIL:  Key (intent_id, step)=(e0000001-0000-4000-8000-000000000001, VERIFY) is not present in table "apply_step_intent".
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_attempt
+CONSTRAINT NAME:  apply_attempt_intent_id_step_fkey
+LOCATION:  ri_ReportViolation, ri_triggers.c:2528
+
+### [REFUSED] (i) extra: baseline_only_for_lifecycle  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_attempt(attempt_id,tenant_id,apply_id,intent_id,step,attempt_no,started_at,step_deadline,pre_baseline) VALUES ('a000000a-0000-4000-8000-00000000000a','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','e0000001-0000-4000-8000-000000000001','MATERIALIZE',12,now(),now()+interval '5 min','{"pid":1}'::jsonb);
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_attempt" violates check constraint "baseline_only_for_lifecycle"
+DETAIL:  Failing row contains (a000000a-0000-4000-8000-00000000000a, 11111111-1111-4111-8111-111111111111, d0000001-0000-4000-8000-000000000001, e0000001-0000-4000-8000-000000000001, MATERIALIZE, 12, {"pid": 1}, 2026-09-09 15:04:24.093795+00, null, 2026-09-09 15:09:24.093795+00, null, null, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_attempt
+CONSTRAINT NAME:  baseline_only_for_lifecycle
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (i) extra: attempt_time_ordered  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_attempt(attempt_id,tenant_id,apply_id,intent_id,step,attempt_no,started_at,ended_at,step_deadline) VALUES ('a000000b-0000-4000-8000-00000000000b','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','e0000001-0000-4000-8000-000000000001','MATERIALIZE',13,now(),now()-interval '1 min',now()+interval '5 min');
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_attempt" violates check constraint "attempt_time_ordered"
+DETAIL:  Failing row contains (a000000b-0000-4000-8000-00000000000b, 11111111-1111-4111-8111-111111111111, d0000001-0000-4000-8000-000000000001, e0000001-0000-4000-8000-000000000001, MATERIALIZE, 13, null, 2026-09-09 15:04:24.195036+00, 2026-09-09 15:03:24.195036+00, 2026-09-09 15:09:24.195036+00, null, null, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_attempt
+CONSTRAINT NAME:  attempt_time_ordered
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (i) extra: outcome_known  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_attempt(attempt_id,tenant_id,apply_id,intent_id,step,attempt_no,started_at,step_deadline,outcome) VALUES ('a000000c-0000-4000-8000-00000000000c','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','e0000001-0000-4000-8000-000000000001','MATERIALIZE',14,now(),now()+interval '5 min','EXPLODED');
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_attempt" violates check constraint "outcome_known"
+DETAIL:  Failing row contains (a000000c-0000-4000-8000-00000000000c, 11111111-1111-4111-8111-111111111111, d0000001-0000-4000-8000-000000000001, e0000001-0000-4000-8000-000000000001, MATERIALIZE, 14, null, 2026-09-09 15:04:24.306275+00, null, 2026-09-09 15:09:24.306275+00, EXPLODED, null, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_attempt
+CONSTRAINT NAME:  outcome_known
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (m) REFUSE: attempt_no = 0 -> attempt_no_positive  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_attempt(attempt_id,tenant_id,apply_id,intent_id,step,attempt_no,started_at,step_deadline) VALUES ('a0000004-0000-4000-8000-000000000004','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','e0000001-0000-4000-8000-000000000001','MATERIALIZE',0,now(),now()+interval '5 min');
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_attempt" violates check constraint "attempt_no_positive"
+DETAIL:  Failing row contains (a0000004-0000-4000-8000-000000000004, 11111111-1111-4111-8111-111111111111, d0000001-0000-4000-8000-000000000001, e0000001-0000-4000-8000-000000000001, MATERIALIZE, 0, null, 2026-09-09 15:04:24.419513+00, null, 2026-09-09 15:09:24.419513+00, null, null, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_attempt
+CONSTRAINT NAME:  attempt_no_positive
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (m) REFUSE: attempt_no = -1 -> attempt_no_positive  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_attempt(attempt_id,tenant_id,apply_id,intent_id,step,attempt_no,started_at,step_deadline) VALUES ('a0000005-0000-4000-8000-000000000005','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','e0000001-0000-4000-8000-000000000001','MATERIALIZE',-1,now(),now()+interval '5 min');
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_attempt" violates check constraint "attempt_no_positive"
+DETAIL:  Failing row contains (a0000005-0000-4000-8000-000000000005, 11111111-1111-4111-8111-111111111111, d0000001-0000-4000-8000-000000000001, e0000001-0000-4000-8000-000000000001, MATERIALIZE, -1, null, 2026-09-09 15:04:24.524191+00, null, 2026-09-09 15:09:24.524191+00, null, null, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_attempt
+CONSTRAINT NAME:  attempt_no_positive
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [OK] (m) POS: attempt_no = 2 (a legal retry)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_attempt(attempt_id,tenant_id,apply_id,intent_id,step,attempt_no,started_at,step_deadline) VALUES ('a0000006-0000-4000-8000-000000000006','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','e0000001-0000-4000-8000-000000000001','MATERIALIZE',2,now(),now()+interval '5 min');
+--- RESULT ---
+
+
+### [OK] (m) SETUP: close attempt_no=2 / a0000006 (BE-D20) so the duplicate-number leg below tests ATTEMPT_NO_UNIQUE alone, not attempt_open_fence  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_attempt SET outcome='SUCCEEDED' WHERE attempt_id='a0000006-0000-4000-8000-000000000006';
+--- RESULT ---
+
+
+### [REFUSED] (m) REFUSE: duplicate (intent_id, attempt_no)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_attempt(attempt_id,tenant_id,apply_id,intent_id,step,attempt_no,started_at,step_deadline) VALUES ('a0000007-0000-4000-8000-000000000007','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','e0000001-0000-4000-8000-000000000001','MATERIALIZE',2,now(),now()+interval '5 min');
+--- RESULT ---
+ERROR:  23505: duplicate key value violates unique constraint "apply_attempt_intent_id_attempt_no_key"
+DETAIL:  Key (intent_id, attempt_no)=(e0000001-0000-4000-8000-000000000001, 2) already exists.
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_attempt
+CONSTRAINT NAME:  apply_attempt_intent_id_attempt_no_key
+LOCATION:  _bt_check_unique, nbtinsert.c:663
+
+### [OK] (m) SETUP: a FRESH intent (e0000020, under d0000001) with attempt_no=1 opened, dedicated to BE-D20's own attempt_open_fence-by-name leg (not the entangled e0000001 sequence)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_step_intent(intent_id,tenant_id,apply_id,replica_ref,step,idempotency_key,config_hash,created_at)
+VALUES ('e0000020-0000-4000-8000-000000000020','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','replica-fence','MATERIALIZE','idem-fence-test','sha256:fence',now());
+INSERT INTO sm_data.apply_attempt(attempt_id,tenant_id,apply_id,intent_id,step,attempt_no,started_at,step_deadline) VALUES ('a0000020-0000-4000-8000-000000000020','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','e0000020-0000-4000-8000-000000000020','MATERIALIZE',1,now(),now()+interval '5 min');
+--- RESULT ---
+
+
+### [REFUSED] (m) REFUSE, NO RACE: a second open attempt (attempt_no=2, same intent, outcome NULL) while attempt_no=1 is still open -> attempt_open_fence (BE-D20's own obligation; NOT apply_attempt_intent_id_attempt_no_key, since the two numbers differ)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_attempt(attempt_id,tenant_id,apply_id,intent_id,step,attempt_no,started_at,step_deadline) VALUES ('a0000021-0000-4000-8000-000000000021','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','e0000020-0000-4000-8000-000000000020','MATERIALIZE',2,now(),now()+interval '5 min');
+--- RESULT ---
+ERROR:  23505: duplicate key value violates unique constraint "attempt_open_fence"
+DETAIL:  Key (intent_id)=(e0000020-0000-4000-8000-000000000020) already exists.
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_attempt
+CONSTRAINT NAME:  attempt_open_fence
+LOCATION:  _bt_check_unique, nbtinsert.c:663
+
+### [OK] (m) POS control: close attempt_no=1, then a fresh attempt_no=2 for the SAME intent succeeds — the fence forbids a concurrent second open, not a legitimate sequential retry (BE-D20's own obligation 2)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_attempt SET outcome='SUCCEEDED' WHERE attempt_id='a0000020-0000-4000-8000-000000000020';
+INSERT INTO sm_data.apply_attempt(attempt_id,tenant_id,apply_id,intent_id,step,attempt_no,started_at,step_deadline) VALUES ('a0000022-0000-4000-8000-000000000022','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','e0000020-0000-4000-8000-000000000020','MATERIALIZE',2,now(),now()+interval '5 min');
+--- RESULT ---

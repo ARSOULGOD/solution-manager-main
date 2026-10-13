@@ -1,0 +1,36 @@
+# Dependency licence allow-list and exact name mapping (REQ-014 / invariant I8, plan 010 T0.4b).
+#
+# FORMAT (read by license-maven-plugin's licenseMergesUrl, one merge per line): the canonical name, then each
+# variant, separated by the pipe character. Every variant is folded into the canonical name by EXACT string match,
+# never a substring, never a regex. A licence name that is not a canonical entry here, and not a variant of one,
+# is "unmapped" and FAILS THE BUILD. A line with no pipe is an allow-listed name that has no known spelling variant.
+#
+# WARNING: the plugin does NOT treat # as a comment. It splits every line, comments included, on the pipe
+# character and registers each as a merge (measured from the plugin's bytecode). So no comment line may contain
+# the pipe character: scripts/check-licences.py fails on one.
+#
+# THE ALLOW-LIST (REQ-014, confirmed by the owner 2026-09-29) is exactly the six Canonical names below:
+# Apache-2.0, MIT, BSD-2-Clause, BSD-3-Clause, ISC, PostgreSQL. backend/pom.xml carries the same six in its
+# <includedLicenses> (the plugin cannot read that list from a file); licence-gate self-check
+# scripts/check-licences.py fails when the two differ.
+#
+# THE VARIANTS are the thirteen literal spellings measured in docs/tasks/licence-audit-2026-09.md Appendix B
+# (eight Apache-2.0, three MIT, two BSD-2-Clause, counting the canonical spellings). The owner has not ruled on
+# Appendix B as a separate item; they are mapped here because plan 010 T0.4b's Files text prescribes exact-string
+# mapping of exactly this kind. Unqualified "BSD" is deliberately NOT mapped (which BSD text is not stated) --
+# those artifacts need an exception line.
+# A ninth Apache-2.0 spelling, "Apache License Version 2.0" (no comma), is the literal name com.networknt:json-schema-validator
+# 2.0.8 publishes in its POM (plan 010 T3.0; docs/tasks/t3-0-json-schema-library.md). Added under owner ruling OR-86
+# (2026-10-05) as an exact-string variant of Apache-2.0, the same kind as the eight above; it widens no allow-list entry.
+Apache-2.0|Apache License, Version 2.0|The Apache Software License, Version 2.0|The Apache License, Version 2.0|Apache License 2.0|Apache 2.0|Apache 2|Apache Public License 2.0|Apache License Version 2.0
+MIT|MIT License|The MIT License
+BSD-2-Clause|BSD 2-Clause License
+BSD-3-Clause
+ISC
+PostgreSQL
+#
+# FIRST-PARTY (not a REQ-014 allow-list entry). This reactor's own modules inherit "Proprietary - Solace" from
+# backend/pom.xml. They are folded into the name "Solace first-party", which backend/pom.xml whitelists beside the
+# six. licence-third-party.ftl accepts that name only for groupId com.solace.sm or an exact line in
+# licence-exceptions.txt (JCSMP), so a third party cannot claim it by declaring the same string.
+Solace first-party|Proprietary - Solace

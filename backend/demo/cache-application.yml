@@ -1,0 +1,33 @@
+# The SM-owned external config file, at its INITIAL content. Copy it into the bind-mounted working
+# directory with the command in README.md; SM then overwrites the copy, which is the whole point of
+# the walkthrough.
+#
+# Every key below is one the Cache's own src/main/resources/application.yml already declares. SM
+# adds no new key and the image is unchanged: I1 is about DEVELOPMENT on the managed integration,
+# and writing a file the integration already reads is not development.
+cache-engine:
+  max-size: 100000
+
+  # MEASURED 2026-09-14, correcting plan 005's own measured fact: `enabled: false` does NOT give a
+  # startable Cache. It switches off JcsmpSolaceProducer, and CacheManagerService is a plain
+  # @Service with a hard constructor dependency on that bean, so the context fails to refresh. A
+  # broker is a prerequisite of running this integration at all -- see docker-compose.yml.
+  #
+  # This is the managed integration's OWN messaging. SM connects to nothing here, so BE-D5 and the
+  # two open ACL-shape items are untouched.
+  solace:
+    enabled: true
+    host: tcp://broker:55555
+    vpn: default
+    username: default
+    # A throwaway local broker's default client password, committed on purpose. I6 is about config
+    # values marked `secretRef` resolving at render time from the secret backend; this walkthrough
+    # exercises no secretRef at all, and says so rather than implying one.
+    password: default
+    # LeaderElection is @ConditionalOnProperty on BOTH solace.enabled and
+    # solace.management.enabled being "true". Off here, and that is what makes the demo need no
+    # queue provisioning at all: LeaderElection's @PostConstruct is the only caller of
+    # JcsmpSolaceConsumer.startConsumer(), and the queue bind lives inside it. MEASURED against a
+    # broker with an empty queue list -- the Cache came up healthy in 3 s.
+    management:
+      enabled: false

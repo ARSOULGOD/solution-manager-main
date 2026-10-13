@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.solace.sm</groupId>
+    <artifactId>backend-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>cp-core</artifactId>
+  <name>Solution Manager :: cp-core</name>
+  <description>
+    Control-plane implementation, owns sm_control (backend design §2). Depends on cp-api and the
+    plane-neutral mesh-events contract module (the EventPublisher seam, which both planes publish
+    through - plan 010 T3.3, decision BE-D33) - never on dp-api or dp-core (I7). The raw
+    broker transport is dp-core's and reaches this module as an EventPublisher interface bean.
+  </description>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.solace.sm</groupId>
+      <artifactId>cp-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.solace.sm</groupId>
+      <artifactId>mesh-events</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-jdbc</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.security</groupId>
+      <artifactId>spring-security-crypto</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcprov-jdk18on</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcpkix-jdk18on</artifactId>
+    </dependency>
+    <!--
+      Load-time Solution Package validation (plan 010 T3.0/T3.1): JSON Schema draft 2020-12, the Jackson-2 line
+      (3.0.x needs Jackson 3). Apache-2.0, with com.ethlo.time:itu (Apache-2.0) as its only runtime artifact.
+      Recorded in docs/tasks/t3-0-json-schema-library.md. Version pinned here, not in the parent: cp-core is its
+      only consumer.
+    -->
+    <dependency>
+      <groupId>com.networknt</groupId>
+      <artifactId>json-schema-validator</artifactId>
+      <version>2.0.8</version>
+    </dependency>
+    <!--
+      CapturingTransport (mesh-events' test sources) is what makes "nothing published until the CP transaction
+      commits" assertable without a broker: the catalog-event tests read the (topic, body) pair it captures. It is
+      the ONLY reason for this edge - not the publisher kit, which this module does not subclass (it contributes a
+      second INSTANCE of an already-kitted implementation, not a new one). Drop the edge if no test consumes it.
+    -->
+    <dependency>
+      <groupId>com.solace.sm</groupId>
+      <artifactId>mesh-events</artifactId>
+      <version>${project.version}</version>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!--
+      Flyway 10+ moved every database dialect out of flyway-core into per-database modules; without
+      flyway-database-postgresql, Flyway.configure()...load() throws at runtime on a jdbc:postgresql
+      URL (measured in dp-core). COMPILE scope, not test: SmControlMigrationMain — mirroring
+      dp-core's SmDataMigrationMain — is production code that runs Flyway as its own one-shot
+      process, moved here from test scope to match the scope dp-core uses for its main
+      (dp-core/pom.xml).
+    -->
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-database-postgresql</artifactId>
+    </dependency>
+    <!--
+      COMPILE scope, not test: SmControlMigrationMain resolves the PostgreSQL driver through
+      DriverManager at runtime (mirroring dp-core's SmDataMigrationMain), so the driver must be on
+      the main classpath, not only the test one.
+    -->
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>postgresql</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!--
+      ApplicationContextRunner for ControlPlaneConfigurationIT — same precedent as dp-core's
+      ApplyPersistenceConfigurationIT (dp-core/pom.xml carries the identical dependency for the
+      identical reason).
+    -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <executions>
+          <execution>
+            <goals>
+              <goal>integration-test</goal>
+              <goal>verify</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

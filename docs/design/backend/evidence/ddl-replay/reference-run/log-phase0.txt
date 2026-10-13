@@ -1,0 +1,9 @@
+### [OK] PHASE 0 — bootstrap superuser, over stdin  (container=main role=postgres db=smdb)
+--- RESULT ---
+CREATE ROLE
+CREATE ROLE
+CREATE ROLE
+GRANT ROLE
+CREATE SCHEMA
+GRANT
+REVOKE

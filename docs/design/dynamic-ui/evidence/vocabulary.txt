@@ -1,0 +1,105 @@
+source: /Users/parikshit/Work/Development/file-mesh-ui/database/file-mesh-schema.sql
+FM_CONFIGURATION_TEMPLATE rows      : 1989
+FM_CONFIGURATION_TEMPLATE_COPY rows : 0
+unparsed rows (must be 0)           : 0
+
+UI_TYPE distribution:
+  input            1066
+  autocomplete     564
+  button           160
+  checkbox         74
+  text             46
+  radio            26
+  textarea         20
+  flag             16
+  table            16
+  int              1
+
+UI_TYPE_META keys:
+  advanced           1989
+  type               1386
+  disabled           1117
+  required           982
+  helperText         958
+  defaultValue       832
+  populate           251
+  showWhen           230
+  wrapper            142
+  strategy           118
+  label              90
+  disableCopy        68
+  password           54
+  freeText           46
+  dependency         41
+  ignore             24
+  element            24
+  multiline          16
+  columns            16
+  javaLabel          16
+  checked            8
+  disabledOptions    4
+  (unparsable UI_TYPE_META: 0)
+
+  meta.type values: {'text': 1171, 'number': 158, 'password': 24, 'checkbox': 16, 'yaml': 12, 'string': 5}
+
+showWhen / dependency — distinct predicate shapes:
+  showWhen    x36   {"ACTION": "deploy", "DEPLOYMENT_MODE": "highavailable"}
+  showWhen    x32   {"CONFIG_JAVA_RUNTIME": true}
+  showWhen    x30   {"ACTION": "download", "DOWNLOAD_LOCATION": "GIT"}
+  showWhen    x20   {"ACTION": "deploy"}
+  dependency  x20   {"fileFormat": "Output", "label": "Output Configuration"}
+  showWhen    x16   {"SERVER_TYPE": "FTP"}
+  showWhen    x16   {"DEPLOYMENT_FORM_FACTOR": "DOCKER", "DEPLOYMENT_MODE": "highavailable"}
+  dependency  x15   {"fileFormat": "Delimited", "label": "Delimited Configuration"}
+  showWhen    x12   {"ALLOW_SEMP": "yes"}
+  showWhen    x12   {"ACTION": "deploy", "DEPLOYMENT_MODE": "standalone"}
+  showWhen    x12   {"ACTION": "download", "DOWNLOAD_LOCATION": "GIT", "GIT_CONFIGURATION": "CLOUD"}
+  showWhen    x8    {"ACTION": "deploy", "DEPLOYMENT_FORM_FACTOR": "JAR", "DEPLOYMENT_MODE": "highavailable"}
+  showWhen    x8    {"DEPLOYMENT_FORM_FACTOR": "DOCKER", "DEPLOYMENT_MODE": "standalone"}
+  showWhen    x6    {"ACTION": "download"}
+  showWhen    x6    {"ACTION": "download", "DOWNLOAD_LOCATION": "LOCAL"}
+  showWhen    x6    {"ACTION": "deploy", "DEPLOYMENT_FORM_FACTOR": "JAR", "DEPLOYMENT_MODE": "standalone"}
+  showWhen    x6    {"ACTION": "deploy", "DEPLOY_TYPE": "LOCAL"}
+  dependency  x4    {"fileFormat": "FixedLengthFile", "label": "Fixed Length Configuration"}
+  showWhen    x4    {"ALLOW_SSL": "yes"}
+  dependency  x2    {"fileFormat": "Line", "label": "line Configuration"}
+
+GRAMMAR CHECK — any predicate value that is not a scalar literal?
+  violations: 0  -> AND-of-equalities holds
+
+UI_DATA_SOURCE — dynamic option sources (the F3 gap):
+  non-object               386
+  api                      32
+  options                  26
+  columns                  16
+  addApi,editApi           4
+
+Components by field count (top 12):
+  COMP_SOURCE_GRID           180
+  COMP_SINK_GRID             168
+  COMP_SOURCE_NWFILE         133
+  COMP_SOURCE_FTP            132
+  COMP_NONE_GRID             126
+  COMP_SINK_FTP              118
+  COMP_SOURCE_SFTP           112
+  COMP_SINK_SFTP             98
+  COMP_SOURCE_GCS            94
+  COMP_SINK_SOLACE           90
+  COMP_SOURCE_SOLACE         86
+  COMP_SINK_NWFILE           86
+
+Buttons and API-sourced fields per component (F3 evidence):
+  COMP_SINK_SOLACE           buttons=14   api-sourced=8
+  COMP_SOURCE_SOLACE         buttons=14   api-sourced=8
+  COMP_SOURCE_GRID           buttons=12   api-sourced=0
+  COMP_NONE_GRID             buttons=12   api-sourced=0
+  COMP_SINK_GRID             buttons=12   api-sourced=0
+  COMP_SINK_DEPLOY_FTP       buttons=10   api-sourced=0
+  COMP_SOURCE_DEPLOY_SFTP    buttons=10   api-sourced=0
+  COMP_SOURCE_DEPLOY_NWFILE  buttons=10   api-sourced=0
+  COMP_SINK_DEPLOY_SFTP      buttons=10   api-sourced=0
+  COMP_SINK_DEPLOY_NWFILE    buttons=10   api-sourced=0
+
+MIN_VERSION / MAX_VERSION population:
+  MIN_VERSION  non-null: 217
+  MAX_VERSION  non-null: 0

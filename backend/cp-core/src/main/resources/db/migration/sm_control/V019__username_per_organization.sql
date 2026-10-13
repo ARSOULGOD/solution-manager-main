@@ -1,0 +1,23 @@
+-- Plan 013 T3.2 (OR-125 (4), W3D-1): a username is unique PER ORGANIZATION, compared without regard to case, and no
+-- longer unique install-wide. Never edit this file once applied (OR-22): a correction is a new migration.
+--
+-- Why. V002's principal_username_unique made a username install-wide, because login named no organization. That made a
+-- 409 on createUser an oracle for the existence of a username in ANY organization, and let one organization's
+-- administrator reserve a name another could then never use (permanent: principals are deactivated, never deleted).
+-- Login now carries the organization (console.yaml `login`), so a username only has to be unique inside its own.
+--
+-- The case rule is the one the scope tree already uses (V015: organization_unit_name_ci_uq, environment_name_ci_uq):
+-- a unique index on the parent and lower(name). Two usernames that differ only by case are the same username inside one
+-- organization, which also closes the look-alike that W3D-3 named and left open for want of this index. Login compares
+-- the same way (lower(username) = lower(:username)), so the index serves the lookup.
+--
+-- What this does NOT touch: the bootstrap administrator (V007) keeps its row, its organization and its binding; no
+-- grant changes (an index needs none); record_change_audit() is unchanged.
+--
+-- UPGRADE. V002's UNIQUE(username) was case-SENSITIVE, so `Alice` and `alice` in ONE organization were legal at V018 and
+-- can exist in a database built before this migration (the API never refused them on case until T3.2). Such a database
+-- cannot take this index: the migration fails loudly with SQLSTATE 23505 naming principal_org_username_ci_uq, and
+-- nothing is changed (Flyway runs it in one transaction). Find them BEFORE upgrading with the detection query in
+-- docs/runbooks/operations.md ("Upgrading to V019") and rename or deactivate-and-recreate one of each pair.
+ALTER TABLE sm_control.principal DROP CONSTRAINT principal_username_unique;
+CREATE UNIQUE INDEX principal_org_username_ci_uq ON sm_control.principal (organization_id, lower(username));

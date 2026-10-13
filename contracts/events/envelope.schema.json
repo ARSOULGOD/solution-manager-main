@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sm/events/v1/envelope",
+  "title": "SM event envelope (design §3, BE-D4)",
+  "type": "object",
+  "required": ["eventId", "occurredAtUtc", "producer", "organization", "entity", "stateVersion", "event", "payload"],
+  "additionalProperties": false,
+  "properties": {
+    "eventId": { "type": "string", "format": "uuid" },
+    "occurredAtUtc": { "type": "string", "format": "date-time",
+      "description": "display/diagnostics ONLY — ordering uses stateVersion (B/D15)" },
+    "producer": { "enum": ["cp-core", "dp-core"] },
+    "organization": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "entity": {
+      "type": "object", "required": ["kind"], "additionalProperties": false,
+      "properties": {
+        "kind": { "enum": ["instance", "placement", "solution"] },
+        "instanceId": { "type": "string" }, "placementId": { "type": "string" },
+        "solution": { "type": "string" }
+      }
+    },
+    "stateVersion": { "type": "integer", "minimum": 0, "maximum": 9223372036854775807,
+      "description": "monotonic per owning row: one sm_data sequence, stamped on each change to that row, so per-entity commit order equals stamp order (OR-35; the correction to design §3's earlier 'config generation where one exists' rule is recorded by plan 010 T0.3). Ordering and stale-discard use this field ONLY, never wall-clock (B/D15)." },
+    "event": { "enum": ["instance.health", "instance.config-state", "instance.version",
+                         "instance.rollout", "instance.apply-outcome", "catalog.package",
+                         "metrics.quarantine"] },
+    "payload": { "type": "object" }
+  }
+}

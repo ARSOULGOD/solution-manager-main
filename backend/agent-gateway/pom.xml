@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.solace.sm</groupId>
+    <artifactId>backend-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+  <artifactId>agent-gateway</artifactId>
+  <name>Solution Manager :: agent-gateway</name>
+  <description>Transport-only gRPC gateway for the host-local agent (AGW-D2). Imports dp-api only; holds no datasource.</description>
+
+  <!--
+    Written by hand from the branch's pom (plan 015 Global constraint 7, HF13). Differences from 87e338e1:
+    no javax.annotation-api (OR-127 L1: the gRPC generator runs with @generated=omit, so no generated class
+    imports javax.annotation.Generated); protoSourceRoot reads the contract (contracts/agent/v1, OR-126 A1);
+    the executable coordinates are spelled out because backend/scripts/check-protoc-executables.py rejects
+    property indirection; grpc.version and protobuf.version are managed by the reactor root.
+    The allow-list of dependencies is enforced by arch-tests AgentGatewayDependencyAllowListTest.
+  -->
+
+  <dependencies>
+    <dependency>
+      <groupId>com.solace.sm</groupId>
+      <artifactId>dp-api</artifactId>
+    </dependency>
+    <!-- The agent-gateway port contract kits (dp-api test sources): AgentDrainPortGatewayContractTest runs the drain kit over the real
+         AgentGatewayService. An in-reactor test-scope edge, as dp-core's; no new coordinate. -->
+    <dependency>
+      <groupId>com.solace.sm</groupId>
+      <artifactId>dp-api</artifactId>
+      <version>${project.version}</version>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-netty-shaded</artifactId>
+      <version>${grpc.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-protobuf</artifactId>
+      <version>${grpc.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.protobuf</groupId>
+      <artifactId>protobuf-java-util</artifactId>
+      <version>${protobuf.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-stub</artifactId>
+      <version>${grpc.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-actuator</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.xolstice.maven.plugins</groupId>
+        <artifactId>protobuf-maven-plugin</artifactId>
+        <version>0.6.1</version>
+        <configuration>
+          <protoSourceRoot>${project.basedir}/../../contracts/agent/v1</protoSourceRoot>
+          <protocArtifact>com.google.protobuf:protoc:3.25.5:exe:${os.detected.classifier}</protocArtifact>
+          <pluginId>grpc-java</pluginId>
+          <pluginArtifact>io.grpc:protoc-gen-grpc-java:1.68.1:exe:${os.detected.classifier}</pluginArtifact>
+          <!-- OR-127 L1: omit the javax.annotation.Generated annotation. compile-custom's pluginParameter
+               (since 0.4.1, www.xolstice.org/protobuf-maven-plugin/compile-custom-mojo.html, fetched 2026-10-09)
+               is passed to the grpc-java generator as its output option. -->
+          <pluginParameter>@generated=omit</pluginParameter>
+        </configuration>
+        <executions>
+          <execution>
+            <goals><goal>compile</goal><goal>compile-custom</goal></goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>kr.motd.maven</groupId>
+        <artifactId>os-maven-plugin</artifactId>
+        <version>1.7.1</version>
+        <extensions>true</extensions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

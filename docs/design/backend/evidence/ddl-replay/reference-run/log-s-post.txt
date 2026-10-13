@@ -1,0 +1,47 @@
+### [OK] (s) POST-STATE: schema public ACL AFTER Phase 0 (the C must be gone from PUBLIC)  (container=main role=postgres db=smdb)
+--- SQL ---
+SELECT nspname, nspacl::text AS acl_after FROM pg_namespace WHERE nspname='public';
+--- RESULT ---
+nspname |             acl_after
+---------+------------------------------------
+ public  | {postgres=UC/postgres,=U/postgres}
+(1 row)
+
+### [OK] (s) THE ASSERTION: has_schema_privilege('sm_dp_runtime','public','CREATE') must be FALSE  (container=main role=postgres db=smdb)
+--- SQL ---
+SELECT has_schema_privilege('sm_dp_runtime','public','CREATE') AS runtime_can_create_in_public;
+--- RESULT ---
+runtime_can_create_in_public
+------------------------------
+ f
+(1 row)
+
+### [REFUSED] (s) BEHAVIOURAL PROOF: runtime CREATE TABLE public.smuggled must be REFUSED  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+CREATE TABLE public.smuggled(x int);
+--- RESULT ---
+ERROR:  42501: permission denied for schema public
+LINE 1: CREATE TABLE public.smuggled(x int);
+                     ^
+LOCATION:  aclcheck_error, aclchk.c:3452
+
+### [OK] (s) sm_data schema owner + ACL created by Phase 0  (container=main role=postgres db=smdb)
+--- SQL ---
+SELECT nspname, pg_get_userbyid(nspowner) AS owner, nspacl::text FROM pg_namespace WHERE nspname='sm_data';
+--- RESULT ---
+nspname |    owner    |                          nspacl
+---------+-------------+----------------------------------------------------------
+ sm_data | sm_dp_owner | {sm_dp_owner=UC/sm_dp_owner,sm_dp_runtime=U/sm_dp_owner}
+(1 row)
+
+### [OK] (s) role attributes created by Phase 0  (container=main role=postgres db=smdb)
+--- SQL ---
+SELECT rolname, rolsuper, rolcanlogin, rolinherit FROM pg_roles
+ WHERE rolname LIKE 'sm_dp%' ORDER BY rolname;
+--- RESULT ---
+rolname     | rolsuper | rolcanlogin | rolinherit
+----------------+----------+-------------+------------
+ sm_dp_migrator | f        | t           | t
+ sm_dp_owner    | f        | f           | t
+ sm_dp_runtime  | f        | t           | f
+(3 rows)

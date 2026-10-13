@@ -1,0 +1,85 @@
+### [OK] (s) Phase 1 topology: every table+index owned by sm_dp_owner  (container=main role=postgres db=smdb)
+--- SQL ---
+SELECT count(*) FILTER (WHERE pg_get_userbyid(relowner)='sm_dp_owner') AS owned_by_sm_dp_owner,
+       count(*) AS total
+  FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+ WHERE n.nspname='sm_data' AND relkind IN ('r','i');
+--- RESULT ---
+owned_by_sm_dp_owner | total
+----------------------+-------
+                   22 |    22
+(1 row)
+
+### [OK] (s) Phase 1 topology: functions and trigger wiring (per-table guards)  (container=main role=postgres db=smdb)
+--- SQL ---
+SELECT p.proname, pg_get_userbyid(p.proowner) AS owner FROM pg_proc p
+  JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='sm_data' ORDER BY 1;
+SELECT t.tgname, t.tgrelid::regclass AS tbl, p.proname AS fn, t.tgenabled
+  FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid WHERE NOT t.tgisinternal ORDER BY 1;
+--- RESULT ---
+proname             |    owner
+--------------------------------+-------------
+ forbid_terminal_regression     | sm_dp_owner
+ instance_watermark_only_rises  | sm_dp_owner
+ placement_watermark_only_rises | sm_dp_owner
+(3 rows)
+
+            tgname             |             tbl             |               fn               | tgenabled
+-------------------------------+-----------------------------+--------------------------------+-----------
+ apply_request_terminal_guard  | sm_data.apply_request       | forbid_terminal_regression     | O
+ apply_scope_monotonic         | sm_data.apply_scope         | instance_watermark_only_rises  | O
+ placement_watermark_monotonic | sm_data.placement_watermark | placement_watermark_only_rises | O
+(3 rows)
+
+### [OK] (s) DCL: runtime UPDATE column-scoping + DELETE grants  (container=main role=postgres db=smdb)
+--- SQL ---
+SELECT table_name, string_agg(column_name,', ' ORDER BY column_name) AS updatable_columns
+  FROM information_schema.column_privileges
+ WHERE grantee='sm_dp_runtime' AND table_schema='sm_data' AND privilege_type='UPDATE'
+ GROUP BY 1 ORDER BY 1;
+SELECT coalesce(string_agg(table_name,', '),'(none)') AS runtime_delete_tables
+  FROM information_schema.table_privileges
+ WHERE grantee='sm_dp_runtime' AND table_schema='sm_data' AND privilege_type='DELETE';
+--- RESULT ---
+table_name      |                                                                         updatable_columns
+---------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ apply_attempt       | apply_id, attempt_id, attempt_no, ended_at, error_class, intent_id, observed_hash, outcome, pre_baseline, runtime_ref, started_at, step, step_deadline, tenant_id
+ apply_request       | attempt_summary, resolution_observed, resolution_outcome, resolved_by, state, terminal_at
+ apply_scope         | instance_watermark
+ placement_watermark | generation
+(4 rows)
+
+ runtime_delete_tables
+-----------------------
+ apply_attempt
+(1 row)
+
+### [OK] (s/I6) DCL: runtime INSERT is column-scoped too — resolution_note in neither list  (container=main role=postgres db=smdb)
+--- SQL ---
+SELECT privilege_type, string_agg(column_name,', ' ORDER BY column_name) AS cols FROM information_schema.column_privileges WHERE grantee='sm_dp_runtime' AND table_schema='sm_data' AND table_name='apply_request' GROUP BY 1 ORDER BY 1;
+SELECT count(*) AS note_grants FROM information_schema.column_privileges WHERE grantee='sm_dp_runtime' AND table_schema='sm_data' AND table_name='apply_request' AND column_name='resolution_note';
+--- RESULT ---
+privilege_type |                                                                                                                     cols
+----------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ INSERT         | apply_id, attempt_summary, generation, instance_id, operation, outage_confirmed_by, placement_id, requested_at, requested_by, resolution_observed, resolution_outcome, resolved_by, state, strategy, tenant_id, terminal_at
+ SELECT         | apply_id, attempt_summary, generation, instance_id, operation, outage_confirmed_by, placement_id, requested_at, requested_by, resolution_note, resolution_observed, resolution_outcome, resolved_by, state, strategy, tenant_id, terminal_at
+ UPDATE         | attempt_summary, resolution_observed, resolution_outcome, resolved_by, state, terminal_at
+(3 rows)
+
+ note_grants
+-------------
+           1
+(1 row)
+
+### [OK] (s) ALTER DEFAULT PRIVILEGES: new owner table -> runtime SELECT yes, INSERT no  (container=main role=sm_dp_migrator db=smdb)
+--- SQL ---
+SET ROLE sm_dp_owner;
+CREATE TABLE sm_data.future_table(x int);
+SELECT has_table_privilege('sm_dp_runtime','sm_data.future_table','SELECT') AS runtime_select,
+       has_table_privilege('sm_dp_runtime','sm_data.future_table','INSERT') AS runtime_insert;
+DROP TABLE sm_data.future_table;
+--- RESULT ---
+runtime_select | runtime_insert
+----------------+----------------
+ t              | f
+(1 row)

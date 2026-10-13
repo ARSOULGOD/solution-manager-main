@@ -1,0 +1,116 @@
+dev/frontend intake census
+==========================
+generated : 2026-09-11T09:40:40Z
+base      : 9c0d06e7c52e0a565a7cd0e3c658361cd925c30d  Close the external review's seam-bypass and post-close-send
+ours      : 85170b4  Merge agent gateway design
+theirs    : c27fda1  feat(frontend): validate multi-version solution packages
+
+
+1. Branch size
+  commits on theirs not in base : 239
+  files changed, theirs vs base : 1349
+
+2. Merge hazard under backend/ (why a direct merge is refused)
+  backend files present at ours          : 172
+  backend files deleted by theirs vs base: 73
+  -> SILENTLY deleted by a merge         : 70   (deleted theirs, untouched ours: git takes the delete, no conflict)
+  -> raised as modify/delete CONFLICT    : 3
+  the conflicting files:
+    backend/arch-tests/src/test/java/com/solace/sm/arch/PlaneBoundaryTest.java
+    backend/dp-core/pom.xml
+    backend/dp-core/src/main/java/com/solace/sm/dp/meshbridge/SpringTransactionBoundary.java
+  silently-deleted files by module:
+      12 arch-tests
+       2 console-gateway
+       2 cp-api
+       2 cp-core
+       2 dp-api
+      12 dp-core
+      20 mesh-events
+       1 pom.xml
+      17 spikes
+
+3. Provenance of the deletion — an evil merge, not a later commit
+  commits on theirs touching backend/pom.xml (full history):
+    0bea7a2 Merge contracts-backend-consumption into dev/frontend
+    parent 4863355 has backend/pom.xml: 0   (Commit go-agent chnages)
+    parent 9c0d06e has backend/pom.xml: 1   (Close the external review's seam-bypass and p)
+
+4. Decision-ID collisions
+  max BE-D at the merge base : ## `BE-D11`
+  ours   BE-D12 : ## `BE-D12` — The `dp-remote` apply protocol: six runtime-neutral operations behind a `RuntimeAd
+  theirs BE-D12 : ## `BE-D12` — Organization replaces Tenant at every backend boundary
+  ours' BE-D12 is cited in 6 files / 29 lines at 85170b4 (excl. its own decisions.md)
+    (two measures because they differ: one file may cite it many times. Neither is 'the' count.)
+  FE-D ids whose TITLE differs between ours and theirs (a citation means two things):
+    FE-D25
+      ours  : `FE-D25` — sm-v2 is the visual specification of record
+      theirs: `FE-D25` — Idle-lock draft preservation
+    FE-D26
+      ours  : `FE-D26` — The verified product palette governs UI semantics; identity stays with the brand book
+      theirs: `FE-D26` — Desktop-only ≥ 1280 px — SUPERSEDED
+  divergent FE-D ids: 2
+  BE-D ids defined on theirs (the collision surface is only as wide as this):
+    `BE-D1` `BE-D2` `BE-D3` `BE-D4` `BE-D5` `BE-D6` `BE-D7` `BE-D8` `BE-D9` `BE-D10` `BE-D11` `BE-D12`
+
+  new parent-family D* ids on theirs (family is closed at D17 on ours):
+    | **D18**
+    | **D19**
+    | **D20**
+  (maxima only — see the id-by-id compare above for what actually collides)
+  ours' highest FE-D  : ## `FE-D26`
+  theirs' highest FE-D: ## `FE-D54`
+
+5. Contract (wire) changes — contracts/ is single-writer
+  contracts/ files changed, theirs vs base: 49
+  envelope required-key rename:
+    -  "required": ["eventId", "occurredAtUtc", "producer", "tenant", "entity", "stateVersion", "event", "payload"],
+    +  "required": ["eventId", "occurredAtUtc", "producer", "organization", "entity", "stateVersion", "event", "payload"],
+    -    "tenant": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    +    "organization": { "type": "string", "minLength": 1, "pattern": "\\S" },
+  asyncapi topic parameter rename (address lines):
+    -    address: sm/v1/{tenant}/notify/instance/{instanceId}/{aspect}
+    +    address: sm/v1/{organization}/notify/instance/{instanceId}/{aspect}
+    -    address: sm/v1/{tenant}/notify/instance/{instanceId}/rollout/{applyId}
+    +    address: sm/v1/{organization}/notify/instance/{instanceId}/rollout/{applyId}
+    -    address: sm/v1/{tenant}/notify/catalog/package
+    +    address: sm/v1/{organization}/notify/catalog/package
+    -    address: sm/v1/{tenant}/stream/{grantId}/{seriesKey}
+    +    address: sm/v1/{organization}/stream/{grantId}/{seriesKey}
+  backend files naming the envelope 'tenant' accessor/field:
+    backend/mesh-events/src/main/java/com/solace/sm/events/EventEnvelope.java
+    backend/mesh-events/src/main/java/com/solace/sm/events/publisher/EventPublisher.java
+    backend/mesh-events/src/main/java/com/solace/sm/events/NotifyTopics.java
+    backend/mesh-events/src/main/java/com/solace/sm/events/NotifyEventShapes.java
+    backend/mesh-events/src/test/java/com/solace/sm/events/EnvelopeGoldenTest.java
+    backend/mesh-events/src/test/java/com/solace/sm/events/SchemaMirrorLockTest.java
+    backend/mesh-events/src/test/java/com/solace/sm/events/NotifyEventShapesTest.java
+    backend/mesh-events/src/test/java/com/solace/sm/events/NotifyTopicsTest.java
+
+6. Reference-path rename (breaks existing citations)
+  theirs moved docs/design/frontend/reference/sm-v2/* up one level. Citations on ours:
+  .md files on ours citing 'sm-v2/' : 7
+  total citing lines                : 36
+    docs/design/D10-AMENDMENT-PROPOSAL.md
+    docs/design/DECISIONS.md
+    docs/design/backend/eda-walking-skeleton.md
+    docs/design/frontend/decisions.md
+    docs/design/frontend/reference/PALETTE-PROVENANCE.md
+    docs/design/frontend/reference/README.md
+    docs/design/frontend/reference/STATE-VOCABULARY.md
+  theirs' frontend source files carrying flattened 'reference/app/' paths:
+    files: 37   lines: 39
+
+7. The report must quote these figures, not stale ones
+  ok   commits — "**239**"
+  ok   backend present — "**172**"
+  ok   backend deleted — "**73**"
+  ok   silently deleted — "**70**"
+  ok   merge conflicts — "**3**"
+  ok   contracts changed — "49 files"
+  ok   BE-D12 citations — "6 files / 29 lines"
+  ok   sm-v2 citations — "36 citing lines across 7"
+  ok   divergent FE-D — "FE-D25"
+
+==========================
+CHECKS PASSED (0 failed). Every figure above is supported.

@@ -1,0 +1,8 @@
+# Compiled sm-agent binary (built via `go build -o sm-agent ./cmd/sm-agent`)
+/sm-agent
+
+# Go build/test artifacts
+*.test
+*.out
+
+/bin/

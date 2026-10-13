@@ -1,0 +1,1037 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://solace.com/solution-manager/solution-package.schema.json",
+  "title": "Solution Package",
+  "description": "The contract by which a solution declares its components, fields, actions, metrics, health and logs. Canonical home of every closed vocabulary (UI-D14). See docs/design/dynamic-ui/design.md.",
+  "type": "object",
+  "required": [
+    "solution",
+    "packageVersion",
+    "appliesTo",
+    "components"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "solution": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "packageVersion": {
+      "type": "array",
+      "description": "Ordered, non-empty package schema versions served by this one document.",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/packageVersionId"
+      }
+    },
+    "appliesTo": {
+      "type": "string",
+      "description": "semver range of observed MI versions this package serves (UI-D11)"
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "author": {
+          "enum": [
+            "solace",
+            "dev-mode"
+          ]
+        },
+        "signature": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "author"
+      ]
+    },
+    "authoring": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "UI-D17 \u2014 makes an unreviewed extraction visible in the registry",
+      "properties": {
+        "reviewedRows": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "totalRows": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source": {
+          "type": "string"
+        }
+      }
+    },
+    "components": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/component"
+      }
+    }
+  },
+  "$defs": {
+    "packageVersionId": {
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 1
+        },
+        {
+          "type": "string",
+          "minLength": 1
+        }
+      ]
+    },
+    "predicate": {
+      "description": "UI-D2 \u2014 an object of field:literal, implicitly AND-ed. No OR, no comparison, no negation. Evaluated over defaults-applied values.",
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number",
+          "boolean"
+        ]
+      }
+    },
+    "component": {
+      "type": "object",
+      "required": [
+        "type",
+        "cardinality",
+        "configPath"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "version": {
+          "type": "array",
+          "description": "Package versions containing this component. Omitted means every declared package version.",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/packageVersionId"
+          }
+        },
+        "cardinality": {
+          "enum": [
+            "exactly-one",
+            "one-of-many",
+            "zero-or-more"
+          ]
+        },
+        "role": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "description": "Optional package-defined component role. The legacy value 'none' remains accepted as an explicit shared-component marker."
+        },
+        "configPath": {
+          "type": "string",
+          "description": "property prefix SM writes under"
+        },
+        "configFile": {
+          "type": "string"
+        },
+        "loggerPrefix": {
+          "type": "string"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/field"
+          }
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/action"
+          }
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/metric"
+          }
+        },
+        "restartSignal": {
+          "$ref": "#/$defs/restartSignal"
+        },
+        "health": {
+          "$ref": "#/$defs/health"
+        },
+        "logs": {
+          "$ref": "#/$defs/logs"
+        }
+      },
+      "if": {
+        "required": [
+          "logs"
+        ],
+        "properties": {
+          "logs": {
+            "type": "object",
+            "required": [
+              "loggers"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "loggerPrefix"
+        ]
+      }
+    },
+    "field": {
+      "type": "object",
+      "required": [
+        "key",
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "the config property path; NOT a display label (see the File Mesh adapter note)"
+        },
+        "type": {
+          "description": "UI-D14 closed vocabulary",
+          "enum": [
+            "string",
+            "int",
+            "bool",
+            "enum",
+            "duration",
+            "list",
+            "map",
+            "table",
+            "yaml",
+            "secret"
+          ]
+        },
+        "role": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "description": "Optional package-defined field role. Omitted or 'none' means shared."
+        },
+        "version": {
+          "type": "array",
+          "description": "Package versions containing this field. Omitted means every version containing its component.",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/packageVersionId"
+          }
+        },
+        "virtual": {
+          "type": "boolean",
+          "description": "UI-D24 - a declared field that drives the form and predicates but is NEVER written to the config file and is outside T-KEYS. Every File Mesh discriminator is one."
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          },
+          "minItems": 1
+        },
+        "optionsSource": {
+          "$ref": "#/$defs/optionsSource"
+        },
+        "valueFrom": {
+          "$ref": "#/$defs/valueFrom"
+        },
+        "columns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/column"
+          },
+          "description": "type: table only"
+        },
+        "default": {
+          "type": [
+            "string",
+            "number",
+            "boolean",
+            "null"
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "secret": {
+          "type": "boolean"
+        },
+        "discriminator": {
+          "type": "boolean"
+        },
+        "when": {
+          "$ref": "#/$defs/predicate"
+        },
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "pattern": {
+          "type": "string"
+        },
+        "yamlSubtree": {
+          "type": "string",
+          "description": "UI-D23 \u2014 the isolated subtree a yaml field renders into"
+        },
+        "ui": {
+          "$ref": "#/$defs/ui"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenanceTiers"
+        }
+      },
+      "allOf": [
+        {
+          "description": "gate 11 \u2014 options XOR optionsSource",
+          "not": {
+            "required": [
+              "options",
+              "optionsSource"
+            ]
+          }
+        },
+        {
+          "description": "an enum must say where its options come from",
+          "if": {
+            "properties": {
+              "type": {
+                "const": "enum"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "anyOf": [
+              {
+                "required": [
+                  "options"
+                ]
+              },
+              {
+                "required": [
+                  "optionsSource"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "description": "gate 6 - a discriminator must have an ENUMERABLE domain: enum or bool. Free text cannot drive a subtree. (Corrected by the Cache fixture: solace.enabled is a boolean discriminator, as is File Mesh's CONFIG_JAVA_RUNTIME.)",
+          "if": {
+            "properties": {
+              "discriminator": {
+                "const": true
+              }
+            },
+            "required": [
+              "discriminator"
+            ]
+          },
+          "then": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "enum",
+                  "bool"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "description": "a table declares its columns",
+          "if": {
+            "properties": {
+              "type": {
+                "const": "table"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "columns"
+            ]
+          }
+        },
+        {
+          "description": "UI-D23 \u2014 a yaml field must name its isolated subtree",
+          "if": {
+            "properties": {
+              "type": {
+                "const": "yaml"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "yamlSubtree"
+            ]
+          }
+        }
+      ]
+    },
+    "column": {
+      "type": "object",
+      "required": [
+        "key",
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "string",
+            "int",
+            "bool",
+            "enum",
+            "duration",
+            "secret"
+          ]
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          }
+        },
+        "label": {
+          "type": "string"
+        }
+      }
+    },
+    "optionsSource": {
+      "type": "object",
+      "required": [
+        "kind",
+        "entity"
+      ],
+      "additionalProperties": false,
+      "description": "UI-D22, amended by UI-D27 \u2014 a package names an SM-owned entity. It can never supply a URL.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "sm-catalog"
+          ]
+        },
+        "entity": {
+          "enum": [
+            "connection",
+            "environment",
+            "instance",
+            "metric"
+          ]
+        },
+        "connectionType": {
+          "enum": [
+            "solace-broker",
+            "remote-server"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "description": "UI-D27 \u2014 a connection selector must say which connection type it wants",
+          "if": {
+            "properties": {
+              "entity": {
+                "const": "connection"
+              }
+            },
+            "required": [
+              "entity"
+            ]
+          },
+          "then": {
+            "required": [
+              "connectionType"
+            ]
+          }
+        }
+      ]
+    },
+    "valueFrom": {
+      "type": "object",
+      "required": [
+        "ref",
+        "attribute"
+      ],
+      "additionalProperties": false,
+      "description": "UI-D28 — this field takes its value from the connection chosen in `ref`. Same component only.",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "description": "field.key of a connection selector in the SAME component"
+        },
+        "attribute": {
+          "type": "string",
+          "description": "attribute key in that selector's connectionType descriptor"
+        }
+      }
+    },
+    "action": {
+      "type": "object",
+      "required": [
+        "key",
+        "kind"
+      ],
+      "additionalProperties": false,
+      "description": "UI-D22 \u2014 actions hold no value and appear in no config file.",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "test-connection",
+            "manage-catalog-entry"
+          ]
+        },
+        "entity": {
+          "enum": [
+            "connection",
+            "environment",
+            "instance",
+            "metric"
+          ]
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "when": {
+          "$ref": "#/$defs/predicate"
+        },
+        "ui": {
+          "$ref": "#/$defs/ui"
+        }
+      },
+      "allOf": [
+        {
+          "description": "catalog management must say which entity it manages",
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "manage-catalog-entry"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "entity"
+            ]
+          }
+        },
+        {
+          "description": "a connection test must name the inputs it tests",
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "test-connection"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "inputs"
+            ]
+          }
+        }
+      ]
+    },
+    "ui": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "section": {
+          "type": "string"
+        },
+        "subSection": {
+          "type": "string"
+        },
+        "order": {
+          "type": "integer"
+        },
+        "advanced": {
+          "type": "boolean"
+        },
+        "helperText": {
+          "type": "string"
+        },
+        "readOnly": {
+          "type": "boolean"
+        },
+        "listColumn": {
+          "type": "boolean",
+          "description": "UI-D27 — show this attribute as a column in the catalog list. Descriptors only."
+        },
+        "promoteToDeclare": {
+          "type": "boolean",
+          "description": "UI-D27 — the Declare Instance dialog surfaces this field early."
+        }
+      }
+    },
+    "provenanceTiers": {
+      "type": "object",
+      "additionalProperties": {
+        "enum": [
+          "derived",
+          "suggested",
+          "authored"
+        ]
+      },
+      "description": "UI-D17 \u2014 provenance is a property of the column, carried per field for audit"
+    },
+    "metric": {
+      "type": "object",
+      "required": [
+        "name",
+        "metricType",
+        "unit",
+        "source"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.]{0,127}(?![\\s\\S])",
+          "description": "P11-1.1 - the same grammar as sm_metrics' metric_name CHECK (plan 011 P11-2.1/P11-2.2), so a package cannot load and then fail at declare."
+        },
+        "metricType": {
+          "enum": [
+            "counter",
+            "gauge",
+            "histogram"
+          ]
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "P11-1.1 - 1..64 characters, the sm_metrics unit CHECK."
+        },
+        "layer": {
+          "enum": [
+            "package-baseline",
+            "user-extension"
+          ]
+        },
+        "when": {
+          "$ref": "#/$defs/predicate"
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "defaultChart": {
+          "type": "boolean",
+          "description": "OQ-7 (b): false keeps this metric out of the derived default dashboard layer; absent means true. The metric stays queryable."
+        }
+      },
+      "allOf": [
+        {
+          "description": "P11-5.1 (OR-106): a count of matching events is a cumulative number the Data Plane synthesises, so the metric is a counter. A gauge or a histogram of it is refused at load.",
+          "if": {
+            "required": [
+              "source"
+            ],
+            "properties": {
+              "source": {
+                "type": "object",
+                "required": [
+                  "extract"
+                ],
+                "properties": {
+                  "extract": {
+                    "const": "count"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "metricType": {
+                "const": "counter"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "kind",
+        "onUnavailable"
+      ],
+      "description": "UI-D14 \u2014 transport mechanisms only, never a solution name. Canonical list lives here. P11-1.1 (M-Q4): a per-kind union, discriminated by `kind`: http_json is collected in v1 and has its own closed shape; prometheus, exec and jdbc_query are admitted but not collected (their branch is unchanged). P11-5.1 (OR-106, OR-107) splits solace_event out as the push path: broker-pushed events, attributed by a package-declared instanceKey, extracted as a number at a pointer or as a count of matching events.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/sourceHttpJson"
+        },
+        {
+          "$ref": "#/$defs/sourceSolaceEvent"
+        },
+        {
+          "$ref": "#/$defs/sourceUncollected"
+        }
+      ]
+    },
+    "sourceHttpJson": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "path",
+        "onUnavailable"
+      ],
+      "properties": {
+        "kind": {
+          "const": "http_json"
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^/[A-Za-z0-9/_.-]{0,255}(?![\\s\\S])"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "The CONTAINER port; the host side comes from the declare body's metricsPorts (M-Q14). Absent: the metric is not collectable (OQ-24 (b))."
+        },
+        "pointer": {
+          "type": "string",
+          "pattern": "^(/(?!\\.{1,2}(?:/|(?![\\s\\S])))[A-Za-z0-9_.-]{1,64}){0,8}(?![\\s\\S])",
+          "description": "A JSON-pointer-shaped path into the response body; no `.` or `..` segment. Absent: the whole body is the number."
+        },
+        "queryParams": {
+          "type": "object",
+          "maxProperties": 8,
+          "propertyNames": {
+            "pattern": "^[A-Za-z0-9_.-]{1,64}(?![\\s\\S])"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.-]{1,64}(?![\\s\\S])"
+          },
+          "description": "M-Q4: a closed grammar for keys AND values; no encoding, so nothing is ever interpolated into a URL unescaped."
+        },
+        "intervalSeconds": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 3600,
+          "description": "OQ-9 (a); the Data Plane default is 30."
+        },
+        "onUnavailable": {
+          "enum": [
+            "degrade",
+            "error"
+          ]
+        }
+      }
+    },
+    "sourceSolaceEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "topicPattern",
+        "instanceKey",
+        "onUnavailable"
+      ],
+      "description": "P11-5.1 (OR-106, OR-107): the push path. The Data Plane holds ONE broker connection per (organization, environment) and one subscription per distinct topicPattern, never one per instance; each event it is delivered names its instance in the payload at instanceKey.pointer, matched exactly and case-sensitively against the instance's own value of the config field instanceKey.configField (gate 16: never a secret). Nothing is substituted into a topic. extract=value reads a finite number at valuePointer; extract=count counts the events that pass eventFilter (OR-106), a counter the Data Plane synthesises and treats as an inferred reset when it restarts. I1: it reads events the MI already emits.",
+      "properties": {
+        "kind": {
+          "const": "solace_event"
+        },
+        "topicPattern": {
+          "type": "string",
+          "pattern": "^(([A-Za-z0-9_.-]{1,64}|\\*)/){0,15}[A-Za-z0-9_.-]{1,64}(?![\\s\\S])",
+          "description": "Levels joined by /, each a literal or * (exactly one level). I6: the LAST level is a literal - no >, no *, no substitution token - so a subscription names its states and an event of another state (a start event may carry a plaintext broker password) is never delivered to the Data Plane. No #, no +, no empty level."
+        },
+        "eventFilter": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "pointer",
+            "equals"
+          ],
+          "properties": {
+            "pointer": {
+              "type": "string",
+              "pattern": "^(/(?!\\.{1,2}(?:/|(?![\\s\\S])))[A-Za-z0-9_.-]{1,64}){1,8}(?![\\s\\S])"
+            },
+            "equals": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.-]{1,64}(?![\\s\\S])"
+            }
+          },
+          "description": "An event counts only when the value at pointer, read as text, equals this."
+        },
+        "extract": {
+          "enum": [
+            "value",
+            "count"
+          ],
+          "description": "Absent means value. value: valuePointer is required. count (OR-106): valuePointer is optional and ignored (the Data Plane counts the events that pass eventFilter), and the metric must be a counter."
+        },
+        "valuePointer": {
+          "type": "string",
+          "pattern": "^(/(?!\\.{1,2}(?:/|(?![\\s\\S])))[A-Za-z0-9_.-]{1,64}){1,8}(?![\\s\\S])",
+          "description": "A JSON-pointer-shaped path to a finite number in the event body; no . or .. segment."
+        },
+        "instanceKey": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "configField",
+            "pointer"
+          ],
+          "properties": {
+            "configField": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.-]{1,256}(?![\\s\\S])",
+              "description": "The key of a field of THIS component whose configured value identifies the instance in its events (gate 16: it must exist and may not be a secret)."
+            },
+            "pointer": {
+              "type": "string",
+              "pattern": "^(/(?!\\.{1,2}(?:/|(?![\\s\\S])))[A-Za-z0-9_.-]{1,64}){1,8}(?![\\s\\S])",
+              "description": "Where the event body carries that value (File Mesh: /header/adapterID)."
+            }
+          }
+        },
+        "onUnavailable": {
+          "enum": [
+            "degrade",
+            "error"
+          ]
+        }
+      },
+      "if": {
+        "required": [
+          "extract"
+        ],
+        "properties": {
+          "extract": {
+            "const": "count"
+          }
+        }
+      },
+      "else": {
+        "required": [
+          "valuePointer"
+        ]
+      }
+    },
+    "sourceUncollected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "onUnavailable"
+      ],
+      "description": "Admitted, not collected in v1. Keeps every property `$defs/source` carried before P11-1.1, unchanged: queryParams exists only on http_json.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "prometheus",
+            "exec",
+            "jdbc_query"
+          ]
+        },
+        "path": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer"
+        },
+        "pointer": {
+          "type": "string"
+        },
+        "topicPattern": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        },
+        "onUnavailable": {
+          "enum": [
+            "degrade",
+            "error"
+          ]
+        }
+      }
+    },
+    "restartSignal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "path",
+        "port",
+        "onUnavailable"
+      ],
+      "description": "OQ-1 (a), M-Q9: how the Data Plane detects a restart of this component in direct mode (an http_json read of a process start time). The same shape as an http_json source minus intervalSeconds and queryParams, and port is REQUIRED (W2-05): a signal with no port cannot be fetched in direct mode, yet its presence makes the Data Plane stop inferring resets, so every counter of the component would get no delta. SSH mode needs nothing from the package.",
+      "properties": {
+        "kind": {
+          "const": "http_json"
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^/[A-Za-z0-9/_.-]{0,255}(?![\\s\\S])"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "pointer": {
+          "type": "string",
+          "pattern": "^(/(?!\\.{1,2}(?:/|(?![\\s\\S])))[A-Za-z0-9_.-]{1,64}){0,8}(?![\\s\\S])"
+        },
+        "onUnavailable": {
+          "enum": [
+            "degrade",
+            "error"
+          ]
+        }
+      }
+    },
+    "health": {
+      "type": "object",
+      "required": [
+        "probe"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "probe": {
+          "type": "object",
+          "required": [
+            "kind",
+            "strength"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "actuator-health",
+                "http-status",
+                "broker-heartbeat"
+              ]
+            },
+            "path": {
+              "type": "string"
+            },
+            "port": {
+              "type": "integer"
+            },
+            "strength": {
+              "description": "UI-D14 closed vocabulary. Only the package can say whether its probe's UP means the process is *serving* (readiness) or only that it *came up* (liveness) — SM may not infer it (I2) and may not ask the MI to change it (I1). Owner ruling 2026-09-29 (S0-10). Required so no package claims readiness by omission.",
+              "enum": [
+                "readiness",
+                "liveness"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "logs": {
+      "type": "object",
+      "additionalProperties": false,
+      "dependentRequired": {
+        "loggers": [
+          "baselineExposure"
+        ]
+      },
+      "properties": {
+        "logfile": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string"
+            }
+          }
+        },
+        "baselineExposure": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "UI-D10 \u2014 the union base; SM cannot read the effective value"
+        },
+        "requiresConfig": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "loggers": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "OR-103 / BE-D38 \u2014 declares that this component's MI speaks the Spring Boot Actuator loggers endpoint and the logging.level property. Nothing is inferred from loggerPrefix (a non-Boot MI can carry a prefix); a package with no block gets no live log-level read and no overlay. The empty object declares support with both defaults. Requires the component to declare loggerPrefix and this block's logs.baselineExposure: SM writes the exposure list as the union of that baseline and its own required names, so a package that declares none would have its health endpoint withdrawn.",
+          "properties": {
+            "path": {
+              "type": "string",
+              "pattern": "^/[A-Za-z0-9/_.-]{0,255}(?![\\s\\S])",
+              "default": "/actuator/loggers",
+              "description": "The loggers endpoint's path on the application port. The grammar is the probe path's (SM-D11a P): it reaches a shell command, so nothing outside it is accepted."
+            },
+            "levelProperty": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9.-]{0,127}(?![\\s\\S])",
+              "default": "logging.level",
+              "description": "The property prefix under which a per-logger level is configured; the level of logger L is <levelProperty>.<L>."
+            }
+          }
+        }
+      }
+    }
+  }
+}

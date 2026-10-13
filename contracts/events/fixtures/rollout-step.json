@@ -1,0 +1,10 @@
+{
+  "eventId": "3f1c9a52-0000-4000-8000-000000000004",
+  "occurredAtUtc": "2026-08-27T10:00:15Z",
+  "producer": "dp-core",
+  "organization": "acme",
+  "entity": { "kind": "placement", "instanceId": "cache-prod-01", "placementId": "pl-eu-1" },
+  "stateVersion": 7,
+  "event": "instance.rollout",
+  "payload": { "applyId": "apply-7", "replicaId": "replica-2", "step": "restart-requested" }
+}

@@ -1,0 +1,3 @@
+# Raw test output taken verbatim from 87e338e1 (plan 015 T0.1): trailing spaces and a final blank line are
+# content, so git diff --check must not flag them.
+015-history-raw-*.md whitespace=-trailing-space,-blank-at-eof

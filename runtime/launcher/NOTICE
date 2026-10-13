@@ -1,0 +1,14 @@
+Solution Manager launcher image -- notices
+
+This image contains third-party software. The attribution notices and licence texts that must travel with it are in
+THIRD-PARTY-NOTICES.md next to this file (/usr/share/doc/sm/), including:
+
+  * the BoringSSL notices for the TLS library embedded in io.grpc:grpc-netty-shaded 1.68.1 (OR-127 L3), and
+  * the OpenSSL License text for the AIX/NetBSD code in the same artifact, with its clause 3 acknowledgment:
+    "This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit (http://www.openssl.org/)"
+    (the OpenSSL toolkit itself is not part of this product; the acknowledgment is the licence's condition for the code above).
+
+The image's operating-system layer (Ubuntu 22.04, "jammy") and the Eclipse Temurin JRE (GPL v2 with Classpath Exception) carry
+their own licences in /usr/share/doc/*/copyright and in the JRE's legal directory; the corresponding-source offer for the
+GPL-licensed components of those layers is required by OR-127 L4. The text of that offer, and the contact it names, are owed pending
+the project owner's approval; no image is to be distributed before the offer is added to this file.

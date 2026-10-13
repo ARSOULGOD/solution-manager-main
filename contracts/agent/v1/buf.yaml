@@ -1,0 +1,12 @@
+# The buf workspace for the agent wire (plan 015 T1.2, P15-7). A v2 module path must be inside the workspace
+# (https://buf.build/docs/configuration/v2/buf-yaml/), so the workspace lives here, beside the contract, and
+# go-agent generates from it with `(cd go-agent && buf generate ../contracts/agent/v1 --template buf.gen.yaml)`.
+# `lint: STANDARD` is not carried from the branch: package solace.sm.agentgateway.v1draft in contracts/agent/v1/
+# would fail PACKAGE_DIRECTORY_MATCH, and lint is not a gate here (recorded, not hidden). The append-only gate is
+# check_proto_append_only.py against baseline.json; `buf breaking` (FILE) is the second opinion where buf is installed.
+version: v2
+modules:
+  - path: .
+breaking:
+  use:
+    - FILE

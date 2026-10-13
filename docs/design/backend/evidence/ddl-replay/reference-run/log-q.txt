@@ -1,0 +1,15 @@
+### [OK] (q) NO DB ARTIFACT (measured): an intent against a TERMINAL request is ACCEPTED by the database  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_step_intent(intent_id,tenant_id,apply_id,replica_ref,step,idempotency_key,config_hash,created_at)
+VALUES ('e0000099-0000-4000-8000-000000000099','11111111-1111-4111-8111-111111111111','d0000001-0000-4000-8000-000000000001','replica-9','MATERIALIZE','idem-terminal-9','sha256:qqq',now());
+--- RESULT ---
+
+
+### [OK] (q) confirm that request was indeed terminal when the intent was accepted  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+SELECT apply_id, state FROM sm_data.apply_request WHERE apply_id='d0000001-0000-4000-8000-000000000001';
+--- RESULT ---
+apply_id               |  state
+--------------------------------------+---------
+ d0000001-0000-4000-8000-000000000001 | APPLIED
+(1 row)

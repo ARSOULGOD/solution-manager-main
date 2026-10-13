@@ -1,0 +1,3749 @@
+{
+  "solution": "file-mesh",
+  "packageVersion": [
+    1
+  ],
+  "appliesTo": ">=1.0 <2.0",
+  "provenance": {
+    "author": "dev-mode"
+  },
+  "authoring": {
+    "reviewedRows": 0,
+    "totalRows": 222,
+    "source": "FM_CONFIGURATION_TEMPLATE via contracts/adapters/filemesh-adapter.py"
+  },
+  "components": [
+    {
+      "type": "COMP_SINK_SOLACE@FILEEVENTS",
+      "cardinality": "one-of-many",
+      "role": "sink",
+      "configPath": "",
+      "configFile": "/projConfig/application.yml",
+      "fields": [
+        {
+          "key": "BROKER_LIST.MSG_VPN",
+          "type": "string",
+          "virtual": true,
+          "required": true,
+          "ui": {
+            "label": "MSG_VPN",
+            "section": "BROKER_LIST",
+            "advanced": false,
+            "order": 7
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "MANAGEMENT_PROTOCOL",
+          "type": "string",
+          "virtual": true,
+          "default": "http",
+          "required": true,
+          "ui": {
+            "label": "MANAGEMENT_PROTOCOL",
+            "section": "BROKER_LIST",
+            "advanced": false,
+            "order": 11
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "MANAGEMENT_PORT",
+          "type": "string",
+          "virtual": true,
+          "required": true,
+          "ui": {
+            "label": "MANAGEMENT_PORT",
+            "section": "BROKER_LIST",
+            "advanced": false,
+            "order": 14
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          },
+          "when": {
+            "ALLOW_SEMP": "yes"
+          }
+        },
+        {
+          "key": "BROKER_LIST.CLIENT_PASSWORD",
+          "type": "string",
+          "virtual": true,
+          "required": true,
+          "secret": true,
+          "ui": {
+            "label": "CLIENT_PASSWORD",
+            "section": "BROKER_LIST",
+            "advanced": false,
+            "order": 9
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "SUB_ORG",
+          "type": "string",
+          "virtual": true,
+          "required": true,
+          "ui": {
+            "label": "SUB_ORG",
+            "section": "BROKER_LIST",
+            "advanced": false,
+            "order": 6
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "solace.java.msg-vpn",
+          "type": "string",
+          "ui": {
+            "label": "MSG_VPN",
+            "section": "DATA_PLANE",
+            "advanced": false,
+            "readOnly": true,
+            "order": 2
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "ALLOW_SSL",
+          "type": "enum",
+          "virtual": true,
+          "ui": {
+            "label": "ALLOW_SSL",
+            "section": "BROKER_LIST",
+            "advanced": false,
+            "helperText": "To enable broker ssl",
+            "readOnly": true,
+            "order": 10
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          },
+          "discriminator": true,
+          "options": [
+            "yes"
+          ],
+          "default": "yes"
+        },
+        {
+          "key": "CERTIFICATE_AUTHORITY_FILE_PATH",
+          "type": "string",
+          "virtual": true,
+          "required": true,
+          "ui": {
+            "label": "CERTIFICATE_AUTHORITY_FILE_PATH",
+            "section": "BROKER_LIST",
+            "advanced": false,
+            "order": 15
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          },
+          "when": {
+            "ALLOW_SSL": "yes"
+          }
+        },
+        {
+          "key": "BROKER_LIST.SMF_URL",
+          "type": "string",
+          "virtual": true,
+          "required": true,
+          "ui": {
+            "label": "SMF_URL",
+            "section": "BROKER_LIST",
+            "advanced": false,
+            "helperText": "tcp,smf host and port :e.g:<PROTOCOL>://<HOST>:<PORT>/slug , seperated by comma",
+            "order": 5
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "ORGANIZATION",
+          "type": "string",
+          "virtual": true,
+          "required": true,
+          "ui": {
+            "label": "ORGANIZATION",
+            "section": "BROKER_LIST",
+            "advanced": false,
+            "order": 5
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "solace.java.client-password",
+          "type": "string",
+          "secret": true,
+          "ui": {
+            "label": "CLIENT_PASSWORD",
+            "section": "DATA_PLANE",
+            "advanced": false,
+            "readOnly": true,
+            "order": 4
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "solace.connector.management.session.client-password",
+          "type": "string",
+          "secret": true,
+          "ui": {
+            "label": "CLIENT_PASSWORD",
+            "section": "MANAGEMENT_PLANE",
+            "advanced": false,
+            "readOnly": true,
+            "order": 4
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "MANAGEMENT_PASSWORD",
+          "type": "string",
+          "virtual": true,
+          "required": true,
+          "secret": true,
+          "ui": {
+            "label": "MANAGEMENT_PASSWORD",
+            "section": "BROKER_LIST",
+            "advanced": false,
+            "order": 13
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          },
+          "when": {
+            "ALLOW_SEMP": "yes"
+          }
+        },
+        {
+          "key": "ALLOW_SEMP",
+          "type": "enum",
+          "virtual": true,
+          "ui": {
+            "label": "ALLOW_SEMP",
+            "section": "BROKER_LIST",
+            "advanced": false,
+            "helperText": "To create broker objects",
+            "readOnly": true,
+            "order": 10
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          },
+          "discriminator": true,
+          "options": [
+            "yes"
+          ],
+          "default": "yes"
+        },
+        {
+          "key": "solace.connector.management.session.host",
+          "type": "string",
+          "ui": {
+            "label": "SMF_URL",
+            "section": "MANAGEMENT_PLANE",
+            "advanced": false,
+            "readOnly": true,
+            "order": 1
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "solace.java.client-username",
+          "type": "string",
+          "ui": {
+            "label": "CLIENT_USERNAME",
+            "section": "DATA_PLANE",
+            "advanced": false,
+            "readOnly": true,
+            "order": 3
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "solace.connector.management.session.msg-vpn",
+          "type": "string",
+          "ui": {
+            "label": "MSG_VPN",
+            "section": "MANAGEMENT_PLANE",
+            "advanced": false,
+            "readOnly": true,
+            "order": 2
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "solace.connector.management.queue",
+          "type": "string",
+          "ui": {
+            "label": "QUEUE",
+            "section": "MANAGEMENT_PLANE",
+            "advanced": false,
+            "helperText": "The management queue name.",
+            "order": 10
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "solace.java.host",
+          "type": "string",
+          "ui": {
+            "label": "SMF_URL",
+            "section": "DATA_PLANE",
+            "advanced": false,
+            "readOnly": true,
+            "order": 1
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "solace.connector.management.session.client-username",
+          "type": "string",
+          "ui": {
+            "label": "CLIENT_USERNAME",
+            "section": "MANAGEMENT_PLANE",
+            "advanced": false,
+            "readOnly": true,
+            "order": 3
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "solace.java.connectRetries",
+          "type": "string",
+          "default": "-1",
+          "required": true,
+          "ui": {
+            "label": "CONNECT_RETRIES",
+            "section": "DATA_PLANE",
+            "advanced": false,
+            "order": 5
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "solace.java.reconnectRetries",
+          "type": "string",
+          "default": "-1",
+          "required": true,
+          "ui": {
+            "label": "RECONNECT_RETRIES",
+            "section": "DATA_PLANE",
+            "advanced": false,
+            "order": 6
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "BROKER_NAME",
+          "type": "string",
+          "virtual": true,
+          "required": true,
+          "ui": {
+            "label": "BROKER_NAME",
+            "section": "BROKER_LIST",
+            "advanced": false,
+            "order": 4
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "MANAGEMENT_USERNAME",
+          "type": "string",
+          "virtual": true,
+          "required": true,
+          "ui": {
+            "label": "MANAGEMENT_USERNAME",
+            "section": "BROKER_LIST",
+            "advanced": false,
+            "order": 12
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          },
+          "when": {
+            "ALLOW_SEMP": "yes"
+          }
+        },
+        {
+          "key": "solace.connector.management.leader-election.mode",
+          "type": "string",
+          "default": "standalone",
+          "required": true,
+          "ui": {
+            "label": "MODE",
+            "section": "MANAGEMENT_PLANE",
+            "advanced": false,
+            "helperText": "The connector\u2019s leader election mode. (values: standalone, active_active, active_standby)",
+            "order": 5
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "DATA_PLANE.QUEUE",
+          "type": "string",
+          "virtual": true,
+          "required": true,
+          "ui": {
+            "label": "QUEUE",
+            "section": "DATA_PLANE",
+            "advanced": false,
+            "helperText": "Will create a queue with provided topic subscription",
+            "order": 11
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "MANAGEMENT_PLANE.AUTO_CREATE_QUEUE",
+          "type": "bool",
+          "virtual": true,
+          "ui": {
+            "label": "AUTO_CREATE_QUEUE",
+            "section": "MANAGEMENT_PLANE",
+            "advanced": false,
+            "readOnly": true,
+            "order": 11
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "AUTO_CREATE_TOPIC",
+          "type": "bool",
+          "virtual": true,
+          "ui": {
+            "label": "AUTO_CREATE_TOPIC",
+            "section": "DATA_PLANE",
+            "advanced": false,
+            "readOnly": true,
+            "order": 10
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "SELECT_ENV",
+          "type": "enum",
+          "virtual": true,
+          "optionsSource": {
+            "kind": "sm-catalog",
+            "entity": "environment"
+          },
+          "ui": {
+            "label": "SELECT_ENV",
+            "section": "BROKER_LIST",
+            "advanced": false,
+            "order": 5
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "solace.connector.management.leader-election.fail-over.back-off-initial-interval",
+          "type": "int",
+          "default": 1000,
+          "required": true,
+          "ui": {
+            "label": "BACK_OFF_INITIAL_INTERVAL",
+            "section": "MANAGEMENT_PLANE",
+            "advanced": false,
+            "helperText": "The initial interval (milliseconds) to back-off when retrying a fail-over.",
+            "order": 7
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "solace.connector.management.leader-election.fail-over.back-off-max-interval",
+          "type": "int",
+          "default": 10000,
+          "required": true,
+          "ui": {
+            "label": "BACK_OFF_MAX_INTERVAL",
+            "section": "MANAGEMENT_PLANE",
+            "advanced": false,
+            "helperText": "The maximum interval (milliseconds) to back-off when retrying a fail-over.",
+            "order": 8
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "DATA_PLANE.AUTO_CREATE_QUEUE",
+          "type": "bool",
+          "virtual": true,
+          "ui": {
+            "label": "AUTO_CREATE_QUEUE",
+            "section": "DATA_PLANE",
+            "advanced": false,
+            "readOnly": true,
+            "order": 12
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "DATA_PLANE.SELECT_BROKER",
+          "type": "enum",
+          "virtual": true,
+          "optionsSource": {
+            "kind": "sm-catalog",
+            "entity": "connection",
+            "connectionType": "solace-broker"
+          },
+          "required": true,
+          "ui": {
+            "label": "SELECT_BROKER",
+            "section": "DATA_PLANE",
+            "advanced": false,
+            "order": 0
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "BROKER_LIST.CLIENT_USERNAME",
+          "type": "string",
+          "virtual": true,
+          "required": true,
+          "ui": {
+            "label": "CLIENT_USERNAME",
+            "section": "BROKER_LIST",
+            "advanced": false,
+            "order": 8
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "solace.connector.management.leader-election.fail-over.back-off-multiplier",
+          "type": "int",
+          "required": true,
+          "ui": {
+            "label": "BACK_OFF_MULTIPLIER",
+            "section": "MANAGEMENT_PLANE",
+            "advanced": false,
+            "helperText": "The multiplier to apply to the back-off interval between each retry of a fail-over.",
+            "order": 9
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "spring.cloud.stream.bindings.output-0.destination",
+          "type": "string",
+          "required": true,
+          "ui": {
+            "label": "TOPIC",
+            "section": "DATA_PLANE",
+            "advanced": false,
+            "helperText": "destination file location path",
+            "order": 9
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "MANAGEMENT_PLANE.SELECT_BROKER",
+          "type": "enum",
+          "virtual": true,
+          "optionsSource": {
+            "kind": "sm-catalog",
+            "entity": "connection",
+            "connectionType": "solace-broker"
+          },
+          "required": true,
+          "ui": {
+            "label": "SELECT_BROKER",
+            "section": "MANAGEMENT_PLANE",
+            "advanced": false,
+            "order": 0
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "solace.connector.management.leader-election.fail-over.max-attempts",
+          "type": "int",
+          "default": 3,
+          "required": true,
+          "ui": {
+            "label": "MAX_ATTEMPTS",
+            "section": "MANAGEMENT_PLANE",
+            "advanced": false,
+            "helperText": "The maximum number of attempts to perform a fail-over.",
+            "order": 6
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "key": "ADD_OR_EDIT_BROKER",
+          "kind": "manage-catalog-entry",
+          "entity": "connection",
+          "ui": {
+            "label": "Add Or Edit Broker",
+            "section": "BROKER_LIST"
+          }
+        },
+        {
+          "key": "TEST_CONNECTION",
+          "kind": "test-connection",
+          "inputs": [
+            "BROKER_LIST.MSG_VPN",
+            "MANAGEMENT_PORT",
+            "BROKER_LIST.CLIENT_PASSWORD",
+            "BROKER_LIST.SMF_URL",
+            "MANAGEMENT_PASSWORD",
+            "MANAGEMENT_USERNAME",
+            "BROKER_LIST.CLIENT_USERNAME"
+          ],
+          "ui": {
+            "label": "Test Connection",
+            "section": "BROKER_LIST"
+          }
+        },
+        {
+          "key": "ADD_BROKER",
+          "kind": "manage-catalog-entry",
+          "entity": "connection",
+          "ui": {
+            "label": "Add Broker",
+            "section": "BROKER_LIST"
+          }
+        }
+      ]
+    },
+    {
+      "type": "COMP_SINK_SOLACE@FILETOFILE",
+      "cardinality": "one-of-many",
+      "role": "sink",
+      "configPath": "",
+      "configFile": "/projConfig/application.yml",
+      "fields": [
+        {
+          "key": "BROKER_LIST.MSG_VPN",
+          "type": "string",
+          "virtual": true,
+          "required": true,
+          "ui": {
+            "label": "MSG_VPN",
+            "section": "BROKER_LIST",
+            "advanced": false,
+            "order": 7
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "MANAGEMENT_PROTOCOL",
+          "type": "string",
+          "virtual": true,
+          "default": "http",
+          "required": true,
+          "ui": {
+            "label": "MANAGEMENT_PROTOCOL",
+            "section": "BROKER_LIST",
+            "advanced": false,
+            "order": 11
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "MANAGEMENT_PORT",
+          "type": "string",
+          "virtual": true,
+          "required": true,
+          "ui": {
+            "label": "MANAGEMENT_PORT",
+            "section": "BROKER_LIST",
+            "advanced": false,
+            "order": 14
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          },
+          "when": {
+            "ALLOW_SEMP": "yes"
+          }
+        },
+        {
+          "key": "BROKER_LIST.CLIENT_PASSWORD",
+          "type": "string",
+          "virtual": true,
+          "required": true,
+          "secret": true,
+          "ui": {
+            "label": "CLIENT_PASSWORD",
+            "section": "BROKER_LIST",
+            "advanced": false,
+            "order": 9
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "SUB_ORG",
+          "type": "string",
+          "virtual": true,
+          "required": true,
+          "ui": {
+            "label": "SUB_ORG",
+            "section": "BROKER_LIST",
+            "advanced": false,
+            "order": 6
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "solace.java.msg-vpn",
+          "type": "string",
+          "ui": {
+            "label": "MSG_VPN",
+            "section": "DATA_PLANE",
+            "advanced": false,
+            "readOnly": true,
+            "order": 2
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "ALLOW_SSL",
+          "type": "enum",
+          "virtual": true,
+          "ui": {
+            "label": "ALLOW_SSL",
+            "section": "BROKER_LIST",
+            "advanced": false,
+            "helperText": "To enable broker ssl",
+            "readOnly": true,
+            "order": 10
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          },
+          "discriminator": true,
+          "options": [
+            "yes"
+          ],
+          "default": "yes"
+        },
+        {
+          "key": "CERTIFICATE_AUTHORITY_FILE_PATH",
+          "type": "string",
+          "virtual": true,
+          "required": true,
+          "ui": {
+            "label": "CERTIFICATE_AUTHORITY_FILE_PATH",
+            "section": "BROKER_LIST",
+            "advanced": false,
+            "order": 15
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          },
+          "when": {
+            "ALLOW_SSL": "yes"
+          }
+        },
+        {
+          "key": "BROKER_LIST.SMF_URL",
+          "type": "string",
+          "virtual": true,
+          "required": true,
+          "ui": {
+            "label": "SMF_URL",
+            "section": "BROKER_LIST",
+            "advanced": false,
+            "helperText": "tcp,smf host and port :e.g:<PROTOCOL>://<HOST>:<PORT>/slug , seperated by comma",
+            "order": 5
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "ORGANIZATION",
+          "type": "string",
+          "virtual": true,
+          "required": true,
+          "ui": {
+            "label": "ORGANIZATION",
+            "section": "BROKER_LIST",
+            "advanced": false,
+            "order": 5
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "solace.java.client-password",
+          "type": "string",
+          "secret": true,
+          "ui": {
+            "label": "CLIENT_PASSWORD",
+            "section": "DATA_PLANE",
+            "advanced": false,
+            "readOnly": true,
+            "order": 4
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "solace.connector.management.session.client-password",
+          "type": "string",
+          "secret": true,
+          "ui": {
+            "label": "CLIENT_PASSWORD",
+            "section": "MANAGEMENT_PLANE",
+            "advanced": false,
+            "readOnly": true,
+            "order": 4
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "MANAGEMENT_PASSWORD",
+          "type": "string",
+          "virtual": true,
+          "required": true,
+          "secret": true,
+          "ui": {
+            "label": "MANAGEMENT_PASSWORD",
+            "section": "BROKER_LIST",
+            "advanced": false,
+            "order": 13
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          },
+          "when": {
+            "ALLOW_SEMP": "yes"
+          }
+        },
+        {
+          "key": "ALLOW_SEMP",
+          "type": "enum",
+          "virtual": true,
+          "ui": {
+            "label": "ALLOW_SEMP",
+            "section": "BROKER_LIST",
+            "advanced": false,
+            "helperText": "To create broker objects",
+            "readOnly": true,
+            "order": 10
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          },
+          "discriminator": true,
+          "options": [
+            "yes"
+          ],
+          "default": "yes"
+        },
+        {
+          "key": "solace.connector.management.session.host",
+          "type": "string",
+          "ui": {
+            "label": "SMF_URL",
+            "section": "MANAGEMENT_PLANE",
+            "advanced": false,
+            "readOnly": true,
+            "order": 1
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "solace.java.client-username",
+          "type": "string",
+          "ui": {
+            "label": "CLIENT_USERNAME",
+            "section": "DATA_PLANE",
+            "advanced": false,
+            "readOnly": true,
+            "order": 3
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "solace.connector.management.session.msg-vpn",
+          "type": "string",
+          "ui": {
+            "label": "MSG_VPN",
+            "section": "MANAGEMENT_PLANE",
+            "advanced": false,
+            "readOnly": true,
+            "order": 2
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "solace.connector.management.queue",
+          "type": "string",
+          "ui": {
+            "label": "QUEUE",
+            "section": "MANAGEMENT_PLANE",
+            "advanced": false,
+            "helperText": "The management queue name.",
+            "order": 10
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "solace.java.host",
+          "type": "string",
+          "ui": {
+            "label": "SMF_URL",
+            "section": "DATA_PLANE",
+            "advanced": false,
+            "readOnly": true,
+            "order": 1
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "solace.connector.management.session.client-username",
+          "type": "string",
+          "ui": {
+            "label": "CLIENT_USERNAME",
+            "section": "MANAGEMENT_PLANE",
+            "advanced": false,
+            "readOnly": true,
+            "order": 3
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "solace.java.connectRetries",
+          "type": "string",
+          "default": "-1",
+          "required": true,
+          "ui": {
+            "label": "CONNECT_RETRIES",
+            "section": "DATA_PLANE",
+            "advanced": false,
+            "order": 5
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "solace.java.reconnectRetries",
+          "type": "string",
+          "default": "-1",
+          "required": true,
+          "ui": {
+            "label": "RECONNECT_RETRIES",
+            "section": "DATA_PLANE",
+            "advanced": false,
+            "order": 6
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "BROKER_NAME",
+          "type": "string",
+          "virtual": true,
+          "required": true,
+          "ui": {
+            "label": "BROKER_NAME",
+            "section": "BROKER_LIST",
+            "advanced": false,
+            "order": 4
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "MANAGEMENT_USERNAME",
+          "type": "string",
+          "virtual": true,
+          "required": true,
+          "ui": {
+            "label": "MANAGEMENT_USERNAME",
+            "section": "BROKER_LIST",
+            "advanced": false,
+            "order": 12
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          },
+          "when": {
+            "ALLOW_SEMP": "yes"
+          }
+        },
+        {
+          "key": "solace.connector.management.leader-election.mode",
+          "type": "string",
+          "default": "standalone",
+          "required": true,
+          "ui": {
+            "label": "MODE",
+            "section": "MANAGEMENT_PLANE",
+            "advanced": false,
+            "helperText": "The connector\u2019s leader election mode. (values: standalone, active_active, active_standby)",
+            "order": 5
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "DATA_PLANE.QUEUE",
+          "type": "string",
+          "virtual": true,
+          "required": true,
+          "ui": {
+            "label": "QUEUE",
+            "section": "DATA_PLANE",
+            "advanced": false,
+            "helperText": "Will create a queue with provided topic subscription",
+            "order": 11
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "MANAGEMENT_PLANE.AUTO_CREATE_QUEUE",
+          "type": "bool",
+          "virtual": true,
+          "ui": {
+            "label": "AUTO_CREATE_QUEUE",
+            "section": "MANAGEMENT_PLANE",
+            "advanced": false,
+            "readOnly": true,
+            "order": 11
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "AUTO_CREATE_TOPIC",
+          "type": "bool",
+          "virtual": true,
+          "ui": {
+            "label": "AUTO_CREATE_TOPIC",
+            "section": "DATA_PLANE",
+            "advanced": false,
+            "readOnly": true,
+            "order": 10
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "SELECT_ENV",
+          "type": "enum",
+          "virtual": true,
+          "optionsSource": {
+            "kind": "sm-catalog",
+            "entity": "environment"
+          },
+          "ui": {
+            "label": "SELECT_ENV",
+            "section": "BROKER_LIST",
+            "advanced": false,
+            "order": 5
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "solace.connector.management.leader-election.fail-over.back-off-initial-interval",
+          "type": "int",
+          "default": 1000,
+          "required": true,
+          "ui": {
+            "label": "BACK_OFF_INITIAL_INTERVAL",
+            "section": "MANAGEMENT_PLANE",
+            "advanced": false,
+            "helperText": "The initial interval (milliseconds) to back-off when retrying a fail-over.",
+            "order": 7
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "solace.connector.management.leader-election.fail-over.back-off-max-interval",
+          "type": "int",
+          "default": 10000,
+          "required": true,
+          "ui": {
+            "label": "BACK_OFF_MAX_INTERVAL",
+            "section": "MANAGEMENT_PLANE",
+            "advanced": false,
+            "helperText": "The maximum interval (milliseconds) to back-off when retrying a fail-over.",
+            "order": 8
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "DATA_PLANE.AUTO_CREATE_QUEUE",
+          "type": "bool",
+          "virtual": true,
+          "ui": {
+            "label": "AUTO_CREATE_QUEUE",
+            "section": "DATA_PLANE",
+            "advanced": false,
+            "readOnly": true,
+            "order": 12
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "DATA_PLANE.SELECT_BROKER",
+          "type": "enum",
+          "virtual": true,
+          "optionsSource": {
+            "kind": "sm-catalog",
+            "entity": "connection",
+            "connectionType": "solace-broker"
+          },
+          "required": true,
+          "ui": {
+            "label": "SELECT_BROKER",
+            "section": "DATA_PLANE",
+            "advanced": false,
+            "order": 0
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "BROKER_LIST.CLIENT_USERNAME",
+          "type": "string",
+          "virtual": true,
+          "required": true,
+          "ui": {
+            "label": "CLIENT_USERNAME",
+            "section": "BROKER_LIST",
+            "advanced": false,
+            "order": 8
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "solace.connector.management.leader-election.fail-over.back-off-multiplier",
+          "type": "int",
+          "required": true,
+          "ui": {
+            "label": "BACK_OFF_MULTIPLIER",
+            "section": "MANAGEMENT_PLANE",
+            "advanced": false,
+            "helperText": "The multiplier to apply to the back-off interval between each retry of a fail-over.",
+            "order": 9
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "spring.cloud.stream.bindings.output-0.destination",
+          "type": "string",
+          "required": true,
+          "ui": {
+            "label": "TOPIC",
+            "section": "DATA_PLANE",
+            "advanced": false,
+            "helperText": "destination file location path",
+            "order": 9
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "MANAGEMENT_PLANE.SELECT_BROKER",
+          "type": "enum",
+          "virtual": true,
+          "optionsSource": {
+            "kind": "sm-catalog",
+            "entity": "connection",
+            "connectionType": "solace-broker"
+          },
+          "required": true,
+          "ui": {
+            "label": "SELECT_BROKER",
+            "section": "MANAGEMENT_PLANE",
+            "advanced": false,
+            "order": 0
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "solace.connector.management.leader-election.fail-over.max-attempts",
+          "type": "int",
+          "default": 3,
+          "required": true,
+          "ui": {
+            "label": "MAX_ATTEMPTS",
+            "section": "MANAGEMENT_PLANE",
+            "advanced": false,
+            "helperText": "The maximum number of attempts to perform a fail-over.",
+            "order": 6
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "key": "ADD_OR_EDIT_BROKER",
+          "kind": "manage-catalog-entry",
+          "entity": "connection",
+          "ui": {
+            "label": "Add Or Edit Broker",
+            "section": "BROKER_LIST"
+          }
+        },
+        {
+          "key": "TEST_CONNECTION",
+          "kind": "test-connection",
+          "inputs": [
+            "BROKER_LIST.MSG_VPN",
+            "MANAGEMENT_PORT",
+            "BROKER_LIST.CLIENT_PASSWORD",
+            "BROKER_LIST.SMF_URL",
+            "MANAGEMENT_PASSWORD",
+            "MANAGEMENT_USERNAME",
+            "BROKER_LIST.CLIENT_USERNAME"
+          ],
+          "ui": {
+            "label": "Test Connection",
+            "section": "BROKER_LIST"
+          }
+        },
+        {
+          "key": "ADD_BROKER",
+          "kind": "manage-catalog-entry",
+          "entity": "connection",
+          "ui": {
+            "label": "Add Broker",
+            "section": "BROKER_LIST"
+          }
+        }
+      ]
+    },
+    {
+      "type": "COMP_SOURCE_FTP@FILEEVENTS",
+      "cardinality": "one-of-many",
+      "role": "source",
+      "configPath": "",
+      "configFile": "/projConfig/application.yml",
+      "fields": [
+        {
+          "key": "file-events.source.file_mesh_manager.enabled",
+          "type": "string",
+          "default": "true",
+          "required": true,
+          "ui": {
+            "label": "ENABLED",
+            "section": "FILE MESH MANAGER",
+            "advanced": false,
+            "helperText": "false -> disabled, true -> enabled, sends data to Command Center",
+            "order": 1
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.file_mesh_manager.heartbeat_enabled",
+          "type": "string",
+          "default": "true",
+          "required": true,
+          "ui": {
+            "label": "HEARTBEAT_ENABLED",
+            "section": "FILE MESH MANAGER",
+            "advanced": false,
+            "helperText": "false -> disabled, true -> enabled, sends data to Command Center",
+            "order": 9
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "CONNECTOR_RUNTIME_VERSION",
+          "type": "string",
+          "virtual": true,
+          "ui": {
+            "label": "CONNECTOR_RUNTIME_VERSION",
+            "section": "INFO",
+            "advanced": false,
+            "readOnly": true,
+            "order": 1
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "SELECT_BROKER",
+          "type": "enum",
+          "virtual": true,
+          "optionsSource": {
+            "kind": "sm-catalog",
+            "entity": "connection",
+            "connectionType": "solace-broker"
+          },
+          "required": true,
+          "ui": {
+            "label": "SELECT_BROKER",
+            "section": "FILE MESH MANAGER",
+            "advanced": true,
+            "order": 15
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "AUTO_CREATE_TOPIC",
+          "type": "bool",
+          "virtual": true,
+          "ui": {
+            "label": "AUTO_CREATE_TOPIC",
+            "section": "SOLACE LVQ",
+            "advanced": false,
+            "readOnly": true,
+            "order": 2
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "AUTO_CREATE_QUEUE",
+          "type": "bool",
+          "virtual": true,
+          "ui": {
+            "label": "AUTO_CREATE_QUEUE",
+            "section": "SOLACE LVQ",
+            "advanced": false,
+            "readOnly": true,
+            "order": 4
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "DIR_REGEXPS_CONFIG",
+          "type": "string",
+          "virtual": true,
+          "ui": {
+            "label": "DIR_REGEXPS_CONFIG",
+            "section": "DIRECTORY WILDCARD",
+            "advanced": false,
+            "helperText": "Regex values seperated by |",
+            "order": 2
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "SELECT_FTP_CONFIG",
+          "type": "string",
+          "virtual": true,
+          "required": true,
+          "ui": {
+            "label": "SELECT_FTP_CONFIG",
+            "section": "FTP_SETTINGS",
+            "advanced": false,
+            "order": 2
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "file-events.source.general.multiple_files_flag",
+          "type": "string",
+          "default": "0",
+          "required": true,
+          "ui": {
+            "label": "MULTIPLE_FILES_FLAG",
+            "section": "GENERAL",
+            "advanced": false,
+            "order": 5
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "file-events.source.solace_out.destination",
+          "type": "string",
+          "required": true,
+          "ui": {
+            "label": "DESTINATION",
+            "section": "SOLACE LVQ",
+            "advanced": false,
+            "order": 3
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "file-events.source.directory_replication.start_time",
+          "type": "int",
+          "default": -1,
+          "required": true,
+          "ui": {
+            "label": "START_TIME",
+            "section": "DIRECTORY REPLICATION",
+            "advanced": false,
+            "helperText": "epoch time - used to filter files modified after this time",
+            "order": 1
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.ftp_settings.enabledProtocols",
+          "type": "string",
+          "default": "TLSv1.2,TLSv1.3",
+          "ui": {
+            "label": "ENABLED_TLS_PROTOCOLS",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Comma-separated list of enabled TLS protocols (e.g., TLSv1.2,TLSv1.3). Effective only when useFTPS=true.",
+            "order": 16
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.ftp_settings.keyStorePath",
+          "type": "string",
+          "ui": {
+            "label": "KEY_STORE_PATH",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Path to the keystore file containing the client certificate for mutual TLS authentication.",
+            "order": 12
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.ftp_settings.connectTimeout",
+          "type": "int",
+          "default": 5000,
+          "ui": {
+            "label": "CONNECT_TIMEOUT",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Connection timeout in milliseconds.",
+            "order": 26
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.ftp_settings.keepAliveInterval",
+          "type": "int",
+          "default": 60000,
+          "ui": {
+            "label": "KEEP_ALIVE_INTERVAL",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Control keep-alive interval in milliseconds.",
+            "order": 27
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.ftp_settings.keyStorePassword",
+          "type": "string",
+          "ui": {
+            "label": "KEY_STORE_PASSWORD",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Password to unlock the keystore file. Required if keyStorePath is provided.",
+            "order": 13
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.ftp_settings.strictHostKeyChecking",
+          "type": "string",
+          "default": "yes",
+          "ui": {
+            "label": "STRICT_HOST_KEY_CHECKING",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Verifies the server hostname against its certificate to prevent spoofing. Disable only for non-production or self-signed certificates.",
+            "order": 11
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.ftp_settings.passiveMode",
+          "type": "string",
+          "default": "false",
+          "ui": {
+            "label": "PASSIVE_MODE",
+            "section": "FTP_SETTINGS",
+            "advanced": false,
+            "helperText": "Enables passive mode for data connections. Recommended for clients behind NAT or firewalls.",
+            "order": 17
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.ftp_settings.listHiddenFiles",
+          "type": "string",
+          "default": "false",
+          "ui": {
+            "label": "LIST_HIDDEN_FILES",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Include hidden files in directory listings.",
+            "order": 20
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.ftp_settings.useEPSVwithIPv4",
+          "type": "string",
+          "default": "false",
+          "ui": {
+            "label": "USE_EPSV_WITH_IPV4",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Enable EPSV command in passive mode for IPv4 networks.",
+            "order": 21
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.file_mesh_manager.solace.host",
+          "type": "string",
+          "ui": {
+            "label": "SMF_URL",
+            "section": "FILE MESH MANAGER",
+            "advanced": true,
+            "readOnly": true,
+            "order": 16
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "file-events.source.ftp_settings.remoteVerificationEnabled",
+          "type": "string",
+          "default": "false",
+          "ui": {
+            "label": "REMOTE_VERIFICATION_ENABLED",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Verify remote hostname/IP in passive mode responses to detect misrouting.",
+            "order": 22
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.ftp_settings.serverSystemKey",
+          "type": "string",
+          "default": "UNIX",
+          "ui": {
+            "label": "SERVER_SYSTEM_KEY",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Server system type used for parsing directory listings.",
+            "order": 23
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.general.ignoreEmptyFiles",
+          "type": "string",
+          "default": "true",
+          "ui": {
+            "label": "IGNORE_EMPTY_FILES",
+            "section": "GENERAL",
+            "advanced": false,
+            "helperText": "true->Ignores replication for empty files, false->Replicates empty files too",
+            "order": 3
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.ftp_settings.trustStorePath",
+          "type": "string",
+          "ui": {
+            "label": "TRUST_STORE_PATH",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Path to the truststore containing trusted CA certificates to validate the FTPS server.",
+            "order": 14
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.ftp_settings.defaultFileTransferType",
+          "type": "string",
+          "default": "BINARY",
+          "ui": {
+            "label": "DEFAULT_FILE_TRANSFER_TYPE",
+            "section": "FTP_SETTINGS",
+            "advanced": false,
+            "helperText": "Default file transfer mode. Use BINARY to avoid data corruption.",
+            "order": 24
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.ftp_settings.serverTimezone",
+          "type": "string",
+          "ui": {
+            "label": "SERVER_TIMEZONE",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Timezone of the FTP server used for parsing timestamps.",
+            "order": 25
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.directory_wildcard.wildcard_type",
+          "type": "string",
+          "default": "0",
+          "required": true,
+          "ui": {
+            "label": "WILDCARD_TYPE",
+            "section": "DIRECTORY WILDCARD",
+            "advanced": false,
+            "helperText": "0 -> disabled 1 -> whitelist 2 -> blacklist",
+            "order": 1
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.ftp_settings.port",
+          "type": "int",
+          "ui": {
+            "label": "SERVER_PORT",
+            "section": "FTP_SETTINGS",
+            "advanced": false,
+            "helperText": "FTP server port number. The default port is 21 for plain FTP; use 990 for implicit FTPS. Ensure the port matches the server's configuration to establish successful connections.",
+            "readOnly": true,
+            "order": 6
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.ftp_settings.enabled",
+          "type": "string",
+          "default": "1",
+          "required": true,
+          "ui": {
+            "label": "ENABLED",
+            "section": "FTP_SETTINGS",
+            "advanced": false,
+            "helperText": "Set this value to 0 to disable and 1 to enable FTP/FTPs source location. Default 0, the file will be searched for on the local source machine and if set to 1, the files will be pulled from a remote location on the ftp server. Enabling this shifts the connector from local file system operations to remote FTP/FTPs interactions, allowing integration with external servers for file polling, listing, and transfer.",
+            "order": 1
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.general.adapter_id",
+          "type": "string",
+          "required": true,
+          "ui": {
+            "label": "ADAPTER_ID",
+            "section": "GENERAL",
+            "advanced": false,
+            "helperText": "unique ID for the connector",
+            "order": 1
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.ftp_settings.password",
+          "type": "string",
+          "secret": true,
+          "ui": {
+            "label": "SERVER_PASSWORD",
+            "section": "FTP_SETTINGS",
+            "advanced": false,
+            "helperText": "FTP user password. The password corresponding to the username for server authentication. For security, store this in a secure vault or environment variable rather than plaintext configuration.",
+            "readOnly": true,
+            "order": 4
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.general.file_type",
+          "type": "string",
+          "default": "4",
+          "required": true,
+          "ui": {
+            "label": "FILE_TYPE",
+            "section": "GENERAL",
+            "advanced": false,
+            "helperText": "type of file (1 -> static 2 -> Dynamic 3 -> Directory first level 4 -> Directory recursive)",
+            "readOnly": true,
+            "order": 2
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.ftp_settings.implicit",
+          "type": "string",
+          "default": "false",
+          "ui": {
+            "label": "IMPLICIT_FTPS",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Use implicit FTPS mode (typically port 990). Entire session is encrypted from the start. Effective only when useFTPS=true.",
+            "order": 10
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.general.clear_state_on_eod",
+          "type": "string",
+          "default": "1",
+          "required": true,
+          "ui": {
+            "label": "CLEAR_STATE_ON_EOD",
+            "section": "GENERAL",
+            "advanced": false,
+            "helperText": "(0 -> doesn't clear state in LVQ 1 -> clears state in LVQ)",
+            "order": 10
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.scheduler.restart_time_sec",
+          "type": "int",
+          "default": 10,
+          "required": true,
+          "ui": {
+            "label": "RESTART_TIME_SEC",
+            "section": "SCHEDULER",
+            "advanced": false,
+            "helperText": "integer value representing number of seconds between each restart",
+            "order": 1
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.solace_out.lvq",
+          "type": "string",
+          "required": true,
+          "ui": {
+            "label": "LVQ",
+            "section": "SOLACE LVQ",
+            "advanced": false,
+            "order": 1
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "file-events.source.general.max_file_transfer_size",
+          "type": "int",
+          "default": 999000,
+          "required": true,
+          "ui": {
+            "label": "MAX_FILE_TRANSFER_SIZE",
+            "section": "GENERAL",
+            "advanced": false,
+            "order": 7
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "file-events.source.general.max_files_allowed",
+          "type": "int",
+          "default": 99999,
+          "required": true,
+          "ui": {
+            "label": "MAX_FILES_ALLOWED",
+            "section": "GENERAL",
+            "advanced": false,
+            "order": 8
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "file-events.source.general.copy_file_mode_permissions",
+          "type": "string",
+          "default": "1",
+          "required": true,
+          "ui": {
+            "label": "COPY_FILE_MODE_PERMISSIONS",
+            "section": "GENERAL",
+            "advanced": false,
+            "helperText": "(0 -> do not copy 1 -> copy)",
+            "order": 6
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.ftp_settings.ip",
+          "type": "string",
+          "ui": {
+            "label": "SERVER_IP",
+            "section": "FTP_SETTINGS",
+            "advanced": false,
+            "helperText": "FTP Server IP. Specify the hostname or IP address of the remote FTP/FTPs server to connect to. This is required when enabled is true; empty value defaults to local file system if not set.",
+            "readOnly": true,
+            "order": 5
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.general.eod_time_sec",
+          "type": "string",
+          "default": "-1",
+          "required": true,
+          "ui": {
+            "label": "EOD_TIME_SEC",
+            "section": "GENERAL",
+            "advanced": false,
+            "helperText": "-1 -> disabled 0 -> midnight time  (Hours to Seconds) - connector will check if configured time has passed number of seconds and exits.",
+            "order": 11
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.ftp_settings.activeMinPort",
+          "type": "int",
+          "default": 0,
+          "ui": {
+            "label": "ACTIVE_MIN_PORT",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Minimum local port for active mode data connections (0 for system-assigned).",
+            "order": 18
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.general.max_bandwidth_limit",
+          "type": "int",
+          "default": 100000000,
+          "required": true,
+          "ui": {
+            "label": "MAX_BANDWIDTH_LIMIT",
+            "section": "GENERAL",
+            "advanced": false,
+            "order": 9
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "file-events.source.ftp_settings.traceEnabled",
+          "type": "string",
+          "default": "false",
+          "ui": {
+            "label": "TRACE_ENABLED",
+            "section": "FTP_SETTINGS",
+            "advanced": false,
+            "helperText": "Enable detailed FTP command/response tracing. Logs all FTP protocol exchanges at TRACE level via SLF4J disable in production to reduce log volume.",
+            "order": 8
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.ftp_settings.useFTPS",
+          "type": "string",
+          "default": "false",
+          "ui": {
+            "label": "USE_FTPS",
+            "section": "FTP_SETTINGS",
+            "advanced": false,
+            "helperText": "Enables FTPS (TLS-secured FTP) for encrypted control and data channels. Requires proper SSL/TLS configuration.",
+            "order": 9
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.ftp_settings.trustStorePassword",
+          "type": "string",
+          "ui": {
+            "label": "TRUST_STORE_PASSWORD",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Password for the truststore file; required when trustStorePath is provided.",
+            "order": 15
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.ftp_settings.activeMaxPort",
+          "type": "int",
+          "default": 0,
+          "ui": {
+            "label": "ACTIVE_MAX_PORT",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Maximum local port for active mode data connections. Must be >= activeMinPort.",
+            "order": 19
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.ftp_settings.user",
+          "type": "string",
+          "ui": {
+            "label": "SERVER_USERNAME",
+            "section": "FTP_SETTINGS",
+            "advanced": false,
+            "helperText": "FTP user username. The credentials for authenticating with the FTP server. Anonymous access may use 'anonymous' if supported by the server, but a valid username is typically required.",
+            "readOnly": true,
+            "order": 3
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.file_mesh_manager.solace.apiProperties",
+          "type": "string",
+          "ui": {
+            "label": "API_PROPERTIES",
+            "section": "FILE MESH MANAGER",
+            "advanced": true,
+            "helperText": "Number of connection retries per Solace host",
+            "order": 25
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.file_mesh_manager.events.fileStart",
+          "type": "string",
+          "default": "true",
+          "ui": {
+            "label": "FILE_START_EVENT",
+            "section": "FILE MESH MANAGER",
+            "advanced": true,
+            "helperText": "true -> Send file start events for every file to Command Center\n\nfalse -> No file start event",
+            "order": 12
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.file_mesh_manager.useoutputdestinationsolacecredentials",
+          "type": "string",
+          "default": "true",
+          "required": true,
+          "ui": {
+            "label": "USEOUTPUTDESTINATIONSOLACECREDENTIALS",
+            "section": "FILE MESH MANAGER",
+            "advanced": true,
+            "helperText": "true ->  uses output destination solace credentials, false -> use below commented properties to configure",
+            "order": 2
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.file_mesh_manager.solace_base_publish_topic",
+          "type": "string",
+          "ui": {
+            "label": "SOLACE_BASE_PUBLISH_TOPIC",
+            "section": "FILE MESH MANAGER",
+            "advanced": false,
+            "helperText": "base publish topic for command center event",
+            "order": 7
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.file_mesh_manager.solace_messaging_mode",
+          "type": "string",
+          "default": "PERSISTENT",
+          "ui": {
+            "label": "SOLACE_MESSAGING_MODE",
+            "section": "FILE MESH MANAGER",
+            "advanced": true,
+            "helperText": "message mode (DIRECT, PERSISTENT, NON-PERSISTENT)",
+            "order": 8
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.file_mesh_manager.heartbeat_interval",
+          "type": "int",
+          "default": 5,
+          "required": true,
+          "ui": {
+            "label": "HEARTBEAT_INTERVAL",
+            "section": "FILE MESH MANAGER",
+            "advanced": false,
+            "helperText": "integer value representing number of seconds between each hearbeat",
+            "order": 10
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.file_mesh_manager.solace_base_publish_topic_heartbeat",
+          "type": "string",
+          "ui": {
+            "label": "SOLACE_BASE_PUBLISH_TOPIC_HEARTBEAT",
+            "section": "FILE MESH MANAGER",
+            "advanced": false,
+            "helperText": "base publish topic for hearbeat event",
+            "order": 11
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.file_mesh_manager.events.fileComplete",
+          "type": "string",
+          "default": "true",
+          "ui": {
+            "label": "FILE_COMPLETE_EVENT",
+            "section": "FILE MESH MANAGER",
+            "advanced": true,
+            "helperText": "true -> Send file complete events for every file to Command Center\n\nfalse -> No file complete event",
+            "order": 13
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.file_mesh_manager.solace.msg-vpn",
+          "type": "string",
+          "ui": {
+            "label": "MSG_VPN",
+            "section": "FILE MESH MANAGER",
+            "advanced": true,
+            "helperText": "Solace Message VPN used by Command Center client",
+            "readOnly": true,
+            "order": 17
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.file_mesh_manager.solace.client-username",
+          "type": "string",
+          "ui": {
+            "label": "CLIENT_USERNAME",
+            "section": "FILE MESH MANAGER",
+            "advanced": true,
+            "helperText": "Solace client username used for Command Center connection",
+            "readOnly": true,
+            "order": 18
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.file_mesh_manager.solace.client-password",
+          "type": "string",
+          "secret": true,
+          "ui": {
+            "label": "CLIENT_PASSWORD",
+            "section": "FILE MESH MANAGER",
+            "advanced": true,
+            "helperText": "Solace client password used for Command Center connection",
+            "readOnly": true,
+            "order": 19
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.file_mesh_manager.solace.connectRetries",
+          "type": "string",
+          "default": "-1",
+          "required": true,
+          "ui": {
+            "label": "CONNECT_RETRIES",
+            "section": "FILE MESH MANAGER",
+            "advanced": true,
+            "helperText": "Number of connection retry attempts when establishing initial connection",
+            "order": 21
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.file_mesh_manager.solace.reconnectRetries",
+          "type": "string",
+          "default": "-1",
+          "required": true,
+          "ui": {
+            "label": "RECONNECT_RETRIES",
+            "section": "FILE MESH MANAGER",
+            "advanced": true,
+            "helperText": "Number of reconnect retries after connection loss. -1 indicates infinite retries",
+            "order": 22
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.file_mesh_manager.solace.connectRetriesPerHost",
+          "type": "int",
+          "default": 20,
+          "required": true,
+          "ui": {
+            "label": "CONNECT_RETRIES_PER_HOST",
+            "section": "FILE MESH MANAGER",
+            "advanced": true,
+            "helperText": "Number of connection retries per Solace host",
+            "order": 23
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.file_mesh_manager.solace.reconnectRetryWaitInMillis",
+          "type": "int",
+          "default": 3000,
+          "required": true,
+          "ui": {
+            "label": "RECONNECT_RETRY_WAIT_IN_MILLIS",
+            "section": "FILE MESH MANAGER",
+            "advanced": true,
+            "helperText": "Wait time in milliseconds between reconnect attempts",
+            "order": 24
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file-events.source.file_mesh_manager.solace.clientName",
+          "type": "string",
+          "ui": {
+            "label": "CLIENT_NAME",
+            "section": "FILE MESH MANAGER",
+            "advanced": true,
+            "helperText": "Solace client name used by Command Center",
+            "order": 20
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        }
+      ],
+      "metrics": [
+        {
+          "name": "filemesh.heartbeats",
+          "metricType": "counter",
+          "unit": "events",
+          "layer": "package-baseline",
+          "source": {
+            "kind": "solace_event",
+            "topicPattern": "*/*/*/*/*/*/*/*/heartbeat",
+            "instanceKey": {
+              "configField": "file-events.source.general.adapter_id",
+              "pointer": "/header/adapterID"
+            },
+            "extract": "count",
+            "onUnavailable": "degrade"
+          }
+        }
+      ]
+    },
+    {
+      "type": "COMP_SOURCE_FTP@FILETOFILE",
+      "cardinality": "one-of-many",
+      "role": "source",
+      "configPath": "",
+      "configFile": "/projConfig/application.yml",
+      "fields": [
+        {
+          "key": "file.source.command_center.solace.apiProperties",
+          "type": "string",
+          "ui": {
+            "label": "API_PROPERTIES",
+            "section": "FILE MESH MANAGER",
+            "advanced": true,
+            "helperText": "Number of connection retries per Solace host",
+            "order": 25
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.solace_out.destination",
+          "type": "string",
+          "required": true,
+          "ui": {
+            "label": "DESTINATION",
+            "section": "SOLACE LVQ",
+            "advanced": false,
+            "order": 3
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "file.source.directory_replication.start_time",
+          "type": "int",
+          "default": -1,
+          "required": true,
+          "ui": {
+            "label": "START_TIME",
+            "section": "DIRECTORY REPLICATION",
+            "advanced": false,
+            "helperText": "epoch time - used to filter files modified after this time",
+            "order": 1
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.ftp_settings.enabledProtocols",
+          "type": "string",
+          "default": "TLSv1.2,TLSv1.3",
+          "ui": {
+            "label": "ENABLED_TLS_PROTOCOLS",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Comma-separated list of enabled TLS protocols (e.g., TLSv1.2,TLSv1.3). Effective only when useFTPS=true.",
+            "order": 16
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.ftp_settings.keyStorePath",
+          "type": "string",
+          "ui": {
+            "label": "KEY_STORE_PATH",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Path to the keystore file containing the client certificate for mutual TLS authentication.",
+            "order": 12
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.ftp_settings.connectTimeout",
+          "type": "int",
+          "default": 5000,
+          "ui": {
+            "label": "CONNECT_TIMEOUT",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Connection timeout in milliseconds.",
+            "order": 26
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.ftp_settings.keepAliveInterval",
+          "type": "int",
+          "default": 60000,
+          "ui": {
+            "label": "KEEP_ALIVE_INTERVAL",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Control keep-alive interval in milliseconds.",
+            "order": 27
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.ftp_settings.keyStorePassword",
+          "type": "string",
+          "ui": {
+            "label": "KEY_STORE_PASSWORD",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Password to unlock the keystore file. Required if keyStorePath is provided.",
+            "order": 13
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.ftp_settings.strictHostKeyChecking",
+          "type": "string",
+          "default": "yes",
+          "ui": {
+            "label": "STRICT_HOST_KEY_CHECKING",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Verifies the server hostname against its certificate to prevent spoofing. Disable only for non-production or self-signed certificates.",
+            "order": 11
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.ftp_settings.passiveMode",
+          "type": "string",
+          "default": "false",
+          "ui": {
+            "label": "PASSIVE_MODE",
+            "section": "FTP_SETTINGS",
+            "advanced": false,
+            "helperText": "Enables passive mode for data connections. Recommended for clients behind NAT or firewalls.",
+            "order": 17
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.ftp_settings.listHiddenFiles",
+          "type": "string",
+          "default": "false",
+          "ui": {
+            "label": "LIST_HIDDEN_FILES",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Include hidden files in directory listings.",
+            "order": 20
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.ftp_settings.useEPSVwithIPv4",
+          "type": "string",
+          "default": "false",
+          "ui": {
+            "label": "USE_EPSV_WITH_IPV4",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Enable EPSV command in passive mode for IPv4 networks.",
+            "order": 21
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.ftp_settings.remoteVerificationEnabled",
+          "type": "string",
+          "default": "false",
+          "ui": {
+            "label": "REMOTE_VERIFICATION_ENABLED",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Verify remote hostname/IP in passive mode responses to detect misrouting.",
+            "order": 22
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.ftp_settings.serverSystemKey",
+          "type": "string",
+          "default": "UNIX",
+          "ui": {
+            "label": "SERVER_SYSTEM_KEY",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Server system type used for parsing directory listings.",
+            "order": 23
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.general.ignoreEmptyFiles",
+          "type": "string",
+          "default": "true",
+          "ui": {
+            "label": "IGNORE_EMPTY_FILES",
+            "section": "GENERAL",
+            "advanced": false,
+            "helperText": "true->Ignores replication for empty files, false->Replicates empty files too",
+            "order": 3
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.command_center.events.fileStart",
+          "type": "string",
+          "default": "true",
+          "ui": {
+            "label": "FILE_START_EVENT",
+            "section": "FILE MESH MANAGER",
+            "advanced": true,
+            "helperText": "true -> Send file start events for every file to Command Center\n\nfalse -> No file start event",
+            "order": 12
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.command_center.enabled",
+          "type": "string",
+          "default": "1",
+          "required": true,
+          "ui": {
+            "label": "ENABLED",
+            "section": "FILE MESH MANAGER",
+            "advanced": false,
+            "helperText": "0 -> disabled, 1 -> enabled, sends data to Command Center",
+            "order": 1
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.command_center.useoutputdestinationsolacecredentials",
+          "type": "string",
+          "default": "true",
+          "required": true,
+          "ui": {
+            "label": "USEOUTPUTDESTINATIONSOLACECREDENTIALS",
+            "section": "FILE MESH MANAGER",
+            "advanced": true,
+            "helperText": "true ->  uses output destination solace credentials, false -> use below commented properties to configure",
+            "order": 2
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.command_center.solace_base_publish_topic",
+          "type": "string",
+          "ui": {
+            "label": "SOLACE_BASE_PUBLISH_TOPIC",
+            "section": "FILE MESH MANAGER",
+            "advanced": false,
+            "helperText": "base publish topic for command center event",
+            "order": 7
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.command_center.solace_messaging_mode",
+          "type": "string",
+          "default": "PERSISTENT",
+          "ui": {
+            "label": "SOLACE_MESSAGING_MODE",
+            "section": "FILE MESH MANAGER",
+            "advanced": true,
+            "helperText": "message mode (DIRECT, PERSISTENT, NON-PERSISTENT)",
+            "order": 8
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.command_center.heartbeat_enabled",
+          "type": "string",
+          "default": "1",
+          "required": true,
+          "ui": {
+            "label": "HEARTBEAT_ENABLED",
+            "section": "FILE MESH MANAGER",
+            "advanced": false,
+            "helperText": "0 -> disabled 1 -> enabled",
+            "order": 9
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.command_center.heartbeat_interval",
+          "type": "int",
+          "default": 5,
+          "required": true,
+          "ui": {
+            "label": "HEARTBEAT_INTERVAL",
+            "section": "FILE MESH MANAGER",
+            "advanced": false,
+            "helperText": "integer value representing number of seconds between each hearbeat",
+            "order": 10
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.command_center.solace_base_publish_topic_heartbeat",
+          "type": "string",
+          "ui": {
+            "label": "SOLACE_BASE_PUBLISH_TOPIC_HEARTBEAT",
+            "section": "FILE MESH MANAGER",
+            "advanced": false,
+            "helperText": "base publish topic for hearbeat event",
+            "order": 11
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.command_center.events.fileComplete",
+          "type": "string",
+          "default": "true",
+          "ui": {
+            "label": "FILE_COMPLETE_EVENT",
+            "section": "FILE MESH MANAGER",
+            "advanced": true,
+            "helperText": "true -> Send file complete events for every file to Command Center\n\nfalse -> No file complete event",
+            "order": 13
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "SELECT_BROKER",
+          "type": "enum",
+          "virtual": true,
+          "optionsSource": {
+            "kind": "sm-catalog",
+            "entity": "connection",
+            "connectionType": "solace-broker"
+          },
+          "required": true,
+          "ui": {
+            "label": "SELECT_BROKER",
+            "section": "FILE MESH MANAGER",
+            "advanced": true,
+            "order": 15
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "file.source.command_center.solace.host",
+          "type": "string",
+          "ui": {
+            "label": "SMF_URL",
+            "section": "FILE MESH MANAGER",
+            "advanced": true,
+            "readOnly": true,
+            "order": 16
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "file.source.command_center.solace.msg-vpn",
+          "type": "string",
+          "ui": {
+            "label": "MSG_VPN",
+            "section": "FILE MESH MANAGER",
+            "advanced": true,
+            "helperText": "Solace Message VPN used by Command Center client",
+            "readOnly": true,
+            "order": 17
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.command_center.solace.client-username",
+          "type": "string",
+          "ui": {
+            "label": "CLIENT_USERNAME",
+            "section": "FILE MESH MANAGER",
+            "advanced": true,
+            "helperText": "Solace client username used for Command Center connection",
+            "readOnly": true,
+            "order": 18
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.command_center.solace.client-password",
+          "type": "string",
+          "secret": true,
+          "ui": {
+            "label": "CLIENT_PASSWORD",
+            "section": "FILE MESH MANAGER",
+            "advanced": true,
+            "helperText": "Solace client password used for Command Center connection",
+            "readOnly": true,
+            "order": 19
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.command_center.solace.connectRetries",
+          "type": "string",
+          "default": "-1",
+          "required": true,
+          "ui": {
+            "label": "CONNECT_RETRIES",
+            "section": "FILE MESH MANAGER",
+            "advanced": true,
+            "helperText": "Number of connection retry attempts when establishing initial connection",
+            "order": 21
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.command_center.solace.reconnectRetries",
+          "type": "string",
+          "default": "-1",
+          "required": true,
+          "ui": {
+            "label": "RECONNECT_RETRIES",
+            "section": "FILE MESH MANAGER",
+            "advanced": true,
+            "helperText": "Number of reconnect retries after connection loss. -1 indicates infinite retries",
+            "order": 22
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.command_center.solace.connectRetriesPerHost",
+          "type": "int",
+          "default": 20,
+          "required": true,
+          "ui": {
+            "label": "CONNECT_RETRIES_PER_HOST",
+            "section": "FILE MESH MANAGER",
+            "advanced": true,
+            "helperText": "Number of connection retries per Solace host",
+            "order": 23
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.command_center.solace.reconnectRetryWaitInMillis",
+          "type": "int",
+          "default": 3000,
+          "required": true,
+          "ui": {
+            "label": "RECONNECT_RETRY_WAIT_IN_MILLIS",
+            "section": "FILE MESH MANAGER",
+            "advanced": true,
+            "helperText": "Wait time in milliseconds between reconnect attempts",
+            "order": 24
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.command_center.solace.clientName",
+          "type": "string",
+          "ui": {
+            "label": "CLIENT_NAME",
+            "section": "FILE MESH MANAGER",
+            "advanced": true,
+            "helperText": "Solace client name used by Command Center",
+            "order": 20
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.ftp_settings.trustStorePath",
+          "type": "string",
+          "ui": {
+            "label": "TRUST_STORE_PATH",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Path to the truststore containing trusted CA certificates to validate the FTPS server.",
+            "order": 14
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.ftp_settings.defaultFileTransferType",
+          "type": "string",
+          "default": "BINARY",
+          "ui": {
+            "label": "DEFAULT_FILE_TRANSFER_TYPE",
+            "section": "FTP_SETTINGS",
+            "advanced": false,
+            "helperText": "Default file transfer mode. Use BINARY to avoid data corruption.",
+            "order": 24
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.ftp_settings.serverTimezone",
+          "type": "string",
+          "ui": {
+            "label": "SERVER_TIMEZONE",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Timezone of the FTP server used for parsing timestamps.",
+            "order": 25
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "CONNECTOR_RUNTIME_VERSION",
+          "type": "string",
+          "virtual": true,
+          "ui": {
+            "label": "CONNECTOR_RUNTIME_VERSION",
+            "section": "INFO",
+            "advanced": false,
+            "readOnly": true,
+            "order": 1
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "file.source.directory_wildcard.wildcard_type",
+          "type": "string",
+          "default": "0",
+          "required": true,
+          "ui": {
+            "label": "WILDCARD_TYPE",
+            "section": "DIRECTORY WILDCARD",
+            "advanced": false,
+            "helperText": "0 -> disabled 1 -> whitelist 2 -> blacklist",
+            "order": 1
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.ftp_settings.port",
+          "type": "int",
+          "ui": {
+            "label": "SERVER_PORT",
+            "section": "FTP_SETTINGS",
+            "advanced": false,
+            "helperText": "FTP server port number. The default port is 21 for plain FTP; use 990 for implicit FTPS. Ensure the port matches the server's configuration to establish successful connections.",
+            "readOnly": true,
+            "order": 6
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.ftp_settings.enabled",
+          "type": "string",
+          "default": "1",
+          "required": true,
+          "ui": {
+            "label": "ENABLED",
+            "section": "FTP_SETTINGS",
+            "advanced": false,
+            "helperText": "Set this value to 0 to disable and 1 to enable FTP/FTPs source location. Default 0, the file will be searched for on the local source machine and if set to 1, the files will be pulled from a remote location on the ftp server. Enabling this shifts the connector from local file system operations to remote FTP/FTPs interactions, allowing integration with external servers for file polling, listing, and transfer.",
+            "order": 1
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "AUTO_CREATE_TOPIC",
+          "type": "bool",
+          "virtual": true,
+          "ui": {
+            "label": "AUTO_CREATE_TOPIC",
+            "section": "SOLACE LVQ",
+            "advanced": false,
+            "readOnly": true,
+            "order": 2
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "AUTO_CREATE_QUEUE",
+          "type": "bool",
+          "virtual": true,
+          "ui": {
+            "label": "AUTO_CREATE_QUEUE",
+            "section": "SOLACE LVQ",
+            "advanced": false,
+            "readOnly": true,
+            "order": 4
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "file.source.general.adapter_id",
+          "type": "string",
+          "required": true,
+          "ui": {
+            "label": "ADAPTER_ID",
+            "section": "GENERAL",
+            "advanced": false,
+            "helperText": "unique ID for the connector",
+            "order": 1
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.general.file_type",
+          "type": "string",
+          "default": "4",
+          "required": true,
+          "ui": {
+            "label": "FILE_TYPE",
+            "section": "GENERAL",
+            "advanced": false,
+            "helperText": "type of file (1 -> static 2 -> Dynamic 3 -> Directory first level 4 -> Directory recursive)",
+            "readOnly": true,
+            "order": 2
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.general.clear_state_on_eod",
+          "type": "string",
+          "default": "1",
+          "required": true,
+          "ui": {
+            "label": "CLEAR_STATE_ON_EOD",
+            "section": "GENERAL",
+            "advanced": false,
+            "helperText": "(0 -> doesn't clear state in LVQ 1 -> clears state in LVQ)",
+            "order": 10
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.scheduler.restart_time_sec",
+          "type": "int",
+          "default": 10,
+          "required": true,
+          "ui": {
+            "label": "RESTART_TIME_SEC",
+            "section": "SCHEDULER",
+            "advanced": false,
+            "helperText": "integer value representing number of seconds between each restart",
+            "order": 1
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.solace_out.lvq",
+          "type": "string",
+          "required": true,
+          "ui": {
+            "label": "LVQ",
+            "section": "SOLACE LVQ",
+            "advanced": false,
+            "order": 1
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "file.source.general.max_file_transfer_size",
+          "type": "int",
+          "default": 999000,
+          "required": true,
+          "ui": {
+            "label": "MAX_FILE_TRANSFER_SIZE",
+            "section": "GENERAL",
+            "advanced": false,
+            "order": 7
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "file.source.general.max_files_allowed",
+          "type": "int",
+          "default": 99999,
+          "required": true,
+          "ui": {
+            "label": "MAX_FILES_ALLOWED",
+            "section": "GENERAL",
+            "advanced": false,
+            "order": 8
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "file.source.general.multiple_files_flag",
+          "type": "string",
+          "default": "0",
+          "required": true,
+          "ui": {
+            "label": "MULTIPLE_FILES_FLAG",
+            "section": "GENERAL",
+            "advanced": false,
+            "order": 5
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "file.source.general.copy_file_mode_permissions",
+          "type": "string",
+          "default": "1",
+          "required": true,
+          "ui": {
+            "label": "COPY_FILE_MODE_PERMISSIONS",
+            "section": "GENERAL",
+            "advanced": false,
+            "helperText": "(0 -> do not copy 1 -> copy)",
+            "order": 6
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.ftp_settings.ip",
+          "type": "string",
+          "ui": {
+            "label": "SERVER_IP",
+            "section": "FTP_SETTINGS",
+            "advanced": false,
+            "helperText": "FTP Server IP. Specify the hostname or IP address of the remote FTP/FTPs server to connect to. This is required when enabled is true; empty value defaults to local file system if not set.",
+            "readOnly": true,
+            "order": 5
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.general.eod_time_sec",
+          "type": "string",
+          "default": "-1",
+          "required": true,
+          "ui": {
+            "label": "EOD_TIME_SEC",
+            "section": "GENERAL",
+            "advanced": false,
+            "helperText": "-1 -> disabled 0 -> midnight time  (Hours to Seconds) - connector will check if configured time has passed number of seconds and exits.",
+            "order": 11
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "DIR_REGEXPS_CONFIG",
+          "type": "string",
+          "virtual": true,
+          "ui": {
+            "label": "DIR_REGEXPS_CONFIG",
+            "section": "DIRECTORY WILDCARD",
+            "advanced": false,
+            "helperText": "Regex values seperated by |",
+            "order": 2
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.ftp_settings.activeMinPort",
+          "type": "int",
+          "default": 0,
+          "ui": {
+            "label": "ACTIVE_MIN_PORT",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Minimum local port for active mode data connections (0 for system-assigned).",
+            "order": 18
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.general.max_bandwidth_limit",
+          "type": "int",
+          "default": 100000000,
+          "required": true,
+          "ui": {
+            "label": "MAX_BANDWIDTH_LIMIT",
+            "section": "GENERAL",
+            "advanced": false,
+            "order": 9
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "SELECT_FTP_CONFIG",
+          "type": "string",
+          "virtual": true,
+          "required": true,
+          "ui": {
+            "label": "SELECT_FTP_CONFIG",
+            "section": "FTP_SETTINGS",
+            "advanced": false,
+            "order": 2
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "authored"
+          }
+        },
+        {
+          "key": "file.source.ftp_settings.password",
+          "type": "string",
+          "secret": true,
+          "ui": {
+            "label": "SERVER_PASSWORD",
+            "section": "FTP_SETTINGS",
+            "advanced": false,
+            "helperText": "FTP user password. The password corresponding to the username for server authentication. For security, store this in a secure vault or environment variable rather than plaintext configuration.",
+            "readOnly": true,
+            "order": 4
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.ftp_settings.traceEnabled",
+          "type": "string",
+          "default": "false",
+          "ui": {
+            "label": "TRACE_ENABLED",
+            "section": "FTP_SETTINGS",
+            "advanced": false,
+            "helperText": "Enable detailed FTP command/response tracing. Logs all FTP protocol exchanges at TRACE level via SLF4J disable in production to reduce log volume.",
+            "order": 8
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.ftp_settings.useFTPS",
+          "type": "string",
+          "default": "false",
+          "ui": {
+            "label": "USE_FTPS",
+            "section": "FTP_SETTINGS",
+            "advanced": false,
+            "helperText": "Enables FTPS (TLS-secured FTP) for encrypted control and data channels. Requires proper SSL/TLS configuration.",
+            "order": 9
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.ftp_settings.implicit",
+          "type": "string",
+          "default": "false",
+          "ui": {
+            "label": "IMPLICIT_FTPS",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Use implicit FTPS mode (typically port 990). Entire session is encrypted from the start. Effective only when useFTPS=true.",
+            "order": 10
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.ftp_settings.trustStorePassword",
+          "type": "string",
+          "ui": {
+            "label": "TRUST_STORE_PASSWORD",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Password for the truststore file; required when trustStorePath is provided.",
+            "order": 15
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.ftp_settings.activeMaxPort",
+          "type": "int",
+          "default": 0,
+          "ui": {
+            "label": "ACTIVE_MAX_PORT",
+            "section": "FTP_SETTINGS",
+            "advanced": true,
+            "helperText": "Maximum local port for active mode data connections. Must be >= activeMinPort.",
+            "order": 19
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        },
+        {
+          "key": "file.source.ftp_settings.user",
+          "type": "string",
+          "ui": {
+            "label": "SERVER_USERNAME",
+            "section": "FTP_SETTINGS",
+            "advanced": false,
+            "helperText": "FTP user username. The credentials for authenticating with the FTP server. Anonymous access may use 'anonymous' if supported by the server, but a valid username is typically required.",
+            "readOnly": true,
+            "order": 3
+          },
+          "provenance": {
+            "key": "derived",
+            "type": "derived",
+            "helperText": "derived"
+          }
+        }
+      ]
+    }
+  ]
+}

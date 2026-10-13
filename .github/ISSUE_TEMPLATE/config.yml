@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Architecture and decisions
+    url: https://github.com/parikshit-coe/solution-manager/blob/main/docs/design/DECISIONS.md
+    about: Read the decision register before filing. Decisions live in the repo, not in issues.

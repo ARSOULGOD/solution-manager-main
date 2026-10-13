@@ -1,0 +1,27 @@
+name: Decision needed
+description: A choice that must be recorded in DECISIONS.md
+labels: ["kind:decision"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: The decision to be taken
+    validations: { required: true }
+  - type: textarea
+    id: options
+    attributes:
+      label: Options, with the trade each carries
+      description: State what does NOT change across them, and anchor against the status quo.
+    validations: { required: true }
+  - type: input
+    id: conflicts
+    attributes:
+      label: Decisions this would supersede
+      description: A PROPOSED decision never changes a LOCKED one's status — only ratification does (`I3`).
+  - type: checkboxes
+    id: gates
+    attributes:
+      label: Before closing
+      options:
+        - label: Recorded in `DECISIONS.md` with a new ID, superseding rather than editing in place
+        - label: Ratification matrix updated if this touches a LOCKED decision

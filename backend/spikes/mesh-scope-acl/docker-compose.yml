@@ -1,0 +1,55 @@
+# §11.3 broker ACL spike — throwaway harness, NOT product code.
+#
+# Adapted from backend/spikes/mesh-authz/docker-compose.yml (G1). Deltas from G1:
+#   - ONE broker container, TWO Message VPNs (orgA, orgB) — §11.3's ruled topology is "one
+#     Message VPN per Organization", so the two-VPN case has to run against two VPN objects,
+#     not two containers. VPN selection happens at the SMF session layer (the `vpn` field in
+#     the connect call), so one broker + one nginx proxy serves both.
+#   - Ports shifted so this spike coexists with G1's containers (sm-spike-*) and with an
+#     unrelated running project (oms-*) without collision. Checked free with `lsof` before
+#     writing this file: 8081, 5551, 8009, 9444, 8091 were all free; G1's own 8080/5550/8008/
+#     9443/8090 range is avoided even though G1 is not currently up, so both spikes could run
+#     side by side.
+#   - container_name / volume namespaced sm-spike-acl-* (this project's own prefix), distinct
+#     from G1's sm-spike-* and from the unrelated oms-* project.
+#
+# OAuth client authentication requires the Solace ENTERPRISE image; the Standard image has no
+# `authenticationOauthProfiles` support at runtime (same finding as G1).
+
+name: sm-spike-acl
+
+services:
+  solace:
+    image: ${SOLACE_IMAGE:-solace-pubsub-enterprise:10.25.0.177}
+    # The enterprise image is not on a public registry — loaded locally from the Solace
+    # support-portal tarball (same image G1 already pulled locally). Never try to pull it.
+    pull_policy: missing
+    container_name: sm-spike-acl-broker
+    hostname: sm-spike-acl-broker
+    ports:
+      # 127.0.0.1 ONLY (review round 1, MINOR 9): SEMP is admin/admin, so publishing it on
+      # 0.0.0.0 exposed broker admin to the LAN. Loopback is all the host-side tests need.
+      - "127.0.0.1:5551:5550"   # Health check
+      - "127.0.0.1:8081:8080"   # SEMP admin HTTP
+      - "127.0.0.1:8009:8008"   # SMF WebSocket, plaintext — reached from the host by tests/provisioning
+    environment:
+      - username_admin_globalaccesslevel=admin
+      - username_admin_password=admin
+      - system_scaling_maxconnectioncount=100
+    # Do NOT add a ulimits.nofile block — SolOS 10.25 requires nofile >= 1048576 and refuses to
+    # start otherwise (G1 finding). Docker Desktop's default already satisfies it.
+    shm_size: 1g
+    volumes:
+      - sm-spike-acl-solace-data:/var/lib/solace
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: sm-spike-acl-nginx
+    ports: ["127.0.0.1:9444:9444"]   # loopback only, as above
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on: [solace]
+
+volumes:
+  sm-spike-acl-solace-data:

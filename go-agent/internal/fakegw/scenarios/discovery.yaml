@@ -1,0 +1,14 @@
+# Plan 015 T2.3 (d): the agent reports the containers that opted in (facts, not
+# conclusions); the fake registers each under a binding id, which the agent persists by
+# container name.
+lease:
+  target_id: target-1
+  binding_ids: [binding-1]
+  capabilities: [apply-config, lifecycle]
+  duration: 1h
+policy:
+  discovery:
+    mode: register
+    bindings: {java1: binding-1}
+steps:
+  - expect: {kind: DiscoveryReport, timeout: 30s}

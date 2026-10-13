@@ -1,0 +1,44 @@
+# Frozen migration anchors — OR-22 (see docs/design/DECISIONS.md, row OR-22, and the migration
+# README's "Publishing and freezing" section for the full picture).
+#
+# One full 40-hex commit SHA per line (a trailing "# comment" is allowed). A commit SHA is
+# content-addressed: every V*.sql under backend/cp-core/src/main/resources/db/migration/sm_control,
+# and every line of that directory's CHECKSUMS.sha256, present AT a listed commit is frozen forever
+# by backend/scripts/check-frozen-migrations.py's anchor mode — regardless of what any branch later
+# points to. That is what survives a rewritten branch tip or a moving origin/main /
+# origin/<branch> ref, which is the gap this file exists to close.
+#
+# APPEND-ONLY. Never edit or remove a line once it is committed — base mode (check-frozen-
+# migrations.py --base <commit>) fails the build if a line present in this file at an earlier
+# commit is missing or changed later. To freeze a newly-published migration: once its commit has
+# actually reached origin, append that commit's SHA here in a follow-up commit (a commit cannot
+# anchor itself, since it cannot already contain its own SHA).
+245d763c975a82f13b09f38386167f85d00a2ff0  # 12 sm_control migrations V001-V012 published here (OR-22 ruling)
+5c1d2c12a8cc35a56830101ef388f36e52b714f3  # sm_control V013 (V013__dp_remote_governance.sql) published here — plan 010 T2.0 Step 7
+66ab713de7a130aed5c6e434f792a2f5fa33a7b0  # sm_control V014 (V014__dashboards_and_operator_metrics_verbs.sql) published here — plan 011 P11-2.3 Step 7
+# OR-105 (e): from here an anchor freezes all three migration directories - sm_control, and the data plane's sm_data and
+# sm_metrics under backend/dp-core/src/main/resources/db/migration/ - exactly as it freezes sm_control's.
+f0ade57c5939ac0eb53ce48568b13c8d21e651c5  # origin tip when the freeze was extended: sm_data V001-V013, sm_metrics V001 and sm_control V001-V014 published here
+031151266afb8c32c7663ef90312574ae87710df  # sm_data V014 (V014__fleet_action.sql) published here — plan 010 T11.2
+eabd3082eec684d48d260e8eefa62b9125d79443  # sm_data V015 (apply_attempt_preimage_change, OR-108) and V016 (metric_definitions_and_endpoints, plan 011 P11-2.2) published here
+ab0aa612122b221c7409e080357ade9f15f9c255  # sm_data V017 (broker_connection, plan 011 P11-5.1) and sm_metrics V002 (broker_ingest_counter) published here
+fe58c03711abf48757217076c7f22ddc9a8396e8  # sm_metrics V003 (Fable MON-01 rollup sample-count fix) published here
+d2093a5358ff58969f1ba69ce6dfbb348654105c  # sm_data V018 (placement_start_observation), V019 (broker_connection_live_broker_once), V020 (apply_attempt_write_baseline) published here — OR-112
+b0ed1c7a43d3b6d81de226c261fa7aa4c09e9d4f  # sm_control V015 (hierarchy_display_names, OR-120 + OR-123 sibling-unique names) published here
+fcd6f931289d7229610659db4982a8b6e991fc5f  # sm_control V016 (or121_verbs), V017 (instance_retirement) and sm_data V021 (intent_placement_identity) published here — combined W1
+f72986d7887f9df02401b0c8701da11a16a4336f  # sm_control V018 (registration_api), sm_data V022 (target_connection_events), V023 (instance_retirement) published here — combined W2
+57bdd41fb6b07d30659cc79eee908614d5bfbcf1  # sm_data V024 (apply_request_placement_guard) and V025 (apply_schedule) published here — combined W3+W4
+7629960df182fe35e2f47a8edab57bf9d685d3bb  # sm_control V019 (username_per_organization) and sm_data V026 (placement_actor), V027 (target_host_key_algorithm) published here — combined W5
+bd787eb2c67b71bf9ec4ae42a94f960bfd827e75  # sm_control V020 (operator_rename_no_actor) published here — Fable fix round (OR-131 Q1)
+# OR-147 (owner, 2026-10-12; the reconciliation of plan 015 into UAT): the four plan-015 anchors below were REMOVED, the one
+# sanctioned exception to append-only. They froze plan 015's migrations under the numbers they had on integration/agent-gateway
+# (sm_control V021/V022, sm_data V028-V031), which the reconciliation renumbers to sm_control V026/V027 and sm_data V043-V046
+# after UAT's Connections migrations, removing the old agent's sm_control V022/V023 and sm_data V028-V036 (no database that
+# matters ran either chain, OR-147 (2)). Removed, for the record (each is still reachable in git history):
+#   4ca1c9c5252299e2d43c662c26ddfdeedb7faba2  # sm_control V021 (agent_registration_and_verbs), sm_data V028 (agent_gateway), V029 (agent_gateway_maintenance) published here — plan 015 W1
+#   c07eb130e92329dbc1ce2fe58cfc130a57c052a4  # sm_data V030 (agent_session_features) published here — plan 015 W2
+#   f4c504cad0f596ab95ba8d7efde524c113524604  # sm_metrics V004 (ingest_counter_clock_skew) published here — plan 015 W3
+#   48d1657551a0257acc937f7a812c2eaf3d10a3d6  # sm_control V022 (system_actor), sm_data V031 (agent_discovery_release) published here — plan 015 W4
+# Re-anchor: once the reconciliation merge has reached origin, append its SHA here (it publishes sm_control V021, V024-V027,
+# sm_data V037-V046 and sm_metrics V004 under their reconciled names).
+a3be83f31827593368290efc8317bdf7e3bc3114  # sm_control V021 (connections), V024-V025 (connection audit), V026 (agent_registration_and_verbs), V027 (system_actor); sm_data V037-V042 (Connections, instance role), V043-V046 (plan 015 agent, renumbered); sm_metrics V004 published here — UAT merge of #176 (OR-147)

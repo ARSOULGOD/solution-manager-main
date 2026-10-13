@@ -1,0 +1,107 @@
+### [OK] (p) SETUP: STAGED request R1 on T2/IN2/P2 (the manual strategy's terminal state)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at)
+VALUES ('90000001-0000-4000-8000-000000000001','22222222-2222-4222-8222-222222222222','a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','apply',1,'manual','op:p',now(),'STAGED',now());
+--- RESULT ---
+
+
+### [REFUSED] (p) REFUSE: 2nd STAGED for the scope WITHOUT marking the elder -> staged_fence  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at)
+VALUES ('90000002-0000-4000-8000-000000000002','22222222-2222-4222-8222-222222222222','a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','apply',2,'manual','op:p',now(),'STAGED',now());
+--- RESULT ---
+ERROR:  23505: duplicate key value violates unique constraint "staged_fence"
+DETAIL:  Key (tenant_id, instance_id, placement_id)=(22222222-2222-4222-8222-222222222222, a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2, b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2) already exists.
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  staged_fence
+LOCATION:  _bt_check_unique, nbtinsert.c:663
+
+### [OK] (p) POS: the sanctioned STAGED -> SUPERSEDED mark passes the terminal guard  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='SUPERSEDED', terminal_at=now() WHERE apply_id='90000001-0000-4000-8000-000000000001';
+--- RESULT ---
+
+
+### [OK] (p) POS: full mark-then-insert order succeeds end to end  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at)
+VALUES ('90000002-0000-4000-8000-000000000002','22222222-2222-4222-8222-222222222222','a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','apply',2,'manual','op:p',now(),'STAGED',now());
+--- RESULT ---
+
+
+### [REFUSED] (p) REFUSE: STAGED -> APPLIED walk (not the sanctioned transition)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='APPLIED', terminal_at=now() WHERE apply_id='90000002-0000-4000-8000-000000000002';
+--- RESULT ---
+ERROR:  P0001: apply_request 90000002-0000-4000-8000-000000000002 is terminal (STAGED) and immutable
+CONTEXT:  PL/pgSQL function sm_data.forbid_terminal_regression() line 17 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3857
+
+### [REFUSED] (p) REFUSE: STAGED -> FAILED_NO_EFFECT (confirms SUPERSEDED is the ONLY one)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='FAILED_NO_EFFECT', terminal_at=now() WHERE apply_id='90000002-0000-4000-8000-000000000002';
+--- RESULT ---
+ERROR:  P0001: apply_request 90000002-0000-4000-8000-000000000002 is terminal (STAGED) and immutable
+CONTEXT:  PL/pgSQL function sm_data.forbid_terminal_regression() line 17 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3857
+
+### [REFUSED] (p) REFUSE: SUPERSEDED -> STAGED regression  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET state='STAGED', terminal_at=now() WHERE apply_id='90000001-0000-4000-8000-000000000001';
+--- RESULT ---
+ERROR:  P0001: apply_request 90000001-0000-4000-8000-000000000001 is terminal (SUPERSEDED) and immutable
+CONTEXT:  PL/pgSQL function sm_data.forbid_terminal_regression() line 17 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3857
+
+### [OK] (u) POS: attempt_summary-ONLY UPDATE on a terminal (APPLIED) row succeeds  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET attempt_summary='{"MATERIALIZE":{"count":2,"last":"SUCCEEDED"}}'::jsonb WHERE apply_id='d0000001-0000-4000-8000-000000000001';
+--- RESULT ---
+
+
+### [OK] (u) POS: attempt_summary fold on a SUPERSEDED row too  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET attempt_summary='{"folded":true}'::jsonb WHERE apply_id='90000001-0000-4000-8000-000000000001';
+--- RESULT ---
+
+
+### [REFUSED] (u) REFUSE: the same UPDATE ALSO touching resolved_by (a granted column, so the TRIGGER is what refuses)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET attempt_summary='{"x":1}'::jsonb, resolved_by='sneaky' WHERE apply_id='d0000001-0000-4000-8000-000000000001';
+--- RESULT ---
+ERROR:  P0001: apply_request d0000001-0000-4000-8000-000000000001 is terminal (APPLIED) and immutable
+CONTEXT:  PL/pgSQL function sm_data.forbid_terminal_regression() line 17 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3857
+
+### [REFUSED] (u/I6) REFUSE: fold + resolution_note on a terminal row — refused by the GRANT (42501) before the trigger can  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET attempt_summary='{"x":1}'::jsonb, resolution_note='sneaky' WHERE apply_id='d0000001-0000-4000-8000-000000000001';
+--- RESULT ---
+ERROR:  42501: permission denied for table apply_request
+LOCATION:  aclcheck_error, aclchk.c:3452
+
+### [REFUSED] (u) REFUSE: attempt_summary + terminal_at on a terminal row  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+UPDATE sm_data.apply_request SET attempt_summary='{"x":2}'::jsonb, terminal_at=now() WHERE apply_id='d0000001-0000-4000-8000-000000000001';
+--- RESULT ---
+ERROR:  P0001: apply_request d0000001-0000-4000-8000-000000000001 is terminal (APPLIED) and immutable
+CONTEXT:  PL/pgSQL function sm_data.forbid_terminal_regression() line 17 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3857
+
+### [REFUSED] (u) REFUSE: request whose scope row does NOT exist -> request_has_scope  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state)
+VALUES ('90000003-0000-4000-8000-000000000003','22222222-2222-4222-8222-222222222222','99999999-9999-4999-8999-999999999999','00000000-0000-0000-0000-000000000000','apply',1,'manual','op:u',now(),'REQUESTED');
+--- RESULT ---
+ERROR:  23503: insert or update on table "apply_request" violates foreign key constraint "request_has_scope"
+DETAIL:  Key (tenant_id, instance_id)=(22222222-2222-4222-8222-222222222222, 99999999-9999-4999-8999-999999999999) is not present in table "apply_scope".
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  request_has_scope
+LOCATION:  ri_ReportViolation, ri_triggers.c:2528
+
+### [OK] (u) POS: the attempt-pruning DELETE half works under the runtime grant  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+DELETE FROM sm_data.apply_attempt WHERE tenant_id='11111111-1111-4111-8111-111111111111' AND started_at < now()+interval '1 day';
+--- RESULT ---

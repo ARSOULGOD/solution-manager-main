@@ -1,0 +1,5 @@
+// Planted violation for FixedMiPortSourceScanTest (plan 011 P11-9.1, MF22). A .txt so it is never compiled.
+// The scanner must report the literal below by file and line.
+class FixedPort {
+    static final String PROBE = "curl --fail http://127.0.0.1:8081/api/cache/stats";
+}

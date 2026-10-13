@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# Extract one frontend task's full text into a brief file the implementer
+# subagent reads in one call, so task text never passes through the
+# controller's context.
+#
+# WHY THIS EXISTS: the canonical superpowers script `scripts/task-brief`
+# matches headings of the form `^#+ Task <N>`. This plan's 110 tasks use
+# `#### FE-NNN · <name>` (the task-ID format the plan was commissioned
+# with), so the canonical extractor finds nothing and exits 3. This is the
+# same extraction with this plan's heading grammar. Everything else in the
+# subagent-driven-development loop is used unmodified.
+#
+# Usage: fe-task-brief PLAN_FILE TASK_ID [OUTFILE]
+#   TASK_ID accepts 1, 01, 001 or FE-001 — all resolve to FE-001.
+# Default OUTFILE: <repo-root>/.superpowers/sdd/<plan-basename>/task-<NNN>-brief.md
+set -euo pipefail
+
+if [ $# -lt 2 ] || [ $# -gt 3 ]; then
+  echo "usage: fe-task-brief PLAN_FILE TASK_ID [OUTFILE]" >&2
+  exit 2
+fi
+
+plan=$1
+raw=$2
+[ -f "$plan" ] || { echo "no such plan file: $plan" >&2; exit 2; }
+
+# Normalise 1 | 01 | 001 | FE-001 -> 001
+num=${raw#FE-}
+num=${num#fe-}
+case "$num" in
+  ''|*[!0-9]*) echo "bad TASK_ID: $raw (want 1, 001 or FE-001)" >&2; exit 2 ;;
+esac
+id=$(printf '%03d' "$((10#$num))")
+
+if [ $# -eq 3 ]; then
+  out=$3
+else
+  root=$(git rev-parse --show-toplevel)
+  slug=$(basename "$plan" .md)
+  dir="$root/.superpowers/sdd/$slug"
+  mkdir -p "$dir"
+  printf '*\n' > "$root/.superpowers/sdd/.gitignore"
+  out="$dir/task-${id}-brief.md"
+fi
+
+# Print from this task's heading up to the NEXT heading of level 1-4 that is
+# not another task heading. Without the second clause the final task, and the
+# last task of every phase, absorb everything that follows them.
+awk -v id="$id" '
+  /^```/ { infence = !infence }
+  !infence && /^#{1,4}[ \t]/ {
+    intask = ($0 ~ ("^#### FE-" id "([^0-9]|$)"))
+  }
+  intask { print }
+' "$plan" > "$out"
+
+if [ ! -s "$out" ]; then
+  echo "task FE-${id} not found in ${plan}" >&2
+  exit 3
+fi
+
+echo "wrote ${out}: $(wc -l < "$out" | tr -d ' ') lines"

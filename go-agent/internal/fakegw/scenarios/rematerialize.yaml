@@ -1,0 +1,17 @@
+# Plan 015 T2.3 (c): OPERATION_REMATERIALIZE with the write precondition. The first
+# offer names a digest the host file does not have, so the agent REFUSES with
+# TARGET_MOVED and writes nothing; the second names the file's current digest (here:
+# "must be absent") and applies.
+lease:
+  target_id: target-1
+  binding_ids: [binding-1]
+  capabilities: [apply-config, lifecycle]
+  duration: 1h
+  verb_ceilings: {preflight: 1m, apply: 2m, restart: 5m, stop: 2m, rematerialize: 2m}
+  admission_margin: 30s
+steps:
+  - expect: {kind: ActualStateReportBatch, timeout: 30s}
+  - offer: {command_id: cmd-moved, binding_id: binding-1, generation: 1, operation: rematerialize, payload: "a: 1\n", expected_current_sha256: "0000000000000000000000000000000000000000000000000000000000000000"}
+  - expect: {kind: CommandAck, timeout: 60s}
+  - offer: {command_id: cmd-ok, binding_id: binding-1, generation: 2, operation: rematerialize, payload: "a: 2\n", expected_current_sha256: ""}
+  - expect: {kind: CommandAck, timeout: 60s}

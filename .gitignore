@@ -1,0 +1,73 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Superpowers / Claude Code session scratch (ephemeral, not design history)
+.superpowers/
+.claude/settings.local.json
+
+# Editors / IDEs
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+*~
+
+# Logs & temp
+*.log
+tmp/
+temp/
+
+# Java / Gradle / Maven (backend)
+target/
+# ...but never source: Java packages named `target` (cp.api.target, cp.target) live under src/ and are code, not Maven output.
+!**/src/**/target/
+build/
+.gradle/
+
+# Node / frontend
+node_modules/
+dist/
+.env
+.env.local
+coverage/
+
+# Non-production local API simulator (developer learning/testing only)
+dummy-backend/
+
+# Playwright (task 008)
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+
+# Go (agent)
+go-agent/bin/
+
+# Local Postgres scratch used to validate migrations
+pgdata/
+
+# Python bytecode (evidence/adapter scripts)
+__pycache__/
+*.pyc
+
+# Design screen mockups — rendered PNGs + their viewer HTML. Kept out of git
+# history because they are large binaries that regenerate from the spec; the
+# spec, not the screenshot, is the reviewable artifact.
+# Path-scoped deliberately: a bare `screens/` would also ignore a React
+# `frontend/src/screens/`, which is a standard convention and is v1 scope.
+docs/design/*/screens/
+
+# Local stack state (OR-118): generated credentials, master key, logs
+backend/local/.state/
+
+# Git worktrees for isolated plan execution (superpowers:using-git-worktrees)
+.worktrees/
+
+backend/local/.state-ga1/
+backend/local/.state-ga2/
+backend/local/.state-ga2-host/
+backend/local/.state-ga2-dry/
+backend/local/.state-ga2-stub/

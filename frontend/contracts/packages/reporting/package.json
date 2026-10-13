@@ -1,0 +1,537 @@
+{
+  "solution": "reporting",
+  "packageVersion": [
+    1,
+    2,
+    3
+  ],
+  "appliesTo": ">=1.0 <2.0",
+  "provenance": {
+    "author": "solace",
+    "signature": "example-not-signed"
+  },
+  "authoring": {
+    "reviewedRows": 7,
+    "totalRows": 7
+  },
+  "components": [
+    {
+      "type": "report-engine",
+      "cardinality": "exactly-one",
+      "role": "none",
+      "configPath": "report-engine",
+      "loggerPrefix": "com.solace.solutions.reporting.engine",
+      "fields": [
+        {
+          "key": "ENGINE",
+          "type": "enum",
+          "options": [
+            "JASPER",
+            "PDF",
+            "HTML"
+          ],
+          "required": true,
+          "discriminator": true,
+          "ui": {
+            "section": "General",
+            "order": 0,
+            "label": "Report engine"
+          },
+          "version": [
+            1,
+            2
+          ]
+        },
+        {
+          "key": "OUTPUT_DIRECTORY",
+          "type": "string",
+          "required": true,
+          "ui": {
+            "section": "General",
+            "order": 1,
+            "label": "Output directory"
+          },
+          "version": [
+            1,
+            2
+          ]
+        },
+        {
+          "key": "MAX_CONCURRENT_REPORTS",
+          "type": "int",
+          "default": 5,
+          "min": 1,
+          "max": 50,
+          "ui": {
+            "section": "General",
+            "order": 2,
+            "label": "Max concurrent reports",
+            "advanced": true
+          },
+          "version": [
+            1,
+            2
+          ]
+        },
+        {
+          "key": "TIMEOUT",
+          "type": "duration",
+          "default": "5m",
+          "ui": {
+            "section": "General",
+            "order": 3,
+            "label": "Report timeout",
+            "advanced": true
+          },
+          "version": [
+            1,
+            2
+          ]
+        }
+      ],
+      "actions": [],
+      "metrics": [
+        {
+          "name": "reports.generated",
+          "metricType": "counter",
+          "unit": "reports",
+          "source": {
+            "kind": "http_json",
+            "path": "/actuator/metrics/reports",
+            "port": 8081,
+            "pointer": "/measurements/0/value",
+            "onUnavailable": "degrade"
+          },
+          "layer": "package-baseline"
+        },
+        {
+          "name": "reports.failed",
+          "metricType": "counter",
+          "unit": "reports",
+          "source": {
+            "kind": "http_json",
+            "path": "/actuator/metrics/reports",
+            "port": 8081,
+            "pointer": "/measurements/0/value",
+            "onUnavailable": "degrade"
+          },
+          "layer": "package-baseline"
+        },
+        {
+          "name": "report.generation.time",
+          "metricType": "gauge",
+          "unit": "milliseconds",
+          "source": {
+            "kind": "http_json",
+            "path": "/actuator/metrics/reports",
+            "port": 8081,
+            "pointer": "/measurements/0/value",
+            "onUnavailable": "degrade"
+          },
+          "layer": "package-baseline"
+        }
+      ],
+      "version": [
+        1,
+        2
+      ]
+    },
+    {
+      "type": "report-store",
+      "cardinality": "exactly-one",
+      "role": "none",
+      "configPath": "report-store",
+      "loggerPrefix": "com.solace.solutions.reporting.store",
+      "fields": [
+        {
+          "key": "PROVIDER",
+          "type": "enum",
+          "options": [
+            "S3",
+            "FILESYSTEM",
+            "DATABASE"
+          ],
+          "required": true,
+          "discriminator": true,
+          "ui": {
+            "section": "Storage",
+            "order": 0,
+            "label": "Provider"
+          },
+          "version": [
+            1,
+            2
+          ]
+        },
+        {
+          "key": "LOCATION",
+          "type": "string",
+          "required": true,
+          "ui": {
+            "section": "Storage",
+            "order": 1,
+            "label": "Location"
+          },
+          "version": [
+            1,
+            2
+          ]
+        },
+        {
+          "key": "RETENTION",
+          "type": "duration",
+          "default": "30d",
+          "ui": {
+            "section": "Storage",
+            "order": 2,
+            "label": "Retention",
+            "advanced": true
+          },
+          "version": [
+            1,
+            2
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "key": "TEST_STORE",
+          "kind": "test-connection",
+          "inputs": [
+            "PROVIDER",
+            "LOCATION"
+          ]
+        }
+      ],
+      "metrics": [],
+      "version": [
+        1,
+        2
+      ]
+    },
+    {
+      "type": "http-client",
+      "cardinality": "zero-or-more",
+      "version": [
+        1,
+        2,
+        3
+      ],
+      "role": "none",
+      "configPath": "http-client",
+      "loggerPrefix": "com.solace.solutions.http.client",
+      "fields": [
+        {
+          "key": "BASE_URL",
+          "type": "string",
+          "version": [
+            1,
+            2,
+            3
+          ],
+          "required": true,
+          "pattern": "^https?://.+$",
+          "ui": {
+            "section": "Connection",
+            "order": 0,
+            "label": "Base URL",
+            "helperText": "Base URL for the external service."
+          }
+        },
+        {
+          "key": "AUTH_MODE",
+          "type": "enum",
+          "version": [
+            1,
+            2,
+            3
+          ],
+          "options": [
+            "none",
+            "basic",
+            "bearer",
+            "api-key"
+          ],
+          "default": "none",
+          "required": true,
+          "ui": {
+            "section": "Authentication",
+            "order": 0,
+            "label": "Authentication mode"
+          }
+        },
+        {
+          "key": "USERNAME",
+          "type": "string",
+          "version": [
+            1,
+            2
+          ],
+          "required": false,
+          "when": {
+            "AUTH_MODE": "basic"
+          },
+          "ui": {
+            "section": "Authentication",
+            "order": 1,
+            "label": "Username"
+          }
+        },
+        {
+          "key": "PASSWORD",
+          "type": "secret",
+          "version": [
+            1,
+            2
+          ],
+          "secret": true,
+          "required": false,
+          "when": {
+            "AUTH_MODE": "basic"
+          },
+          "ui": {
+            "section": "Authentication",
+            "order": 2,
+            "label": "Password"
+          }
+        },
+        {
+          "key": "TOKEN",
+          "type": "secret",
+          "version": [
+            1,
+            2
+          ],
+          "secret": true,
+          "required": false,
+          "when": {
+            "AUTH_MODE": "bearer"
+          },
+          "ui": {
+            "section": "Authentication",
+            "order": 3,
+            "label": "Bearer token"
+          }
+        },
+        {
+          "key": "API_KEY_HEADER",
+          "type": "string",
+          "version": [
+            1,
+            2,
+            3
+          ],
+          "default": "X-API-Key",
+          "required": false,
+          "when": {
+            "AUTH_MODE": "api-key"
+          },
+          "ui": {
+            "section": "Authentication",
+            "order": 4,
+            "label": "API key header"
+          }
+        },
+        {
+          "key": "API_KEY",
+          "type": "secret",
+          "version": [
+            1,
+            2,
+            3
+          ],
+          "secret": true,
+          "required": false,
+          "when": {
+            "AUTH_MODE": "api-key"
+          },
+          "ui": {
+            "section": "Authentication",
+            "order": 5,
+            "label": "API key"
+          }
+        },
+        {
+          "key": "TIMEOUT",
+          "type": "duration",
+          "version": [
+            1,
+            2
+          ],
+          "default": "10s",
+          "ui": {
+            "section": "Advanced",
+            "order": 0,
+            "label": "Request timeout"
+          }
+        },
+        {
+          "key": "RETRY_COUNT",
+          "type": "int",
+          "version": [
+            1,
+            2,
+            3
+          ],
+          "default": 3,
+          "min": 0,
+          "max": 10,
+          "ui": {
+            "section": "Advanced",
+            "order": 1,
+            "label": "Retry count",
+            "advanced": true
+          }
+        },
+        {
+          "key": "VERIFY_TLS",
+          "type": "bool",
+          "version": [
+            1,
+            2,
+            3
+          ],
+          "default": true,
+          "ui": {
+            "section": "Security",
+            "order": 0,
+            "label": "Verify TLS certificates",
+            "advanced": true
+          }
+        },
+        {
+          "key": "HEADERS",
+          "type": "table",
+          "version": [
+            1,
+            2,
+            3
+          ],
+          "ui": {
+            "section": "Headers",
+            "order": 0,
+            "label": "Custom headers"
+          },
+          "columns": [
+            {
+              "key": "NAME",
+              "type": "string",
+              "label": "Header name"
+            },
+            {
+              "key": "VALUE",
+              "type": "string",
+              "label": "Header value"
+            },
+            {
+              "key": "ENABLED",
+              "type": "bool",
+              "label": "Enabled"
+            }
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "key": "TEST_CONNECTION",
+          "kind": "test-connection",
+          "inputs": [
+            "BASE_URL",
+            "AUTH_MODE"
+          ]
+        }
+      ],
+      "metrics": [
+        {
+          "name": "http.client.requests",
+          "metricType": "counter",
+          "unit": "requests",
+          "source": {
+            "kind": "http_json",
+            "path": "/actuator/metrics/http.client.requests",
+            "port": 8081,
+            "pointer": "/measurements/0/value",
+            "onUnavailable": "degrade"
+          },
+          "layer": "package-baseline"
+        }
+      ]
+    },
+    {
+      "type": "cache",
+      "cardinality": "zero-or-more",
+      "version": [
+        2,
+        3
+      ],
+      "role": "none",
+      "configPath": "cache",
+      "loggerPrefix": "com.solace.solutions.cache",
+      "fields": [
+        {
+          "key": "CACHE_ENABLED",
+          "type": "bool",
+          "version": [
+            2,
+            3
+          ],
+          "default": true,
+          "ui": {
+            "section": "Cache",
+            "order": 0,
+            "label": "Enable cache"
+          }
+        },
+        {
+          "key": "CACHE_PROVIDER",
+          "type": "enum",
+          "version": [
+            2,
+            3
+          ],
+          "options": [
+            "memory",
+            "redis"
+          ],
+          "default": "memory",
+          "required": true,
+          "ui": {
+            "section": "Cache",
+            "order": 1,
+            "label": "Cache provider"
+          }
+        },
+        {
+          "key": "CACHE_TTL",
+          "type": "duration",
+          "version": [
+            2,
+            3
+          ],
+          "default": "5m",
+          "ui": {
+            "section": "Cache",
+            "order": 2,
+            "label": "Cache TTL"
+          }
+        },
+        {
+          "key": "REDIS_URL",
+          "type": "string",
+          "version": [
+            3
+          ],
+          "required": true,
+          "when": {
+            "CACHE_PROVIDER": "redis"
+          },
+          "ui": {
+            "section": "Cache",
+            "order": 3,
+            "label": "Redis URL"
+          }
+        }
+      ]
+    }
+  ]
+}

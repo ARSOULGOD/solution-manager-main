@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.solace.sm</groupId>
+    <artifactId>backend-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>console-gateway</artifactId>
+  <name>Solution Manager :: console-gateway</name>
+  <description>
+    Composition layer (backend design §2, open item 21). Depends on both planes' service
+    interfaces — cp-api and dp-api — and on NOTHING else of theirs: never cp-core, dp-core or
+    their data-access modules (I7). Owns no schema.
+  </description>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.solace.sm</groupId>
+      <artifactId>cp-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.solace.sm</groupId>
+      <artifactId>dp-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-webmvc</artifactId>
+    </dependency>
+    <!--
+      Compile-only source of the jakarta.servlet.* API this module's Filter/HandlerInterceptor/
+      HandlerMethodArgumentResolver signatures need. The standalone `jakarta.servlet:
+      jakarta.servlet-api` artifact this module would otherwise depend on at `provided` scope is
+      not mirrored into this offline build's local repository (measured: absent under
+      ~/.m2/repository/jakarta/servlet). Modern embedded Tomcat bundles the same API classes
+      inside its own jar (measured with `unzip -l`: tomcat-embed-core-10.1.55.jar contains
+      jakarta/servlet/Filter.class and jakarta/servlet/http/HttpServletRequest.class), and that
+      version is exactly the one the Spring Boot 3.5.16 BOM manages (`<tomcat.version>` in
+      spring-boot-dependencies), so this is a like-for-like substitute for compilation only:
+      `provided` scope keeps it off this module's runtime classpath and off anything that
+      depends on console-gateway, exactly as `jakarta.servlet-api` would.
+
+      The `tomcat-annotations-api` exclusion mirrors `spring-boot-starter-tomcat`'s own dependency
+      declaration for this exact tomcat-embed-core version (read out of
+      spring-boot-starter-tomcat-3.5.16.pom, not assumed) — that artifact is not mirrored into
+      this offline repository either, and excluding it is how the Boot starter itself avoids
+      needing it.
+    -->
+    <dependency>
+      <groupId>org.apache.tomcat.embed</groupId>
+      <artifactId>tomcat-embed-core</artifactId>
+      <scope>provided</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>org.apache.tomcat</groupId>
+          <artifactId>tomcat-annotations-api</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.dataformat</groupId>
+      <artifactId>jackson-dataformat-yaml</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!--
+      The dp-api port contract kits (dp-api's own test sources, published as its test-jar), so this module's
+      PackageDeclarationSource implementation runs the shared kit (plan 015 W4 integration, lane A review MINOR 11).
+      In-reactor, test scope: no new coordinate, the same pattern agent-gateway uses.
+    -->
+    <dependency>
+      <groupId>com.solace.sm</groupId>
+      <artifactId>dp-api</artifactId>
+      <version>${project.version}</version>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

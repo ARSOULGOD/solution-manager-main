@@ -1,0 +1,537 @@
+{
+ "enums": {
+  "AckDetailCode": {
+   "0": "ACK_DETAIL_CODE_UNSPECIFIED",
+   "1": "ACK_DETAIL_CODE_ADMISSION_BLOCKED",
+   "2": "ACK_DETAIL_CODE_LEASE_NOT_ACTIVE",
+   "3": "ACK_DETAIL_CODE_ERROR"
+  },
+  "Capability": {
+   "0": "CAPABILITY_UNSPECIFIED",
+   "1": "CAPABILITY_APPLY_CONFIG",
+   "2": "CAPABILITY_LIFECYCLE",
+   "3": "CAPABILITY_REPORT_ONLY",
+   "4": "CAPABILITY_DISCOVERY",
+   "5": "CAPABILITY_REMATERIALIZE",
+   "6": "CAPABILITY_DECLARATIONS"
+  },
+  "ClockState": {
+   "0": "CLOCK_STATE_UNSPECIFIED",
+   "1": "CLOCK_STATE_OK",
+   "2": "CLOCK_STATE_SUSPECT"
+  },
+  "DiscoveryState": {
+   "0": "DISCOVERY_STATE_UNSPECIFIED",
+   "1": "DISCOVERY_STATE_PENDING",
+   "2": "DISCOVERY_STATE_REGISTERED",
+   "3": "DISCOVERY_STATE_REFUSED",
+   "4": "DISCOVERY_STATE_ABANDONED",
+   "5": "DISCOVERY_STATE_UNDECLARED",
+   "6": "DISCOVERY_STATE_RETIRED"
+  },
+  "Disposition": {
+   "0": "DISPOSITION_UNSPECIFIED",
+   "1": "DISPOSITION_APPLIED",
+   "2": "DISPOSITION_STALE",
+   "3": "DISPOSITION_REFUSED"
+  },
+  "ErrorCode": {
+   "0": "ERROR_CODE_UNSPECIFIED",
+   "1": "ERROR_CODE_UNAUTHENTICATED_IDENTITY",
+   "10": "ERROR_CODE_LEASE_KEY_MISMATCH",
+   "11": "ERROR_CODE_GRANT_INVALID",
+   "12": "ERROR_CODE_REQUEST_ID_REUSED",
+   "13": "ERROR_CODE_REQUEST_EXPIRED",
+   "14": "ERROR_CODE_IN_PROGRESS",
+   "15": "ERROR_CODE_LEASE_RENEW_REQUIRED",
+   "16": "ERROR_CODE_RE_ENROLL_REQUIRED",
+   "17": "ERROR_CODE_ISSUE_NOT_ALLOWED",
+   "18": "ERROR_CODE_REPLICA_REF_INVALID",
+   "19": "ERROR_CODE_REPLICA_CAP_EXCEEDED",
+   "2": "ERROR_CODE_IDENTITY_REVOKED",
+   "20": "ERROR_CODE_REPORTER_DISPLACED",
+   "21": "ERROR_CODE_UNDECLARED_LABEL",
+   "22": "ERROR_CODE_LABEL_INVALID",
+   "23": "ERROR_CODE_UNKNOWN_REPLICA",
+   "24": "ERROR_CODE_INCARNATION_RETIRED",
+   "25": "ERROR_CODE_ADMISSION_LIMITED",
+   "26": "ERROR_CODE_SESSION_SUPERSEDED",
+   "27": "ERROR_CODE_LEASE_RENEW_REFUSED",
+   "28": "ERROR_CODE_STALE_GENERATION",
+   "29": "ERROR_CODE_UNKNOWN_COMMAND",
+   "3": "ERROR_CODE_TOKEN_CONSUMED",
+   "30": "ERROR_CODE_SUPERSEDED",
+   "31": "ERROR_CODE_KEY_HASH_MISMATCH",
+   "32": "ERROR_CODE_TENANT_MISMATCH",
+   "33": "ERROR_CODE_PAYLOAD_TOO_LARGE",
+   "34": "ERROR_CODE_OUT_OF_CREDITS",
+   "35": "ERROR_CODE_CLOCK_SUSPECT",
+   "36": "ERROR_CODE_DRAINING",
+   "37": "ERROR_CODE_INTERNAL_UNAVAILABLE",
+   "38": "ERROR_CODE_TARGET_MOVED",
+   "39": "ERROR_CODE_RENDER_CHANGED",
+   "4": "ERROR_CODE_PROTOCOL_VERSION_UNSUPPORTED",
+   "5": "ERROR_CODE_UPGRADE_REQUIRED",
+   "6": "ERROR_CODE_CAPABILITY_MISMATCH",
+   "7": "ERROR_CODE_CAPABILITY_MISSING",
+   "8": "ERROR_CODE_BINDING_NOT_IN_LEASE",
+   "9": "ERROR_CODE_TARGET_MISMATCH"
+  },
+  "HealthState": {
+   "0": "HEALTH_STATE_UNSPECIFIED",
+   "1": "HEALTH_STATE_HEALTHY",
+   "2": "HEALTH_STATE_STARTING",
+   "3": "HEALTH_STATE_UNHEALTHY",
+   "4": "HEALTH_STATE_NOT_DECLARED",
+   "5": "HEALTH_STATE_UNREACHABLE"
+  },
+  "MetricType": {
+   "0": "METRIC_TYPE_UNSPECIFIED",
+   "1": "METRIC_TYPE_COUNTER",
+   "2": "METRIC_TYPE_GAUGE",
+   "3": "METRIC_TYPE_HISTOGRAM"
+  },
+  "OnUnavailable": {
+   "0": "ON_UNAVAILABLE_UNSPECIFIED",
+   "1": "ON_UNAVAILABLE_DEGRADE",
+   "2": "ON_UNAVAILABLE_ERROR"
+  },
+  "Operation": {
+   "0": "OPERATION_UNSPECIFIED",
+   "1": "OPERATION_PREFLIGHT",
+   "2": "OPERATION_APPLY",
+   "3": "OPERATION_RESTART",
+   "4": "OPERATION_STOP",
+   "5": "OPERATION_REMATERIALIZE"
+  },
+  "Outcome": {
+   "0": "OUTCOME_UNSPECIFIED",
+   "1": "OUTCOME_APPLIED",
+   "2": "OUTCOME_FAILED_NO_EFFECT",
+   "3": "OUTCOME_FAILED_ROLLED_BACK",
+   "4": "OUTCOME_SUPERSEDED",
+   "5": "OUTCOME_REFUSED",
+   "6": "OUTCOME_APPLY_INDETERMINATE",
+   "7": "OUTCOME_PREFLIGHT_OK",
+   "8": "OUTCOME_PREFLIGHT_REFUSED"
+  },
+  "ProbeFailure": {
+   "0": "PROBE_FAILURE_NONE",
+   "1": "PROBE_FAILURE_REFUSED",
+   "2": "PROBE_FAILURE_TIMEOUT"
+  },
+  "ProbeKind": {
+   "0": "PROBE_KIND_UNSPECIFIED",
+   "1": "PROBE_KIND_ACTUATOR_HEALTH",
+   "2": "PROBE_KIND_HTTP_STATUS"
+  },
+  "ProbeStrength": {
+   "0": "PROBE_STRENGTH_UNSPECIFIED",
+   "1": "PROBE_STRENGTH_READINESS",
+   "2": "PROBE_STRENGTH_LIVENESS"
+  },
+  "ProgressStep": {
+   "0": "PROGRESS_STEP_UNSPECIFIED",
+   "1": "PROGRESS_STEP_RECEIVED",
+   "2": "PROGRESS_STEP_STAGED",
+   "3": "PROGRESS_STEP_PERSISTED",
+   "4": "PROGRESS_STEP_REPORTED"
+  },
+  "Trust": {
+   "0": "TRUST_UNSPECIFIED",
+   "1": "TRUST_TRUSTED",
+   "2": "TRUST_UNTRUSTED"
+  }
+ },
+ "messages": {
+  "AckDetail": {
+   "1": "AckDetailCode code",
+   "2": "ErrorCode error_code",
+   "3": "string message",
+   "4": "optional PreflightResult preflight_result"
+  },
+  "ActualStateReport": {
+   "1": "string item_id",
+   "10": "OperationCorrelation correlation",
+   "11": "HealthObservation health",
+   "12": "optional google.protobuf.Timestamp container_started_at",
+   "2": "uint64 sequence",
+   "3": "string binding_id",
+   "4": "string replica_ref",
+   "5": "string incarnation",
+   "6": "uint64 persisted_generation",
+   "7": "optional google.protobuf.Timestamp restart_observed_at",
+   "8": "optional string effective_hash",
+   "9": "VersionObservation version_observation"
+  },
+  "ActualStateReportBatch": {
+   "1": "Envelope envelope",
+   "2": "repeated ActualStateReport items"
+  },
+  "AgentToGateway": {
+   "1": "oneof:msg SessionOpen session_open",
+   "10": "oneof:msg DrainComplete drain_complete",
+   "11": "oneof:msg DiscoveryReport discovery_report",
+   "2": "oneof:msg LeaseRenew lease_renew",
+   "3": "oneof:msg CommandPull command_pull",
+   "4": "oneof:msg CommandReceived command_received",
+   "5": "oneof:msg CommandAck command_ack",
+   "6": "oneof:msg ApplyProgress apply_progress",
+   "7": "oneof:msg ActualStateReportBatch actual_state_report_batch",
+   "8": "oneof:msg Heartbeat heartbeat",
+   "9": "oneof:msg Teardown teardown"
+  },
+  "ApplyProgress": {
+   "1": "Envelope envelope",
+   "2": "string command_id",
+   "3": "ProgressStep step",
+   "4": "string replica_ref",
+   "5": "google.protobuf.Timestamp at"
+  },
+  "CommandAck": {
+   "1": "Envelope envelope",
+   "2": "string command_id",
+   "3": "uint64 generation",
+   "4": "Outcome outcome",
+   "5": "AckDetail detail",
+   "6": "google.protobuf.Timestamp agent_clock",
+   "7": "optional google.protobuf.Timestamp container_started_at"
+  },
+  "CommandOffer": {
+   "1": "Envelope envelope",
+   "10": "google.protobuf.Timestamp deadline",
+   "11": "OperationCorrelation correlation",
+   "12": "optional string expected_current_sha256",
+   "2": "string command_id",
+   "3": "uint64 generation",
+   "4": "string idempotency_key",
+   "5": "string binding_id",
+   "6": "Operation operation",
+   "7": "bytes payload_bytes",
+   "8": "string config_sha256",
+   "9": "optional uint64 supersedes_generation"
+  },
+  "CommandPull": {
+   "1": "Envelope envelope",
+   "2": "string command_id"
+  },
+  "CommandReceived": {
+   "1": "Envelope envelope",
+   "2": "string command_id",
+   "3": "uint64 generation"
+  },
+  "DiscoveredContainer": {
+   "1": "string container_id",
+   "2": "string container_name",
+   "3": "string image_ref",
+   "4": "map<string,string> labels",
+   "5": "repeated DiscoveredMount mounts",
+   "6": "repeated DiscoveredPort published_ports"
+  },
+  "DiscoveredMount": {
+   "1": "string source",
+   "2": "string destination"
+  },
+  "DiscoveredPort": {
+   "1": "uint32 container_port",
+   "2": "uint32 host_port"
+  },
+  "DiscoveryAck": {
+   "1": "Envelope envelope",
+   "2": "string in_reply_to_message_id",
+   "3": "repeated DiscoveryResult results"
+  },
+  "DiscoveryReport": {
+   "1": "Envelope envelope",
+   "2": "repeated DiscoveredContainer items"
+  },
+  "DiscoveryResult": {
+   "1": "string container_id",
+   "2": "DiscoveryState state",
+   "3": "string code",
+   "4": "string binding_id"
+  },
+  "Drain": {
+   "1": "Envelope envelope",
+   "2": "string reason",
+   "3": "google.protobuf.Duration reconnect_after",
+   "4": "optional google.protobuf.Duration deadline"
+  },
+  "DrainComplete": {
+   "1": "Envelope envelope",
+   "2": "string in_reply_to_message_id",
+   "3": "uint32 abandoned_commands"
+  },
+  "EnrollRequest": {
+   "1": "bytes csr_der",
+   "2": "string agent_version",
+   "3": "repeated uint32 protocol_versions_supported",
+   "4": "HostFacts host_facts"
+  },
+  "EnrollResponse": {
+   "1": "string agent_id",
+   "2": "repeated bytes certificate_chain",
+   "3": "TrustBundle trust_bundle",
+   "4": "string connect_endpoint"
+  },
+  "Envelope": {
+   "1": "string message_id",
+   "2": "google.protobuf.Timestamp sent_at"
+  },
+  "Error": {
+   "1": "Envelope envelope",
+   "2": "ErrorCode code",
+   "3": "optional google.protobuf.Duration retry_after",
+   "4": "string correlation_id",
+   "5": "string message"
+  },
+  "GapMarker": {
+   "1": "uint64 from_seq",
+   "2": "uint64 to_seq",
+   "3": "string reason"
+  },
+  "GatewayToAgent": {
+   "1": "oneof:msg SessionAccept session_accept",
+   "10": "oneof:msg Drain drain",
+   "11": "oneof:msg Teardown teardown",
+   "12": "oneof:msg Error error",
+   "13": "oneof:msg DiscoveryAck discovery_ack",
+   "14": "oneof:msg TelemetryDeclarations telemetry_declarations",
+   "2": "oneof:msg SessionReject session_reject",
+   "3": "oneof:msg LeaseGrant lease_grant",
+   "4": "oneof:msg Revoke revoke",
+   "5": "oneof:msg GenerationAvailable generation_available",
+   "6": "oneof:msg CommandOffer command_offer",
+   "7": "oneof:msg ReportAck report_ack",
+   "8": "oneof:msg HeartbeatAck heartbeat_ack",
+   "9": "oneof:msg TrustBundleUpdate trust_bundle_update"
+  },
+  "GenerationAvailable": {
+   "1": "Envelope envelope",
+   "2": "string command_id",
+   "3": "string binding_id",
+   "4": "uint64 generation",
+   "5": "Operation operation",
+   "6": "optional string config_sha256",
+   "7": "google.protobuf.Timestamp deadline",
+   "8": "OperationCorrelation correlation"
+  },
+  "HealthObservation": {
+   "1": "HealthState state",
+   "2": "google.protobuf.Timestamp observed_at",
+   "3": "ProbeStrength probe_strength",
+   "4": "uint32 http_status",
+   "5": "string actuator_status",
+   "6": "ProbeFailure failure"
+  },
+  "HealthProbe": {
+   "1": "ProbeKind kind",
+   "2": "string path",
+   "3": "uint32 host_port",
+   "4": "ProbeStrength strength"
+  },
+  "Heartbeat": {
+   "1": "Envelope envelope",
+   "2": "google.protobuf.Timestamp agent_clock",
+   "3": "uint64 buffer_depth_bytes",
+   "4": "uint64 drop_count",
+   "5": "uint32 journal_depth",
+   "6": "google.protobuf.Duration lease_remaining_at_send"
+  },
+  "HeartbeatAck": {
+   "1": "Envelope envelope",
+   "2": "google.protobuf.Timestamp server_clock",
+   "3": "int64 clock_offset_ms",
+   "4": "ClockState clock_state"
+  },
+  "HostFacts": {
+   "1": "string os",
+   "2": "string arch",
+   "3": "string runtime_kind"
+  },
+  "HttpJsonSource": {
+   "1": "uint32 port",
+   "2": "string path",
+   "3": "string pointer",
+   "4": "OnUnavailable on_unavailable"
+  },
+  "LeaseGrant": {
+   "1": "Envelope envelope",
+   "10": "string audience",
+   "11": "string nonce",
+   "12": "repeated Capability capabilities",
+   "13": "map<string,google.protobuf.Duration> verb_ceilings",
+   "14": "google.protobuf.Duration admission_margin",
+   "15": "google.protobuf.Timestamp server_clock",
+   "2": "string agent_id",
+   "3": "string cnf_thumbprint",
+   "4": "string target_id",
+   "5": "repeated string binding_ids",
+   "6": "uint64 agent_revocation_epoch",
+   "7": "uint64 fleet_revocation_epoch",
+   "8": "google.protobuf.Timestamp issued_at",
+   "9": "google.protobuf.Timestamp expires_at"
+  },
+  "LeaseRenew": {
+   "1": "Envelope envelope",
+   "2": "string nonce_consumed",
+   "3": "google.protobuf.Timestamp agent_clock"
+  },
+  "Limits": {
+   "1": "uint64 max_message_bytes",
+   "2": "uint64 max_batch_bytes",
+   "3": "uint32 initial_credits",
+   "4": "google.protobuf.Duration heartbeat_interval",
+   "5": "google.protobuf.Duration keepalive_interval",
+   "6": "google.protobuf.Duration skew_tolerance",
+   "7": "google.protobuf.Duration report_interval"
+  },
+  "OperationCorrelation": {
+   "1": "string apply_id",
+   "2": "string intent_id",
+   "3": "string attempt_id",
+   "4": "string step"
+  },
+  "PreflightResult": {
+   "1": "string container_id",
+   "2": "string image_digest",
+   "3": "string config_path_in_container",
+   "4": "string host_path",
+   "5": "string mechanism",
+   "6": "repeated string competing_sources",
+   "7": "bool writable"
+  },
+  "ReportAck": {
+   "1": "Envelope envelope",
+   "2": "string in_reply_to_message_id",
+   "3": "repeated ReportResult results"
+  },
+  "ReportResult": {
+   "1": "string in_reply_to_item_id",
+   "2": "uint64 sequence",
+   "3": "optional string replica_id",
+   "4": "optional string incarnation_id",
+   "5": "Trust trust",
+   "6": "Disposition disposition",
+   "7": "ErrorCode refused_reason"
+  },
+  "Resume": {
+   "1": "map<string,uint64> last_acked_generation_by_binding",
+   "2": "map<string,uint64> last_telemetry_seq_by_stream"
+  },
+  "Revoke": {
+   "1": "Envelope envelope",
+   "2": "optional uint64 agent_revocation_epoch",
+   "3": "optional uint64 fleet_revocation_epoch",
+   "4": "string reason"
+  },
+  "Sample": {
+   "1": "string series_key",
+   "2": "MetricType type",
+   "3": "google.protobuf.Timestamp ts",
+   "4": "double value",
+   "5": "map<string,string> labels"
+  },
+  "SessionAccept": {
+   "1": "Envelope envelope",
+   "2": "string session_id",
+   "3": "string assigned_target_id",
+   "4": "repeated Capability required_capabilities",
+   "5": "LeaseGrant lease",
+   "6": "Limits limits",
+   "7": "google.protobuf.Timestamp server_clock"
+  },
+  "SessionOpen": {
+   "1": "Envelope envelope",
+   "2": "uint32 protocol_version",
+   "3": "string agent_version",
+   "4": "repeated Capability capabilities_supported",
+   "5": "Resume resume",
+   "6": "google.protobuf.Timestamp agent_clock"
+  },
+  "SessionReject": {
+   "1": "Envelope envelope",
+   "2": "ErrorCode code",
+   "3": "optional google.protobuf.Duration retry_after",
+   "4": "optional string min_agent_version"
+  },
+  "Teardown": {
+   "1": "Envelope envelope",
+   "2": "string reason"
+  },
+  "TelemetryAck": {
+   "1": "Envelope envelope",
+   "2": "string stream_id",
+   "3": "uint64 high_watermark_seq",
+   "4": "uint32 credits_granted"
+  },
+  "TelemetryBatch": {
+   "1": "Envelope envelope",
+   "2": "string stream_id",
+   "3": "uint64 batch_seq",
+   "4": "repeated Sample samples",
+   "5": "repeated GapMarker gap_markers",
+   "6": "google.protobuf.Timestamp produced_at"
+  },
+  "TelemetryCredit": {
+   "1": "Envelope envelope",
+   "2": "string stream_id",
+   "3": "uint32 credits_granted"
+  },
+  "TelemetryDeclarations": {
+   "1": "Envelope envelope",
+   "2": "string binding_id",
+   "3": "google.protobuf.Duration interval",
+   "4": "repeated TelemetryMetric metrics",
+   "5": "HealthProbe health_probe"
+  },
+  "TelemetryDown": {
+   "1": "Envelope envelope",
+   "2": "oneof:msg TelemetryAck telemetry_ack",
+   "3": "oneof:msg TelemetryCredit telemetry_credit",
+   "4": "oneof:msg TelemetryReject telemetry_reject"
+  },
+  "TelemetryMetric": {
+   "1": "string name",
+   "2": "MetricType metric_type",
+   "3": "string unit",
+   "4": "oneof:source HttpJsonSource http_json"
+  },
+  "TelemetryReject": {
+   "1": "Envelope envelope",
+   "2": "string stream_id",
+   "3": "ErrorCode code",
+   "4": "optional google.protobuf.Duration retry_after"
+  },
+  "TelemetryUp": {
+   "1": "Envelope envelope",
+   "2": "oneof:msg TelemetryBatch telemetry_batch"
+  },
+  "TrustBundle": {
+   "1": "repeated bytes certs_pem",
+   "2": "google.protobuf.Timestamp valid_from",
+   "3": "google.protobuf.Timestamp valid_to"
+  },
+  "TrustBundleUpdate": {
+   "1": "Envelope envelope",
+   "2": "TrustBundle trust_bundle"
+  },
+  "VersionObservation": {
+   "1": "string mechanism",
+   "2": "string value",
+   "3": "string confidence"
+  }
+ },
+ "options": {
+  "go_package": "\"github.com/solace/solution-manager/go-agent/internal/wire/pb;pb\""
+ },
+ "package": "solace.sm.agentgateway.v1draft",
+ "services": {
+  "AgentGateway": {
+   "Connect": "stream AgentToGateway -> stream GatewayToAgent",
+   "Enroll": "EnrollRequest -> EnrollResponse",
+   "Telemetry": "stream TelemetryUp -> stream TelemetryDown"
+  }
+ },
+ "syntax": "\"proto3\""
+}

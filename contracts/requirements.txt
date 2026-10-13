@@ -1,0 +1,16 @@
+# Python packages the contract gates import directly: validation/validate-package.py (jsonschema)
+# and events/validate-events.py (jsonschema, referencing, PyYAML). run-checks.sh
+# preflights all three and fails if any is missing. Floors are the versions this repo's checks
+# were last run green against (read from the installed distributions, not from memory — I2);
+# `>=` because nothing here pins behaviour, and a lockfile for three read-only validators would
+# be more machinery than the risk warrants.
+#
+# CORRECTED 2026-09-15. The previous floors were jsonschema>=4.26.0 and referencing>=0.37.0.
+# Neither version exists: the newest published on PyPI are 4.25.1 and 0.36.2, so preflight
+# failed on every machine and the whole Python half of the contract gate was unrunnable — the
+# exact I2 failure the comment above claims to prevent, inside the file that claims it. The
+# floors below were read from the installed distributions of a run that went green (checks 1-3
+# and 7-10 PASS; 4-6 need the file-mesh-ui dump, see run-checks.sh step 4).
+jsonschema>=4.25.1
+referencing>=0.36.2
+PyYAML>=6.0.3

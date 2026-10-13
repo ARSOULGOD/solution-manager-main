@@ -1,0 +1,49 @@
+{
+  "solution": "engine-edge",
+  "packageVersion": [
+    1
+  ],
+  "appliesTo": ">=1.0 <2.0",
+  "provenance": { "author": "dev-mode" },
+  "authoring": { "reviewedRows": 9, "totalRows": 9, "source": "SYNTHETIC — models no real MI. Exists only to pin engine semantics the two real packages cannot reach: multi-key metric predicates, object-valued fields, both secrecy spellings, catalog-sourced options, and section ordering that differs from alphabetical." },
+  "components": [
+    {
+      "type": "edge",
+      "cardinality": "exactly-one",
+      "role": "none",
+      "configPath": "edge",
+      "fields": [
+        { "key": "zulu", "type": "string", "default": "z",
+          "ui": { "label": "Zulu", "section": "Zulu section", "order": 1 } },
+        { "key": "alpha", "type": "string", "default": "a",
+          "ui": { "label": "Alpha", "section": "Alpha section", "order": 1 } },
+
+        { "key": "mode", "type": "enum", "options": ["ftp", "sftp"], "default": "ftp", "discriminator": true,
+          "ui": { "label": "Mode", "section": "Gating", "order": 1 } },
+        { "key": "tls", "type": "bool", "default": true, "discriminator": true,
+          "ui": { "label": "TLS", "section": "Gating", "order": 2 } },
+
+        { "key": "labels", "type": "map",
+          "ui": { "label": "Labels", "section": "Values", "order": 1 } },
+        { "key": "window", "type": "duration",
+          "ui": { "label": "Window", "section": "Values", "order": 2 } },
+        { "key": "count", "type": "int",
+          "ui": { "label": "Count", "section": "Values", "order": 3 } },
+
+        { "key": "pw-by-flag", "type": "string", "secret": true,
+          "ui": { "label": "Password (flag spelling)", "section": "Secrets", "order": 1 } },
+        { "key": "pw-by-type", "type": "secret",
+          "ui": { "label": "Password (type spelling)", "section": "Secrets", "order": 2 } },
+
+        { "key": "broker", "type": "enum", "optionsSource": { "kind": "sm-catalog", "entity": "connection", "connectionType": "solace-broker" },
+          "ui": { "label": "Broker", "section": "Catalog", "order": 1 } }
+      ],
+      "metrics": [
+        { "name": "edge.multi_key", "metricType": "gauge", "unit": "ratio", "layer": "package-baseline",
+          "when": { "mode": "ftp", "tls": true },
+          "source": { "kind": "http_json", "path": "/m", "pointer": "/v", "onUnavailable": "degrade" } }
+      ],
+      "health": { "probe": { "kind": "actuator-health", "path": "/actuator/health", "strength": "liveness" } }
+    }
+  ]
+}

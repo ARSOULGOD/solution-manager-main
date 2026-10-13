@@ -1,0 +1,226 @@
+### [REFUSED] (h) REFUSE: state outside the enum -> state_known  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at) VALUES ('f0000001-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','apply',9,'manual','op:x',now(),'TOTALLY_BOGUS',now());
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "state_known"
+DETAIL:  Failing row contains (f0000001-0000-4000-8000-000000000001, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2, apply, 9, manual, null, op:x, 2026-09-09 10:53:13.206029+00, TOTALLY_BOGUS, 2026-09-09 10:53:13.206029+00, null, null, null, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  state_known
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (h) REFUSE: stop in state APPLIED -> state_fits_operation  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,requested_by,requested_at,state,terminal_at) VALUES ('f0000002-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','stop','op:x',now(),'APPLIED',now());
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "state_fits_operation"
+DETAIL:  Failing row contains (f0000002-0000-4000-8000-000000000002, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2, stop, null, null, null, op:x, 2026-09-09 10:53:13.2941+00, APPLIED, 2026-09-09 10:53:13.2941+00, null, null, null, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  state_fits_operation
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (h) REFUSE: restart in state STOPPED -> state_fits_operation  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,strategy,requested_by,requested_at,state,terminal_at) VALUES ('f0000007-0000-4000-8000-000000000007','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','restart','rolling-health-gated','op:x',now(),'STOPPED',now());
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "state_fits_operation"
+DETAIL:  Failing row contains (f0000007-0000-4000-8000-000000000007, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2, restart, null, rolling-health-gated, null, op:x, 2026-09-09 10:53:13.395818+00, STOPPED, 2026-09-09 10:53:13.395818+00, null, null, null, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  state_fits_operation
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (h) REFUSE: apply WITHOUT generation -> apply_has_generation  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,strategy,requested_by,requested_at,state) VALUES ('f0000003-0000-4000-8000-000000000003','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','apply','manual','op:x',now(),'REQUESTED');
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "apply_has_generation"
+DETAIL:  Failing row contains (f0000003-0000-4000-8000-000000000003, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2, apply, null, manual, null, op:x, 2026-09-09 10:53:13.49709+00, REQUESTED, null, null, null, null, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  apply_has_generation
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (h) REFUSE: stop WITH a generation -> apply_has_generation  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,requested_by,requested_at,state) VALUES ('f0000004-0000-4000-8000-000000000004','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','stop',7,'op:x',now(),'REQUESTED');
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "apply_has_generation"
+DETAIL:  Failing row contains (f0000004-0000-4000-8000-000000000004, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2, stop, 7, null, null, op:x, 2026-09-09 10:53:13.606147+00, REQUESTED, null, null, null, null, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  apply_has_generation
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (h) REFUSE: restart WITHOUT strategy -> lifecycle_has_strategy  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,requested_by,requested_at,state) VALUES ('f0000005-0000-4000-8000-000000000005','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','restart','op:x',now(),'REQUESTED');
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "lifecycle_has_strategy"
+DETAIL:  Failing row contains (f0000005-0000-4000-8000-000000000005, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2, restart, null, null, null, op:x, 2026-09-09 10:53:13.709148+00, REQUESTED, null, null, null, null, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  lifecycle_has_strategy
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (h) REFUSE: stop WITH a strategy -> lifecycle_has_strategy  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,strategy,requested_by,requested_at,state) VALUES ('f0000006-0000-4000-8000-000000000006','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','stop','manual','op:x',now(),'REQUESTED');
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "lifecycle_has_strategy"
+DETAIL:  Failing row contains (f0000006-0000-4000-8000-000000000006, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2, stop, null, manual, null, op:x, 2026-09-09 10:53:13.800045+00, REQUESTED, null, null, null, null, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  lifecycle_has_strategy
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (h) extra: restart_not_manual  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,strategy,requested_by,requested_at,state) VALUES ('f0000008-0000-4000-8000-000000000008','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','restart','manual','op:x',now(),'REQUESTED');
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "restart_not_manual"
+DETAIL:  Failing row contains (f0000008-0000-4000-8000-000000000008, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2, restart, null, manual, null, op:x, 2026-09-09 10:53:13.902263+00, REQUESTED, null, null, null, null, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  restart_not_manual
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (h) extra: full_outage_confirmed (restart-all without outage_confirmed_by)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state) VALUES ('f0000009-0000-4000-8000-000000000009','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','apply',9,'restart-all','op:x',now(),'REQUESTED');
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "full_outage_confirmed"
+DETAIL:  Failing row contains (f0000009-0000-4000-8000-000000000009, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2, apply, 9, restart-all, null, op:x, 2026-09-09 10:53:14.009525+00, REQUESTED, null, null, null, null, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  full_outage_confirmed
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (h) extra: terminal_has_timestamp (APPLIED with NULL terminal_at)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state) VALUES ('f000000a-0000-4000-8000-00000000000a','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','apply',9,'manual','op:x',now(),'APPLIED');
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "terminal_has_timestamp"
+DETAIL:  Failing row contains (f000000a-0000-4000-8000-00000000000a, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2, apply, 9, manual, null, op:x, 2026-09-09 10:53:14.105062+00, APPLIED, null, null, null, null, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  terminal_has_timestamp
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (h) extra: generation_positive (generation 0)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state) VALUES ('f000000b-0000-4000-8000-00000000000b','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','apply',0,'manual','op:x',now(),'REQUESTED');
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "generation_positive"
+DETAIL:  Failing row contains (f000000b-0000-4000-8000-00000000000b, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2, apply, 0, manual, null, op:x, 2026-09-09 10:53:14.219803+00, REQUESTED, null, null, null, null, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  generation_positive
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (h) extra: strategy_known (unknown strategy)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state) VALUES ('f000000c-0000-4000-8000-00000000000c','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','apply',9,'yolo','op:x',now(),'REQUESTED');
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "strategy_known"
+DETAIL:  Failing row contains (f000000c-0000-4000-8000-00000000000c, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2, apply, 9, yolo, null, op:x, 2026-09-09 10:53:14.341021+00, REQUESTED, null, null, null, null, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  strategy_known
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (h) extra: op_known (unknown operation) — also violates apply_has_generation and lifecycle_has_strategy, since 'nuke' matches neither 'apply' nor 'restart' while generation/strategy are still present; PostgreSQL reports apply_has_generation, not op_known (sorts first lexically) — see the ISOLATED leg immediately below for a clean op_known-only exemplar  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state) VALUES ('f000000d-0000-4000-8000-00000000000d','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','nuke',9,'manual','op:x',now(),'REQUESTED');
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "apply_has_generation"
+DETAIL:  Failing row contains (f000000d-0000-4000-8000-00000000000d, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2, nuke, 9, manual, null, op:x, 2026-09-09 10:53:14.455785+00, REQUESTED, null, null, null, null, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  apply_has_generation
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (h) extra ISOLATED: op_known (unknown operation, no generation, no strategy)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,requested_by,requested_at,state)
+VALUES ('f000000e-0000-4000-8000-00000000000e','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','nuke','op:x',now(),'REQUESTED');
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "op_known"
+DETAIL:  Failing row contains (f000000e-0000-4000-8000-00000000000e, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2, nuke, null, null, null, op:x, 2026-09-09 10:53:14.554826+00, REQUESTED, null, null, null, null, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  op_known
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (h) REFUSE: apply strategy=rolling-health-gated in state STAGED -> staged_requires_manual  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at) VALUES ('f0000011-0000-4000-8000-000000000011','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','apply',9,'rolling-health-gated','op:x',now(),'STAGED',now());
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "staged_requires_manual"
+DETAIL:  Failing row contains (f0000011-0000-4000-8000-000000000011, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2, apply, 9, rolling-health-gated, null, op:x, 2026-09-09 10:53:14.656515+00, STAGED, 2026-09-09 10:53:14.656515+00, null, null, null, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  staged_requires_manual
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (h) REFUSE: apply strategy=rolling-no-validation in state STAGED -> staged_requires_manual  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at) VALUES ('f0000012-0000-4000-8000-000000000012','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','apply',9,'rolling-no-validation','op:x',now(),'STAGED',now());
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "staged_requires_manual"
+DETAIL:  Failing row contains (f0000012-0000-4000-8000-000000000012, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2, apply, 9, rolling-no-validation, null, op:x, 2026-09-09 10:53:14.747309+00, STAGED, 2026-09-09 10:53:14.747309+00, null, null, null, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  staged_requires_manual
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (h) REFUSE: apply strategy=restart-all (outage confirmed) in state STAGED -> staged_requires_manual  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,outage_confirmed_by,requested_by,requested_at,state,terminal_at) VALUES ('f0000013-0000-4000-8000-000000000013','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','apply',9,'restart-all','duty-manager-3','op:x',now(),'STAGED',now());
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "staged_requires_manual"
+DETAIL:  Failing row contains (f0000013-0000-4000-8000-000000000013, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2, apply, 9, restart-all, duty-manager-3, op:x, 2026-09-09 10:53:14.859418+00, STAGED, 2026-09-09 10:53:14.859418+00, null, null, null, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  staged_requires_manual
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (h) REFUSE: apply strategy=scheduled in state STAGED -> staged_requires_manual  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at) VALUES ('f0000014-0000-4000-8000-000000000014','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','apply',9,'scheduled','op:x',now(),'STAGED',now());
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "staged_requires_manual"
+DETAIL:  Failing row contains (f0000014-0000-4000-8000-000000000014, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2, apply, 9, scheduled, null, op:x, 2026-09-09 10:53:14.970858+00, STAGED, 2026-09-09 10:53:14.970858+00, null, null, null, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  staged_requires_manual
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [OK] (h) POS: apply strategy=manual in state STAGED succeeds — the positive control for staged_requires_manual  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,generation,strategy,requested_by,requested_at,state,terminal_at) VALUES ('f0000015-0000-4000-8000-000000000015','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','apply',9,'manual','op:x',now(),'STAGED',now());
+--- RESULT ---
+
+
+### [REFUSED] (h) REFUSE: stop in state STAGED -> staged_requires_manual (also violates state_fits_operation; staged_requires_manual sorts first lexically)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,requested_by,requested_at,state,terminal_at) VALUES ('f0000016-0000-4000-8000-000000000016','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','stop','op:x',now(),'STAGED',now());
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "staged_requires_manual"
+DETAIL:  Failing row contains (f0000016-0000-4000-8000-000000000016, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2, stop, null, null, null, op:x, 2026-09-09 10:53:15.169645+00, STAGED, 2026-09-09 10:53:15.169645+00, null, null, null, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  staged_requires_manual
+LOCATION:  ExecConstraints, execMain.c:1958
+
+### [REFUSED] (h) REFUSE: restart in state STAGED -> staged_requires_manual (also violates state_fits_operation; staged_requires_manual sorts first lexically)  (container=main role=sm_dp_runtime db=smdb)
+--- SQL ---
+INSERT INTO sm_data.apply_request(apply_id,tenant_id,instance_id,placement_id,operation,strategy,requested_by,requested_at,state,terminal_at) VALUES ('f0000017-0000-4000-8000-000000000017','11111111-1111-4111-8111-111111111111','a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1','b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2','restart','rolling-health-gated','op:x',now(),'STAGED',now());
+--- RESULT ---
+ERROR:  23514: new row for relation "apply_request" violates check constraint "staged_requires_manual"
+DETAIL:  Failing row contains (f0000017-0000-4000-8000-000000000017, 11111111-1111-4111-8111-111111111111, a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1, b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2, restart, null, rolling-health-gated, null, op:x, 2026-09-09 10:53:15.266179+00, STAGED, 2026-09-09 10:53:15.266179+00, null, null, null, null, null).
+SCHEMA NAME:  sm_data
+TABLE NAME:  apply_request
+CONSTRAINT NAME:  staged_requires_manual
+LOCATION:  ExecConstraints, execMain.c:1958

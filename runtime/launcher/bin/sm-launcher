@@ -1,0 +1,17 @@
+#!/bin/sh
+# The application. exec so the JVM is PID 1's own process and receives SIGTERM directly.
+#
+# Secret files (I6, OR-138): the CA keystore password and the two RUNTIME database passwords arrive as read-only secret
+# files (compose / Kubernetes secret mounts) named by SM_AGENT_CA_KEYSTORE_PASSWORD_FILE, SM_CONTROL_RUNTIME_PASSWORD_FILE
+# and SM_DATA_RUNTIME_PASSWORD_FILE. Each file's content becomes the variable without the _FILE suffix, which the
+# application's property placeholders read, in the JVM's own environment only (so `docker inspect` shows none of them).
+# The checks live in sm-secrets.sh. Nothing is echoed.
+set -eu
+# $JAVA_OPTS is deliberately split into words; make sure it cannot also glob.
+set -f
+SM_PROG=sm-launcher
+. "$(dirname "$0")/sm-secrets.sh"
+sm_load_secret SM_AGENT_CA_KEYSTORE_PASSWORD
+sm_load_secret SM_CONTROL_RUNTIME_PASSWORD
+sm_load_secret SM_DATA_RUNTIME_PASSWORD
+exec java $JAVA_OPTS -jar /opt/sm/launcher.jar "$@"

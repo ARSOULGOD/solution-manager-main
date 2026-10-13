@@ -1,0 +1,15 @@
+# Plan 015 T2.3 (e), (f): the DP pushes a binding's telemetry declarations and its
+# declared health probe after SessionAccept. A second message replaces the first set whole.
+lease:
+  target_id: target-1
+  binding_ids: [binding-1]
+  capabilities: [apply-config, lifecycle]
+  duration: 1h
+steps:
+  - declarations:
+      binding_id: binding-1
+      interval: 5s
+      metrics:
+        - {name: cache.size, metric_type: gauge, unit: entries, port: 8080, path: /api/cache/size, pointer: /size, on_unavailable: degrade}
+      health_probe: {kind: ACTUATOR_HEALTH, path: /actuator/health, host_port: 18080, strength: READINESS}
+  - expect: {kind: ActualStateReportBatch, timeout: 30s}

@@ -1,0 +1,12 @@
+.git
+.gitignore
+*.zip
+docs/
+agent.md
+README.md
+**/*_test.go
+**/testdata/
+.idea/
+.vscode/
+*.swp
+.DS_Store

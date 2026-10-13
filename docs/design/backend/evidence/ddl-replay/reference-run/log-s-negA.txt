@@ -1,0 +1,64 @@
+### [OK] (s-negA) SETUP: non-superuser owner role + second database smdb2 OWNER sm_installer  (container=main role=postgres db=postgres)
+--- SQL ---
+CREATE ROLE sm_installer LOGIN CREATEROLE;
+CREATE DATABASE smdb2 OWNER sm_installer;
+--- RESULT ---
+
+
+### [OK] (s-negA) confirm sm_installer is NOT a superuser and owns smdb2  (container=main role=postgres db=postgres)
+--- SQL ---
+SELECT rolname, rolsuper, rolcreaterole FROM pg_roles WHERE rolname='sm_installer';
+SELECT datname, pg_get_userbyid(datdba) AS db_owner FROM pg_database WHERE datname='smdb2';
+--- RESULT ---
+rolname    | rolsuper | rolcreaterole
+--------------+----------+---------------
+ sm_installer | f        | t
+(1 row)
+
+ datname |   db_owner
+---------+--------------
+ smdb2   | sm_installer
+(1 row)
+
+### [REFUSED] (s-negA) WHY the control cannot be a LITERAL Phase 0 re-run: roles are CLUSTER-scoped  (container=main role=sm_installer db=smdb2)
+--- SQL ---
+CREATE ROLE sm_dp_owner    NOLOGIN;
+--- RESULT ---
+ERROR:  42710: role "sm_dp_owner" already exists
+LOCATION:  CreateRole, user.c:346
+
+### [OK] (s-negA) ACL of schema public in smdb2 BEFORE the revoke  (container=main role=postgres db=smdb2)
+--- SQL ---
+SELECT nspname, pg_get_userbyid(nspowner) AS schema_owner, nspacl::text AS acl_before FROM pg_namespace WHERE nspname='public';
+--- RESULT ---
+nspname | schema_owner |             acl_before
+---------+--------------+-------------------------------------
+ public  | postgres     | {postgres=UC/postgres,=UC/postgres}
+(1 row)
+
+### [OK] (s-negA) the REVOKE in isolation, as the non-superuser DATABASE OWNER  (container=main role=sm_installer db=smdb2)
+--- SQL ---
+REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+--- RESULT ---
+WARNING:  01006: no privileges could be revoked for "public"
+LOCATION:  restrict_and_check_grant, aclchk.c:333
+
+### [OK] (s-negA) ACL AFTER + the assertion, which must be TRUE (the no-op)  (container=main role=postgres db=smdb2)
+--- SQL ---
+SELECT nspacl::text AS acl_after FROM pg_namespace WHERE nspname='public';
+SELECT has_schema_privilege('sm_dp_runtime','public','CREATE') AS runtime_can_create_in_public;
+--- RESULT ---
+acl_after
+-------------------------------------
+ {postgres=UC/postgres,=UC/postgres}
+(1 row)
+
+ runtime_can_create_in_public
+------------------------------
+ t
+(1 row)
+
+### [OK] (s-negA) BEHAVIOURAL: runtime CREATE TABLE public.smuggled SUCCEEDS here  (container=main role=sm_dp_runtime db=smdb2)
+--- SQL ---
+CREATE TABLE public.smuggled(x int);
+--- RESULT ---

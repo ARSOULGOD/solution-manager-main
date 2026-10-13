@@ -1,0 +1,27 @@
+lease:
+  target_id: target-1
+  binding_ids: [binding-1]
+  capabilities: [apply-config, lifecycle]
+  duration: 1h
+  verb_ceilings: {preflight: 1m, apply: 2m, restart: 5m, stop: 2m}
+  admission_margin: 30s
+limits:
+  max_message_bytes: 1048576
+  heartbeat_interval: 5s
+  keepalive_interval: 30s
+  skew_tolerance: 30s
+  report_interval: 20s
+policy:
+  on_open: accept
+  renew: grant
+  heartbeat: {offset_ms: 0, state: OK}
+  report: {mode: auto}
+steps:
+  - expect: {kind: ActualStateReportBatch, timeout: 30s}
+  - offer: {command_id: cmd-1, binding_id: binding-1, generation: 1, operation: preflight, payload: ""}
+  - expect: {kind: CommandAck, timeout: 60s}
+  - offer: {command_id: cmd-2, binding_id: binding-1, generation: 2, operation: apply, payload: "server.port: 8081\nmanagement.endpoints.web.exposure.include: health\n"}
+  - expect: {kind: CommandAck, timeout: 60s}
+  - offer: {command_id: cmd-3, binding_id: binding-1, generation: 3, operation: restart, payload: ""}
+  - expect: {kind: CommandAck, timeout: 120s}
+  - expect: {kind: ActualStateReportBatch, timeout: 60s}

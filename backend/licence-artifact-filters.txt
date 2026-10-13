@@ -1,0 +1,3 @@
+# Intentionally has no filter lines. backend/pom.xml pins artifactFiltersUrl to this file so that a
+# -Dlicense.artifactFiltersUrl flag cannot point the licence gate at a file that drops artifacts from it.
+# One comment is the whole file; the plugin parser is not asked to read a filter.

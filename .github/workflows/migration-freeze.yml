@@ -1,0 +1,55 @@
+name: migration-freeze
+
+# OR-22 (sm_control migrations are frozen). This repository is PRIVATE on a free GitHub plan:
+# branch protection and rulesets return 403, so nothing here can BLOCK a push or a merge — this
+# workflow can only REPORT a failing status check after the fact. The only thing that can stop a
+# bad push before it reaches origin is the opt-in .githooks/pre-push hook
+# (git config core.hooksPath .githooks), which is itself bypassable with `git push --no-verify`.
+# See backend/cp-core/src/main/resources/db/migration/sm_control/README.md for the full picture.
+
+on:
+  pull_request:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  frozen-migrations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # The checker is taken from the PRE-CHANGE commit whenever it exists there. Running the copy
+      # from the commit under review would let one change weaken the checker and rewrite a
+      # migration together and still pass. The head's copy is used only when the base predates
+      # the checker, and the log says so.
+      - name: Select the trusted checker
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          base=""
+          if [ "$EVENT" = "pull_request" ]; then base="$PR_BASE"; fi
+          if [ "$EVENT" = "push" ] && [ "$PUSH_BEFORE" != "0000000000000000000000000000000000000000" ]; then base="$PUSH_BEFORE"; fi
+          echo "BASE=$base" >> "$GITHUB_ENV"
+          # The base's copy must also understand --head/--base; the one at 245d763 does not.
+          if [ -n "$base" ] && git show "$base:backend/scripts/check-frozen-migrations.py" > "$RUNNER_TEMP/check.py" 2>/dev/null \
+             && grep -q -- '--head' "$RUNNER_TEMP/check.py"; then
+            echo "checker taken from base $base"
+          else
+            cp backend/scripts/check-frozen-migrations.py "$RUNNER_TEMP/check.py"
+            echo "::warning::base has no anchor-aware checker; using the copy under review"
+          fi
+
+      - name: Anchor check, plus proposed-change check when a base exists
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [ -n "$BASE" ]; then
+            python3 "$RUNNER_TEMP/check.py" --head "$HEAD_SHA" --base "$BASE"
+          else
+            python3 "$RUNNER_TEMP/check.py" --head "$HEAD_SHA"
+          fi

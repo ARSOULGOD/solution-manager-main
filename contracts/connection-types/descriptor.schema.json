@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://solace.com/sm/connection-type-descriptor.schema.json",
+  "title": "Connection Type Descriptor (UI-D27)",
+  "description": "SM-owned, never package-supplied. Attributes reuse UI-D14's field vocabulary so the catalog form and the Designer share one renderer.",
+  "type": "object",
+  "required": ["connectionType", "label", "descriptorVersion", "attributes"],
+  "additionalProperties": false,
+  "properties": {
+    "connectionType": { "enum": ["solace-broker", "remote-server"] },
+    "label": { "type": "string", "minLength": 1 },
+    "descriptorVersion": { "type": "integer", "minimum": 1 },
+    "attributes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/attribute" }
+    }
+  },
+  "$defs": {
+    "attribute": {
+      "type": "object",
+      "required": ["key", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "key": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9]*$" },
+        "type": { "enum": ["string", "int", "bool", "enum", "duration", "secret"] },
+        "options": { "type": "array", "items": { "type": ["string", "number", "boolean"] } },
+        "default": { "type": ["string", "number", "boolean", "null"] },
+        "required": { "type": "boolean" },
+        "secret": { "type": "boolean" },
+        "discriminator": { "type": "boolean" },
+        "when": { "type": "object", "additionalProperties": { "type": ["string", "number", "boolean"] } },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "pattern": { "type": "string" },
+        "ui": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "label": { "type": "string" },
+            "helperText": { "type": "string" },
+            "order": { "type": "integer" },
+            "listColumn": { "type": "boolean" }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "description": "a secret-typed attribute must be marked secret, and vice versa (I6)",
+          "if": { "properties": { "type": { "const": "secret" } }, "required": ["type"] },
+          "then": { "properties": { "secret": { "const": true } }, "required": ["secret"] }
+        },
+        {
+          "description": "and the reverse: `secret: true` may only appear on a secret-typed attribute (I6)",
+          "if": { "properties": { "secret": { "const": true } }, "required": ["secret"] },
+          "then": { "properties": { "type": { "const": "secret" } }, "required": ["type"] }
+        },
+        {
+          "description": "an enum attribute must declare its options",
+          "if": { "properties": { "type": { "const": "enum" } }, "required": ["type"] },
+          "then": { "required": ["options"] }
+        }
+      ]
+    }
+  }
+}

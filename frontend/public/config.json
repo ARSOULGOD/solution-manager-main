@@ -1,0 +1,5 @@
+{
+  "apiBasePath": "/api",
+  "idleTimeoutMinutes": 30,
+  "channel": "stable"
+}

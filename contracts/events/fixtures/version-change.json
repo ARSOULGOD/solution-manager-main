@@ -1,0 +1,10 @@
+{
+  "eventId": "3f1c9a52-0000-4000-8000-000000000003",
+  "occurredAtUtc": "2026-08-27T10:00:10Z",
+  "producer": "dp-core",
+  "organization": "acme",
+  "entity": { "kind": "instance", "instanceId": "cache-prod-01" },
+  "stateVersion": 12,
+  "event": "instance.version",
+  "payload": { "state": "VERSION_DRIFT" }
+}

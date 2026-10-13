@@ -1,0 +1,23 @@
+-- OR-112 (2) / W3-06 (sm_data; a PLACEHOLDER number, V019, because the two OR-112 lanes may each need one: lane or112a takes V018
+-- and this lane V019, and the integrator renumbers at merge to the next free number, exactly as V017 was renumbered from V018).
+-- Run by Flyway as sm_dp_migrator after `SET ROLE sm_dp_owner` (initSql), so the index below is born owned by sm_dp_owner.
+--
+-- ONE LIVE connection per BROKER AND MESSAGE VPN across the WHOLE install: (lower(host), port, vpn), and tenant_id is
+-- deliberately NOT a column. V017's broker_connection_live_once is one connection per (organization, environment); this one is the
+-- other half of OR-112 (2): a second live connection, from another environment or another organization, to the same broker and
+-- VPN would have the Data Plane hold two sessions on one VPN, and the broker-side adapter ids are unique only within one VPN, so
+-- one organization's adapter id could be attributed to another's instance. The install operator command refuses first, in words
+-- (BrokerConnectionMain, BE-D«next-or112b»); this index is the guarantee under a race and under a row inserted by any other route.
+--
+-- host is compared case-insensitively (a DNS name is); scheme is not part of the key (one broker listener is one broker whichever
+-- scheme names it); port is the SMF port. A retired connection releases its broker (the partial predicate).
+--
+-- The key is the TUPLE the operator gave, and that is its limit: the same broker reached through another listener port, through
+-- an IP address instead of its DNS name, or a VPN name that differs only in letter case (the broker's own case rule for
+-- message VPN names is not verified here, so the name is compared exactly) is a different key and is NOT caught. SM cannot
+-- resolve names or know a broker's listeners; the runbook (register-a-broker-connection.md, rule 1) states that as the operator's duty.
+--
+-- If a database already holds two live connections to one broker and VPN, this statement fails and the migration does not apply:
+-- retire one (as the database owner) and run it again. That is the honest outcome; nothing is merged or chosen silently.
+CREATE UNIQUE INDEX broker_connection_live_broker_once ON sm_data.broker_connection (lower(host), port, vpn)
+    WHERE retired_at IS NULL;

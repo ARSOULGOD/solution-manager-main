@@ -1,0 +1,227 @@
+# Dependency licence exceptions (REQ-014 / invariant I8, plan 010 T0.4b).
+#
+# Every line below is ONE owner approval of ONE exact coordinate AND version. There is no pattern, no wildcard
+# and no version range. A different version of the same artifact is a different approval: licence-third-party.ftl
+# aborts the build when a group:artifact listed here resolves to a version that is not listed, and
+# scripts/check-licences.py does the same for build plugins.
+#
+# FORMAT (license-maven-plugin overrideUrl, java.util.Properties): groupId--artifactId--version=Name. The Name
+# REPLACES the licences the artifact's POM declares, so an artifact that declares several licences carries the
+# owner's recorded election and no longer fails the fail-closed rule (Q-L2 a-prime: where the artifact's own text
+# states a choice, the allowed option is elected and recorded; with no stated connective, it fails closed).
+# The Name also fixes the SCOPE of the approval. backend/pom.xml whitelists, per execution:
+#   shipped execution (compile, runtime, provided, system): the six allow-list names, "Owner-approved (shipped)"
+#                                                           and "Solace first-party".
+#   test execution (test):                                  those, plus "Owner-approved (test-only)".
+#   "Owner-approved (build-tool-only)" is whitelisted nowhere: a build-tool coordinate that reaches a project
+#   dependency tree fails both executions. Build plugins are checked by scripts/check-licences.py.
+# Do not write the pipe character, and do not wrap a line: it is a properties file.
+#
+# AUTHORITY. Rulings are the project owner's, who decides on behalf of the architect group
+# (docs/tasks/licence-audit-2026-09.md owner decision table rows 1-43; plan 010 T0.1 Step 7, batch 5; the
+# registered ids are in docs/design/DECISIONS.md):
+#   OR-66 = owner ruling 2026-09-30: Q-L1 (a) + Q-L2 (a-prime) "elect a stated choice", and "Approve A and B"
+#   OR-67 = owner ruling 2026-09-30 and 2026-10-05, batch 5 closed: "Approve all of C and E", the two waivers,
+#           and row 41: container images are tools, approved by EXACT TAG, test-only.
+#   OR-68 = owner ruling 2026-10-05: out of REQ-014 scope are the Maven installation, the JDK, and the never-run
+#           site and deploy plugins (their POMs are absent from ~/.m2).
+#   OR-83 = owner ruling 2026-10-05: org.eclipse.sisu:org.eclipse.sisu.plexus:0.9.0.M3 (EPL-2.0) approved
+#           build-tool-only (audit row 18(b)), the sibling of row 18.
+#   OR-84 = owner ruling 2026-10-05: a stated-choice election is an EXPLICIT reviewed line, one per artifact and
+#           version, citing OR-66. The gate does not detect an "OR" connective, so a new dual-licensed library
+#           fails the build until its election line is added.
+#   OR-127 = owner ruling 2026-10-08 (plan 015 T0.2): L1 javax.annotation-api not taken; L2 bcpkix/bcutil 1.86 approved;
+#           L3 grpc-netty-shaded 1.68.1 approved including its embedded BoringSSL (the line below pins that exact version);
+#           L4 the two shipped container images.
+#   OR-130 = owner ruling 2026-10-08 (L-a, L-b, L-c): animal-sniffer-annotations 1.24 shipped; four build-tool coordinates; dev tools.
+#   OR-134 = owner ruling 2026-10-09 (L-d): HdrHistogram 2.2.2 under BSD-2-Clause and LatencyUtils 2.0.3 under CC0 1.0, shipped.
+#   Row 41 (container images) is not a Maven coordinate and is not gated by Maven. The approved images are
+#   busybox:1.36, postgres:14 and testcontainers/ryuk:0.12.0. The ryuk tag was READ from the pinned jar
+#   (testcontainers-1.21.4.jar, org/testcontainers/utility/RyukContainer.class), not recalled: a Testcontainers
+#   bump that changes it needs a new owner line.
+#
+# RECORDING AN ELECTION (OR-66, Q-L2 a-prime; explicit lines per OR-84). Where an artifact's own licence text STATES a choice (an exact
+# SPDX "OR", or "at your option"), the allowed option is elected by one line below. The comment above that line
+# must name the file the connective was read from and quote it verbatim. No new owner ruling is needed for a
+# stated choice: OR-66 already is that ruling. The build never reads the licence text, so the line is the record
+# and the person adding it is the reader (OR-84: the election is an explicit reviewed line, never inferred by the
+# gate). Where the text states NO connective, that is not an election: it needs
+# an owner ruling, or the dependency is replaced.
+#
+# OWNER WAIVERS. An artifact that states NO licence is accepted only by an explicit owner waiver, recorded under
+# the approval name "Owner waiver (build-tool-only, no licence stated)". It is not a licence name: no Maven
+# execution whitelists it, and scripts/check-licences.py accepts it only while the artifact's POM chain still
+# declares no licence, and names every waiver when it passes. The two waivers are rows 19 and 20 (OR-67).
+
+
+# ---- SHIPPED, group A (weak copyleft, unmodified) ----
+
+# row 1 [OR-66]: declares EPL-2.0 and LGPL-2.1-only. Election: EPL-2.0 (weak copyleft, unmodified). Reason: Spring Boot default logging backend; replacing it is a rewrite.
+ch.qos.logback--logback-classic--1.5.34=Owner-approved (shipped)
+ch.qos.logback--logback-core--1.5.34=Owner-approved (shipped)
+
+# row 2 [OR-66]: declares EPL 2.0 and GPL2 w/ CPE. Election: EPL-2.0 (its own META-INF/NOTICE.md reads "EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0"). Weak copyleft, unmodified.
+jakarta.annotation--jakarta.annotation-api--2.1.1=Owner-approved (shipped)
+
+# rows 27 and 43 [OR-66]: POM licence is Apache-2.0; the jar embeds CDDL-1.0 and EPL-2.0 schema files (row 27) and W3C, Sun and IBM authored schema/DTD files under an ASF header (row 43). Approved unmodified, by exact version.
+org.apache.tomcat.embed--tomcat-embed-core--10.1.55=Owner-approved (shipped)
+
+
+# ---- SHIPPED, group B ----
+
+# row 3 [OR-66]: declares "Bouncy Castle Licence" (MIT-style). Arrives through sshj (dp-core) and is used directly by cp-core's agent CA. One approval per coordinate and version. Plan 015 T2.2 Step 4 (P15-13) pins all three artifacts at ONE version, 1.86 (backend/pom.xml dependencyManagement), so the 1.80 / 1.80.2 lines this file carried for sshj's own resolution are removed: dependency:tree of cp-core, dp-core and launcher resolves exactly 1.86 of each (measured). bcpkix and bcutil 1.86 are OR-127 L2's two exact-coordinate lines.
+org.bouncycastle--bcprov-jdk18on--1.86=Owner-approved (shipped)
+org.bouncycastle--bcpkix-jdk18on--1.86=Owner-approved (shipped)
+org.bouncycastle--bcutil-jdk18on--1.86=Owner-approved (shipped)
+
+# row 6 [OR-66]: declares Apache-2.0 and LGPL-2.1-or-later. Election: Apache-2.0 (its own META-INF/LICENSE: "Apache-2.0 OR LGPL-2.1", "you can freely decide which license you want").
+net.java.dev.jna--jna--5.13.0=Owner-approved (shipped)
+
+# row 26 [OR-66]: POM licence is Apache-2.0; the jar embeds FastDoubleParser under the Boost Software License 1.0.
+com.fasterxml.jackson.core--jackson-core--2.21.4=Owner-approved (shipped)
+
+# row 31 [OR-66]: POM licence is Apache-2.0; the jars embed Public Domain Base64 and ThreadLocalRandom code.
+io.netty--netty-codec-base--4.2.13.Final=Owner-approved (shipped)
+io.netty--netty-common--4.2.13.Final=Owner-approved (shipped)
+
+# row 35 [OR-66]: POM licence is Apache-2.0; WebSocket08FrameDecoder is Webbit-derived BSD code.
+io.netty--netty-codec-http--4.2.13.Final=Owner-approved (shipped)
+
+# row 36 [OR-66]: POM licence is Apache-2.0; the jar wraps JCraft JZlib, a 3-condition BSD licence.
+org.apache.servicemix.bundles--org.apache.servicemix.bundles.jzlib--1.1.3_2=Owner-approved (shipped)
+
+# row 39 [OR-66]: POM licence is Apache-2.0; the jar embeds the Public Domain mime.types file.
+org.springframework--spring-web--6.2.19=Owner-approved (shipped)
+
+
+# ---- SHIPPED, first-party Solace library ----
+
+# first-party [REQ-014 acceptance: first-party Solace libraries are the named exception]: declares "Solace API License Agreement Version 1.1". Solace JCSMP, first-party and not open source.
+com.solacesystems--sol-jcsmp--10.30.1=Solace first-party
+
+
+# ---- TEST-ONLY, group C ----
+
+# row 4 [OR-67]: declares "Eclipse Public License v2.0" (EPL-2.0). Test framework; test scope only.
+org.junit.jupiter--junit-jupiter--5.12.2=Owner-approved (test-only)
+org.junit.jupiter--junit-jupiter-api--5.12.2=Owner-approved (test-only)
+org.junit.jupiter--junit-jupiter-engine--5.12.2=Owner-approved (test-only)
+org.junit.jupiter--junit-jupiter-params--5.12.2=Owner-approved (test-only)
+org.junit.platform--junit-platform-commons--1.12.2=Owner-approved (test-only)
+org.junit.platform--junit-platform-engine--1.12.2=Owner-approved (test-only)
+
+# row 5 [OR-67]: declares "Eclipse Public License 1.0" (EPL-1.0). Arrives through Testcontainers; test scope only.
+junit--junit--4.13.2=Owner-approved (test-only)
+
+# row 7 [OR-67]: declares "EDL 1.0" (Eclipse Distribution License, BSD-3-Clause in substance). Test scope only.
+jakarta.activation--jakarta.activation-api--2.1.4=Owner-approved (test-only)
+
+# row 8 [OR-67]: declares "Eclipse Distribution License - v 1.0". Test scope only.
+jakarta.xml.bind--jakarta.xml.bind-api--4.0.5=Owner-approved (test-only)
+
+# rows 9 and 37(c) [OR-67]: declares Apache-2.0 and an unqualified "BSD". Election: Apache-2.0. Also embeds a compiled public-suffix trie (row 37(c)). Test scope only.
+com.tngtech.archunit--archunit--1.5.0=Owner-approved (test-only)
+
+# row 10 [OR-67]: declares EPL-2.0. Resolved by Surefire itself as the JUnit Platform provider, so it is not in any module dependency tree; scripts/check-licences.py pins it to the junit-platform-engine version.
+org.junit.platform--junit-platform-launcher--1.12.2=Owner-approved (test-only)
+
+# rows 28, 33, 34 and 37(c) [OR-67]: POM licence is MIT; the jar shades trilead-ssh2 (CDDL-1.0 OR GPL-2.0-only WITH Classpath-exception, row 28; election CDDL-1.0), Doug Lea Public Domain Striped64/LongAdder (row 33), SnakeYAML Base64Coder multi-licensed (row 34; election Apache-2.0) and a Guava public-suffix trie (row 37(c)). Test scope only.
+org.testcontainers--testcontainers--1.21.4=Owner-approved (test-only)
+
+# row 29(a) [OR-67]: POM licence is Apache-2.0; the jar embeds the LZMA-SDK-derived sevenz package. Test scope only.
+org.apache.commons--commons-compress--1.24.0=Owner-approved (test-only)
+
+# ---- BUILD-TOOL-ONLY, group E [OR-67] (the plugin realm; checked by scripts/check-licences.py) ----
+
+# row 11 [OR-67]: LGPL-3.0; the gate tool itself, not shipped.
+org.codehaus.mojo--license-maven-plugin--2.7.1=Owner-approved (build-tool-only)
+# row 12 [OR-67]: Public Domain.
+org.tukaani--xz--1.9=Owner-approved (build-tool-only)
+# row 13 [OR-67]: Apache-2.0 and LGPL-2.1-or-later, election Apache-2.0.
+net.java.dev.jna--jna--5.17.0=Owner-approved (build-tool-only)
+# row 13 [OR-67]: Apache-2.0 and LGPL-2.1-or-later, election Apache-2.0.
+net.java.dev.jna--jna-platform--5.17.0=Owner-approved (build-tool-only)
+# row 14 [OR-67]: Apache-like licence with the acknowledgment clause removed.
+org.jdom--jdom2--2.0.6.1=Owner-approved (build-tool-only)
+# row 15 [OR-67]: unqualified "The BSD License".
+org.antlr--antlr4-runtime--4.7.2=Owner-approved (build-tool-only)
+# row 16 [OR-67]: POM "BSD 2-Clause License"; embedded libzstd is BSD-style OR GPLv2, election BSD-style.
+com.github.luben--zstd-jni--1.5.5-11=Owner-approved (build-tool-only)
+# row 16 [OR-67]: same as 1.5.5-11.
+com.github.luben--zstd-jni--1.5.7-6=Owner-approved (build-tool-only)
+# row 17 [OR-67]: LGPL-3.0.
+org.nuiton.processor--nuiton-processor--1.3=Owner-approved (build-tool-only)
+# row 18 [OR-67]: EPL-2.0.
+org.eclipse.sisu--org.eclipse.sisu.inject--0.9.0.M3=Owner-approved (build-tool-only)
+# row 18(b) [OR-83]: EPL-2.0 (inherited from sisu-inject:0.9.0.M3). org.eclipse.sisu:org.eclipse.sisu.plexus:0.9.0.M3 is in
+# license-maven-plugin:2.7.1's own realm beside sisu.inject; found by T0.4b's build-plugin check after the audit.
+# Approved build-tool-only, by exact coordinate and version, never shipped (owner ruling 2026-10-05).
+org.eclipse.sisu--org.eclipse.sisu.plexus--0.9.0.M3=Owner-approved (build-tool-only)
+# row 19 [OR-67]: states no licence; explicit owner WAIVER, not a licence.
+xalan--serializer--2.7.3=Owner waiver (build-tool-only, no licence stated)
+# row 20 [OR-67]: states no licence; explicit owner WAIVER, not a licence.
+org.codehaus.plexus--plexus-i18n--1.0-beta-10=Owner waiver (build-tool-only, no licence stated)
+# row 21 [OR-67]: Public Domain.
+org.json--json--20231013=Owner-approved (build-tool-only)
+# row 22 [OR-67]: 0BSD.
+org.tukaani--xz--1.10=Owner-approved (build-tool-only)
+# row 23 [OR-67]: unqualified "BSD License".
+com.github.virtuald--curvesapi--1.08=Owner-approved (build-tool-only)
+# row 24 [OR-67]: unqualified "BSD".
+net.rootdev--java-rdfa--1.0.0-BETA1=Owner-approved (build-tool-only)
+# row 25 [OR-67]: Apache-2.0, SAX License and W3C License.
+xml-apis--xml-apis--1.4.01=Owner-approved (build-tool-only)
+# row 29(b) [OR-67]: Apache-2.0 POM; embeds LZMA-SDK sevenz.
+org.apache.commons--commons-compress--1.26.1=Owner-approved (build-tool-only)
+# row 29(c) [OR-67]: Apache-2.0 POM; embeds LZMA-SDK sevenz.
+org.apache.commons--commons-compress--1.27.1=Owner-approved (build-tool-only)
+# row 29(d) [OR-67]: Apache-2.0 POM; embeds LZMA-SDK sevenz.
+org.apache.commons--commons-compress--1.28.0=Owner-approved (build-tool-only)
+# row 29(e) [OR-67]: Apache-2.0 POM; shades commons-compress 1.28.0 sevenz.
+org.apache.maven.surefire--surefire-shared-utils--3.5.6=Owner-approved (build-tool-only)
+# row 30 [OR-67]: Apache-2.0 POM; embeds W3C schema documents.
+org.apache.xmlbeans--xmlbeans--5.3.0=Owner-approved (build-tool-only)
+# row 30 [OR-67]: Apache-2.0 POM; embeds the W3C xml.xsd.
+org.apache.maven.doxia--doxia-core--2.0.0=Owner-approved (build-tool-only)
+# row 32 [OR-67]: Apache-2.0 POM; embeds Indiana University Extreme! Lab licensed MXParser.
+org.codehaus.plexus--plexus-xml--3.0.1=Owner-approved (build-tool-only)
+# row 32 [OR-67]: same as plexus-xml 3.0.1.
+org.codehaus.plexus--plexus-utils--3.5.1=Owner-approved (build-tool-only)
+# row 32 [OR-67]: licence files present, covered class absent.
+org.codehaus.plexus--plexus-utils--4.0.1=Owner-approved (build-tool-only)
+# row 32 [OR-67]: licence files present, covered class absent.
+org.codehaus.plexus--plexus-utils--4.0.2=Owner-approved (build-tool-only)
+# row 37(a) [OR-67]: Apache-2.0 POM; embeds the MPL-2.0 public suffix list.
+org.apache.httpcomponents.client5--httpclient5--5.5.2=Owner-approved (build-tool-only)
+# row 37(b) [OR-67]: Apache-2.0 POM; embeds the MPL-2.0 public suffix list.
+org.apache.httpcomponents--httpclient--4.5.14=Owner-approved (build-tool-only)
+# row 38 [OR-67]: Apache-2.0 POM; appended Minpack and BesselJ licence sections.
+org.apache.commons--commons-math3--3.6.1=Owner-approved (build-tool-only)
+# row 40(a) [OR-67]: Apache-2.0 POM; compiled W3C, ETSI and ECMA schema content.
+org.apache.poi--poi-ooxml-lite--5.5.1=Owner-approved (build-tool-only)
+# row 40(b) [OR-67]: Apache-2.0 POM; eID Applet derived dsig package.
+org.apache.poi--poi-ooxml--5.5.1=Owner-approved (build-tool-only)
+# row 42 [OR-67]: Apache-2.0 POM; Doug Lea Public Domain StripedBuffer.
+com.github.ben-manes.caffeine--caffeine--3.1.8=Owner-approved (build-tool-only)
+
+# ---- plan 015 T1.2: the agent-gateway module (the protobuf and os plugins, and the gRPC set) ----
+# L3 [OR-127]: POM licence is Apache-2.0; the jar embeds BoringSSL (ISC + OpenSSL/SSLeay), read from the 1.68.1 jar's META-INF/NOTICE.txt and license/LICENSE.boringssl.txt, and AIX/NetBSD code under the OpenSSL License. Notices in THIRD-PARTY-NOTICES.md. Approved by EXACT version: RULE 2 of licence-third-party.ftl aborts on any other resolved version.
+io.grpc--grpc-netty-shaded--1.68.1=Owner-approved (shipped)
+
+# OR-130 = owner ruling 2026-10-08 (L-a, L-b)
+# L-a [OR-130]: shipped, via grpc-util. The POM names the licence "MIT license", which is not a mapped allow-list name; the text is MIT. Exact coordinate.
+org.codehaus.mojo--animal-sniffer-annotations--1.24=Owner-approved (shipped)
+# L-b [OR-130]: build-tool-only (protobuf-maven-plugin 0.6.1 / os-maven-plugin 1.7.1 realms), never shipped. CDDL-1.0 (file-level weak copyleft).
+javax.annotation--jsr250-api--1.0=Owner-approved (build-tool-only)
+# L-b [OR-130]: build-tool-only, EPL-1.0.
+org.eclipse.sisu--org.eclipse.sisu.inject--0.3.3=Owner-approved (build-tool-only)
+# L-b [OR-130]: build-tool-only, EPL-1.0.
+org.eclipse.sisu--org.eclipse.sisu.plexus--0.3.3=Owner-approved (build-tool-only)
+# L-b [OR-130]: build-tool-only, Apache-2.0 (this version is not among the approved plexus-utils versions).
+org.codehaus.plexus--plexus-utils--3.1.0=Owner-approved (build-tool-only)
+
+# OR-134 (L-d) = owner ruling 2026-10-09 (plan 015 W1): the two micrometer-core runtime dependencies of agent-gateway.
+# L-d [OR-134]: declares "BSD-2-Clause" and "Public Domain, per Creative Commons CC0". Election: BSD-2-Clause. Its own META-INF/LICENSE.txt (HdrHistogram-2.2.2.jar) reads "the code found under this directory is *also* provided under the following license (commonly referred to as the BSD 2-Clause License)", beside the CC0 dedication. Copyright notice in THIRD-PARTY-NOTICES.md.
+org.hdrhistogram--HdrHistogram--2.2.2=Owner-approved (shipped)
+# L-d [OR-134]: POM licence "Public Domain, per Creative Commons CC0" (CC0 1.0). Approved as stated, exact coordinate.
+org.latencyutils--LatencyUtils--2.0.3=Owner-approved (shipped)

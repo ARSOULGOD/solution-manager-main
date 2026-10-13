@@ -1,0 +1,826 @@
+{
+  "name": "inactive-branch-retained-not-rendered",
+  "pins": "A value typed under solace.enabled=true survives switching it off — it stays in the draft, leaves `rendered`, and appears in `excluded` as hidden (UI-D4).",
+  "selection": {
+    "instances": [
+      {
+        "instanceKey": "i1",
+        "type": "cache-engine"
+      }
+    ]
+  },
+  "draft": {
+    "i1": {
+      "solace.enabled": false,
+      "solace.host": "tcp://kept:55555"
+    }
+  },
+  "observed": {
+    "version": {
+      "declared": "2.4",
+      "observed": "2.4",
+      "state": "OK"
+    },
+    "replicas": [
+      {
+        "id": "r1",
+        "health": "GREEN"
+      }
+    ]
+  },
+  "package": "cache-2.4",
+  "expected": {
+    "engineVersion": 2,
+    "solution": "cache",
+    "packageVersion": 1,
+    "components": [
+      {
+        "instanceKey": "i1",
+        "type": "cache-engine",
+        "role": "none",
+        "sections": [
+          {
+            "title": "General",
+            "order": 0,
+            "fields": [
+              {
+                "key": "mode",
+                "renderedPath": "cache-engine.mode",
+                "controlKind": "select",
+                "value": {
+                  "kind": "value",
+                  "value": "READ",
+                  "source": "default"
+                },
+                "options": [
+                  "READ",
+                  "READ_WRITE",
+                  "ADMIN"
+                ],
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "Mode",
+                "helperText": "READ_WRITE exposes the write endpoint; ADMIN additionally exposes delete and invalidate. NOTE: the MI's @ConditionalOnProperty guards sit on handler methods and are INERT - the routes exist in every mode.",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "provider",
+                "renderedPath": "cache-engine.provider",
+                "controlKind": "select",
+                "value": {
+                  "kind": "value",
+                  "value": "caffeine",
+                  "source": "default"
+                },
+                "options": [
+                  "caffeine",
+                  "redis",
+                  "jcache"
+                ],
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": true,
+                "label": "Provider",
+                "helperText": "Only caffeine reports stats and size. Java type is String, not an enum - T-TYPES asserts the declared type BINDS (UI-D18). Default comes from matchIfMissing=true, not a field initializer (UI-D2).",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "namespace",
+                "renderedPath": "cache-engine.namespace",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "Namespace",
+                "validations": [
+                  {
+                    "severity": "block",
+                    "code": "REQUIRED",
+                    "message": "This field is required."
+                  }
+                ],
+                "hiddenBy": []
+              }
+            ],
+            "actions": [],
+            "allVisibleFieldsAdvanced": false
+          },
+          {
+            "title": "Keying",
+            "order": 1,
+            "fields": [
+              {
+                "key": "key-source",
+                "renderedPath": "cache-engine.key-source",
+                "controlKind": "select",
+                "value": {
+                  "kind": "unset"
+                },
+                "options": [
+                  "TOPIC",
+                  "PAYLOAD",
+                  "HEADER",
+                  "COMPOSITE"
+                ],
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": true,
+                "label": "Key source",
+                "validations": [
+                  {
+                    "severity": "block",
+                    "code": "REQUIRED",
+                    "message": "This field is required."
+                  }
+                ],
+                "hiddenBy": []
+              },
+              {
+                "key": "payload-key-json-pointer",
+                "renderedPath": "cache-engine.payload-key-json-pointer",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": false,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "Payload key JSON pointer",
+                "helperText": "Comma-separated JSON Pointers, e.g. /phone_no,/data/PHONE_NUMBER",
+                "validations": [],
+                "hiddenBy": [
+                  "key-source"
+                ]
+              },
+              {
+                "key": "topic-key-levels",
+                "renderedPath": "cache-engine.topic-key-levels",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": false,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "Topic key levels",
+                "helperText": "Java type is String, not int, and there is no field initializer - the value 3 came from the shipped sample yml, which UI-D17 forbids as a default source.",
+                "validations": [],
+                "hiddenBy": [
+                  "key-source"
+                ]
+              }
+            ],
+            "actions": [],
+            "allVisibleFieldsAdvanced": false
+          },
+          {
+            "title": "Expiry",
+            "order": 2,
+            "fields": [
+              {
+                "key": "expiry-header-key-pointer",
+                "renderedPath": "cache-engine.expiry-header-key-pointer",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "Expiry header key pointer",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "expiry-payload-key-pointer",
+                "renderedPath": "cache-engine.expiry-payload-key-pointer",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "Expiry payload key pointer",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "cache-eligible-key-pointer",
+                "renderedPath": "cache-engine.cache-eligible-key-pointer",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "Cache-eligible key pointer",
+                "validations": [],
+                "hiddenBy": []
+              }
+            ],
+            "actions": [],
+            "allVisibleFieldsAdvanced": true
+          },
+          {
+            "title": "Sizing",
+            "order": 3,
+            "fields": [
+              {
+                "key": "max-size",
+                "renderedPath": "cache-engine.max-size",
+                "controlKind": "number",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "Max entries",
+                "helperText": "No MI default: Java `int maxSize` is 0, which evicts everything. The operator must choose. The 1..1,000,000 range is a Solace recommendation, overridable with a recorded reason (UI-D16).",
+                "validations": [
+                  {
+                    "severity": "block",
+                    "code": "REQUIRED",
+                    "message": "This field is required."
+                  }
+                ],
+                "hiddenBy": []
+              },
+              {
+                "key": "ttl",
+                "renderedPath": "cache-engine.ttl",
+                "controlKind": "duration",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "TTL",
+                "helperText": "Spring Duration syntax, e.g. 120m or PT2H. No MI default: Java `Duration ttl` is null, and absent means entries never expire. Declaring this `string` would pass T-KEYS and fail at MI startup - the gap T-TYPES closes.",
+                "validations": [],
+                "hiddenBy": []
+              }
+            ],
+            "actions": [],
+            "allVisibleFieldsAdvanced": false
+          },
+          {
+            "title": "Topics",
+            "order": 4,
+            "fields": [
+              {
+                "key": "cache-hit-topic",
+                "renderedPath": "cache-engine.cache-hit-topic",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "Cache hit topic",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "cache-miss-topic",
+                "renderedPath": "cache-engine.cache-miss-topic",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "Cache miss topic",
+                "validations": [],
+                "hiddenBy": []
+              }
+            ],
+            "actions": [],
+            "allVisibleFieldsAdvanced": false
+          },
+          {
+            "title": "Hit response",
+            "order": 5,
+            "fields": [
+              {
+                "key": "cache-hit-response.template-key-topic-position",
+                "renderedPath": "cache-engine.cache-hit-response.template-key-topic-position",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "Template key topic position",
+                "helperText": "Java type is String, not int - declaring it `int` was a T-TYPES violation in this fixture. No MI default.",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "cache-hit-response.template-mappings",
+                "renderedPath": "cache-engine.cache-hit-response.template-mappings",
+                "controlKind": "key-value",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "Template mappings",
+                "helperText": "Map<String,String>. The MI's own sample ships an absolute path to a developer laptop; no validation caught it.",
+                "validations": [],
+                "hiddenBy": []
+              }
+            ],
+            "actions": [],
+            "allVisibleFieldsAdvanced": true
+          },
+          {
+            "title": "Broker",
+            "order": 6,
+            "fields": [
+              {
+                "key": "solace.enabled",
+                "renderedPath": "cache-engine.solace.enabled",
+                "controlKind": "switch",
+                "value": {
+                  "kind": "value",
+                  "value": false,
+                  "source": "draft"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": true,
+                "label": "Solace enabled",
+                "helperText": "Java default is false (no field initializer), so an instance does not consume from the broker until this is set. The shipped sample yml says true; UI-D17 forbids sourcing a default from that file.",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "solace.host",
+                "renderedPath": "cache-engine.solace.host",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "tcp://kept:55555",
+                  "source": "draft"
+                },
+                "visible": false,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "Host",
+                "validations": [],
+                "hiddenBy": [
+                  "solace.enabled"
+                ]
+              },
+              {
+                "key": "solace.vpn",
+                "renderedPath": "cache-engine.solace.vpn",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": false,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "Message VPN",
+                "validations": [],
+                "hiddenBy": [
+                  "solace.enabled"
+                ]
+              },
+              {
+                "key": "solace.username",
+                "renderedPath": "cache-engine.solace.username",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": false,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "Username",
+                "validations": [],
+                "hiddenBy": [
+                  "solace.enabled"
+                ]
+              },
+              {
+                "key": "solace.password",
+                "renderedPath": "cache-engine.solace.password",
+                "controlKind": "secret",
+                "value": {
+                  "kind": "secretUnset"
+                },
+                "visible": false,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": true,
+                "discriminator": false,
+                "label": "Password",
+                "helperText": "secretRef. Masked in form, diff, export and history (I6).",
+                "validations": [],
+                "hiddenBy": [
+                  "solace.enabled"
+                ]
+              },
+              {
+                "key": "solace.queues",
+                "renderedPath": "cache-engine.solace.queues",
+                "controlKind": "string-list",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": false,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "Queues",
+                "validations": [],
+                "hiddenBy": [
+                  "solace.enabled"
+                ]
+              },
+              {
+                "key": "solace.topics",
+                "renderedPath": "cache-engine.solace.topics",
+                "controlKind": "string-list",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": false,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "Topics",
+                "validations": [],
+                "hiddenBy": [
+                  "solace.enabled"
+                ]
+              },
+              {
+                "key": "solace.messaging-mode",
+                "renderedPath": "cache-engine.solace.messaging-mode",
+                "controlKind": "select",
+                "value": {
+                  "kind": "value",
+                  "value": "MESSAGING",
+                  "source": "default"
+                },
+                "options": [
+                  "MESSAGING",
+                  "GATEWAY"
+                ],
+                "visible": false,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "Messaging mode",
+                "helperText": "Field initializer is MESSAGING; the shipped sample yml says GATEWAY. Defaults come from the initializer (UI-D17).",
+                "validations": [],
+                "hiddenBy": [
+                  "solace.enabled"
+                ]
+              }
+            ],
+            "actions": [
+              {
+                "key": "TEST_BROKER_CONNECTION",
+                "kind": "test-connection",
+                "visible": false,
+                "enabled": false,
+                "inputs": [
+                  "solace.host",
+                  "solace.vpn",
+                  "solace.username",
+                  "solace.password"
+                ],
+                "label": "Test connection"
+              }
+            ],
+            "allVisibleFieldsAdvanced": false
+          },
+          {
+            "title": "Management",
+            "order": 7,
+            "fields": [
+              {
+                "key": "solace.management.enabled",
+                "renderedPath": "cache-engine.solace.management.enabled",
+                "controlKind": "switch",
+                "value": {
+                  "kind": "value",
+                  "value": false,
+                  "source": "default"
+                },
+                "visible": false,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": true,
+                "label": "Management plane enabled",
+                "validations": [],
+                "hiddenBy": [
+                  "solace.enabled"
+                ]
+              },
+              {
+                "key": "solace.management.management-queue",
+                "renderedPath": "cache-engine.solace.management.management-queue",
+                "controlKind": "text",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": false,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "Management queue",
+                "helperText": "Two-level nesting, and the predicate carries the full ancestor chain (UI-D3).",
+                "validations": [],
+                "hiddenBy": [
+                  "solace.enabled",
+                  "solace.management.enabled"
+                ]
+              },
+              {
+                "key": "solace.management.leader-election",
+                "renderedPath": "cache-engine.solace.management.leader-election",
+                "controlKind": "select",
+                "value": {
+                  "kind": "value",
+                  "value": "STANDALONE",
+                  "source": "default"
+                },
+                "options": [
+                  "STANDALONE",
+                  "ACTIVE_STANDBY"
+                ],
+                "visible": false,
+                "enabled": true,
+                "virtual": false,
+                "advanced": true,
+                "masked": false,
+                "discriminator": false,
+                "label": "Leader election",
+                "helperText": "ACTIVE_STANDBY means a standby reports health UP while processing nothing - see INACTIVE_REPLICA in UI-D9.",
+                "validations": [],
+                "hiddenBy": [
+                  "solace.enabled",
+                  "solace.management.enabled"
+                ]
+              }
+            ],
+            "actions": [],
+            "allVisibleFieldsAdvanced": false
+          }
+        ]
+      }
+    ],
+    "rendered": [
+      {
+        "instanceKey": "i1",
+        "renderedPath": "cache-engine.mode",
+        "value": "READ"
+      },
+      {
+        "instanceKey": "i1",
+        "renderedPath": "cache-engine.provider",
+        "value": "caffeine"
+      },
+      {
+        "instanceKey": "i1",
+        "renderedPath": "cache-engine.solace.enabled",
+        "value": false
+      }
+    ],
+    "excluded": [
+      {
+        "instanceKey": "i1",
+        "key": "TEST_BROKER_CONNECTION",
+        "reason": "action"
+      },
+      {
+        "instanceKey": "i1",
+        "key": "payload-key-json-pointer",
+        "reason": "hidden"
+      },
+      {
+        "instanceKey": "i1",
+        "key": "solace.host",
+        "reason": "hidden"
+      },
+      {
+        "instanceKey": "i1",
+        "key": "solace.management.enabled",
+        "reason": "hidden"
+      },
+      {
+        "instanceKey": "i1",
+        "key": "solace.management.leader-election",
+        "reason": "hidden"
+      },
+      {
+        "instanceKey": "i1",
+        "key": "solace.management.management-queue",
+        "reason": "hidden"
+      },
+      {
+        "instanceKey": "i1",
+        "key": "solace.messaging-mode",
+        "reason": "hidden"
+      },
+      {
+        "instanceKey": "i1",
+        "key": "solace.password",
+        "reason": "hidden"
+      },
+      {
+        "instanceKey": "i1",
+        "key": "solace.queues",
+        "reason": "hidden"
+      },
+      {
+        "instanceKey": "i1",
+        "key": "solace.topics",
+        "reason": "hidden"
+      },
+      {
+        "instanceKey": "i1",
+        "key": "solace.username",
+        "reason": "hidden"
+      },
+      {
+        "instanceKey": "i1",
+        "key": "solace.vpn",
+        "reason": "hidden"
+      },
+      {
+        "instanceKey": "i1",
+        "key": "topic-key-levels",
+        "reason": "hidden"
+      }
+    ],
+    "metrics": [
+      {
+        "instanceKey": "i1",
+        "name": "cache.hit_rate",
+        "metricType": "gauge",
+        "unit": "ratio",
+        "collectionState": "pending-config-change"
+      },
+      {
+        "instanceKey": "i1",
+        "name": "cache.hit_count",
+        "metricType": "counter",
+        "unit": "events",
+        "collectionState": "pending-config-change"
+      },
+      {
+        "instanceKey": "i1",
+        "name": "cache.miss_count",
+        "metricType": "counter",
+        "unit": "events",
+        "collectionState": "pending-config-change"
+      },
+      {
+        "instanceKey": "i1",
+        "name": "cache.eviction_count",
+        "metricType": "counter",
+        "unit": "events",
+        "collectionState": "pending-config-change"
+      },
+      {
+        "instanceKey": "i1",
+        "name": "cache.size",
+        "metricType": "gauge",
+        "unit": "entries",
+        "collectionState": "pending-config-change"
+      }
+    ],
+    "status": {
+      "version": {
+        "state": "OK",
+        "declared": "2.4",
+        "observed": "2.4",
+        "editingBlocked": false
+      },
+      "config": {},
+      "replicas": [
+        {
+          "id": "r1",
+          "health": "GREEN"
+        }
+      ],
+      "healthRollup": "GREEN",
+      "healthAvailability": "declared"
+    },
+    "diagnostics": [
+      {
+        "code": "GATING_STATE_UNKNOWN",
+        "message": "No restart-observed values for i1; cache.hit_rate is reported pending rather than asserted collectable.",
+        "instanceKey": "i1"
+      },
+      {
+        "code": "GATING_STATE_UNKNOWN",
+        "message": "No restart-observed values for i1; cache.hit_count is reported pending rather than asserted collectable.",
+        "instanceKey": "i1"
+      },
+      {
+        "code": "GATING_STATE_UNKNOWN",
+        "message": "No restart-observed values for i1; cache.miss_count is reported pending rather than asserted collectable.",
+        "instanceKey": "i1"
+      },
+      {
+        "code": "GATING_STATE_UNKNOWN",
+        "message": "No restart-observed values for i1; cache.eviction_count is reported pending rather than asserted collectable.",
+        "instanceKey": "i1"
+      },
+      {
+        "code": "GATING_STATE_UNKNOWN",
+        "message": "No restart-observed values for i1; cache.size is reported pending rather than asserted collectable.",
+        "instanceKey": "i1"
+      }
+    ]
+  }
+}

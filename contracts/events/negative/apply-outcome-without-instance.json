@@ -1,0 +1,10 @@
+{
+  "eventId": "3f1c9a52-0000-4000-8000-000000000109",
+  "occurredAtUtc": "2026-08-27T10:00:25Z",
+  "producer": "dp-core",
+  "organization": "acme",
+  "entity": { "kind": "placement", "placementId": "pl-eu-1" },
+  "stateVersion": 9,
+  "event": "instance.apply-outcome",
+  "payload": { "applyId": "apply-9", "state": "APPLIED" }
+}

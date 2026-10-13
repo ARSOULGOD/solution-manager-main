@@ -1,0 +1,679 @@
+// Versioned production contract for the v1 host-local agent transport.
+//
+// This file is the single source used by the Go and Java generators in this
+// repository. The package keeps the historical v1draft name for wire
+// compatibility with already-enrolled agents; no field is renumbered or
+// retyped. New fields are append-only and enum values are appended only.
+//
+// Two transcription notes:
+//  * Proto enum values carry the enum-name prefix (ERROR_CODE_SUPERSEDED)
+//    because proto3 scopes enum values at package level and the design uses
+//    SUPERSEDED for both an error code and an outcome. The bare names in the
+//    design are the semantic names; the Go msg package uses them.
+//  * AckDetailCode is the one enum the design leaves implicit: §4.4 rule 5
+//    puts ADMISSION_BLOCKED in CommandAck.detail.code and §4.8 uses
+//    LEASE_NOT_ACTIVE as a reason. Both are carried here beside a reused
+//    ErrorCode.
+syntax = "proto3";
+
+package solace.sm.agentgateway.v1draft;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/solace/solution-manager/go-agent/internal/wire/pb;pb";
+
+service AgentGateway {
+  // The only RPC accepted without a client certificate. The enrollment
+  // token travels as gRPC metadata "x-sm-enrollment-token".
+  rpc Enroll(EnrollRequest) returns (EnrollResponse);
+  rpc Connect(stream AgentToGateway) returns (stream GatewayToAgent);
+  // Opened only after SessionAccept (gateway §4.1); credits are the only
+  // backpressure (§4.10).
+  rpc Telemetry(stream TelemetryUp) returns (stream TelemetryDown);
+}
+
+message Envelope {
+  string message_id = 1; // UUIDv7
+  google.protobuf.Timestamp sent_at = 2; // display and diagnostics only
+}
+
+enum ErrorCode {
+  ERROR_CODE_UNSPECIFIED = 0;
+  ERROR_CODE_UNAUTHENTICATED_IDENTITY = 1;
+  ERROR_CODE_IDENTITY_REVOKED = 2;
+  ERROR_CODE_TOKEN_CONSUMED = 3;
+  ERROR_CODE_PROTOCOL_VERSION_UNSUPPORTED = 4;
+  ERROR_CODE_UPGRADE_REQUIRED = 5;
+  ERROR_CODE_CAPABILITY_MISMATCH = 6;
+  ERROR_CODE_CAPABILITY_MISSING = 7;
+  ERROR_CODE_BINDING_NOT_IN_LEASE = 8;
+  ERROR_CODE_TARGET_MISMATCH = 9;
+  ERROR_CODE_LEASE_KEY_MISMATCH = 10;
+  ERROR_CODE_GRANT_INVALID = 11;
+  ERROR_CODE_REQUEST_ID_REUSED = 12;
+  ERROR_CODE_REQUEST_EXPIRED = 13;
+  ERROR_CODE_IN_PROGRESS = 14;
+  ERROR_CODE_LEASE_RENEW_REQUIRED = 15;
+  ERROR_CODE_RE_ENROLL_REQUIRED = 16;
+  ERROR_CODE_ISSUE_NOT_ALLOWED = 17;
+  ERROR_CODE_REPLICA_REF_INVALID = 18;
+  ERROR_CODE_REPLICA_CAP_EXCEEDED = 19;
+  ERROR_CODE_REPORTER_DISPLACED = 20;
+  ERROR_CODE_UNDECLARED_LABEL = 21;
+  ERROR_CODE_LABEL_INVALID = 22;
+  ERROR_CODE_UNKNOWN_REPLICA = 23;
+  ERROR_CODE_INCARNATION_RETIRED = 24;
+  ERROR_CODE_ADMISSION_LIMITED = 25;
+  ERROR_CODE_SESSION_SUPERSEDED = 26;
+  ERROR_CODE_LEASE_RENEW_REFUSED = 27;
+  ERROR_CODE_STALE_GENERATION = 28;
+  ERROR_CODE_UNKNOWN_COMMAND = 29;
+  ERROR_CODE_SUPERSEDED = 30;
+  ERROR_CODE_KEY_HASH_MISMATCH = 31;
+  ERROR_CODE_TENANT_MISMATCH = 32;
+  ERROR_CODE_PAYLOAD_TOO_LARGE = 33;
+  ERROR_CODE_OUT_OF_CREDITS = 34;
+  ERROR_CODE_CLOCK_SUSPECT = 35;
+  ERROR_CODE_DRAINING = 36;
+  ERROR_CODE_INTERNAL_UNAVAILABLE = 37;
+  // plan 015 T2.3 (AGW-D11: appended)
+  ERROR_CODE_TARGET_MOVED = 38;    // CommandAck REFUSED: the host file is not the expected current one
+  ERROR_CODE_RENDER_CHANGED = 39;  // gateway refuses a CommandPull: the re-render differs from the recorded one
+}
+
+enum Capability {
+  CAPABILITY_UNSPECIFIED = 0;
+  CAPABILITY_APPLY_CONFIG = 1;
+  CAPABILITY_LIFECYCLE = 2;
+  CAPABILITY_REPORT_ONLY = 3;
+  // plan 015 T2.3: feature capabilities, never in a lease's capabilities
+  CAPABILITY_DISCOVERY = 4;        // sends DiscoveryReport, understands DiscoveryAck
+  CAPABILITY_REMATERIALIZE = 5;    // understands OPERATION_REMATERIALIZE + expected_current_sha256
+  CAPABILITY_DECLARATIONS = 6;     // understands TelemetryDeclarations
+}
+
+enum Operation {
+  OPERATION_UNSPECIFIED = 0;
+  OPERATION_PREFLIGHT = 1;
+  OPERATION_APPLY = 2;
+  OPERATION_RESTART = 3;
+  OPERATION_STOP = 4;
+  OPERATION_REMATERIALIZE = 5;  // plan 015 T2.3: write only if the host file still has expected_current_sha256
+}
+
+enum Outcome {
+  OUTCOME_UNSPECIFIED = 0;
+  OUTCOME_APPLIED = 1;
+  OUTCOME_FAILED_NO_EFFECT = 2;
+  OUTCOME_FAILED_ROLLED_BACK = 3;
+  OUTCOME_SUPERSEDED = 4;
+  OUTCOME_REFUSED = 5;
+  OUTCOME_APPLY_INDETERMINATE = 6;
+  OUTCOME_PREFLIGHT_OK = 7;
+  OUTCOME_PREFLIGHT_REFUSED = 8;
+}
+
+enum ProgressStep {
+  PROGRESS_STEP_UNSPECIFIED = 0;
+  PROGRESS_STEP_RECEIVED = 1;
+  PROGRESS_STEP_STAGED = 2;
+  PROGRESS_STEP_PERSISTED = 3;
+  PROGRESS_STEP_REPORTED = 4;
+}
+
+enum Trust {
+  TRUST_UNSPECIFIED = 0;
+  TRUST_TRUSTED = 1;
+  TRUST_UNTRUSTED = 2;
+}
+
+enum Disposition {
+  DISPOSITION_UNSPECIFIED = 0;
+  DISPOSITION_APPLIED = 1;
+  DISPOSITION_STALE = 2;
+  DISPOSITION_REFUSED = 3;
+}
+
+enum ClockState {
+  CLOCK_STATE_UNSPECIFIED = 0;
+  CLOCK_STATE_OK = 1;
+  CLOCK_STATE_SUSPECT = 2;
+}
+
+// ---- Enroll ----
+
+message HostFacts {
+  string os = 1;
+  string arch = 2;
+  string runtime_kind = 3;
+}
+
+message EnrollRequest {
+  bytes csr_der = 1;
+  string agent_version = 2;
+  repeated uint32 protocol_versions_supported = 3;
+  HostFacts host_facts = 4;
+}
+
+message TrustBundle {
+  repeated bytes certs_pem = 1;
+  google.protobuf.Timestamp valid_from = 2;
+  google.protobuf.Timestamp valid_to = 3;
+}
+
+message EnrollResponse {
+  string agent_id = 1;
+  repeated bytes certificate_chain = 2; // DER, leaf first
+  TrustBundle trust_bundle = 3;
+  string connect_endpoint = 4;
+}
+
+// ---- Session ----
+
+message Resume {
+  map<string, uint64> last_acked_generation_by_binding = 1;
+  map<string, uint64> last_telemetry_seq_by_stream = 2;
+}
+
+message SessionOpen {
+  Envelope envelope = 1;
+  uint32 protocol_version = 2;
+  string agent_version = 3;
+  repeated Capability capabilities_supported = 4;
+  Resume resume = 5;
+  google.protobuf.Timestamp agent_clock = 6;
+}
+
+message Limits {
+  uint64 max_message_bytes = 1;
+  uint64 max_batch_bytes = 2;
+  uint32 initial_credits = 3;
+  google.protobuf.Duration heartbeat_interval = 4;
+  google.protobuf.Duration keepalive_interval = 5;
+  google.protobuf.Duration skew_tolerance = 6;
+  google.protobuf.Duration report_interval = 7;
+}
+
+message LeaseGrant {
+  Envelope envelope = 1;
+  string agent_id = 2;
+  string cnf_thumbprint = 3;
+  string target_id = 4;
+  repeated string binding_ids = 5;
+  uint64 agent_revocation_epoch = 6;
+  uint64 fleet_revocation_epoch = 7;
+  google.protobuf.Timestamp issued_at = 8;
+  google.protobuf.Timestamp expires_at = 9;
+  string audience = 10;
+  string nonce = 11;
+  repeated Capability capabilities = 12;
+  map<string, google.protobuf.Duration> verb_ceilings = 13; // key: Operation name
+  google.protobuf.Duration admission_margin = 14;
+  google.protobuf.Timestamp server_clock = 15;
+}
+
+message SessionAccept {
+  Envelope envelope = 1;
+  string session_id = 2;
+  string assigned_target_id = 3;
+  repeated Capability required_capabilities = 4;
+  LeaseGrant lease = 5;
+  Limits limits = 6;
+  google.protobuf.Timestamp server_clock = 7;
+}
+
+message SessionReject {
+  Envelope envelope = 1;
+  ErrorCode code = 2;
+  optional google.protobuf.Duration retry_after = 3;
+  optional string min_agent_version = 4;
+}
+
+// ---- Steady ----
+
+message LeaseRenew {
+  Envelope envelope = 1;
+  string nonce_consumed = 2;
+  google.protobuf.Timestamp agent_clock = 3;
+}
+
+message Revoke {
+  Envelope envelope = 1;
+  optional uint64 agent_revocation_epoch = 2;
+  optional uint64 fleet_revocation_epoch = 3;
+  string reason = 4;
+}
+
+message GenerationAvailable {
+  Envelope envelope = 1;
+  string command_id = 2;
+  string binding_id = 3;
+  uint64 generation = 4;
+  Operation operation = 5;
+  optional string config_sha256 = 6;
+  google.protobuf.Timestamp deadline = 7;
+  OperationCorrelation correlation = 8;
+}
+
+// Correlates one agent operation with the durable DP apply journal. Optional for
+// periodic observations and for older gateways; field numbers are append-only.
+message OperationCorrelation {
+  string apply_id = 1;
+  string intent_id = 2;
+  string attempt_id = 3;
+  string step = 4;
+}
+
+message CommandPull {
+  Envelope envelope = 1;
+  string command_id = 2;
+}
+
+message CommandOffer {
+  Envelope envelope = 1;
+  string command_id = 2;
+  uint64 generation = 3;
+  string idempotency_key = 4;
+  string binding_id = 5;
+  Operation operation = 6;
+  bytes payload_bytes = 7;
+  string config_sha256 = 8;
+  optional uint64 supersedes_generation = 9;
+  google.protobuf.Timestamp deadline = 10;
+  OperationCorrelation correlation = 11;
+  // plan 015 T2.3 (c). Only on OPERATION_REMATERIALIZE; bare lowercase hex. Present and empty = the file must still be ABSENT.
+  // An absent field on a REMATERIALIZE offer is a protocol error (REFUSED, ERROR_CODE_KEY_HASH_MISMATCH).
+  optional string expected_current_sha256 = 12;
+}
+
+message CommandReceived {
+  Envelope envelope = 1;
+  string command_id = 2;
+  uint64 generation = 3;
+}
+
+enum AckDetailCode {
+  ACK_DETAIL_CODE_UNSPECIFIED = 0;
+  ACK_DETAIL_CODE_ADMISSION_BLOCKED = 1;
+  ACK_DETAIL_CODE_LEASE_NOT_ACTIVE = 2;
+  ACK_DETAIL_CODE_ERROR = 3; // see error_code
+}
+
+message PreflightResult {
+  string container_id = 1;
+  string image_digest = 2;
+  string config_path_in_container = 3;
+  string host_path = 4;
+  string mechanism = 5;
+  repeated string competing_sources = 6;
+  bool writable = 7;
+}
+
+message AckDetail {
+  AckDetailCode code = 1;
+  ErrorCode error_code = 2; // when code == ACK_DETAIL_CODE_ERROR
+  string message = 3;       // code-keyed template, never free text
+  optional PreflightResult preflight_result = 4;
+}
+
+message CommandAck {
+  Envelope envelope = 1;
+  string command_id = 2;
+  uint64 generation = 3;
+  Outcome outcome = 4;
+  AckDetail detail = 5;
+  google.protobuf.Timestamp agent_clock = 6;
+  // plan 015 T2.3 (b). APPLY and REMATERIALIZE: StartedAt read back when the write was verified; RESTART: StartedAt after
+  // the restart. Host clock, NO offset applied. Set only on an APPLIED outcome; unset for PREFLIGHT, STOP and every failed attempt.
+  optional google.protobuf.Timestamp container_started_at = 7;
+}
+
+message ApplyProgress {
+  Envelope envelope = 1;
+  string command_id = 2;
+  ProgressStep step = 3;
+  string replica_ref = 4;
+  google.protobuf.Timestamp at = 5;
+}
+
+message VersionObservation {
+  string mechanism = 1;
+  string value = 2;
+  string confidence = 3;
+}
+
+message ActualStateReport {
+  string item_id = 1;
+  uint64 sequence = 2;
+  string binding_id = 3;
+  string replica_ref = 4;
+  string incarnation = 5;
+  uint64 persisted_generation = 6;
+  optional google.protobuf.Timestamp restart_observed_at = 7;
+  optional string effective_hash = 8;
+  VersionObservation version_observation = 9;
+  OperationCorrelation correlation = 10;
+  // plan 015 T2.3 (a), (a'). Facts about the declared probe; Docker health is an informational hint only.
+  HealthObservation health = 11;
+  // Docker State.StartedAt, host clock, NO offset applied (restart_observed_at is offset-corrected and left alone).
+  optional google.protobuf.Timestamp container_started_at = 12;
+}
+
+message ActualStateReportBatch {
+  Envelope envelope = 1;
+  repeated ActualStateReport items = 2;
+}
+
+message ReportResult {
+  string in_reply_to_item_id = 1;
+  uint64 sequence = 2;
+  optional string replica_id = 3;
+  optional string incarnation_id = 4;
+  Trust trust = 5;
+  Disposition disposition = 6;
+  ErrorCode refused_reason = 7;
+}
+
+message ReportAck {
+  Envelope envelope = 1;
+  string in_reply_to_message_id = 2;
+  repeated ReportResult results = 3;
+}
+
+message Heartbeat {
+  Envelope envelope = 1;
+  google.protobuf.Timestamp agent_clock = 2;
+  uint64 buffer_depth_bytes = 3;
+  uint64 drop_count = 4;
+  uint32 journal_depth = 5;
+  google.protobuf.Duration lease_remaining_at_send = 6;
+}
+
+message HeartbeatAck {
+  Envelope envelope = 1;
+  google.protobuf.Timestamp server_clock = 2;
+  int64 clock_offset_ms = 3;
+  ClockState clock_state = 4;
+}
+
+message TrustBundleUpdate {
+  Envelope envelope = 1;
+  TrustBundle trust_bundle = 2;
+}
+
+// Planned drain (AGW-D18). The gateway stops offering work, tells each session when to come back
+// (reconnect_after, staggered across sessions) and by when it must be quiet (deadline, measured from
+// the moment the message is sent). deadline is append-only and optional: an absent deadline means the
+// legacy behaviour, close at once and reconnect after reconnect_after.
+message Drain {
+  Envelope envelope = 1;
+  string reason = 2;
+  google.protobuf.Duration reconnect_after = 3;
+  optional google.protobuf.Duration deadline = 4;
+}
+
+// The agent's answer to a Drain: everything it had in flight is acknowledged (abandoned_commands counts
+// the commands the deadline cut short, which the DP re-delivers on the next session). The gateway closes
+// the stream on receipt; the agent reconnects after the remainder of reconnect_after.
+message DrainComplete {
+  Envelope envelope = 1;
+  string in_reply_to_message_id = 2;
+  uint32 abandoned_commands = 3;
+}
+
+message Teardown {
+  Envelope envelope = 1;
+  string reason = 2;
+}
+
+message Error {
+  Envelope envelope = 1;
+  ErrorCode code = 2;
+  optional google.protobuf.Duration retry_after = 3;
+  string correlation_id = 4;
+  string message = 5;
+}
+
+// ---- Stream envelopes ----
+
+message AgentToGateway {
+  oneof msg {
+    SessionOpen session_open = 1;
+    LeaseRenew lease_renew = 2;
+    CommandPull command_pull = 3;
+    CommandReceived command_received = 4;
+    CommandAck command_ack = 5;
+    ApplyProgress apply_progress = 6;
+    ActualStateReportBatch actual_state_report_batch = 7;
+    Heartbeat heartbeat = 8;
+    Teardown teardown = 9;
+    DrainComplete drain_complete = 10;
+    DiscoveryReport discovery_report = 11;  // plan 015 T2.3 (d)
+  }
+}
+
+message GatewayToAgent {
+  oneof msg {
+    SessionAccept session_accept = 1;
+    SessionReject session_reject = 2;
+    LeaseGrant lease_grant = 3;
+    Revoke revoke = 4;
+    GenerationAvailable generation_available = 5;
+    CommandOffer command_offer = 6;
+    ReportAck report_ack = 7;
+    HeartbeatAck heartbeat_ack = 8;
+    TrustBundleUpdate trust_bundle_update = 9;
+    Drain drain = 10;
+    Teardown teardown = 11;
+    Error error = 12;
+    DiscoveryAck discovery_ack = 13;                    // plan 015 T2.3 (d)
+    TelemetryDeclarations telemetry_declarations = 14;  // plan 015 T2.3 (e)
+  }
+}
+
+// ---- Telemetry stream (gateway §4.3, §4.10) ----
+//
+// Transcription notes:
+//  * §4.3 types samples[] as "the normalized model of architecture §10"; the
+//    fields are taken from gateway §6.1's NormalizedSample.
+//  * gap_markers[].reason is a string because §4.3 defines no vocabulary
+//    (go-agent AG-16 proposes DROPPED_OLDEST, EXPIRED, OVERSIZE, UNREGISTERED,
+//    CORRUPT, plus §4.11 reject codes).
+
+enum MetricType {
+  METRIC_TYPE_UNSPECIFIED = 0;
+  METRIC_TYPE_COUNTER = 1;
+  METRIC_TYPE_GAUGE = 2;
+  METRIC_TYPE_HISTOGRAM = 3;
+}
+
+message Sample {
+  string series_key = 1;
+  MetricType type = 2;
+  google.protobuf.Timestamp ts = 3;
+  double value = 4;
+  map<string, string> labels = 5;
+}
+
+message GapMarker {
+  uint64 from_seq = 1;
+  uint64 to_seq = 2;
+  string reason = 3;
+}
+
+message TelemetryBatch {
+  Envelope envelope = 1;
+  string stream_id = 2;
+  uint64 batch_seq = 3;
+  repeated Sample samples = 4;
+  repeated GapMarker gap_markers = 5;
+  google.protobuf.Timestamp produced_at = 6;
+}
+
+message TelemetryAck {
+  Envelope envelope = 1;
+  string stream_id = 2;
+  uint64 high_watermark_seq = 3;
+  uint32 credits_granted = 4;
+}
+
+message TelemetryCredit {
+  Envelope envelope = 1;
+  string stream_id = 2;
+  uint32 credits_granted = 3;
+}
+
+message TelemetryReject {
+  Envelope envelope = 1;
+  string stream_id = 2;
+  ErrorCode code = 3;
+  optional google.protobuf.Duration retry_after = 4;
+}
+
+// envelope = 1 predates the oneof and is unused; it is kept, never
+// renumbered (§4.12 evolution rules).
+message TelemetryUp {
+  Envelope envelope = 1;
+  oneof msg {
+    TelemetryBatch telemetry_batch = 2;
+  }
+}
+
+message TelemetryDown {
+  Envelope envelope = 1;
+  oneof msg {
+    TelemetryAck telemetry_ack = 2;
+    TelemetryCredit telemetry_credit = 3;
+    TelemetryReject telemetry_reject = 4;
+  }
+}
+
+// ---- plan 015 T2.3: the six wire additions (proto-amendments-015.md; AGW-D11: new numbers only) ----
+
+// (a) health. OR-130 D-4: the agent RUNS the package's declared probe (HealthProbe, below) and reports FACTS. The DP maps
+// them with ProbeResultMapper, identically to dp-remote. state is the Docker health check: an informational liveness
+// hint, never the gate. OR-101: nothing is invented; no declared probe means nothing is probed.
+enum HealthState {
+  HEALTH_STATE_UNSPECIFIED = 0;
+  HEALTH_STATE_HEALTHY = 1;        // Docker health status "healthy"
+  HEALTH_STATE_STARTING = 2;       // "starting"
+  HEALTH_STATE_UNHEALTHY = 3;      // "unhealthy"
+  HEALTH_STATE_NOT_DECLARED = 4;   // the container has no health check at all
+  HEALTH_STATE_UNREACHABLE = 5;    // the container is not running, or inspect failed
+}
+
+enum ProbeStrength {
+  PROBE_STRENGTH_UNSPECIFIED = 0;  // the agent cannot know it
+  PROBE_STRENGTH_READINESS = 1;    // mirrors solution-package.schema.json health.probe.strength
+  PROBE_STRENGTH_LIVENESS = 2;
+}
+
+enum ProbeFailure {
+  PROBE_FAILURE_NONE = 0;
+  PROBE_FAILURE_REFUSED = 1;       // connection refused on the host loopback
+  PROBE_FAILURE_TIMEOUT = 2;
+}
+
+message HealthObservation {
+  HealthState state = 1;
+  google.protobuf.Timestamp observed_at = 2;  // the agent's clock (display; the DP stamps its own receipt time)
+  ProbeStrength probe_strength = 3;           // informational: the DP's gate reads the DECLARED strength, never this
+  uint32 http_status = 4;                     // the declared probe's HTTP status; 0 = no HTTP response
+  string actuator_status = 5;                 // the "status" string of an actuator-health JSON body; "" otherwise
+  ProbeFailure failure = 6;                   // why there was no response
+}
+
+// (d) discovery: facts, not conclusions.
+message DiscoveredMount {
+  string source = 1;
+  string destination = 2;
+}
+
+message DiscoveredPort {
+  uint32 container_port = 1;
+  uint32 host_port = 2;  // only PUBLISHED ports
+}
+
+message DiscoveredContainer {
+  string container_id = 1;
+  string container_name = 2;                  // without the leading "/"
+  string image_ref = 3;                       // as Docker reports it
+  map<string, string> labels = 4;             // ONLY keys with the prefix "com.solace.sm." (others never leave the host)
+  repeated DiscoveredMount mounts = 5;        // bind mounts only
+  repeated DiscoveredPort published_ports = 6;
+}
+
+message DiscoveryReport {  // a complete snapshot, never a delta
+  Envelope envelope = 1;
+  repeated DiscoveredContainer items = 2;
+}
+
+enum DiscoveryState {
+  DISCOVERY_STATE_UNSPECIFIED = 0;
+  DISCOVERY_STATE_PENDING = 1;
+  DISCOVERY_STATE_REGISTERED = 2;
+  DISCOVERY_STATE_REFUSED = 3;
+  DISCOVERY_STATE_ABANDONED = 4;
+  DISCOVERY_STATE_UNDECLARED = 5;
+  DISCOVERY_STATE_RETIRED = 6;
+}
+
+message DiscoveryResult {
+  string container_id = 1;
+  DiscoveryState state = 2;
+  string code = 3;        // the DP's closed GatewayCode vocabulary; opaque to the agent
+  string binding_id = 4;  // the placement id once REGISTERED (also echoed for UNDECLARED / RETIRED); else ""
+}
+
+message DiscoveryAck {
+  Envelope envelope = 1;
+  string in_reply_to_message_id = 2;
+  repeated DiscoveryResult results = 3;  // one per item, in the report's order
+}
+
+// (e), (f) telemetry declarations, gateway -> agent.
+enum OnUnavailable {
+  ON_UNAVAILABLE_UNSPECIFIED = 0;
+  ON_UNAVAILABLE_DEGRADE = 1;
+  ON_UNAVAILABLE_ERROR = 2;  // behaves as DEGRADE in v1
+}
+
+message HttpJsonSource {
+  uint32 port = 1;  // the CONTAINER port; the agent maps it to the host port Docker published
+  string path = 2;  // starts with "/"
+  string pointer = 3;  // RFC 6901; "" is the whole document
+  OnUnavailable on_unavailable = 4;
+}
+
+message TelemetryMetric {
+  string name = 1;
+  MetricType metric_type = 2;  // COUNTER or GAUGE in v1
+  string unit = 3;
+  oneof source {
+    HttpJsonSource http_json = 4;
+  }
+}
+
+enum ProbeKind {
+  PROBE_KIND_UNSPECIFIED = 0;
+  PROBE_KIND_ACTUATOR_HEALTH = 1;  // GET path, parse the JSON "status"
+  PROBE_KIND_HTTP_STATUS = 2;      // GET path, the HTTP status alone
+}
+
+message HealthProbe {  // mirrors dp.api.inventory.HealthProbeSpec(kind, path, hostPort, strength)
+  ProbeKind kind = 1;
+  string path = 2;       // starts with "/"
+  uint32 host_port = 3;  // the HOST port Docker published: the agent GETs the host loopback here
+  ProbeStrength strength = 4;  // the DECLARED strength; the agent only carries it
+}
+
+message TelemetryDeclarations {
+  Envelope envelope = 1;
+  string binding_id = 2;                  // on the agent path this carries the PLACEMENT id
+  google.protobuf.Duration interval = 3;  // the fixed 5 s of OR-73; never the package's intervalSeconds
+  repeated TelemetryMetric metrics = 4;   // the COMPLETE set for the binding: it replaces the previous set atomically
+  // OR-130 D-4. Absent = the package declares no probe: NOTHING is probed (OR-101). Sent only to a session whose
+  // capabilities_supported names CAPABILITY_DECLARATIONS.
+  HealthProbe health_probe = 5;
+}

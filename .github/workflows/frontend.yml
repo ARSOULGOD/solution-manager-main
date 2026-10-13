@@ -1,0 +1,211 @@
+name: frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend.yml'
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend.yml'
+
+defaults:
+  run:
+    working-directory: frontend
+
+jobs:
+  gate:
+    name: ${{ matrix.gate }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        gate:
+          - lint
+          - typecheck
+          - test
+          - "test:a11y"
+          - build
+          - "check:forbidden-deps"
+          - "lint:fixtures:assert"
+          # FE-096 · initial-JS bundle budget. verify:bundle runs the real
+          # production build in-memory and fails if the initial payload (the
+          # entry chunk + its static-import closure) carries ECharts or the
+          # MUI X Data Grid, or exceeds 160 KiB gzip.
+          #
+          # Ceiling rationale (kept in sync with scripts/verify-bundle.mjs):
+          # baseline 2026-09-02 is 134 KiB gzip — React + ReactDOM, MUI core
+          # + Emotion (FE-D4), TanStack Query (FE-D1), theme/auth/router
+          # shell — none of it route code, none reducible without reversing a
+          # locked decision. Ceiling = baseline + ~20% headroom: absorbs
+          # shared-shell growth, not a new heavy dep in the initial graph or
+          # a feature that forgot to lazy-split. Raise only with a one-line
+          # note in both places saying what grew and why.
+          - "verify:bundle"
+          # FE-097 · palette and contrast gate. Runs every chart series
+          # colour, text colour, tone chip and focus band through WCAG 2.2
+          # AA in BOTH themes (4.5:1 text, 3:1 non-text), checks the leading
+          # categorical hues stay separable under simulated dichromacy, and
+          # cross-checks the state vocabulary so no status is signalled by
+          # colour alone. A failure here is a build failure, never a warning
+          # — design §18 made contrast a sign-off item, and this is the
+          # sign-off. It also runs the contrast maths' own unit tests: a
+          # broken instrument would make the gate pass while proving
+          # nothing. Thresholds are WCAG's; do not raise them to go green.
+          - "verify:palette"
+          # FE-103 · the performance contract (design §17, §22). Tests, not
+          # assertions — there is no artefact to inspect, only behaviour: no
+          # request for an off-screen widget, four requests for eight widgets
+          # over four metrics, a refresh floored at the served bucket and
+          # paused while the tab is hidden, a legend that scrolls rather than
+          # truncating, free text debounced while enums are not, and two
+          # recorded render budgets.
+          #
+          # A wrapper rather than a raw vitest line because four of the six
+          # guarantees were proven by earlier tasks and are NAMED here rather
+          # than reimplemented; the script fails if one of those files stops
+          # existing, so the suite cannot silently shrink under a rename.
+          #
+          # Budgets are jsdom tripwires, not browser measurements — ~4x (grid)
+          # and ~15x (projection) over a recorded baseline, sized to catch an
+          # order-of-magnitude regression and to survive a slow CI runner. A
+          # breach means something grew; find it before raising the number.
+          - "verify:perf"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ${{ matrix.gate }}
+        # Node 22.23 exposes an experimental global Web Storage implementation
+        # whose `localStorage` is unavailable without `--localstorage-file`.
+        # That shadows jsdom's working storage in Vitest workers. Disable only
+        # the Node experiment for gate commands; browser storage is unchanged.
+        env:
+          NODE_OPTIONS: --no-experimental-webstorage
+        run: npm run ${{ matrix.gate }}
+
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run e2e
+        run: npm run e2e
+
+  reflow:
+    name: reflow (FE-D29)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run reflow conformance
+        run: npm run verify:reflow
+
+  production:
+    name: production assertions (FE-101)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      # Design §21's list of what a shipped console must NOT contain, as a
+      # gate rather than a claim: no auth mock, no dev gallery route, no MSW,
+      # no fixture dataset, no secret, no plane hostname — plus the one thing
+      # it MUST have, a `config.json` an operator replaces without a rebuild
+      # (FE-D14, FE-D24, FE-D19, I6).
+      #
+      # Three parts, in this order. The self-test runs FIRST and drives every
+      # assertion with a violation — six described bundles and one real Vite
+      # production build of `src/test/production-fixtures/ships-dev-code.ts`,
+      # which imports the mock, the gallery, MSW and a fixture dataset on
+      # purpose. An assertion nobody has seen fail is not a check, so a green
+      # gate means nothing until that passes. Then a real build written to a
+      # throwaway directory and walked file by file — the ARTEFACT, not an
+      # in-memory bundle, because `write: false` never copies `publicDir`
+      # (where the shipped MSW worker was found) and reports different
+      # rendered module sizes. Then the runtime proof: a copy of `dist/` with
+      # one edited file, served, and the console observed calling the new
+      # prefix.
+      #
+      # Owns its own browser install, like `reflow` and `csp`; the `gate`
+      # matrix has none.
+      - name: Run verify:production
+        run: npm run verify:production
+
+  csp:
+    name: csp + air-gap (FE-100)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      # `default-src 'self'` (design §21) and REQ-003's air-gap, as a gate
+      # rather than a claim. Static half: the policy in index.html must keep
+      # `default-src 'self'`, every source that is not 'self'/'none' must
+      # carry a reasoned entry in csp-exceptions.json, the production build
+      # must still emit the policy, and no shipped chunk may contain `eval(`
+      # or reference an analytics/CDN/Google-Fonts origin. Runtime half:
+      # every real screen renders under the policy with zero violations and
+      # zero requests that leave the origin — including a real ECharts chart,
+      # which is design §26 item 10's open question, answered: no
+      # `unsafe-eval` is required. This job owns its own browser install,
+      # like `reflow`; the `gate` matrix has none.
+      - name: Run verify:csp
+        run: npm run verify:csp

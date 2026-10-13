@@ -1,0 +1,17 @@
+{
+  "name": "sm-spike-mesh-scope-acl",
+  "version": "1.0.0",
+  "private": true,
+  "description": "\u00a711.3 broker ACL spike (sub-organization / environment isolation). Throwaway harness \u2014 never reused in shipping code. The Solace Web App SDK is linked by run-tests.sh from $SOLACE_WEBAPP_SDK_PATH (see README).",
+  "type": "module",
+  "license": "UNLICENSED",
+  "scripts": {
+    "certs": "./setup-certs.sh",
+    "provision": "./provision.sh",
+    "issuer": "node issuer/issuer.mjs",
+    "test": "./run-tests.sh"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.9"
+  }
+}

@@ -1,0 +1,5 @@
+dist
+coverage
+node_modules
+README.md
+contracts/solution-package/generated/**

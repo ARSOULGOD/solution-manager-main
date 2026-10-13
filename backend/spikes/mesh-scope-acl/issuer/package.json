@@ -1,0 +1,12 @@
+{
+  "name": "sm-spike-acl-issuer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "§11.3 spike JWT issuer — stands in for the console-gateway ticket minter (BE-D5). Throwaway.",
+  "type": "module",
+  "main": "issuer.mjs",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "jose": "^5.10.0"
+  }
+}

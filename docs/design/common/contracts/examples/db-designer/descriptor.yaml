@@ -1,0 +1,117 @@
+# db-designer — the OUTER package descriptor.
+#
+# ⚠️ ILLUSTRATIVE. `architecture.md` §5.1 specifies WHICH blocks a Solution
+# Package carries; no schema pins this outer descriptor's spelling or file
+# layout. Everything below is the §5.1 block list written out concretely
+# for one solution — treat the block NAMES as specified and the YAML SHAPE
+# as a proposal.
+#
+# The canonical `package.json` lives in
+# `frontend/contracts/packages/db-designer/`; it validates against
+# `contracts/solution-package.schema.json`. This descriptor only points to
+# that document; it does not redefine its shape.
+
+apiVersion: sm.solace.com/v1alpha1        # PROPOSED. Contracts version from the first commit.
+kind: SolutionPackage
+
+solution: db-designer
+packageVersion: [1]
+appliesTo: ">=1.0 <2.0"                   # semver range of the MI this package describes
+
+# ── artifact identity (§5.1) ────────────────────────────────────────────
+# Recorded, never fetched. SM-D2 removed SM's role in deploying artifacts;
+# it did NOT remove the need to know which immutable artifact is running —
+# SM-D20's contract test and SM-D14's version rule both depend on this.
+# Populated by the operator or their CI.
+artifactIdentity:
+  - digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    packageVersion: 1                  # one selected member of the packageVersion array
+artifactCoords: "solace/db-designer:1.0.0"   # INFORMATIONAL only — SM never pulls this
+
+# ── config schema source (SM-D20) ───────────────────────────────────────
+# D3's "generate the schema from the build" premise is false for every MI
+# we have. Each solution declares its adapter instead.
+configSchema:
+  sourceAdapter: curated-contract-tested   # or: FM_CONFIGURATION_TEMPLATE
+  document: package.json                   # the SolutionPackage components[] in this directory
+  contractTest: db-designer-keyset-contract # bidirectional key-set test (SM-D20)
+
+# ── render outputs (§5.1) — WHICH documents SM renders ──────────────────
+renderOutputs:
+  - name: application.yml
+    renderSource: db-connector             # component whose configPath feeds this document
+
+# ── runtime attachments (§5.1) — WHERE each lands in the RUNNING artifact
+# One entry per runtime. `runtime` is DISCOVERED by per-binding pre-flight,
+# not assumed. A persistent attachment is required per runtime (§6).
+runtimeAttachments:
+  - path: /app/external/spring/config/application.yml
+    runtime: docker
+    persistence: bind-mount
+  - path: /app/external/spring/config/application.yml
+    runtime: kubernetes
+    persistence: configmap                 # ⚠️ GitOps prerequisite — open item 4
+  - path: /opt/db-designer/config/application.yml
+    runtime: vm
+    persistence: host-dir
+
+# ── external config (§5.1) ──────────────────────────────────────────────
+# `requiredProps` must be satisfiable by what SM itself writes into the
+# config file — anything needing an MI code or build change violates I1.
+externalConfig:
+  mechanism: additional-location           # or: overwrite-in-place
+  requiredProps:
+    - management.info.env.enabled
+    - management.endpoints.web.exposure.include
+    - management.metrics.tags.sm_instance_id
+
+# ── identity (§7.1) — per-source correlation strategy ───────────────────
+identity:
+  correlation:
+    - source: http
+      strategy: sm_instance_id-tag         # the tag SM writes above
+    - source: solace_event
+      strategy: topic-segment
+
+# ── version detection (§5.1) ────────────────────────────────────────────
+# `optional: true` means absence degrades to VERSION_UNVERIFIED, never a
+# hard failure (§7.2).
+versionDetection:
+  endpoint: /actuator/info
+  pointer: $.build.version
+  optional: true
+
+# ── lifecycle verbs, per runtime (§5.1) ─────────────────────────────────
+lifecycle:
+  docker:      { start: docker-start, stop: docker-stop, restart: docker-restart }
+  kubernetes:  { restart: rollout-restart }
+  vm:          { start: systemd-start, stop: systemd-stop, restart: systemd-restart }
+restartStrategy: rolling                   # absent ⇒ manual
+configUniformity:
+  mustBeUniformAcrossReplicas: true        # default
+
+# ── telemetry: health (§5.2) ────────────────────────────────────────────
+# Metrics live in package.json's components[].metrics[] — that half IS
+# pinned by the view-model contract. Health has no such pin yet.
+telemetry:
+  health:
+    type: http
+    path: /actuator/health
+    port: 8081
+    map: { up: "$.status == 'UP'" }
+  indexableLabelCaps:
+    perInstanceSeries: 2000                # SM-D30 cardinality cap
+
+# ── UI enrichment (§5.1) ────────────────────────────────────────────────
+# Labels, sections and ordering are carried per field in package.json
+# (`label`, `helperText`, `ui.section`, `ui.order`). Nothing here may
+# reference package-supplied code: UI-D21 narrows custom UI to SM-built
+# named screen types.
+ui:
+  sectionOrder: [Connection, Pool, Mapping]
+
+# ── signature (§5.1) ────────────────────────────────────────────────────
+# Not authored by hand — produced by the Solace signing step over the
+# package bytes. An unsigned package is admitted ONLY when the console is
+# itself running in development mode (UI-D19).
+signature: META-INF/signature.p7s

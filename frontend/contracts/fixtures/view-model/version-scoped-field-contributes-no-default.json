@@ -1,0 +1,53 @@
+{
+  "name": "version-scoped-field-contributes-no-default",
+  "package": {
+    "solution": "cache",
+    "packageVersion": [1, 2],
+    "appliesTo": ">=2.2 <2.5",
+    "provenance": { "author": "solace", "signature": "test-fixture" },
+    "authoring": { "reviewedRows": 2, "totalRows": 2 },
+    "components": [
+      {
+        "type": "cache-engine",
+        "cardinality": "exactly-one",
+        "configPath": "cache-engine",
+        "loggerPrefix": "com.solace.solutions.cache",
+        "fields": [
+          { "key": "eviction-mode", "type": "enum", "version": [2], "options": ["basic", "weighted"], "default": "weighted", "discriminator": true },
+          { "key": "max-weight", "type": "int", "version": [1, 2], "when": { "eviction-mode": "weighted" } }
+        ]
+      }
+    ]
+  },
+  "componentSelection": [{ "type": "cache-engine", "instanceId": "cache-1" }],
+  "draftValues": { "cache-1": {} },
+  "observedState": { "health": "healthy", "versionState": "ok", "configState": "in_sync" },
+  "packageVersion": 1,
+  "expected": {
+    "sections": [
+      {
+        "title": "General",
+        "order": 0,
+        "fields": [
+          {
+            "key": "max-weight",
+            "label": "max-weight",
+            "renderedPath": "cache-engine.max-weight",
+            "discriminator": false,
+            "controlKind": "number",
+            "value": { "kind": "unset" },
+            "options": [],
+            "enabled": true,
+            "visible": false,
+            "masked": false,
+            "advanced": false,
+            "validations": []
+          }
+        ],
+        "actions": []
+      }
+    ],
+    "graphs": [],
+    "status": { "health": "healthy", "versionState": "ok", "configState": "in_sync" }
+  }
+}

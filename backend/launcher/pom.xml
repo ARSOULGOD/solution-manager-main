@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.solace.sm</groupId>
+    <artifactId>backend-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>launcher</artifactId>
+  <name>Solution Manager :: launcher</name>
+  <description>Production composition root. It owns no business services, data source, or migration.</description>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.solace.sm</groupId>
+      <artifactId>cp-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.solace.sm</groupId>
+      <artifactId>dp-core</artifactId>
+    </dependency>
+    <!--
+      Task 4a/4b's tests need ONE fake from dp-core's test sources:
+      com.solace.sm.dp.apply.runtime.InMemoryRuntimeAdapter, the certified RuntimeAdapter fake,
+      to prove ApplyWorker/ApplyStartupRecovery's full lifecycle against a real Postgres without a
+      real SSH/Docker target. dp-core publishes a test-jar for exactly this (see its pom); every
+      OTHER class in that jar stays package-private, so this dependency does not open a wider door.
+    -->
+    <dependency>
+      <groupId>com.solace.sm</groupId>
+      <artifactId>dp-core</artifactId>
+      <version>${project.version}</version>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.solace.sm</groupId>
+      <artifactId>console-gateway</artifactId>
+    </dependency>
+    <!--
+      The agent-facing gRPC gateway (plan 015 T3.2): composed here and nowhere else. It imports dp-api only and holds no datasource
+      (AGW-D2); its gRPC and protobuf libraries reach this module's TEST classpath only through it (AgentGatewayHandshakeIT is the
+      Java client of G-A0); no launcher main class names one (arch rule onlyAgentGatewayTouchesGrpc).
+    -->
+    <dependency>
+      <groupId>com.solace.sm</groupId>
+      <artifactId>agent-gateway</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!--
+      A REAL PostgreSQL 14 for ProductionAuthenticationIT, which provisions BOTH sm_control and
+      sm_data in one container through the real phase-0 SQL and the real migration mains' public
+      API — the same precedent cp-core/dp-core's own harnesses set. flyway-core,
+      flyway-database-postgresql and org.postgresql:postgresql are already on this module's
+      classpath transitively (compile-scope in cp-core/dp-core), so only the Testcontainers module
+      itself needs declaring here. BOM-managed by the Boot parent, so no <version>.
+    -->
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>postgresql</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <classifier>exec</classifier>
+        </configuration>
+      </plugin>
+      <!--
+        Surefire's default includes miss *IT — without failsafe, ProductionAuthenticationIT would
+        simply never run. Version comes from the Boot parent's pluginManagement, same as
+        cp-core/dp-core.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <executions>
+          <execution>
+            <goals>
+              <goal>integration-test</goal>
+              <goal>verify</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+  <!--
+    The real-agent suites (plan 015 T4.4) need a Go toolchain, a Docker daemon, alpine:3.17 and solace-cache-engine:local, and they take
+    many minutes: the ordinary build does not run them. Two profiles split the build, and no plugin or dependency is added.
+
+    agent-live-excluded is active unless agent-live (or any other profile of THIS pom) is activated: the live classes are excluded from
+    failsafe, and AgentLiveExclusionNoticeTest prints that to the build log. agent-live runs them and hands failsafe (and surefire, so the notice test sees it)
+    sm.agent.live=true, under which AgentLive#require FAILS on a missing go, Docker, alpine or Cache image (never skips).
+    Note -Dit.test=... overrides failsafe's excludes (a Maven rule), so every live class also calls AgentLive#require itself.
+  -->
+  <profiles>
+    <profile>
+      <id>agent-live-excluded</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-failsafe-plugin</artifactId>
+            <configuration>
+              <excludes>
+                <exclude>**/RealAgentDockerE2EIT.java</exclude>
+                <exclude>**/AgentFailureMatrixIT.java</exclude>
+                <exclude>**/AgentLeaseExpiryIT.java</exclude>
+                <exclude>**/AgentFleetDrainIT.java</exclude>
+                <exclude>**/ExtraCommandUnderCpuPressureIT.java</exclude>
+                <exclude>**/AgentCapacityIT.java</exclude>
+                <exclude>**/ContainerPackagingIT.java</exclude>
+                <exclude>**/AgentRuntimeAdapterRealAgentContractIT.java</exclude>
+                <exclude>**/AgentLivePrerequisitesIT.java</exclude>
+              </excludes>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>agent-live</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <systemPropertyVariables>
+                <sm.agent.live>true</sm.agent.live>
+              </systemPropertyVariables>
+            </configuration>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-failsafe-plugin</artifactId>
+            <configuration>
+              <systemPropertyVariables>
+                <sm.agent.live>true</sm.agent.live>
+              </systemPropertyVariables>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+</project>

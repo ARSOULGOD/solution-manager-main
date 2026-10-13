@@ -1,0 +1,343 @@
+{
+  "_note": "Governance — two standby replicas: INACTIVE_REPLICA, not red",
+  "_source": "contracts/fixtures/viewmodel/health-declared-inactive-replica-is-not-red.json — this is an EXCERPT; the full fixture is the contract",
+  "engineVersion": 2,
+  "solution": "cache",
+  "packageVersion": 1,
+  "components": [
+    {
+      "instanceKey": "i1",
+      "type": "cache-engine",
+      "role": "none",
+      "_sectionCount": 8,
+      "_sectionTitlesInOrder": [
+        "General",
+        "Keying",
+        "Expiry",
+        "Sizing",
+        "Topics",
+        "Hit response",
+        "Broker",
+        "Management"
+      ],
+      "sections": [
+        {
+          "title": "General",
+          "order": 0,
+          "allVisibleFieldsAdvanced": false,
+          "_fieldCount": 3,
+          "fields": [
+            {
+              "key": "provider",
+              "renderedPath": "cache-engine.provider",
+              "controlKind": "select",
+              "value": {
+                "kind": "value",
+                "value": "caffeine",
+                "source": "default"
+              },
+              "options": [
+                "caffeine",
+                "redis",
+                "jcache"
+              ],
+              "visible": true,
+              "enabled": true,
+              "virtual": false,
+              "advanced": false,
+              "masked": false,
+              "discriminator": true,
+              "label": "Provider",
+              "helperText": "Only caffeine reports stats and size. Java type is String, not an enum - T-TYPES asserts the declared type BINDS (UI-D18). Default comes from matchIfMissing=true, not a field initializer (UI-D2).",
+              "validations": [],
+              "hiddenBy": []
+            },
+            {
+              "key": "namespace",
+              "renderedPath": "cache-engine.namespace",
+              "controlKind": "text",
+              "value": {
+                "kind": "unset"
+              },
+              "visible": true,
+              "enabled": true,
+              "virtual": false,
+              "advanced": false,
+              "masked": false,
+              "discriminator": false,
+              "label": "Namespace",
+              "validations": [
+                {
+                  "severity": "block",
+                  "code": "REQUIRED",
+                  "message": "This field is required."
+                }
+              ],
+              "hiddenBy": []
+            }
+          ],
+          "actions": []
+        },
+        {
+          "title": "Keying",
+          "order": 1,
+          "allVisibleFieldsAdvanced": false,
+          "_fieldCount": 3,
+          "fields": [
+            {
+              "key": "key-source",
+              "renderedPath": "cache-engine.key-source",
+              "controlKind": "select",
+              "value": {
+                "kind": "unset"
+              },
+              "options": [
+                "TOPIC",
+                "PAYLOAD",
+                "HEADER",
+                "COMPOSITE"
+              ],
+              "visible": true,
+              "enabled": true,
+              "virtual": false,
+              "advanced": false,
+              "masked": false,
+              "discriminator": true,
+              "label": "Key source",
+              "validations": [
+                {
+                  "severity": "block",
+                  "code": "REQUIRED",
+                  "message": "This field is required."
+                }
+              ],
+              "hiddenBy": []
+            },
+            {
+              "key": "payload-key-json-pointer",
+              "renderedPath": "cache-engine.payload-key-json-pointer",
+              "controlKind": "text",
+              "value": {
+                "kind": "unset"
+              },
+              "visible": false,
+              "enabled": true,
+              "virtual": false,
+              "advanced": false,
+              "masked": false,
+              "discriminator": false,
+              "label": "Payload key JSON pointer",
+              "helperText": "Comma-separated JSON Pointers, e.g. /phone_no,/data/PHONE_NUMBER",
+              "validations": [],
+              "hiddenBy": [
+                "key-source"
+              ]
+            },
+            {
+              "key": "topic-key-levels",
+              "renderedPath": "cache-engine.topic-key-levels",
+              "controlKind": "text",
+              "value": {
+                "kind": "unset"
+              },
+              "visible": false,
+              "enabled": true,
+              "virtual": false,
+              "advanced": false,
+              "masked": false,
+              "discriminator": false,
+              "label": "Topic key levels",
+              "helperText": "Java type is String, not int, and there is no field initializer - the value 3 came from the shipped sample yml, which UI-D17 forbids as a default source.",
+              "validations": [],
+              "hiddenBy": [
+                "key-source"
+              ]
+            }
+          ],
+          "actions": []
+        },
+        {
+          "title": "Expiry",
+          "order": 2,
+          "allVisibleFieldsAdvanced": true,
+          "_fieldCount": 3,
+          "fields": [
+            {
+              "key": "expiry-header-key-pointer",
+              "renderedPath": "cache-engine.expiry-header-key-pointer",
+              "controlKind": "text",
+              "value": {
+                "kind": "unset"
+              },
+              "visible": true,
+              "enabled": true,
+              "virtual": false,
+              "advanced": true,
+              "masked": false,
+              "discriminator": false,
+              "label": "Expiry header key pointer",
+              "validations": [],
+              "hiddenBy": []
+            },
+            {
+              "key": "expiry-payload-key-pointer",
+              "renderedPath": "cache-engine.expiry-payload-key-pointer",
+              "controlKind": "text",
+              "value": {
+                "kind": "unset"
+              },
+              "visible": true,
+              "enabled": true,
+              "virtual": false,
+              "advanced": true,
+              "masked": false,
+              "discriminator": false,
+              "label": "Expiry payload key pointer",
+              "validations": [],
+              "hiddenBy": []
+            },
+            {
+              "key": "cache-eligible-key-pointer",
+              "renderedPath": "cache-engine.cache-eligible-key-pointer",
+              "controlKind": "text",
+              "value": {
+                "kind": "unset"
+              },
+              "visible": true,
+              "enabled": true,
+              "virtual": false,
+              "advanced": true,
+              "masked": false,
+              "discriminator": false,
+              "label": "Cache-eligible key pointer",
+              "validations": [],
+              "hiddenBy": []
+            }
+          ],
+          "actions": []
+        }
+      ]
+    }
+  ],
+  "_renderedCount": 3,
+  "rendered": [
+    {
+      "instanceKey": "i1",
+      "renderedPath": "cache-engine.mode",
+      "value": "READ"
+    },
+    {
+      "instanceKey": "i1",
+      "renderedPath": "cache-engine.provider",
+      "value": "caffeine"
+    },
+    {
+      "instanceKey": "i1",
+      "renderedPath": "cache-engine.solace.enabled",
+      "value": false
+    }
+  ],
+  "_excludedCount": 13,
+  "excluded": [
+    {
+      "instanceKey": "i1",
+      "key": "TEST_BROKER_CONNECTION",
+      "reason": "action"
+    },
+    {
+      "instanceKey": "i1",
+      "key": "payload-key-json-pointer",
+      "reason": "hidden"
+    },
+    {
+      "instanceKey": "i1",
+      "key": "solace.host",
+      "reason": "hidden"
+    },
+    {
+      "instanceKey": "i1",
+      "key": "solace.management.enabled",
+      "reason": "hidden"
+    },
+    {
+      "instanceKey": "i1",
+      "key": "solace.management.leader-election",
+      "reason": "hidden"
+    }
+  ],
+  "metrics": [
+    {
+      "instanceKey": "i1",
+      "name": "cache.hit_rate",
+      "metricType": "gauge",
+      "unit": "ratio",
+      "collectionState": "pending-config-change"
+    },
+    {
+      "instanceKey": "i1",
+      "name": "cache.hit_count",
+      "metricType": "counter",
+      "unit": "events",
+      "collectionState": "pending-config-change"
+    },
+    {
+      "instanceKey": "i1",
+      "name": "cache.miss_count",
+      "metricType": "counter",
+      "unit": "events",
+      "collectionState": "pending-config-change"
+    },
+    {
+      "instanceKey": "i1",
+      "name": "cache.eviction_count",
+      "metricType": "counter",
+      "unit": "events",
+      "collectionState": "pending-config-change"
+    },
+    {
+      "instanceKey": "i1",
+      "name": "cache.size",
+      "metricType": "gauge",
+      "unit": "entries",
+      "collectionState": "pending-config-change"
+    }
+  ],
+  "status": {
+    "version": {
+      "state": "OK",
+      "declared": "2.4",
+      "observed": "2.4",
+      "editingBlocked": false
+    },
+    "config": {},
+    "replicas": [
+      {
+        "id": "r1",
+        "health": "INACTIVE_REPLICA"
+      },
+      {
+        "id": "r2",
+        "health": "INACTIVE_REPLICA"
+      }
+    ],
+    "healthRollup": "INACTIVE_REPLICA",
+    "healthAvailability": "declared"
+  },
+  "diagnostics": [
+    {
+      "code": "GATING_STATE_UNKNOWN",
+      "message": "No restart-observed values for i1; cache.hit_rate is reported pending rather than asserted collectable.",
+      "instanceKey": "i1"
+    },
+    {
+      "code": "GATING_STATE_UNKNOWN",
+      "message": "No restart-observed values for i1; cache.hit_count is reported pending rather than asserted collectable.",
+      "instanceKey": "i1"
+    },
+    {
+      "code": "GATING_STATE_UNKNOWN",
+      "message": "No restart-observed values for i1; cache.miss_count is reported pending rather than asserted collectable.",
+      "instanceKey": "i1"
+    }
+  ]
+}

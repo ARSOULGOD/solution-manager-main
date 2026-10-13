@@ -1,0 +1,3 @@
+# Taken verbatim from 87e338e1 (plan 015 T0.1, TAKE). Markdown hard line breaks are
+# trailing double spaces; they are content, so git diff --check must not flag them.
+00[1-5]-*.md whitespace=-trailing-space

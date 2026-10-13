@@ -1,0 +1,9 @@
+{
+  "health-transition.json":  "sm/v1/acme/notify/instance/cache-prod-01/health",
+  "config-state.json":       "sm/v1/acme/notify/instance/cache-prod-01/config-state",
+  "version-change.json":     "sm/v1/acme/notify/instance/cache-prod-01/version",
+  "rollout-step.json":       "sm/v1/acme/notify/instance/cache-prod-01/rollout/apply-7",
+  "apply-outcome.json":      "sm/v1/acme/notify/instance/cache-prod-01/apply-outcome/apply-8",
+  "catalog-package.json":    "sm/v1/acme/notify/catalog/package",
+  "quarantine.json":         "sm/v1/acme/notify/instance/cache-prod-01/quarantine"
+}

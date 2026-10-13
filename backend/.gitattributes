@@ -1,0 +1,4 @@
+# The Maven Wrapper batch script is generated with CRLF line endings; keep them (git diff --check otherwise flags every line).
+mvnw.cmd whitespace=cr-at-eol
+# Licence and notice texts are reproduced verbatim from the shipped jars (OR-127 L3, OR-134 L-d), trailing spaces included.
+THIRD-PARTY-NOTICES.md -whitespace

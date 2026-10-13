@@ -1,0 +1,117 @@
+Solution Manager agent (sm-agent) -- third-party notices
+
+This product includes software developed by third parties. The attribution notices that the Apache License 2.0, section 4(d),
+requires to travel with the work are reproduced below, verbatim from each compiled-in module's NOTICE file at the version
+compiled in. The licence of every compiled-in module is in THIRD-PARTY-LICENCES.md.
+
+Corresponding source: the licences of some included components require the corresponding source to be offered to whoever
+receives the image. The text of that offer, and the contact it names, are owed pending the project owner's approval; no image is
+to be distributed before the offer is added to this file. This file does not itself make the offer.
+
+================================================================================
+github.com/docker/docker v27.1.2+incompatible (NOTICE)
+================================================================================
+Docker
+Copyright 2012-2017 Docker, Inc.
+
+This product includes software developed at Docker, Inc. (https://www.docker.com).
+
+This product contains software (https://github.com/creack/pty) developed
+by Keith Rarick, licensed under the MIT License.
+
+The following is courtesy of our legal counsel:
+
+
+Use and transfer of Docker may be subject to certain restrictions by the
+United States and other governments.
+It is your responsibility to ensure that your use and/or transfer does not
+violate applicable laws.
+
+For more information, please see https://www.bis.doc.gov
+
+See also https://www.apache.org/dev/crypto.html and/or seek legal counsel.
+
+================================================================================
+github.com/prometheus/client_golang v1.24.1 (NOTICE)
+================================================================================
+Prometheus instrumentation library for Go applications
+Copyright 2012-2015 The Prometheus Authors
+
+This product includes software developed at
+SoundCloud Ltd. (http://soundcloud.com/).
+
+
+The following components are included in this product:
+
+perks - a fork of https://github.com/bmizerany/perks
+https://github.com/beorn7/perks
+Copyright 2013-2015 Blake Mizerany, Björn Rabenstein
+See https://github.com/beorn7/perks/blob/master/README.md for license details.
+
+Go support for Protocol Buffers - Google's data interchange format
+http://github.com/golang/protobuf/
+Copyright 2010 The Go Authors
+See source code for license details.
+
+================================================================================
+github.com/prometheus/client_model v0.6.2 (NOTICE)
+================================================================================
+Data model artifacts for Prometheus.
+Copyright 2012-2015 The Prometheus Authors
+
+This product includes software developed at
+SoundCloud Ltd. (http://soundcloud.com/).
+
+================================================================================
+github.com/prometheus/common v0.70.1 (NOTICE)
+================================================================================
+Common libraries shared by Prometheus Go components.
+Copyright 2015 The Prometheus Authors
+
+This product includes software developed at
+SoundCloud Ltd. (http://soundcloud.com/).
+
+================================================================================
+github.com/prometheus/procfs v0.21.1 (NOTICE)
+================================================================================
+procfs provides functions to retrieve system, kernel and process
+metrics from the pseudo-filesystem proc.
+
+Copyright 2014-2015 The Prometheus Authors
+
+This product includes software developed at
+SoundCloud Ltd. (http://soundcloud.com/).
+
+================================================================================
+google.golang.org/grpc v1.84.0 (NOTICE.txt)
+================================================================================
+Copyright 2014 gRPC authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+================================================================================
+gopkg.in/yaml.v3 v3.0.1 (NOTICE)
+================================================================================
+Copyright 2011-2016 Canonical Ltd.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.

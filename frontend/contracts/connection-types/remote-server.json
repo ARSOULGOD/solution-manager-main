@@ -1,0 +1,25 @@
+{
+  "connectionType": "remote-server",
+  "label": "Remote server",
+  "descriptorVersion": 1,
+  "attributes": [
+    { "key": "host", "type": "string", "required": true,
+      "ui": { "label": "Host", "order": 1, "listColumn": true } },
+    { "key": "port", "type": "int", "default": 22, "min": 1, "max": 65535,
+      "ui": { "label": "Port", "order": 2 } },
+    { "key": "username", "type": "string", "required": true,
+      "ui": { "label": "Username", "order": 3, "listColumn": true } },
+    { "key": "authMethod", "type": "enum", "required": true, "discriminator": true,
+      "options": ["basic", "private-key"], "default": "basic",
+      "ui": { "label": "Authentication", "order": 4, "listColumn": true } },
+    { "key": "password", "type": "secret", "secret": true,
+      "when": { "authMethod": "basic" },
+      "ui": { "label": "Password", "order": 5 } },
+    { "key": "privateKey", "type": "secret", "secret": true, "required": true,
+      "when": { "authMethod": "private-key" },
+      "ui": { "label": "Private key", "helperText": "PEM. Stored in the secret backend, never displayed.", "order": 5 } },
+    { "key": "passphrase", "type": "secret", "secret": true,
+      "when": { "authMethod": "private-key" },
+      "ui": { "label": "Key passphrase", "helperText": "Optional.", "order": 6 } }
+  ]
+}

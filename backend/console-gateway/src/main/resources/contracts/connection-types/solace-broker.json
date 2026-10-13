@@ -1,0 +1,17 @@
+{
+  "connectionType": "solace-broker",
+  "label": "Solace broker",
+  "descriptorVersion": 1,
+  "attributes": [
+    { "key": "host", "type": "string", "required": true,
+      "ui": { "label": "Host", "helperText": "tcps://host", "order": 1, "listColumn": true } },
+    { "key": "port", "type": "int", "default": 55555, "min": 1, "max": 65535,
+      "ui": { "label": "Port", "order": 2 } },
+    { "key": "vpn", "type": "string", "default": "default",
+      "ui": { "label": "Message VPN", "order": 3, "listColumn": true } },
+    { "key": "username", "type": "string",
+      "ui": { "label": "Client username", "order": 4 } },
+    { "key": "password", "type": "secret", "secret": true,
+      "ui": { "label": "Password", "order": 5 } }
+  ]
+}

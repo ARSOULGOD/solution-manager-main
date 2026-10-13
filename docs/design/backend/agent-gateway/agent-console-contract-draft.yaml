@@ -1,0 +1,465 @@
+# Plan 015 T0.3 Step 2 -- the console contract for the agent gateway (DRAFT).
+#
+# STATUS: DRAFT, reviewed in T0.3 Step 5. This is NOT contracts/openapi/console.yaml and no check reads it. T4.3 lands the five
+# operations and T3.5 lands the Target/TargetConnection change into the served file, in the same commits as their code, copying
+# this draft after the review (plan 015 HF3: one writer per wave). The served console.yaml is unchanged by this task.
+#
+# It is written against the console contract as it stands on the dp-remote integration head x/w4-int @ a6cec7c7, which is
+# where `registerTarget`, `TargetConnection` and the target refusals exist (this worktree's console.yaml predates them).
+# After the dp-remote merge the finalization is a diff against this file.
+#
+# SHAPE OF THIS FILE: a fragment, not a document. `paths` and `components` merge into the served file's keys of the same name;
+# `x-draft-changes-to-existing` is a machine-readable list of what changes in components and operations that already exist.
+# It was checked mechanically (see the end of this header): every $ref in it resolves in the served file merged with it.
+#
+# DRAFT FINDINGS (each is also a review item; none is decided by this file's existence):
+#   D-C1  T0.3 Step 2's issue body is {targetName, allowedConfigRoot, allowedContainerPrefix}. But VCA (T1.3) and T4.1's source
+#         table take the auto-registered instance's solution and package version "from the enrolment record", which then has
+#         neither. This draft ADDS `solutionId` and `packageVersion` to the body (both required). Without them OR-27's
+#         "into the environment/solution the agent was enrolled into" has no solution.
+#   D-C2  T3.3 lists logs, log level, read-config/accept-runtime and restore as refused on an agent placement. `rollbackApply`
+#         runs the same `restore` step inside the apply engine; left alone it admits an apply request that is doomed to fail. This
+#         draft refuses it at admission (501 AGENT_OPERATION_UNSUPPORTED), nothing admitted. Flagged for the reviewer.
+#   D-C3  Five ErrorCode members, not the three T3.5 names: AGENT_OPERATION_UNSUPPORTED (T3.3 "the member T0.3 named"),
+#         TARGET_TRANSPORT_UNSUPPORTED, AGENT_STILL_ENROLLED, TARGET_IS_AGENT_MANAGED (T3.5), and AGENT_NOT_CONNECTED
+#         (drainAgent on an agent with no live session). validate-openapi check 18 pins this enum constant-for-constant to
+#         ErrorCode.java, so T3.3/T3.5/T4.3 add each member to both files in the same commit.
+#   D-C4  (REFUTED by the review, R-17; kept for the record) the three agent-id routes first read `x-sm-scope: environment`. The
+#         served contract's resource-by-id routes (`getTargetConnection`, `retireTarget`) use `named`, resolved from the resource's own
+#         scope (OR-125 (6)); this draft now does the same.
+#
+#   D-C5  The operations carry `tags: [agents]`; the served file's `tags:` list has no `agents` entry (auth, home, hierarchy,
+#         entitlements, catalog, targets, instances, designer, apply, fleet, governance, monitoring). T4.3 adds the tag.
+#
+# MECHANICAL CHECK (2026-10-08): this fragment was merged into a copy of x/w4-int's console.yaml in a scratch directory (paths
+# and component schemas added, Target.transport widened, TargetConnection replaced). All $refs resolve; operationIds are unique;
+# none of the five operations or their request body names an organizationId property (check 14); every operationId named in
+# `x-draft-changes-to-existing` exists. NOT run: validate-openapi.py (its catalog is 43 verbs until T1.3 lands rows 44-47) and the
+# Postman generator.
+#
+# Verb levels (OR-128 (4)): agent.enrol HIGH, agent.revoke HIGH, agent.drain STANDARD, agent.view read-only; all environment scope.
+# issueAgentEnrolment requires agent.enrol AND target.create at the environment (the token creates a target at enrolment).
+
+x-draft:
+  base: x/w4-int a6cec7c7 contracts/openapi/console.yaml
+  authority: [OR-126 A8, OR-128 (4), OR-27, plan 015 T0.3 Step 2]
+  operations-added: [issueAgentEnrolment, listAgents, getAgent, revokeAgent, drainAgent]
+  errorcodes-added: [AGENT_OPERATION_UNSUPPORTED, TARGET_TRANSPORT_UNSUPPORTED, AGENT_STILL_ENROLLED, TARGET_IS_AGENT_MANAGED, AGENT_NOT_CONNECTED]
+
+paths:
+  /cp/environments/{environmentId}/agent-enrolments:
+    parameters: [{ $ref: '#/components/parameters/EnvironmentId' }]
+    post:
+      tags: [agents]
+      operationId: issueAgentEnrolment
+      summary: Issue a one-time enrolment token for a host agent (shown once)
+      description: |
+        Plan 015 T4.3 (`OR-126` A8, `OR-128` (4)). Requires `agent.enrol` **and** `target.create` at the environment: enrolment
+        creates the agent's target (`BE-D71`), so the issuer must hold the right to create one. The environment is the path's;
+        no organization or environment appears in the body (`I5`).
+
+        The response carries the token **once** (`readOnly`): it is never returned by `getAgent` or `listAgents`, never logged,
+        never audited and stored only as an unkeyed SHA-256 digest of 256 random bits (`OR-128` (9)). `targetName` is checked
+        here against the organization's live target names and a taken one is `409 CONFLICT` (nothing written); the unique index on the
+        target row remains the backstop at enrolment. The envelope (`allowedConfigRoot`, `allowedContainerPrefix`) is fixed by
+        this call and immutable: it becomes the agent target's envelope and bounds every placement `OR-27` registers.
+
+        The agent's **capabilities are fixed by the server** (`apply-config`, `lifecycle`) and are not a body field: an agent issued
+        none would refuse every command. `report-only` is not issued (central item `AGW-12` is routed).
+
+        `solutionId` (the **catalog** id, `OR-41`) and `packageVersion` (one of that solution's loaded versions) fix what the
+        agent's auto-registered instances are (draft finding D-C1). The call writes `agent_registration` under the audit operation
+        `AGENT_ENROLMENT_ISSUED` with the issuing principal as actor.
+
+        The request is refused `403 INSECURE_TRANSPORT`, before the body is read, unless the connection is secure, a trusted proxy
+        reports `https`, or the peer is loopback: the response carries a credential (`OQ-14 (b)`).
+      x-sm-permission: agent.enrol
+      x-sm-permission-also: [target.create]
+      x-sm-scope: environment
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IssueAgentEnrolmentRequest' }
+      responses:
+        '201':
+          description: Issued. The token is in this response and nowhere else, ever.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AgentEnrolment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403':
+          description: "`FORBIDDEN`, `CSRF_REJECTED`, `ORIGIN_REJECTED` or `INSECURE_TRANSPORT` -- switch on `code`."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+        '409':
+          description: "`CONFLICT` -- the target name is taken by a live target or held by another pending token of the organization; or `ENTITLEMENT_REFUSED` -- the organization is not entitled to the solution."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '422':
+          description: "`VALIDATION_FAILED` -- a field outside its grammar, or `packageVersion` is not a loaded version of `solutionId`."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /cp/agents:
+    get:
+      tags: [agents]
+      operationId: listAgents
+      summary: Enrolled and pending agents visible to the caller
+      description: |
+        `agent.view`, **`x-sm-scope: reach`** (`OR-51`'s rule, as `listInstances` and `listTargets`): held at >= 1 grant anywhere in
+        the caller's organization (else `403`), then items filtered by `agent.view` at each agent's own environment. A collection
+        carries `stateVersion` per item, never one for the whole collection (`OR-55`). Never returns a token, a digest, a
+        certificate or a key.
+      x-sm-permission: agent.view
+      x-sm-scope: reach
+      responses:
+        '200':
+          description: Agents.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AgentList' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /cp/agents/{agentId}:
+    parameters: [{ $ref: '#/components/parameters/AgentId' }]
+    get:
+      tags: [agents]
+      operationId: getAgent
+      summary: One agent
+      description: |
+        `agent.view` at the agent's own scope (`named`, resolved from its registration's environment). `404` when the agent is not visible at the caller's scope --
+        absent and out of scope are not distinguished. Never returns the token or any credential material.
+      x-sm-permission: agent.view
+      x-sm-scope: named
+      responses:
+        '200':
+          description: The agent.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Agent' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+
+  /cp/agents/{agentId}/revoke:
+    parameters: [{ $ref: '#/components/parameters/AgentId' }]
+    post:
+      tags: [agents]
+      operationId: revokeAgent
+      summary: Revoke an agent (sticky)
+      description: |
+        `agent.revoke` at the agent's own scope. Raises the agent's revocation epoch and marks the registration `revoked`
+        (`AGENT_REVOKED`, the principal as actor). The data plane closes the agent's session and refuses its next connection
+        within its reconciliation interval (`AGW-D19`, measured 891 ms); revocation is **sticky** -- the remedy is a fresh
+        enrolment, never an un-revoke. Idempotent: revoking a revoked agent is `200` and changes nothing. A command in flight at
+        the moment of revocation is indeterminate (`AGW-D19` item 6): revocation is a security cut-off, not a transaction.
+        Revoking does not retire the agent's target: `retireTarget` does that afterwards (`AGENT_STILL_ENROLLED` until then).
+        Revoking a **`pending` or `expired`** registration (a token never used) is allowed and **releases its target name** (a
+        pending token holds the name; the database index cannot read the clock, so an expired unused token holds it until revoked).
+      x-sm-permission: agent.revoke
+      x-sm-scope: named
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      responses:
+        '200':
+          description: Revoked (or already revoked).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Agent' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+
+  /dp/agents/{agentId}/drain:
+    parameters: [{ $ref: '#/components/parameters/AgentId' }]
+    post:
+      tags: [agents]
+      operationId: drainAgent
+      summary: Ask one agent to finish its work and reconnect
+      description: |
+        `agent.drain` at the agent's own scope. Sends the agent's live session a `Drain` (`AGW-D18`): the agent stops taking
+        new work, finishes what it holds, answers `DrainComplete` and reconnects after the gateway-assigned `reconnect_after`.
+        `202`: the request is accepted, not complete. `409 AGENT_NOT_CONNECTED` when the agent has no live session -- nothing is
+        queued. Draining does not revoke and loses no command: an unfinished one is re-notified on the next session. Recorded as
+        an `agent_event` (`gateway.drain`).
+      x-sm-permission: agent.drain
+      x-sm-scope: named
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      responses:
+        '202':
+          description: The drain was sent to the live session.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AgentDrainAccepted' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+        '409':
+          description: "`AGENT_NOT_CONNECTED` -- the agent has no live session."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+components:
+  parameters:
+    AgentId:
+      name: agentId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  schemas:
+    IssueAgentEnrolmentRequest:
+      type: object
+      description: |
+        No `organizationId` and no `environmentId` (`I5`; check 14): both are the session's and the path's. The grammars are
+        `registerTarget`'s (`TargetConnectionSpec`, `RegisterTargetRequest.name`), so an agent target's envelope cannot be wider
+        than a registered one's.
+      required: [targetName, allowedConfigRoot, allowedContainerPrefix, solutionId, packageVersion]
+      properties:
+        targetName: { type: string, minLength: 1, maxLength: 100 }
+        allowedConfigRoot: { type: string, pattern: '^/([A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+$' }
+        allowedContainerPrefix: { type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$' }
+        solutionId:
+          type: string
+          format: uuid
+          description: The **catalog** id (`OR-41`) of the solution the agent's auto-registered instances belong to (draft finding D-C1).
+        packageVersion:
+          allOf:
+            - $ref: '#/components/schemas/PackageVersionId'
+          description: One member of that solution's own `packageVersions` (draft finding D-C1).
+      additionalProperties: false
+
+    AgentEnrolment:
+      type: object
+      description: |
+        What `issueAgentEnrolment` answers, once. `enrollmentToken` is `readOnly` and appears in no other response, log, audit
+        row or metric (`I6`). The agent presents it with a CSR over the gateway's `Enroll` RPC (`x-sm-enrollment-token` metadata).
+      required: [agentId, enrollmentToken, expiresAt, environmentId, targetName, allowedConfigRoot, allowedContainerPrefix, solutionId, packageVersion]
+      properties:
+        agentId: { type: string, format: uuid }
+        enrollmentToken: { type: string, format: password, readOnly: true, description: Shown once. Single use. }
+        expiresAt: { type: string, format: date-time }
+        environmentId: { type: string, format: uuid }
+        targetName: { type: string }
+        allowedConfigRoot: { type: string }
+        allowedContainerPrefix: { type: string }
+        solutionId: { type: string, format: uuid }
+        packageVersion: { $ref: '#/components/schemas/PackageVersionId' }
+      additionalProperties: false
+
+    AgentSession:
+      type: object
+      description: |
+        Omitted from `Agent` until the agent has connected once. A fact the data plane holds, never a promise. (`draining` is not a
+        state here: a drain is a gateway-process transient with no stored source.)
+      required: [state, lastSeenAt]
+      properties:
+        state: { type: string, enum: [connected, disconnected] }
+        lastSeenAt: { type: string, format: date-time }
+        agentVersion: { type: string }
+        leaseExpiresAt: { type: string, format: date-time, description: Only while a lease is active. }
+      additionalProperties: false
+
+    Agent:
+      allOf:
+        - $ref: '#/components/schemas/Versioned'
+        - type: object
+          description: |
+            Carries no token, digest, thumbprint, certificate or key. `status`: `pending` -- a token was issued and has not been
+            used; `expired` -- it lapsed unused; `active` -- enrolled; `revoked` -- sticky.
+          required: [agentId, environmentId, targetName, status, allowedConfigRoot, allowedContainerPrefix, solutionId, packageVersion, createdAt]
+          properties:
+            agentId: { type: string, format: uuid }
+            environmentId: { type: string, format: uuid }
+            targetId: { type: string, format: uuid, description: Present once the agent has enrolled (its target exists). }
+            targetName: { type: string }
+            status: { type: string, enum: [pending, expired, active, revoked] }
+            allowedConfigRoot: { type: string, readOnly: true }
+            allowedContainerPrefix: { type: string, readOnly: true }
+            solutionId: { type: string, format: uuid }
+            packageVersion: { $ref: '#/components/schemas/PackageVersionId' }
+            capabilities:
+              type: array
+              items: { type: string, enum: [apply-config, lifecycle, report-only] }
+            session: { $ref: '#/components/schemas/AgentSession' }
+            createdAt: { type: string, format: date-time }
+            enrolledAt: { type: string, format: date-time }
+            revokedAt: { type: string, format: date-time }
+
+    AgentList:
+      allOf:
+        - $ref: '#/components/schemas/AvailabilityOnly'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/Agent' }
+
+    AgentDrainAccepted:
+      type: object
+      required: [agentId, requestedAt]
+      properties:
+        agentId: { type: string, format: uuid }
+        requestedAt: { type: string, format: date-time }
+      additionalProperties: false
+
+    # ---- (ii) the agent target (P15-2): replaces today's Target.transport and TargetConnection --------------------------------
+    # `Target.transport` becomes `enum: [ssh-docker, agent]` (x-draft-changes-to-existing). `TargetConnection` becomes a
+    # discriminated oneOf; today's object is renamed SshDockerTargetConnection and is otherwise UNCHANGED.
+    SshDockerTargetConnection:
+      type: object
+      description: |
+        Today's `TargetConnection`, renamed, unchanged. ⛔ No field, in any response, carries private-key material, its
+        `credential_ref`, or a hash of the private key.
+      required: [targetId, transport, host, port, sshUser, hostKeyFingerprint, offeredHostKeys, allowedConfigRoot, allowedContainerPrefix, credential]
+      properties:
+        targetId: { type: string, format: uuid }
+        transport: { type: string, enum: [ssh-docker] }
+        host: { type: string }
+        port: { type: integer, minimum: 1, maximum: 65535 }
+        sshUser: { type: string }
+        hostKeyFingerprint: { type: string, pattern: '^SHA256:[A-Za-z0-9+/]{20,86}={0,2}$', description: The pin. }
+        offeredHostKeys:
+          type: array
+          items: { type: string }
+          description: Every host-key fingerprint recorded for the host (`OR-89`), the pin included.
+        allowedConfigRoot: { type: string, readOnly: true }
+        allowedContainerPrefix: { type: string, readOnly: true }
+        credential: { $ref: '#/components/schemas/CredentialSummary' }
+      additionalProperties: false
+
+    AgentTargetConnection:
+      type: object
+      description: |
+        The connection record of an agent target: it names the agent and the envelope and nothing else -- an agent target has no
+        address, user, pin or credential, and none of those can be added (`BE-D68`'s shape CHECK).
+      required: [targetId, transport, agentId, allowedConfigRoot, allowedContainerPrefix]
+      properties:
+        targetId: { type: string, format: uuid }
+        transport: { type: string, enum: [agent] }
+        agentId: { type: string, format: uuid }
+        allowedConfigRoot: { type: string, readOnly: true }
+        allowedContainerPrefix: { type: string, readOnly: true }
+      additionalProperties: false
+
+    TargetConnection:
+      description: |
+        Discriminated on `transport`. `getTargetConnection` answers the variant of the target it is asked about; `TargetDetail.connection`
+        carries the same union (`registerTarget` returns only the `ssh-docker` variant).
+      oneOf:
+        - $ref: '#/components/schemas/SshDockerTargetConnection'
+        - $ref: '#/components/schemas/AgentTargetConnection'
+      discriminator:
+        propertyName: transport
+        mapping:
+          ssh-docker: '#/components/schemas/SshDockerTargetConnection'
+          agent: '#/components/schemas/AgentTargetConnection'
+
+x-draft-changes-to-existing:
+  schemas:
+    - schema: Target
+      property: transport
+      change: "enum [ssh-docker] -> [ssh-docker, agent]; description: v1 has two pairs, kind docker with transport ssh-docker or agent. Read-only: set at registration (ssh-docker) or at enrolment (agent)."
+    - schema: RegisterTargetRequest
+      property: transport
+      change: "UNCHANGED: enum [ssh-docker]. registerTarget cannot create an agent target (BE-D71)."
+    - schema: TargetConnection
+      change: "becomes the oneOf above; today's object is SshDockerTargetConnection. validate-openapi.py check 16 and ConsoleOperationsMirrorTest must accept a discriminated oneOf -- T3.5 Step 0 measures this; if they do not, STOP and report, no flattening without review."
+    - schema: ErrorCode
+      change: "enum + description gain the five members of D-C3; statuses: AGENT_OPERATION_UNSUPPORTED 501, TARGET_TRANSPORT_UNSUPPORTED 409, AGENT_STILL_ENROLLED 409, TARGET_IS_AGENT_MANAGED 409, AGENT_NOT_CONNECTED 409"
+      codes:
+        AGENT_OPERATION_UNSUPPORTED: "(501) -- the operation is not available on an agent placement in v1 (logs, log level, read-config / accept-runtime, restore, rollback). Nothing was read or written; no SSH connection was made. Distinct from NOT_IMPLEMENTED, which says no approved verb exists or the build lacks it."
+        TARGET_TRANSPORT_UNSUPPORTED: "(409) -- the operation addresses an SSH connection record and the target's transport is `agent`."
+        AGENT_STILL_ENROLLED: "(409) -- retireTarget on an agent target whose agent has not been revoked."
+        TARGET_IS_AGENT_MANAGED: "(409) -- addPlacement, or a declare naming an agent target: placements on an agent target come only from OR-27 discovery in v1."
+        AGENT_NOT_CONNECTED: "(409) -- drainAgent: the agent has no live session."
+  operations:
+    # (iii) Refusals on existing operations. Each states the status, the code and that nothing moved.
+    - operationId: editTargetConnection
+      on: agent target
+      status: 409
+      code: TARGET_TRANSPORT_UNSUPPORTED
+    - operationId: rotateTargetCredential
+      on: agent target
+      status: 409
+      code: TARGET_TRANSPORT_UNSUPPORTED
+    - operationId: testTargetConnection
+      on: agent target
+      status: 409
+      code: TARGET_TRANSPORT_UNSUPPORTED
+      note: "no SSH connection is constructed; the per-session probe budget is not drawn"
+    - operationId: retireTarget
+      on: agent target whose agent is not revoked
+      status: 409
+      code: AGENT_STILL_ENROLLED
+      note: "after revokeAgent: as today (DP connection first, CP row second)"
+    - operationId: addPlacement
+      on: agent target
+      status: 409
+      code: TARGET_IS_AGENT_MANAGED
+    - operationId: declareInstance
+      on: body names an agent target
+      status: 409
+      code: TARGET_IS_AGENT_MANAGED
+    - operationId: scanHostKeys
+      on: n/a
+      status: 200
+      note: "UNCHANGED -- not target-scoped (POST /dp/host-key-scans scans an address)"
+    - operationId: registerTarget
+      on: n/a
+      status: 201
+      note: "UNCHANGED -- transport stays ssh-docker in its request"
+    - operationId: getTargetConnection
+      on: agent target
+      status: 200
+      note: "the AgentTargetConnection variant"
+    - operationId: listTargets
+      on: agent target
+      status: 200
+      note: "Target.transport = agent"
+    - operationId: readLogs
+      on: agent placement
+      status: 501
+      code: AGENT_OPERATION_UNSUPPORTED
+      note: "not a 200 availability:unavailable -- that would read as a host problem"
+    - operationId: getLogLevel
+      on: agent placement
+      status: 501
+      code: AGENT_OPERATION_UNSUPPORTED
+    - operationId: setLogLevel
+      on: agent placement
+      status: 501
+      code: AGENT_OPERATION_UNSUPPORTED
+    - operationId: acceptRuntimeConfig
+      on: agent placement (the read of the host's config)
+      status: 501
+      code: AGENT_OPERATION_UNSUPPORTED
+    - operationId: restoreRuntimeConfig
+      on: agent placement
+      status: 501
+      code: AGENT_OPERATION_UNSUPPORTED
+    - operationId: rollbackApply
+      on: agent placement
+      status: 501
+      code: AGENT_OPERATION_UNSUPPORTED
+      note: "draft finding D-C2: refused at admission, nothing admitted"
+    - operationId: retirePlacement
+      on: agent placement
+      status: 200
+      note: "as today, plus the discovery tombstone in the same DP transaction (T4.1)"
+    - operationId: submitApply / stageConfig / stopInstance / getHealth / getConfigLadder / queryRange / submitFleetApply
+      on: agent placement
+      status: unchanged
+      note: "served through the same engine and the agent adapter (BE-D66); a missing session is an apply step failure `agent.session.absent`, never an HTTP refusal"

@@ -1,0 +1,803 @@
+{
+  "_note": "File Mesh Designer — two composed components, 103 fields, 27 virtual",
+  "_source": "contracts/fixtures/viewmodel/fm-virtual-visible-never-rendered.json — this is an EXCERPT; the full fixture is the contract",
+  "engineVersion": 2,
+  "solution": "file-mesh",
+  "packageVersion": 1,
+  "components": [
+    {
+      "instanceKey": "src",
+      "type": "COMP_SOURCE_FTP@FILETOFILE",
+      "role": "source",
+      "_sectionCount": 8,
+      "_sectionTitlesInOrder": [
+        "FILE MESH MANAGER",
+        "SOLACE LVQ",
+        "DIRECTORY REPLICATION",
+        "FTP_SETTINGS",
+        "GENERAL",
+        "INFO",
+        "DIRECTORY WILDCARD",
+        "SCHEDULER"
+      ],
+      "sections": [
+        {
+          "title": "FILE MESH MANAGER",
+          "order": 0,
+          "allVisibleFieldsAdvanced": false,
+          "_fieldCount": 20,
+          "fields": [
+            {
+              "key": "file.source.command_center.solace.client-password",
+              "renderedPath": "file.source.command_center.solace.client-password",
+              "controlKind": "secret",
+              "value": {
+                "kind": "secretUnset"
+              },
+              "visible": true,
+              "enabled": false,
+              "virtual": false,
+              "advanced": true,
+              "masked": true,
+              "discriminator": false,
+              "label": "CLIENT_PASSWORD",
+              "helperText": "Solace client password used for Command Center connection",
+              "validations": [],
+              "hiddenBy": []
+            },
+            {
+              "key": "SELECT_BROKER",
+              "renderedPath": null,
+              "controlKind": "select",
+              "value": {
+                "kind": "unset"
+              },
+              "visible": true,
+              "enabled": true,
+              "virtual": true,
+              "advanced": true,
+              "masked": false,
+              "discriminator": false,
+              "label": "SELECT_BROKER",
+              "validations": [
+                {
+                  "severity": "block",
+                  "code": "REQUIRED",
+                  "message": "This field is required."
+                }
+              ],
+              "hiddenBy": []
+            },
+            {
+              "key": "file.source.command_center.useoutputdestinationsolacecredentials",
+              "renderedPath": "file.source.command_center.useoutputdestinationsolacecredentials",
+              "controlKind": "text",
+              "value": {
+                "kind": "value",
+                "value": "true",
+                "source": "default"
+              },
+              "visible": true,
+              "enabled": true,
+              "virtual": false,
+              "advanced": true,
+              "masked": false,
+              "discriminator": false,
+              "label": "USEOUTPUTDESTINATIONSOLACECREDENTIALS",
+              "helperText": "true ->  uses output destination solace credentials, false -> use below commented properties to configure",
+              "validations": [],
+              "hiddenBy": []
+            },
+            {
+              "key": "file.source.command_center.heartbeat_interval",
+              "renderedPath": "file.source.command_center.heartbeat_interval",
+              "controlKind": "number",
+              "value": {
+                "kind": "value",
+                "value": 5,
+                "source": "default"
+              },
+              "visible": true,
+              "enabled": true,
+              "virtual": false,
+              "advanced": false,
+              "masked": false,
+              "discriminator": false,
+              "label": "HEARTBEAT_INTERVAL",
+              "helperText": "integer value representing number of seconds between each hearbeat",
+              "validations": [],
+              "hiddenBy": []
+            },
+            {
+              "key": "file.source.command_center.solace.host",
+              "renderedPath": "file.source.command_center.solace.host",
+              "controlKind": "text",
+              "value": {
+                "kind": "unset"
+              },
+              "visible": true,
+              "enabled": false,
+              "virtual": false,
+              "advanced": true,
+              "masked": false,
+              "discriminator": false,
+              "label": "SMF_URL",
+              "validations": [],
+              "hiddenBy": []
+            },
+            {
+              "key": "file.source.command_center.solace_base_publish_topic",
+              "renderedPath": "file.source.command_center.solace_base_publish_topic",
+              "controlKind": "text",
+              "value": {
+                "kind": "unset"
+              },
+              "visible": true,
+              "enabled": true,
+              "virtual": false,
+              "advanced": false,
+              "masked": false,
+              "discriminator": false,
+              "label": "SOLACE_BASE_PUBLISH_TOPIC",
+              "helperText": "base publish topic for command center event",
+              "validations": [],
+              "hiddenBy": []
+            }
+          ],
+          "actions": []
+        },
+        {
+          "title": "SOLACE LVQ",
+          "order": 1,
+          "allVisibleFieldsAdvanced": false,
+          "_fieldCount": 4,
+          "fields": [
+            {
+              "key": "AUTO_CREATE_TOPIC",
+              "renderedPath": null,
+              "controlKind": "switch",
+              "value": {
+                "kind": "unset"
+              },
+              "visible": true,
+              "enabled": false,
+              "virtual": true,
+              "advanced": false,
+              "masked": false,
+              "discriminator": false,
+              "label": "AUTO_CREATE_TOPIC",
+              "validations": [],
+              "hiddenBy": []
+            },
+            {
+              "key": "file.source.solace_out.lvq",
+              "renderedPath": "file.source.solace_out.lvq",
+              "controlKind": "text",
+              "value": {
+                "kind": "unset"
+              },
+              "visible": true,
+              "enabled": true,
+              "virtual": false,
+              "advanced": false,
+              "masked": false,
+              "discriminator": false,
+              "label": "LVQ",
+              "validations": [
+                {
+                  "severity": "block",
+                  "code": "REQUIRED",
+                  "message": "This field is required."
+                }
+              ],
+              "hiddenBy": []
+            },
+            {
+              "key": "AUTO_CREATE_QUEUE",
+              "renderedPath": null,
+              "controlKind": "switch",
+              "value": {
+                "kind": "unset"
+              },
+              "visible": true,
+              "enabled": false,
+              "virtual": true,
+              "advanced": false,
+              "masked": false,
+              "discriminator": false,
+              "label": "AUTO_CREATE_QUEUE",
+              "validations": [],
+              "hiddenBy": []
+            },
+            {
+              "key": "file.source.solace_out.destination",
+              "renderedPath": "file.source.solace_out.destination",
+              "controlKind": "text",
+              "value": {
+                "kind": "unset"
+              },
+              "visible": true,
+              "enabled": true,
+              "virtual": false,
+              "advanced": false,
+              "masked": false,
+              "discriminator": false,
+              "label": "DESTINATION",
+              "validations": [
+                {
+                  "severity": "block",
+                  "code": "REQUIRED",
+                  "message": "This field is required."
+                }
+              ],
+              "hiddenBy": []
+            }
+          ],
+          "actions": []
+        },
+        {
+          "title": "DIRECTORY REPLICATION",
+          "order": 2,
+          "allVisibleFieldsAdvanced": false,
+          "_fieldCount": 1,
+          "fields": [
+            {
+              "key": "file.source.directory_replication.start_time",
+              "renderedPath": "file.source.directory_replication.start_time",
+              "controlKind": "number",
+              "value": {
+                "kind": "value",
+                "value": -1,
+                "source": "default"
+              },
+              "visible": true,
+              "enabled": true,
+              "virtual": false,
+              "advanced": false,
+              "masked": false,
+              "discriminator": false,
+              "label": "START_TIME",
+              "helperText": "epoch time - used to filter files modified after this time",
+              "validations": [],
+              "hiddenBy": []
+            }
+          ],
+          "actions": []
+        }
+      ]
+    },
+    {
+      "instanceKey": "snk",
+      "type": "COMP_SINK_SOLACE@FILETOFILE",
+      "role": "sink",
+      "_sectionCount": 3,
+      "_sectionTitlesInOrder": [
+        "BROKER_LIST",
+        "DATA_PLANE",
+        "MANAGEMENT_PLANE"
+      ],
+      "sections": [
+        {
+          "title": "BROKER_LIST",
+          "order": 0,
+          "allVisibleFieldsAdvanced": false,
+          "_fieldCount": 15,
+          "fields": [
+            {
+              "key": "ALLOW_SSL",
+              "renderedPath": null,
+              "controlKind": "select",
+              "value": {
+                "kind": "value",
+                "value": "yes",
+                "source": "default"
+              },
+              "options": [
+                "yes"
+              ],
+              "visible": true,
+              "enabled": false,
+              "virtual": true,
+              "advanced": false,
+              "masked": false,
+              "discriminator": true,
+              "label": "ALLOW_SSL",
+              "helperText": "To enable broker ssl",
+              "validations": [],
+              "hiddenBy": []
+            },
+            {
+              "key": "BROKER_LIST.CLIENT_PASSWORD",
+              "renderedPath": null,
+              "controlKind": "secret",
+              "value": {
+                "kind": "secretUnset"
+              },
+              "visible": true,
+              "enabled": true,
+              "virtual": true,
+              "advanced": false,
+              "masked": true,
+              "discriminator": false,
+              "label": "CLIENT_PASSWORD",
+              "validations": [
+                {
+                  "severity": "block",
+                  "code": "REQUIRED",
+                  "message": "This field is required."
+                }
+              ],
+              "hiddenBy": []
+            },
+            {
+              "key": "BROKER_NAME",
+              "renderedPath": null,
+              "controlKind": "text",
+              "value": {
+                "kind": "unset"
+              },
+              "visible": true,
+              "enabled": true,
+              "virtual": true,
+              "advanced": false,
+              "masked": false,
+              "discriminator": false,
+              "label": "BROKER_NAME",
+              "validations": [
+                {
+                  "severity": "block",
+                  "code": "REQUIRED",
+                  "message": "This field is required."
+                }
+              ],
+              "hiddenBy": []
+            },
+            {
+              "key": "BROKER_LIST.SMF_URL",
+              "renderedPath": null,
+              "controlKind": "text",
+              "value": {
+                "kind": "unset"
+              },
+              "visible": true,
+              "enabled": true,
+              "virtual": true,
+              "advanced": false,
+              "masked": false,
+              "discriminator": false,
+              "label": "SMF_URL",
+              "helperText": "tcp,smf host and port :e.g:<PROTOCOL>://<HOST>:<PORT>/slug , seperated by comma",
+              "validations": [
+                {
+                  "severity": "block",
+                  "code": "REQUIRED",
+                  "message": "This field is required."
+                }
+              ],
+              "hiddenBy": []
+            },
+            {
+              "key": "ALLOW_SEMP",
+              "renderedPath": null,
+              "controlKind": "select",
+              "value": {
+                "kind": "value",
+                "value": "yes",
+                "source": "default"
+              },
+              "options": [
+                "yes"
+              ],
+              "visible": true,
+              "enabled": false,
+              "virtual": true,
+              "advanced": false,
+              "masked": false,
+              "discriminator": true,
+              "label": "ALLOW_SEMP",
+              "helperText": "To create broker objects",
+              "validations": [],
+              "hiddenBy": []
+            },
+            {
+              "key": "ORGANIZATION",
+              "renderedPath": null,
+              "controlKind": "text",
+              "value": {
+                "kind": "unset"
+              },
+              "visible": true,
+              "enabled": true,
+              "virtual": true,
+              "advanced": false,
+              "masked": false,
+              "discriminator": false,
+              "label": "ORGANIZATION",
+              "validations": [
+                {
+                  "severity": "block",
+                  "code": "REQUIRED",
+                  "message": "This field is required."
+                }
+              ],
+              "hiddenBy": []
+            }
+          ],
+          "actions": [
+            {
+              "key": "ADD_OR_EDIT_BROKER",
+              "kind": "manage-catalog-entry",
+              "visible": true,
+              "enabled": true,
+              "inputs": [],
+              "label": "Add Or Edit Broker"
+            },
+            {
+              "key": "TEST_CONNECTION",
+              "kind": "test-connection",
+              "visible": true,
+              "enabled": true,
+              "inputs": [
+                "BROKER_LIST.MSG_VPN",
+                "MANAGEMENT_PORT",
+                "BROKER_LIST.CLIENT_PASSWORD",
+                "BROKER_LIST.SMF_URL",
+                "MANAGEMENT_PASSWORD",
+                "MANAGEMENT_USERNAME",
+                "BROKER_LIST.CLIENT_USERNAME"
+              ],
+              "label": "Test Connection"
+            },
+            {
+              "key": "ADD_BROKER",
+              "kind": "manage-catalog-entry",
+              "visible": true,
+              "enabled": true,
+              "inputs": [],
+              "label": "Add Broker"
+            }
+          ]
+        },
+        {
+          "title": "DATA_PLANE",
+          "order": 1,
+          "allVisibleFieldsAdvanced": false,
+          "_fieldCount": 11,
+          "fields": [
+            {
+              "key": "solace.java.client-password",
+              "renderedPath": "solace.java.client-password",
+              "controlKind": "secret",
+              "value": {
+                "kind": "secretUnset"
+              },
+              "visible": true,
+              "enabled": false,
+              "virtual": false,
+              "advanced": false,
+              "masked": true,
+              "discriminator": false,
+              "label": "CLIENT_PASSWORD",
+              "validations": [],
+              "hiddenBy": []
+            },
+            {
+              "key": "DATA_PLANE.SELECT_BROKER",
+              "renderedPath": null,
+              "controlKind": "select",
+              "value": {
+                "kind": "unset"
+              },
+              "visible": true,
+              "enabled": true,
+              "virtual": true,
+              "advanced": false,
+              "masked": false,
+              "discriminator": false,
+              "label": "SELECT_BROKER",
+              "validations": [
+                {
+                  "severity": "block",
+                  "code": "REQUIRED",
+                  "message": "This field is required."
+                }
+              ],
+              "hiddenBy": []
+            },
+            {
+              "key": "spring.cloud.stream.bindings.output-0.destination",
+              "renderedPath": "spring.cloud.stream.bindings.output-0.destination",
+              "controlKind": "text",
+              "value": {
+                "kind": "unset"
+              },
+              "visible": true,
+              "enabled": true,
+              "virtual": false,
+              "advanced": false,
+              "masked": false,
+              "discriminator": false,
+              "label": "TOPIC",
+              "helperText": "destination file location path",
+              "validations": [
+                {
+                  "severity": "block",
+                  "code": "REQUIRED",
+                  "message": "This field is required."
+                }
+              ],
+              "hiddenBy": []
+            },
+            {
+              "key": "solace.java.host",
+              "renderedPath": "solace.java.host",
+              "controlKind": "text",
+              "value": {
+                "kind": "unset"
+              },
+              "visible": true,
+              "enabled": false,
+              "virtual": false,
+              "advanced": false,
+              "masked": false,
+              "discriminator": false,
+              "label": "SMF_URL",
+              "validations": [],
+              "hiddenBy": []
+            },
+            {
+              "key": "solace.java.msg-vpn",
+              "renderedPath": "solace.java.msg-vpn",
+              "controlKind": "text",
+              "value": {
+                "kind": "unset"
+              },
+              "visible": true,
+              "enabled": false,
+              "virtual": false,
+              "advanced": false,
+              "masked": false,
+              "discriminator": false,
+              "label": "MSG_VPN",
+              "validations": [],
+              "hiddenBy": []
+            },
+            {
+              "key": "solace.java.client-username",
+              "renderedPath": "solace.java.client-username",
+              "controlKind": "text",
+              "value": {
+                "kind": "unset"
+              },
+              "visible": true,
+              "enabled": false,
+              "virtual": false,
+              "advanced": false,
+              "masked": false,
+              "discriminator": false,
+              "label": "CLIENT_USERNAME",
+              "validations": [],
+              "hiddenBy": []
+            }
+          ],
+          "actions": []
+        },
+        {
+          "title": "MANAGEMENT_PLANE",
+          "order": 2,
+          "allVisibleFieldsAdvanced": false,
+          "_fieldCount": 12,
+          "fields": [
+            {
+              "key": "solace.connector.management.session.client-password",
+              "renderedPath": "solace.connector.management.session.client-password",
+              "controlKind": "secret",
+              "value": {
+                "kind": "secretUnset"
+              },
+              "visible": true,
+              "enabled": false,
+              "virtual": false,
+              "advanced": false,
+              "masked": true,
+              "discriminator": false,
+              "label": "CLIENT_PASSWORD",
+              "validations": [],
+              "hiddenBy": []
+            },
+            {
+              "key": "MANAGEMENT_PLANE.SELECT_BROKER",
+              "renderedPath": null,
+              "controlKind": "select",
+              "value": {
+                "kind": "unset"
+              },
+              "visible": true,
+              "enabled": true,
+              "virtual": true,
+              "advanced": false,
+              "masked": false,
+              "discriminator": false,
+              "label": "SELECT_BROKER",
+              "validations": [
+                {
+                  "severity": "block",
+                  "code": "REQUIRED",
+                  "message": "This field is required."
+                }
+              ],
+              "hiddenBy": []
+            },
+            {
+              "key": "solace.connector.management.leader-election.fail-over.back-off-multiplier",
+              "renderedPath": "solace.connector.management.leader-election.fail-over.back-off-multiplier",
+              "controlKind": "number",
+              "value": {
+                "kind": "unset"
+              },
+              "visible": true,
+              "enabled": true,
+              "virtual": false,
+              "advanced": false,
+              "masked": false,
+              "discriminator": false,
+              "label": "BACK_OFF_MULTIPLIER",
+              "helperText": "The multiplier to apply to the back-off interval between each retry of a fail-over.",
+              "validations": [
+                {
+                  "severity": "block",
+                  "code": "REQUIRED",
+                  "message": "This field is required."
+                }
+              ],
+              "hiddenBy": []
+            },
+            {
+              "key": "solace.connector.management.leader-election.fail-over.max-attempts",
+              "renderedPath": "solace.connector.management.leader-election.fail-over.max-attempts",
+              "controlKind": "number",
+              "value": {
+                "kind": "value",
+                "value": 3,
+                "source": "default"
+              },
+              "visible": true,
+              "enabled": true,
+              "virtual": false,
+              "advanced": false,
+              "masked": false,
+              "discriminator": false,
+              "label": "MAX_ATTEMPTS",
+              "helperText": "The maximum number of attempts to perform a fail-over.",
+              "validations": [],
+              "hiddenBy": []
+            },
+            {
+              "key": "solace.connector.management.session.host",
+              "renderedPath": "solace.connector.management.session.host",
+              "controlKind": "text",
+              "value": {
+                "kind": "unset"
+              },
+              "visible": true,
+              "enabled": false,
+              "virtual": false,
+              "advanced": false,
+              "masked": false,
+              "discriminator": false,
+              "label": "SMF_URL",
+              "validations": [],
+              "hiddenBy": []
+            },
+            {
+              "key": "solace.connector.management.session.msg-vpn",
+              "renderedPath": "solace.connector.management.session.msg-vpn",
+              "controlKind": "text",
+              "value": {
+                "kind": "unset"
+              },
+              "visible": true,
+              "enabled": false,
+              "virtual": false,
+              "advanced": false,
+              "masked": false,
+              "discriminator": false,
+              "label": "MSG_VPN",
+              "validations": [],
+              "hiddenBy": []
+            }
+          ],
+          "actions": []
+        }
+      ]
+    }
+  ],
+  "_renderedCount": 45,
+  "rendered": [
+    {
+      "instanceKey": "snk",
+      "renderedPath": "solace.connector.management.leader-election.fail-over.back-off-initial-interval",
+      "value": 1000
+    },
+    {
+      "instanceKey": "snk",
+      "renderedPath": "solace.connector.management.leader-election.fail-over.back-off-max-interval",
+      "value": 10000
+    },
+    {
+      "instanceKey": "snk",
+      "renderedPath": "solace.connector.management.leader-election.fail-over.max-attempts",
+      "value": 3
+    },
+    {
+      "instanceKey": "snk",
+      "renderedPath": "solace.connector.management.leader-election.mode",
+      "value": "standalone"
+    },
+    {
+      "instanceKey": "snk",
+      "renderedPath": "solace.java.connectRetries",
+      "value": "-1"
+    }
+  ],
+  "_excludedCount": 30,
+  "excluded": [
+    {
+      "instanceKey": "snk",
+      "key": "ADD_BROKER",
+      "reason": "action"
+    },
+    {
+      "instanceKey": "snk",
+      "key": "ADD_OR_EDIT_BROKER",
+      "reason": "action"
+    },
+    {
+      "instanceKey": "snk",
+      "key": "ALLOW_SEMP",
+      "reason": "virtual"
+    },
+    {
+      "instanceKey": "snk",
+      "key": "ALLOW_SSL",
+      "reason": "virtual"
+    },
+    {
+      "instanceKey": "snk",
+      "key": "AUTO_CREATE_TOPIC",
+      "reason": "virtual"
+    }
+  ],
+  "metrics": [],
+  "status": {
+    "version": {
+      "state": "VERSION_UNVERIFIED",
+      "declared": "2.4",
+      "editingBlocked": false
+    },
+    "config": {},
+    "replicas": [],
+    "healthRollup": "NOT_APPLICABLE",
+    "healthAvailability": "not-declared"
+  },
+  "diagnostics": [
+    {
+      "code": "CATALOG_UNRESOLVED",
+      "message": "Options for SELECT_BROKER come from the connection catalog, which was not supplied.",
+      "instanceKey": "src",
+      "key": "SELECT_BROKER"
+    },
+    {
+      "code": "CATALOG_UNRESOLVED",
+      "message": "Options for SELECT_ENV come from the environment catalog, which was not supplied.",
+      "instanceKey": "snk",
+      "key": "SELECT_ENV"
+    },
+    {
+      "code": "CATALOG_UNRESOLVED",
+      "message": "Options for DATA_PLANE.SELECT_BROKER come from the connection catalog, which was not supplied.",
+      "instanceKey": "snk",
+      "key": "DATA_PLANE.SELECT_BROKER"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "$schema-note": "FE-100. Every source in index.html's Content-Security-Policy that is not 'self' or 'none' MUST appear here with a written reason, a decision id and a follow-up. scripts/verify-csp.mjs enforces that, so a relaxation cannot land silently (design §21, §26 item 10).",
+  "exceptions": [
+    {
+      "directive": "style-src",
+      "source": "'unsafe-inline'",
+      "decision": "FE-D41",
+      "reason": "MUI (D7 🔒, FE-D4) styles through Emotion, which inserts <style> ELEMENTS into the document at runtime — measured, not assumed: without this source the production build raises style-src-elem violations from the MUI chunk on first paint and the console renders unstyled. The supported ways to keep styles strict both need a server that renders the document: a per-response nonce handed to Emotion's cache, or a hash per emitted rule (impossible — the rules are generated at runtime). This console is served as a static SPA; SM packaging does not exist yet (design §21), so there is no per-response document to carry a nonce.",
+      "risk": "'unsafe-inline' on style-src permits injected CSS, not injected script. The XSS-escalation paths it leaves open are exfiltration-by-selector and UI redress; both need an injection point first, and script-src stays 'self' with no unsafe-inline and no unsafe-eval, so an injected <style> cannot execute.",
+      "followUp": "When SM packaging (runtime/) gains a document-serving layer, emit a per-response nonce, pass it to Emotion's cache and to this directive, and delete this entry."
+    }
+  ],
+  "notRequired": [
+    {
+      "source": "'unsafe-eval'",
+      "note": "Design §26 item 10 asked whether ECharts forces it. It does not. Verified twice for echarts 6.1.0: (1) the production bundle contains zero `eval(` and zero `new Function(` occurrences — the one `new Function` in the echarts source is a JSON.parse fallback that minification drops; (2) e2e/csp.spec.ts renders a real chart from the real built echarts chunk on a page carrying this exact policy, with zero CSP violations. Item 10 is answered: no exception is needed."
+    }
+  ],
+  "codeExceptions": [],
+  "$codeExceptions-note": "Emitted chunks containing `eval(` or `new Function(`. Empty, and it should stay that way: echarts 6.1.0's single `new Function` (a JSON.parse fallback) does not survive minification. An entry here is a claim that the construct never executes; if it can execute, the honest answer is a policy exception above, not an entry here."
+}

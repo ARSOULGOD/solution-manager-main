@@ -1,0 +1,111 @@
+### [OK] (d) two live sessions: A holds the scope row 6 s, B blocks on it then sees inflight=1; third session observes the lock wait  (container=main role=sm_dp_runtime db=smdb)
+--- SESSION A (sessA.sql) ---
+Timing is on.
+BEGIN
+Time: 0.076 ms
+INSERT 0 0
+Time: 0.355 ms
+             instance_id
+--------------------------------------
+ a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2
+(1 row)
+
+Time: 0.201 ms
+INSERT 0 1
+Time: 0.574 ms
+ pg_sleep
+----------
+
+(1 row)
+
+Time: 6016.376 ms (00:06.016)
+COMMIT
+Time: 3.410 ms
+
+--- SESSION B (sessB.sql) ---
+Timing is on.
+BEGIN
+Time: 0.080 ms
+INSERT 0 0
+Time: 0.407 ms
+             instance_id
+--------------------------------------
+ a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2
+(1 row)
+
+Time: 4503.125 ms (00:04.503)
+ instance_wide_inflight
+------------------------
+                      1
+(1 row)
+
+Time: 2.664 ms
+COMMIT
+Time: 1.830 ms
+
+--- OBSERVED (third session, postgres) ---
+pid |    usename    | state  | wait_event_type |  wait_event   |                         q
+-----+---------------+--------+-----------------+---------------+----------------------------------------------------
+ 501 | sm_dp_runtime | active | Lock            | transactionid | SELECT instance_id FROM sm_data.apply_scope WHERE
+(1 row)
+
+   locktype    |   mode    | granted
+---------------+-----------+---------
+ transactionid | ShareLock | f
+(1 row)
+
+### [OK] (d) the other direction  (container=main role=sm_dp_runtime db=smdb)
+--- SESSION A (sessA2.sql) ---
+Timing is on.
+BEGIN
+Time: 0.111 ms
+INSERT 0 0
+Time: 0.399 ms
+             instance_id
+--------------------------------------
+ a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2
+(1 row)
+
+Time: 0.243 ms
+INSERT 0 1
+Time: 0.603 ms
+ pg_sleep
+----------
+
+(1 row)
+
+Time: 5014.473 ms (00:05.014)
+COMMIT
+Time: 1.246 ms
+
+--- SESSION B (sessB2.sql) ---
+Timing is on.
+BEGIN
+Time: 0.068 ms
+INSERT 0 0
+Time: 0.363 ms
+             instance_id
+--------------------------------------
+ a2a2a2a2-2222-4222-8222-a2a2a2a2a2a2
+(1 row)
+
+Time: 3548.608 ms (00:03.549)
+ placement_scoped_inflight
+---------------------------
+                         1
+(1 row)
+
+Time: 1.400 ms
+COMMIT
+Time: 0.902 ms
+
+--- OBSERVED (third session, postgres) ---
+pid |    usename    | state  | wait_event_type |  wait_event   |                         q
+-----+---------------+--------+-----------------+---------------+----------------------------------------------------
+ 522 | sm_dp_runtime | active | Lock            | transactionid | SELECT instance_id FROM sm_data.apply_scope WHERE
+(1 row)
+
+   locktype    |   mode    | granted
+---------------+-----------+---------
+ transactionid | ShareLock | f
+(1 row)

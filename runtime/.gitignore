@@ -1,0 +1,4 @@
+# never commit a real environment file, TLS/CA material or the generated database passwords
+.env
+certs/
+secrets/

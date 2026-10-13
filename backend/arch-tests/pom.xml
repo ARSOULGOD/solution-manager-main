@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.solace.sm</groupId>
+    <artifactId>backend-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>arch-tests</artifactId>
+  <name>Solution Manager :: arch-tests</name>
+  <description>
+    Architecture rules with teeth. Depends on every other module at TEST scope so ArchUnit can see
+    all their classes on one classpath; producing no main artifact of its own, it can never become
+    a back door around I7.
+  </description>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.solace.sm</groupId>
+      <artifactId>cp-api</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.solace.sm</groupId>
+      <artifactId>dp-api</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.solace.sm</groupId>
+      <artifactId>mesh-events</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.solace.sm</groupId>
+      <artifactId>cp-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.solace.sm</groupId>
+      <artifactId>dp-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.solace.sm</groupId>
+      <artifactId>agent-gateway</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.solace.sm</groupId>
+      <artifactId>console-gateway</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.solace.sm</groupId>
+      <artifactId>launcher</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.tngtech.archunit</groupId>
+      <artifactId>archunit-junit5</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

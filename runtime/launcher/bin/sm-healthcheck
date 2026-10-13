@@ -1,0 +1,6 @@
+#!/bin/bash
+# Readiness by TCP accept. The gateway's L4 readiness socket accepts only while its TLS listener is running; with the
+# gateway disabled the console's own HTTP port is the signal. Bash's /dev/tcp: no curl, no HTTP route, no credential.
+if [ "${SM_AGENT_GATEWAY_ENABLED:-false}" = "true" ]; then port="${SM_AGENT_GATEWAY_READINESS_PORT:-9444}"; else port="${SERVER_PORT:-8080}"; fi
+# Dials the loopback address: a listener bound to one specific address would not answer here (the launcher binds all addresses).
+exec 3<>"/dev/tcp/127.0.0.1/${port}"

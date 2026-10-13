@@ -1,0 +1,18 @@
+#!/bin/sh
+# Operator tools that run in the launcher image and read the RUNTIME database passwords from the environment
+# (SmControlLockoutRecoveryMain, BrokerConnectionMain, KeyRotationMain, TargetRegistrationMain, TargetConnectionMain).
+# `docker compose exec launcher java ...` no longer carries those passwords (OR-138: they are secret files, not environment
+# values), so run them through this wrapper, which reads the same files as sm-launcher:
+#
+#   docker compose exec launcher /opt/sm/bin/sm-tool com.solace.sm.dp.apply.persistence.KeyRotationMain [args...]
+#
+# The first argument is the main class (given to Spring Boot's PropertiesLauncher as loader.main); the rest are its arguments.
+set -eu
+set -f
+SM_PROG=sm-tool
+[ "$#" -ge 1 ] || { echo "usage: sm-tool <main-class> [args...]" >&2; exit 64; }
+. "$(dirname "$0")/sm-secrets.sh"
+sm_load_secret SM_CONTROL_RUNTIME_PASSWORD
+sm_load_secret SM_DATA_RUNTIME_PASSWORD
+main="$1"; shift
+exec java $JAVA_OPTS -cp /opt/sm/launcher.jar -Dloader.main="$main" org.springframework.boot.loader.launch.PropertiesLauncher "$@"

@@ -1,0 +1,335 @@
+{
+  "name": "edge-multi-key-predicate-genuinely-pending",
+  "pins": "Running config is collectable, draft is not: THAT is pending-config-change.",
+  "selection": {
+    "instances": [
+      {
+        "instanceKey": "e",
+        "type": "edge"
+      }
+    ]
+  },
+  "draft": {
+    "e": {
+      "mode": "sftp",
+      "tls": true
+    }
+  },
+  "observed": {
+    "version": {
+      "state": "OK"
+    },
+    "replicas": [
+      {
+        "id": "r1",
+        "health": "GREEN"
+      }
+    ],
+    "restartObservedValues": {
+      "e": {
+        "mode": "ftp",
+        "tls": true
+      }
+    }
+  },
+  "package": "engine-edge",
+  "expected": {
+    "engineVersion": 2,
+    "solution": "engine-edge",
+    "packageVersion": 1,
+    "components": [
+      {
+        "instanceKey": "e",
+        "type": "edge",
+        "role": "none",
+        "sections": [
+          {
+            "title": "Zulu section",
+            "order": 0,
+            "fields": [
+              {
+                "key": "zulu",
+                "renderedPath": "edge.zulu",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "z",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "Zulu",
+                "validations": [],
+                "hiddenBy": []
+              }
+            ],
+            "actions": [],
+            "allVisibleFieldsAdvanced": false
+          },
+          {
+            "title": "Alpha section",
+            "order": 1,
+            "fields": [
+              {
+                "key": "alpha",
+                "renderedPath": "edge.alpha",
+                "controlKind": "text",
+                "value": {
+                  "kind": "value",
+                  "value": "a",
+                  "source": "default"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "Alpha",
+                "validations": [],
+                "hiddenBy": []
+              }
+            ],
+            "actions": [],
+            "allVisibleFieldsAdvanced": false
+          },
+          {
+            "title": "Gating",
+            "order": 2,
+            "fields": [
+              {
+                "key": "mode",
+                "renderedPath": "edge.mode",
+                "controlKind": "select",
+                "value": {
+                  "kind": "value",
+                  "value": "sftp",
+                  "source": "draft"
+                },
+                "options": [
+                  "ftp",
+                  "sftp"
+                ],
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": true,
+                "label": "Mode",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "tls",
+                "renderedPath": "edge.tls",
+                "controlKind": "switch",
+                "value": {
+                  "kind": "value",
+                  "value": true,
+                  "source": "draft"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": true,
+                "label": "TLS",
+                "validations": [],
+                "hiddenBy": []
+              }
+            ],
+            "actions": [],
+            "allVisibleFieldsAdvanced": false
+          },
+          {
+            "title": "Values",
+            "order": 3,
+            "fields": [
+              {
+                "key": "labels",
+                "renderedPath": "edge.labels",
+                "controlKind": "key-value",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "Labels",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "window",
+                "renderedPath": "edge.window",
+                "controlKind": "duration",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "Window",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "count",
+                "renderedPath": "edge.count",
+                "controlKind": "number",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "Count",
+                "validations": [],
+                "hiddenBy": []
+              }
+            ],
+            "actions": [],
+            "allVisibleFieldsAdvanced": false
+          },
+          {
+            "title": "Secrets",
+            "order": 4,
+            "fields": [
+              {
+                "key": "pw-by-flag",
+                "renderedPath": "edge.pw-by-flag",
+                "controlKind": "secret",
+                "value": {
+                  "kind": "secretUnset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": true,
+                "discriminator": false,
+                "label": "Password (flag spelling)",
+                "validations": [],
+                "hiddenBy": []
+              },
+              {
+                "key": "pw-by-type",
+                "renderedPath": "edge.pw-by-type",
+                "controlKind": "secret",
+                "value": {
+                  "kind": "secretUnset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": true,
+                "discriminator": false,
+                "label": "Password (type spelling)",
+                "validations": [],
+                "hiddenBy": []
+              }
+            ],
+            "actions": [],
+            "allVisibleFieldsAdvanced": false
+          },
+          {
+            "title": "Catalog",
+            "order": 5,
+            "fields": [
+              {
+                "key": "broker",
+                "renderedPath": "edge.broker",
+                "controlKind": "select",
+                "value": {
+                  "kind": "unset"
+                },
+                "visible": true,
+                "enabled": true,
+                "virtual": false,
+                "advanced": false,
+                "masked": false,
+                "discriminator": false,
+                "label": "Broker",
+                "validations": [],
+                "hiddenBy": []
+              }
+            ],
+            "actions": [],
+            "allVisibleFieldsAdvanced": false
+          }
+        ]
+      }
+    ],
+    "rendered": [
+      {
+        "instanceKey": "e",
+        "renderedPath": "edge.alpha",
+        "value": "a"
+      },
+      {
+        "instanceKey": "e",
+        "renderedPath": "edge.mode",
+        "value": "sftp"
+      },
+      {
+        "instanceKey": "e",
+        "renderedPath": "edge.tls",
+        "value": true
+      },
+      {
+        "instanceKey": "e",
+        "renderedPath": "edge.zulu",
+        "value": "z"
+      }
+    ],
+    "excluded": [],
+    "metrics": [
+      {
+        "instanceKey": "e",
+        "name": "edge.multi_key",
+        "metricType": "gauge",
+        "unit": "ratio",
+        "collectionState": "pending-config-change"
+      }
+    ],
+    "status": {
+      "version": {
+        "state": "OK",
+        "editingBlocked": false
+      },
+      "config": {},
+      "replicas": [
+        {
+          "id": "r1",
+          "health": "GREEN"
+        }
+      ],
+      "healthRollup": "GREEN",
+      "healthAvailability": "declared"
+    },
+    "diagnostics": [
+      {
+        "code": "CATALOG_UNRESOLVED",
+        "message": "Options for broker come from the connection catalog, which was not supplied.",
+        "instanceKey": "e",
+        "key": "broker"
+      }
+    ]
+  }
+}

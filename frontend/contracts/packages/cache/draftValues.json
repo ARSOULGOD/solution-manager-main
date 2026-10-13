@@ -1,0 +1,9 @@
+{
+  "topic-prefix": "acme/cache",
+  "solace.enabled": true,
+  "solace.tls": true,
+  "solace.messaging-mode": "MESSAGING",
+  "solace.management.enabled": true,
+  "solace.management.management-queue": "mgmt-q",
+  "solace.management.leader-election": "STANDALONE"
+}
