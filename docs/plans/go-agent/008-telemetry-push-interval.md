@@ -1830,4 +1830,59 @@ git log --oneline UAT..HEAD
 
 ## Results
 
-*(Filled during execution.)*
+Branch `go-agent/push-interval`. Every task was reviewed independently; no review found a blocking defect.
+
+**Commits** (`git log --oneline UAT..HEAD`, before this one):
+
+| Commit | Subject |
+|---|---|
+| `d0f4bb3` | docs: design for the DP-set telemetry push interval (AG-D30, REQ-015) |
+| `ad15bd8` | docs: plan 008 |
+| `bb0e9b2` | contracts, go-agent: `Limits.telemetry_push_interval` (field 8) |
+| `83094a3` | go-agent: `cadence.Resolve` |
+| `718c52a` | go-agent: the sender holds stored batches until the push tick |
+| `96d9c3e` | go-agent: gauge, refusal counter, one log line per session |
+| `48d941b` | fake-gateway: `telemetry_push_interval` from the scenario or `set push`; `[hh:mm:ss]` prefix |
+| `28ec635` | go-agent: integration tests |
+| `5b6549f` | docs: AG-D30, REQ-015 and open item 48; README, CLAUDE, RUNBOOK |
+
+**Baseline (Task 1, Step 0):** clean tree; `go vet`, `go test ./...` and `-tags integration ./internal/agent` all ok.
+
+**Per task**
+
+| Task | Result |
+|---|---|
+| 1 Wire | RED: unknown field `TelemetryPushInterval`; GREEN: both codec tests and `go test ./...`. Generators: protoc-gen-go v1.36.12, protoc-gen-go-grpc 1.5.1, buf 1.73.0; `agent_gateway_grpc.pb.go` unchanged. Contract gate: append-only check ok before and after `--write-baseline` (baseline diff +2/-1), `--self-test` ok, `BASELINE_BASE_REF=UAT --superset` ok |
+| 2 `cadence.Resolve` | `TestResolve`, 17 cases, ok |
+| 3 Sender | RED: `s.BufferAge`, `s.DueBy`, `PushDue` undefined; GREEN: `go test` and `-race` ok on `internal/telemetry/send`; pre-existing tests unchanged apart from two fixture lines |
+| 4 Reporting | gauge, refusal counter, `watchPush`; `pipeline_test.go` 3 tests; `-race ./internal/telemetry/...` ok |
+| 5 fake-gateway | `PushSpec`, `set push`, time prefix; `-race ./internal/fakegw/...` ok |
+| 6 Integration | `TestIntegrationTelemetryPushIntervalSendsInBursts` 3.08 s, `...AppliesAtNextSession` 5.51 s, `...UnsetUsesTheDefault` 3.54 s; whole integration package ok (46 s); `-race -tags integration ./internal/agent -run Telemetry` ok; `make test` and `make build` ok; contract gate ok |
+
+**Mutation proofs** (Task 6 implementer; each reverted)
+
+| Mutation | Failing tests |
+|---|---|
+| M1 delete the due check (two `reducer.go` lines) | `TestANotYetDueHeadWaitsForThePushTick`, `TestTheCutoffAdvancesOverAnUnfinishedPush`, `TestOverdueHeadsGoAtOnceAfterAReconnect`, `TestSwitchingFromImmediateKeepsWhatIsStoredDue`, `TestABatchFromTheFutureIsSentOnceTheClockPassesIt`, `TestRunnerHoldsANewBatchUntilThePushTick` |
+| M2 `const DefaultPush = 0` | `TestResolve` |
+| M3 delete `case *p < MinPush:` and its return | `TestResolve` |
+| M4 `Wire()` drops the `Unset` check | `TestTheNextSessionAcceptCarriesThePushInterval` |
+
+Controller re-verification: M1 failed 5 reducer tests including `TestANotYetDueHeadWaitsForThePushTick`; M2 failed `TestResolve` case `unset: OR-73's default`; the three integration tests passed again with `-count=1` (3.07 s, 5.86 s, 3.55 s).
+
+**Deviations from the plan text** (each a controller ruling)
+
+| Deviation | Reason |
+|---|---|
+| Commit trailers name the model that wrote the commit (Haiku 5.5 for Task 2, Sonnet 5.5 for Tasks 3 to 6) instead of the plan's Opus line | The trailer should name the author; rewriting history for it was not worth it. One trailer to amend before the PR if wrong |
+| `console_test.go` does not import `time` | The new console test does not use it, and Go refuses an unused import. Plan text error, no behaviour change |
+| The unset-default integration test waits for kind `ActualStateReportBatch`, not `ActualStateReport` | `msg.ActualStateReportBatch` is what the agent sends (`msg.go:536`). No assertion loosened |
+| The Task 6 mutation revert used `git checkout -- .` and wiped the uncommitted test file, which was regenerated from the brief (with the kind fix) | Tree verified clean; the commit touches only that file; same results on re-run |
+| Java gateway build and tests not run | Offline Maven lacks `spring-boot-starter-parent` 3.5.16; going online needs the user. The appended proto field needs no Java change. An unseen compile issue would surface at the backend's next build |
+| Task 2: one gofmt line-wrap in `cadence_test.go`; Task 4: gofmt reformat of one test helper | gofmt cleanliness |
+
+**Not run:** the Java gateway tests (above); `make test-docker` (the Docker adapter is untouched); the RUNBOOK section 5 walk-through (marked "not yet executed"); the G-A1 re-run (owed, central open item 48 (a)).
+
+**Link check (Task 7, Step 7):** no `MISSING` line from any other changed file. The check run over this plan reports nine entries; all come from relative links inside the Task 7 text (markdown being inserted into other files, or quoted in a code block) resolved against `docs/plans/go-agent/`, not links this plan makes. Nothing was already dangling in a file Task 7 only appended to.
+
+**Deferred minor review findings** are in `.superpowers/sdd/008-telemetry-push-interval/progress.md`.
