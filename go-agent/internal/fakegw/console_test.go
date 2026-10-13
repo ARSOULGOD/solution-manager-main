@@ -72,3 +72,30 @@ func TestConsoleTelemetryVerbsWithoutAnAgent(t *testing.T) {
 		}
 	}
 }
+
+func TestConsoleSetPushStoresItForTheNextSession(t *testing.T) {
+	s, err := Start(Config{Listen: "127.0.0.1:0"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Stop()
+	for _, tc := range []struct{ line, want string }{
+		{"set push 1m", "next session: push=1m0s (disconnect to apply)"},
+		{"set push 0", "next session: push=0s (disconnect to apply)"},
+		{"set push unset", "next session: push=unset (disconnect to apply)"},
+		// a malformed line prints why and changes nothing
+		{"set push", "usage: set push <duration>|unset"},
+		{"set push abc", `set: time: invalid duration "abc"`},
+		{"set pull 5s", "usage: set push <duration>|unset"}, // pull is the DP's declarations (AG-D28)
+		{"set foo abc", "usage: set push <duration>|unset"}, // the verb is checked before the value
+	} {
+		var out bytes.Buffer
+		s.Console(strings.NewReader(tc.line+"\n"), &out)
+		if !strings.Contains(out.String(), tc.want) {
+			t.Errorf("%q: want %q, got %q", tc.line, tc.want, out.String())
+		}
+	}
+	if got := s.PushInterval(); got != (PushSpec{Unset: true}) {
+		t.Fatalf("stored %+v, want unset", got)
+	}
+}

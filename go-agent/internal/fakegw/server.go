@@ -71,6 +71,7 @@ type Server struct {
 	tstream    *teleStream                  // the live Telemetry stream, for unsolicited credits
 	paused     bool
 	rejectNext string
+	push       PushSpec // what the next SessionAccept carries in telemetry_push_interval (AG-D30)
 	outMu      sync.Mutex
 }
 
@@ -99,6 +100,7 @@ func Start(cfg Config) (*Server, error) {
 		tokens: map[string]*enrolledAgent{}, byThumb: map[string]*enrolledAgent{},
 		replicas: map[string]string{}, incarn: map[string]string{}, gens: map[string]uint64{},
 		tele: map[string]map[string]uint64{}, rejectNext: cfg.Scenario.Policy.Telemetry.RejectNext,
+		push: cfg.Scenario.Limits.TelemetryPushInterval,
 	}
 	for _, t := range cfg.Tokens {
 		s.tokens[t] = nil
