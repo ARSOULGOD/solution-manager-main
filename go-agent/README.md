@@ -28,7 +28,7 @@ every minute (`OR-73`) unless the Data Plane sets `telemetry_push_interval` on t
 session's limits, `0` meaning as soon as each batch is written (`AG-D30`) — on the
 Telemetry stream within the gateway's credits. Samples carry only `binding_id`, `replica_id` and
 `incarnation_id`. The first batch waits for the first actual-state report, about
-one report interval after the session opens. See [`RUNBOOK.md`](RUNBOOK.md).
+one report interval after the session opens, and then for the first push tick (about a minute against today's gateway). See [`RUNBOOK.md`](RUNBOOK.md).
 
 **The wire** is `../contracts/agent/v1/agent_gateway.proto` (plan 015 T1.2; `AG-D13`'s in-repo draft is superseded by
 its exit condition, OR-126 A1). It is append-only, enforced by step 18 of `../contracts/run-checks.sh`. There is no

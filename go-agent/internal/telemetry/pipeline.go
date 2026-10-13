@@ -158,7 +158,7 @@ func (p *Pipeline) watchPush(ctx context.Context) {
 				p.metrics.LimitIgnored("push")
 			case ig != nil:
 				p.cfg.Log.Warn("telemetry: the default push interval is not below the buffer age cap; sending each batch at once",
-					"default", cadence.DefaultPush.String(), "buffer_age", p.cfg.BufferAge.String())
+					"default", cadence.DefaultPush.String(), "buffer_age", p.cfg.BufferAge.String(), "reason", ig.Reason)
 			}
 			p.metrics.SetPushInterval(push)
 		}

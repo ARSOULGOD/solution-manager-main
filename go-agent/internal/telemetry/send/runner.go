@@ -52,7 +52,7 @@ const wakeEvery = 5 * time.Second
 
 func (r *Runner) Run(ctx context.Context) {
 	r.state = NewState()
-	// Everything stored before the agent started is already due (spec §4.3).
+	// DueBy here is belt-and-braces: the first SessionUp that sets a push interval moves it to the session's arrival, so everything stored before then is due at once (spec §4.3).
 	r.state.DueBy, r.state.BufferAge = r.Now(), r.BufferAge
 	r.in = make(chan any, 64)
 	r.retry = time.NewTimer(time.Hour)

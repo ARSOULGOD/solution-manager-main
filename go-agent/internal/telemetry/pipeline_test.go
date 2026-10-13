@@ -113,4 +113,10 @@ func TestAnAgeCapAtOrBelowTheDefaultSendsAtOnceWithoutCounting(t *testing.T) {
 	if got := refusals(p); got != 0 {
 		t.Fatalf("counted %v refusals; no DP value was refused", got)
 	}
+	if !strings.Contains(logs.String(), `reason="default not below the buffer age cap"`) {
+		t.Fatalf("the warning lacks the reason; log:\n%s", logs.String())
+	}
+	if got := pushGauge(p); got != 0 {
+		t.Fatalf("after the session the gauge is %v, want 0", got)
+	}
 }

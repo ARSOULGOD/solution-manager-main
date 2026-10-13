@@ -136,7 +136,7 @@ Pull 5 s, push 1 min:
 - `Runner.BufferAge` (from `--telemetry-buffer-age`) is copied into the state before the first step.
 - A push ticker, created stopped (as `retry` is) and driven only by `ArmPush`: `Every > 0` → `Reset(Every)`, `Every == 0` → `Stop()`.
   `time.Ticker.Reset` panics on a non-positive duration, so `0` never reaches it. Its firing steps `PushDue{}`.
-- `Run` sets `state.DueBy = Now()` before the first step.
+- `Run` sets `state.DueBy = Now()` before the first step; the first `SessionUp` that sets a non-zero interval moves it to that session's arrival (§4.1).
 
 ### 4.3 Edge cases
 
@@ -144,7 +144,7 @@ Pull 5 s, push 1 min:
 |---|---|
 | A push does not finish before the next tick (credit-starved, a backlog) | `DueBy` advances; nothing is skipped or reordered |
 | Session drops, then reconnects | `DueBy` is kept: overdue batches go as soon as the stream opens, new ones wait for the next tick. The ticker is not reset unless the interval changed |
-| Agent restart | `DueBy` = the runner's start, so everything stored before the restart goes on the first session |
+| Agent restart | the first `SessionUp` moves `DueBy` to its arrival, so everything stored before the restart — and before the first session — goes on the first session |
 | A fleet of agents | Each ticker counts from its own agent's first `ArmPush`, not from wall-clock `:00`, so agents do not all push in the same second |
 | Push moves from 1 min to `0` at a new session | `ArmPush{0}` stops the ticker; everything stored is eligible at once |
 | Agent wall clock steps backwards | Batches can wait up to the size of the step; the age cap and `UNREGISTERED` already compare `produced_at` the same way (§10) |
@@ -273,6 +273,7 @@ Owners: the backend (`AGW-D*`) team and the project owner.
 4. **Up to one push interval of extra latency** at the DP, plus drain time, by design.
 5. **A backwards wall-clock step delays sends** by up to the step, as it already shifts the age cap.
 6. **Against today's gateway only the default is exercised.** Explicit values are exercised by `fake-gateway` alone until item 48 (a).
+7. **Holding batches widens a lease-change loss.** The DP admits a batch against the session's current lease; when a binding leaves the lease (re-placed or unbound), whatever the agent still holds for it — up to one push interval — is refused `BINDING_NOT_IN_LEASE` and dropped as a gap. No agent-side change can recover it (item 48 (e)).
 
 `I1`: nothing touches an MI. `I6`: only durations are logged.
 

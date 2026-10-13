@@ -762,6 +762,7 @@ plan: [`../../plans/go-agent/008-telemetry-push-interval.md`](../../plans/go-age
 3. At each tick the stored batches go individually, in order, one in flight per stream (`AG-D23`); oversize and `UNREGISTERED`
    drops do not wait for a tick.
 4. Pull is untouched: `TelemetryDeclarations.interval`, per binding (`AG-D28`).
+5. Holding batches widens a lease-change loss: the DP admits a batch against the session's current lease, so when a binding leaves the lease (re-placed or unbound) what the agent still holds for it — up to one push interval — is refused `BINDING_NOT_IN_LEASE` and dropped as a gap. No agent-side change recovers it (central open item 48 (e)).
 
 **Rejected.** *A DP-set pull on `Limits`* (solution-manager-main's plan 007) — a second source for the number
 `TelemetryDeclarations.interval` already carries. *Absent means send at once* — it leaves `AGW-D27` item 4 unbuilt against

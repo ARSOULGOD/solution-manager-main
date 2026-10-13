@@ -1853,7 +1853,7 @@ Branch `go-agent/push-interval`. Every task was reviewed independently; no revie
 | Task | Result |
 |---|---|
 | 1 Wire | RED: unknown field `TelemetryPushInterval`; GREEN: both codec tests and `go test ./...`. Generators: protoc-gen-go v1.36.12, protoc-gen-go-grpc 1.5.1, buf 1.73.0; `agent_gateway_grpc.pb.go` unchanged. Contract gate: append-only check ok before and after `--write-baseline` (baseline diff +2/-1), `--self-test` ok, `BASELINE_BASE_REF=UAT --superset` ok |
-| 2 `cadence.Resolve` | `TestResolve`, 17 cases, ok |
+| 2 `cadence.Resolve` | `TestResolve`, 16 cases, ok |
 | 3 Sender | RED: `s.BufferAge`, `s.DueBy`, `PushDue` undefined; GREEN: `go test` and `-race` ok on `internal/telemetry/send`; pre-existing tests unchanged apart from two fixture lines |
 | 4 Reporting | gauge, refusal counter, `watchPush`; `pipeline_test.go` 3 tests; `-race ./internal/telemetry/...` ok |
 | 5 fake-gateway | `PushSpec`, `set push`, time prefix; `-race ./internal/fakegw/...` ok |
@@ -1874,7 +1874,7 @@ Controller re-verification: M1 failed 5 reducer tests including `TestANotYetDueH
 
 | Deviation | Reason |
 |---|---|
-| Commit trailers name the model that wrote the commit (Haiku 5.5 for Task 2, Sonnet 5.5 for Tasks 3 to 6) instead of the plan's Opus line | The trailer should name the author; rewriting history for it was not worth it. One trailer to amend before the PR if wrong |
+| Commit trailers differ from the plan's Opus line: bb0e9b2 Opus (T1), 83094a3 Haiku (T2), 718c52a Sonnet (T3), 96d9c3e Sonnet (T4), 48d941b Opus (T5), 28ec635 Sonnet (T6), 5b6549f and 54dd2c8 Opus (T7) | Not rewriting history for a trailer. One trailer to amend before the PR if wrong |
 | `console_test.go` does not import `time` | The new console test does not use it, and Go refuses an unused import. Plan text error, no behaviour change |
 | The unset-default integration test waits for kind `ActualStateReportBatch`, not `ActualStateReport` | `msg.ActualStateReportBatch` is what the agent sends (`msg.go:536`). No assertion loosened |
 | The Task 6 mutation revert used `git checkout -- .` and wiped the uncommitted test file, which was regenerated from the brief (with the kind fix) | Tree verified clean; the commit touches only that file; same results on re-run |
@@ -1886,3 +1886,17 @@ Controller re-verification: M1 failed 5 reducer tests including `TestANotYetDueH
 **Link check (Task 7, Step 7):** no `MISSING` line from any other changed file. The check run over this plan reports nine entries; all come from relative links inside the Task 7 text (markdown being inserted into other files, or quoted in a code block) resolved against `docs/plans/go-agent/`, not links this plan makes. Nothing was already dangling in a file Task 7 only appended to.
 
 **Deferred minor review findings** are in `.superpowers/sdd/008-telemetry-push-interval/progress.md`.
+
+### Final review
+
+Verdict: with fixes (0 critical, 1 important, 7 minor). It ran `go vet`, `gofmt`, `go test -count=1 ./...`, `-race` on telemetry, fakegw and wire, `-race -tags integration -run Telemetry` (12/12) and the contract gate.
+
+Fixed in the commit `go-agent, docs: final-review fixes for the push interval (AG-D30)`:
+
+- F1 (important): spec §10 item 7, `AG-D30` item 5 and open item 48 (e) state the lease-change loss; (a) and (b) extended.
+- F2: the "default cannot apply" WARN carries `reason`; the test asserts it and the gauge.
+- F3: the `Run` `DueBy` comment and spec §4.2/§4.3 say the first `SessionUp` moves it to the session's arrival.
+- F4: the README names the first push tick in the first-batch timing.
+- F5: `TestResolve` is 16 cases; the trailer row restated with the actual mapping.
+
+Left as ruled: the refusal log wording under a sub-minute age cap; the "built on branch" wording, to update at merge.
