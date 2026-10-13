@@ -87,7 +87,7 @@ Open two terminals, both in `go-agent/`.
   --enroll-token demo-token --ca-out bin/ca.pem
 ```
 
-It prints `type: preflight | apply <file> | restart | stop | pause | resume | disconnect` and `fake gateway listening`. No `--scenario` is needed:
+It prints `type: preflight | apply <file> | restart | stop | pause | resume | disconnect | set push <duration>|unset` and `fake gateway listening`. No `--scenario` is needed:
 the built-in one grants a one-hour lease for `binding-1` with both capabilities, and sends nothing on its own.
 
 ### 2. Terminal 2 — start the agent from an empty data dir
@@ -229,6 +229,8 @@ session opens. It is not an error if lines follow (they did).
 
 ### 4. What terminal 1 prints
 
+Each line now starts with the local time, `[hh:mm:ss]` (plan 008); the recorded lines below predate the prefix.
+
 | When | Terminal 1 (recorded) |
 |---|---|
 | Steady state | `telemetry tele-demo-1 seq=12 cache.hit_rate=0.93 cache.miss_count=12 -> acked` |
@@ -249,7 +251,49 @@ curl -s localhost:9464/metrics | grep sm_agent_telemetry_
 - `sm_agent_telemetry_dropped_batches_total{reason}` has no series until the first drop; a series appears when the byte cap, the age cap or another gap reason drops a batch.
 - `sm_agent_telemetry_scrape_errors_total{reason}` counts failed scrapes.
 
-### 5. Clean up
+### 5. The push interval set by the gateway
+
+The gateway can set how often the agent pushes what it has stored (`AG-D30`). It travels on `SessionAccept`, so a change applies
+when the agent next connects: until you `disconnect`, the live session keeps the value it was accepted with. `fake-gateway` sends
+an explicit `0` unless told otherwise, which is why step 4's lines arrive every 5 s; the real gateway sends **no** value today,
+and the agent then pushes every minute. `set` stores any value, including one the agent will refuse: the gateway is a test double.
+
+**Status: not yet executed.**
+
+In terminal 1, with step 4's lines arriving every 5 s:
+
+```
+set push 1m
+disconnect
+```
+
+For a quicker demo use `set push 15s`: three lines per burst instead of twelve.
+
+| When | Terminal 1 |
+|---|---|
+| `set push 1m` | `next session: push=1m0s (disconnect to apply)` |
+| `disconnect` | `session closed; the agent will reconnect`; whatever was stored while it reconnected is sent at once |
+| Then, once a minute | about twelve `[hh:mm:ss] telemetry binding-1 seq=…` lines with the same time, then a minute of silence |
+
+In terminal 3:
+
+```bash
+curl -s localhost:9464/metrics | grep -E 'sm_agent_telemetry_(push_interval_seconds|limit_ignored_total)'
+```
+
+Expect `sm_agent_telemetry_push_interval_seconds 60`. `sm_agent_telemetry_limit_ignored_total` has no series until a value is
+refused.
+
+**What the real gateway sends.** `set push unset` and `disconnect`: the field is left out, and the gauge stays at `60`.
+
+**A refused value.** `set push 500ms` and `disconnect`. A push below 1 s is refused, and so is one not below
+`--telemetry-buffer-age` (24 h by default). Terminal 2 logs `telemetry: DP push interval refused; using the default`, naming the
+`value` and the `reason` (`below 1s`); terminal 3 shows `sm_agent_telemetry_limit_ignored_total{limit="push"} 1` and the gauge
+at the default `60`.
+
+`set push 0` and `disconnect` return to sending each batch as soon as it is written.
+
+### 6. Clean up
 
 `Ctrl-C` both processes, then `docker rm -f sm-telemetry-demo` and `rm -rf ~/sm-telemetry-demo`.
 

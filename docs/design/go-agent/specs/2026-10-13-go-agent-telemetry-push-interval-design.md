@@ -1,6 +1,6 @@
 # go-agent: the telemetry push interval (DP-set, OR-73's 1 min by default)
 
-**Component:** `go-agent` · **Locus:** `host-local`, Docker runtime · **Date:** 2026-10-13 · **Status:** DESIGN, approved section by section in brainstorming; implementation plan [`008-telemetry-push-interval.md`](../../../plans/go-agent/008-telemetry-push-interval.md)
+**Component:** `go-agent` · **Locus:** `host-local`, Docker runtime · **Date:** 2026-10-13 · **Status:** DESIGN, approved section by section in brainstorming; built on branch `go-agent/push-interval` (see plan 008's Results); implementation plan [`008-telemetry-push-interval.md`](../../../plans/go-agent/008-telemetry-push-interval.md)
 **Authority:** [`../../backend/agent-gateway/design.md`](../../backend/agent-gateway/design.md) and [`decisions.md`](../../backend/agent-gateway/decisions.md) (`AGW-D27` item 4: *"Cadence is `OR-73`'s fixed 5 s collection / 1 min push"*), which overrule anything below they collide with; then [`../decisions.md`](../decisions.md) (`AG-D*`) and [`../design.md`](../design.md).
 **Contract:** [`../../../../contracts/agent/v1/agent_gateway.proto`](../../../../contracts/agent/v1/agent_gateway.proto), append-only (`AGW-D11`; run-checks step 18).
 **Requirement:** [`REQ-015`](../../../requirements/REQ-015-dp-set-telemetry-push-interval.md).

@@ -83,3 +83,4 @@ be written up so the trace runs both ways:
 | `REQ-012` | Live console state with bounded, honest staleness; degradation stated, never silent | backend architecture direction, 2026-08-27 — `REQ-010`/`REQ-011` stay reserved for the requests recorded in `traceability.md` |
 | `REQ-013` | Fleet apply: one change to many instances of a solution, authorized and audited per instance | owner ruling `OR-47`, 2026-09-28 — **no decision yet; needs design** |
 | `REQ-014` | Every third-party library is open source and free for commercial use (project-wide) | project owner, 2026-09-29 — invariant `I8`; enforcement gate to be built |
+| `REQ-015` | The Data Plane sets the `host-local` agent's telemetry push interval; 1 min when it sets none | go-agent developer, 2026-10-08 (raised as `REQ-013` in solution-manager-main) — `PROPOSED`; see [`REQ-015`](REQ-015-dp-set-telemetry-push-interval.md) |

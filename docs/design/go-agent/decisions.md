@@ -64,6 +64,7 @@ and library guarantee below carries its source. This project has been burned thr
 | `AG-D27` | Health, container start time and the write precondition are observed facts the agent reports (plan 015; applies `AG-D19`) | PROPOSED |
 | `AG-D28` | Metric declarations arrive on the wire from the DP; the file flag is development-only (plan 015; supersedes `AG-D22` for production) | PROPOSED |
 | `AG-D29` | The command payload is spooled on the host under a named `I6` exception (`OR-129`); purged at terminal, swept at start | PROPOSED |
+| `AG-D30` | The DP may set the telemetry push interval per session on `Limits.telemetry_push_interval`; unset is `OR-73`'s 1 min, `0` sends each batch when written (go-agent plan 008; applies `AGW-D27` item 4) | PROPOSED |
 
 ---
 
@@ -744,12 +745,44 @@ spool would finish from the local file. *Logging the digest "for debugging"* —
 files and keeps a live `RECEIVED`/`STAGED` file; resume from the spool after a restart without `CommandPull`. Mutation proofs: skip the
 sweep; write 0644; skip the purge on `REFUSED`. `msg_test.go` (offer `LogValue`/`String` contain neither payload nor digest).
 
+## `AG-D30` — The DP may set the telemetry push interval per session; unset is `OR-73`'s 1 min
+
+**Status: PROPOSED.** Applies `AGW-D27` item 4 ("5 s collection / 1 min push", `OR-73`, `OR-128` (8)) on the agent side, where
+only the 5 s collection was built (`AG-D28`). Amends nothing; `AG-D23`'s credits and `AG-D24`'s buffer are unchanged. Spec:
+[`specs/2026-10-13-go-agent-telemetry-push-interval-design.md`](specs/2026-10-13-go-agent-telemetry-push-interval-design.md);
+plan: [`../../plans/go-agent/008-telemetry-push-interval.md`](../../plans/go-agent/008-telemetry-push-interval.md).
+
+1. `SessionAccept.limits.telemetry_push_interval` (field 8, appended to `contracts/agent/v1`) sets how often the sender releases
+   stored batches. **Unset** (what today's gateway sends) means `OR-73`'s **1 min**; **`0`** means each batch is sent as soon as it
+   is written (what G-A1 and G-A2 measured); a value is valid when at least 1 s and below `--telemetry-buffer-age`. Anything else
+   is refused — logged once per session and counted in `sm_agent_telemetry_limit_ignored_total{limit="push"}` — and the default
+   applies. When the buffer age is 1 min or less the default cannot apply, and the agent sends at once and logs why.
+2. The value is resolved at each new session and only then; a session drop keeps the schedule; nothing is persisted, so everything
+   stored before an agent restart is due on the first session.
+3. At each tick the stored batches go individually, in order, one in flight per stream (`AG-D23`); oversize and `UNREGISTERED`
+   drops do not wait for a tick.
+4. Pull is untouched: `TelemetryDeclarations.interval`, per binding (`AG-D28`).
+
+**Rejected.** *A DP-set pull on `Limits`* (solution-manager-main's plan 007) — a second source for the number
+`TelemetryDeclarations.interval` already carries. *Absent means send at once* — it leaves `AGW-D27` item 4 unbuilt against
+today's gateway. *Merging stored batches into one at push time* — it reworks `AG-D23`/`AG-D24`'s seq, in-flight and gap
+guarantees. *A local flag* — the DP is the source.
+
+⚠️ **Flagged (`I4`), not resolved:** a DP-chosen value departs from `OR-128` (8)'s "fixed values"; the default keeps the fixed
+value. Central open item 48 routes it, with the Java gateway sending the field.
+
+**Enforced by:** `cadence_test.go` (`TestResolve`); `reducer_test.go` (the push cases); `runner_test.go`
+(`TestRunnerHoldsANewBatchUntilThePushTick`, `TestRunnerSendsWhatWasStoredBeforeItStartedAtOnce`); `pipeline_test.go`;
+`codec_test.go` (`TestTelemetryPushIntervalKeepsItsThreeStates`); the integration tests `TestIntegrationTelemetryPushInterval*`.
+Mutation proofs M1–M4 in plan 008's Results.
+
 ---
 
 ## Changelog
 
 | Date | Change |
 |---|---|
+| 2026-10-13 | `AG-D30` added, `PROPOSED`, by go-agent plan 008: the DP may set the telemetry push interval per session; unset is `OR-73`'s 1 min. Ported from solution-manager-main's plan 007, where the idea was that tree's `AG-D26` on a DRAFT wire and also carried a pull interval; neither that id nor the pull half is carried (this register's `AG-D26` is discovery). No earlier row edited (`I3`). |
 | 2026-10-10 | Plan 015 T2.3 implementation clarifications (no decision's meaning changed, `I3`): `AG-D26` item 6 (rescan cadence, not Docker events), `AG-D27` **item 6** (appended; item 5 is untouched: replay passes, writer-side precondition, zero-ceiling refusal, probe pinned to the container's published ports, `StartedAt` only on APPLIED), `AG-D29` items 6 and 7 (purge removes the generation directory; the sweep re-checks modes/owner, removes crashed-write temp files and drops superseded records; a live `RECEIVED` record resumes from the hash-checked spool and is held, not refused; the ack detail is a template, never error text). The six wire additions are appended to `contracts/agent/v1/agent_gateway.proto` (field numbers verbatim from `proto-amendments-015.md`). |
 | 2026-10-09 | **`AG-D13` superseded by its own exit condition** ("never `contracts/`; superseded the day `contracts/` carries the real proto"), `OR-126` (A1), plan 015 T1.2: `agent_gateway.proto` now lives at `contracts/agent/v1/agent_gateway.proto` (package, field numbers and content unchanged), with its `buf.yaml` workspace, `baseline.json` and `check_proto_append_only.py` (`contracts/run-checks.sh` step 18). The moved file is **normative under `contracts/`' single-writer rule**: a change is a deliberate reviewed change, append-only, never a convenience edit. `AG-D13`'s own text is not edited (`I3`); this row records the supersession. |
 | 2026-10-09 | `AG-D29` **resolved in place by `OR-129` before first merge** (unmerged, unratified, nothing built; the amendment policy above, and the text's own provision that the unchosen variant is deleted when the ruling is recorded). `AG-D27` item 1 corrected in place for `OR-130` D-4 (the declared probe, not Docker's check, is the health signal). `AG-D22`'s dangling `AG-14` citation annotated. Header note added. ⚠️ `AG-D26`–`AG-D29` cite `AGW-D25`/`AGW-D26`/`AGW-D30`, `decisions-015-draft.md` and `proto-amendments-015.md`, which exist only on the backend PR; the agent PR merges first, so those links dangle until the backend PR merges. |
