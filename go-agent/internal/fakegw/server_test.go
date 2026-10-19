@@ -151,3 +151,39 @@ func closed() chan struct{} {
 	close(c)
 	return c
 }
+
+// Generations count per binding, so the same verb at generation 1 for two
+// bindings must still carry two command ids: the agent answers a repeated id
+// from its journal without acting, so a shared id would silently skip the
+// second container.
+func TestOfferKeepsTwoBindingsApart(t *testing.T) {
+	s, _ := telemetryServer(t, func(sc *Scenario) { sc.Lease.BindingIDs = []string{"cont1", "cont2"} })
+	conn := agentConn(t, s, true)
+	o1, err := s.Offer("cont1", msg.OpPreflight, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	o2, err := s.Offer("cont2", msg.OpPreflight, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if o1.CommandID == o2.CommandID {
+		t.Fatalf("both bindings got command id %q", o1.CommandID)
+	}
+	if o1.Generation != 1 || o2.Generation != 1 {
+		t.Fatalf("generations %d and %d, want 1 and 1", o1.Generation, o2.Generation)
+	}
+	got := map[string]string{} // command id -> binding, as the agent sees the offers
+	for len(got) < 2 {
+		m, err := conn.Recv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if g, ok := m.(msg.GenerationAvailable); ok {
+			got[g.CommandID] = g.BindingID
+		}
+	}
+	if got[o1.CommandID] != "cont1" || got[o2.CommandID] != "cont2" {
+		t.Fatalf("offers reached the agent as %v", got)
+	}
+}

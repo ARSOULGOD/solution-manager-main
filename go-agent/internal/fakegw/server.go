@@ -134,26 +134,23 @@ type Offered struct {
 	Ack        <-chan msg.CommandAck
 }
 
-// Offer sends one command to the connected agent, for the lease's first
-// binding, at the next generation this gateway has not offered for it. The
-// agent refuses a generation below its watermark and answers a repeated one
-// from its journal, so the gateway — like the real DP — must never reuse one.
-func (s *Server) Offer(op msg.Operation, payload []byte) (Offered, error) {
+// Offer sends one command to the connected agent for binding, at the next
+// generation this gateway has not offered for that binding. The agent refuses
+// a generation below its watermark and answers a repeated one from its
+// journal, so the gateway — like the real DP — must never reuse one. The
+// command id names the binding because generations count per binding: two
+// bindings at the same generation must not share an id.
+func (s *Server) Offer(binding string, op msg.Operation, payload []byte) (Offered, error) {
 	s.mu.Lock()
 	ss := s.live
 	if ss == nil {
 		s.mu.Unlock()
 		return Offered{}, ErrNoAgent
 	}
-	if len(ss.sc.Lease.BindingIDs) == 0 {
-		s.mu.Unlock()
-		return Offered{}, errors.New("the lease names no binding")
-	}
-	binding := ss.sc.Lease.BindingIDs[0]
 	gen := s.gens[binding] + 1
 	s.gens[binding] = gen
 	s.mu.Unlock()
-	id := fmt.Sprintf("%s-%d", op, gen)
+	id := fmt.Sprintf("%s-%s-%d", op, binding, gen)
 	cs := ss.offer(OfferStep{CommandID: id, BindingID: binding, Generation: gen, Operation: string(op), Payload: string(payload)})
 	return Offered{CommandID: id, Generation: gen, Ack: cs.ack}, nil
 }

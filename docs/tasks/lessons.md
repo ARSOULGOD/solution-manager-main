@@ -275,3 +275,15 @@ files whose fresh `.sha1` sibling dated from that run.
 **Rule:** any scratch Maven run that may download (a coverage diff, a version probe) passes a private
 `-Dmaven.repo.local=<scratchpad>/m2`; the shared `~/.m2` is primed only by the task that owns priming (plan 015 T0.4
 Step 2), and `check-licences.py` is run afterwards to confirm it stays green.
+## Resetting demo state must first check that nobody is using it (go-agent two-container demo, 2026-10-14)
+
+While preparing a manual demo in `~/sm-demo/`, a re-run of its `setup.sh` removed the containers, the agent's data
+dir and the gateway CA, while the developer's own `fake-gateway` and `sm-agent` were running from that folder (they
+had started the demo from the instructions minutes earlier). Their session broke underneath them. A second symptom
+came from the same blind spot: a dry run on the default ports failed with `bind: address already in use` and then
+hung writing to the dead gateway's stdin FIFO.
+
+**Rule:** before resetting or re-running anything that shares state or ports with what the developer may be running
+(a demo folder, `bin/agent-data`, ports `8443`/`9464`), check `ss -ltnp` and `pgrep -af 'fake-gateway|sm-agent'`. If
+anything is running, ask the developer, or work on spare ports with a private data dir. Stop your own processes by
+the PID that holds the port, never with `pkill -f <pattern>`: the pattern also matches the shell running the command.

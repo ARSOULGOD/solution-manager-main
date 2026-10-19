@@ -2,9 +2,11 @@ package fakegw
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -12,11 +14,13 @@ import (
 	"github.com/solace/solution-manager/go-agent/internal/msg"
 )
 
-const consoleUsage = "type: preflight | apply <file> | restart | stop | pause | resume | disconnect | set push <duration>|unset"
+const consoleUsage = "type: preflight | apply <file> | restart | stop  [@<binding>|@all] | pause | resume | disconnect | set push <duration>|unset"
 
 // Console turns lines typed at the gateway's terminal into commands for the
 // connected agent, one operation per line, and prints each outcome when the
-// agent acks it. It returns when r is exhausted.
+// agent acks it. A word "@<binding>" or "@all", anywhere on a command's line,
+// picks the binding; it may be left out only when the lease has one. It
+// returns when r is exhausted.
 func (s *Server) Console(r io.Reader, w io.Writer) {
 	c := &console{s: s, w: w}
 	c.println(consoleUsage)
@@ -74,38 +78,76 @@ func (c *console) line(text string) {
 		c.println("next session: push=%s (disconnect to apply)", p)
 		return
 	}
+	var args, at []string
+	for _, w := range f[1:] {
+		if t, ok := strings.CutPrefix(w, "@"); ok {
+			at = append(at, t)
+		} else {
+			args = append(args, w)
+		}
+	}
+	op := msg.Operation(f[0])
+	switch op {
+	case msg.OpPreflight, msg.OpApply, msg.OpRestart, msg.OpStop:
+	default:
+		c.println("unknown command %q — %s", f[0], consoleUsage)
+		return
+	}
+	bindings, err := targets(c.s.cfg.Scenario.Lease.BindingIDs, at)
+	if err != nil {
+		c.println("%v", err)
+		return
+	}
 	var payload []byte
-	switch op := msg.Operation(f[0]); op {
-	case msg.OpPreflight, msg.OpRestart, msg.OpStop:
-	case msg.OpApply:
-		if len(f) < 2 {
+	if op == msg.OpApply {
+		if len(args) == 0 {
 			c.println("apply needs a file: apply <file>")
 			return
 		}
-		b, err := os.ReadFile(f[1])
+		b, err := os.ReadFile(args[0])
 		if err != nil {
 			c.println("apply: %v", err)
 			return
 		}
 		payload = b
-	default:
-		c.println("unknown command %q — %s", f[0], consoleUsage)
-		return
 	}
-	o, err := c.s.Offer(msg.Operation(f[0]), payload)
-	if err != nil {
-		c.println("%v", err)
-		return
-	}
-	c.println("%s gen=%d: offered", o.CommandID, o.Generation)
-	go func() {
-		select {
-		case a := <-o.Ack:
-			c.println("%s gen=%d -> %s", o.CommandID, o.Generation, describe(a))
-		case <-time.After(offerDeadline):
-			c.println("%s gen=%d: no ack within %s", o.CommandID, o.Generation, offerDeadline)
+	for _, binding := range bindings {
+		o, err := c.s.Offer(binding, op, payload)
+		if err != nil {
+			c.println("%v", err)
+			return
 		}
-	}()
+		c.println("%s gen=%d: offered", o.CommandID, o.Generation)
+		go func() {
+			select {
+			case a := <-o.Ack:
+				c.println("%s gen=%d -> %s", o.CommandID, o.Generation, describe(a))
+			case <-time.After(offerDeadline):
+				c.println("%s gen=%d: no ack within %s", o.CommandID, o.Generation, offerDeadline)
+			}
+		}()
+	}
+}
+
+// targets resolves a line's @ words against the lease's bindings: "@all" is
+// every binding in lease order, and no @ word is allowed only when the lease
+// has a single binding, so a command never lands on a container by default.
+func targets(lease, at []string) ([]string, error) {
+	switch {
+	case len(at) > 1:
+		return nil, errors.New("one @target per command")
+	case len(lease) == 0:
+		return nil, errors.New("the lease names no binding")
+	case len(at) == 0 && len(lease) == 1:
+		return lease, nil
+	case len(at) == 0:
+		return nil, fmt.Errorf("which binding? add @%s | @all", strings.Join(lease, " | @"))
+	case at[0] == "all":
+		return lease, nil
+	case slices.Contains(lease, at[0]):
+		return at, nil
+	}
+	return nil, fmt.Errorf("binding %q is not in the lease (%s)", at[0], strings.Join(lease, ", "))
 }
 
 // describe renders an ack as OUTCOME, then its detail code and message if any.

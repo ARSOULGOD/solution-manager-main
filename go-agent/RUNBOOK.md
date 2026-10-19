@@ -22,8 +22,9 @@ container, and see each outcome — as many commands as you like, in any order.
    line. The gateway prints `offered` at once, and the outcome when the agent acks it.
 2. **The gateway numbers the commands.** Generations go up by one per command for the binding, and are never reused
    while the gateway runs: the agent refuses a generation below the highest it has seen, and answers a repeated one
-   from its journal without acting. Commands always go to the lease's first binding — `binding-1` by default, which
-   is `java1`'s label.
+   from its journal without acting. The built-in scenario's lease has one binding, `binding-1` (`java1`'s label), and
+   a command goes there. When a lease has more than one, each command names its target: see
+   [More than one container](#more-than-one-container).
 3. **Restarting the agent alone is fine; restarting the gateway is not.** The agent reconnects with the identity in
    its data dir and the next command just works. But every gateway start mints a new CA and forgets every enrolled
    agent (`internal/fakegw/server.go`, `Start`), so after a gateway restart the agent must start again **from an
@@ -87,7 +88,7 @@ Open two terminals, both in `go-agent/`.
   --enroll-token demo-token --ca-out bin/ca.pem
 ```
 
-It prints `type: preflight | apply <file> | restart | stop | pause | resume | disconnect | set push <duration>|unset` and `fake gateway listening`. No `--scenario` is needed:
+It prints `type: preflight | apply <file> | restart | stop  [@<binding>|@all] | pause | resume | disconnect | set push <duration>|unset` and `fake gateway listening`. No `--scenario` is needed:
 the built-in one grants a one-hour lease for `binding-1` with both capabilities, and sends nothing on its own.
 
 ### 2. Terminal 2 — start the agent from an empty data dir
@@ -118,12 +119,13 @@ examples below are the first four of a fresh gateway.
 
 | Type | Prints | Confirm on the container | Took (verified run) |
 |---|---|---|---|
-| `preflight` | `preflight-1 gen=1 -> PREFLIGHT_OK` | nothing changed: `docker inspect -f '{{.State.Running}} {{.State.StartedAt}}' java1` is the same as before | 1 s |
-| `apply <file>` | `apply-2 gen=2 -> APPLIED` | `cat ~/sm-conf/application.yml` shows the file's content; `stat -c %a ~/sm-conf/application.yml` is `600` | 1 s |
-| `restart` | `restart-3 gen=3 -> APPLIED` | `docker inspect -f '{{.State.Running}} {{.State.StartedAt}}' java1` is `true` with a **newer** `StartedAt` | 11 s running · 1 s stopped |
-| `stop` | `stop-4 gen=4 -> APPLIED` | `docker inspect -f '{{.State.Running}} {{.State.ExitCode}}' java1` is `false 137` | 11 s |
+| `preflight` | `preflight-binding-1-1 gen=1 -> PREFLIGHT_OK` | nothing changed: `docker inspect -f '{{.State.Running}} {{.State.StartedAt}}' java1` is the same as before | 1 s |
+| `apply <file>` | `apply-binding-1-2 gen=2 -> APPLIED` | `cat ~/sm-conf/application.yml` shows the file's content; `stat -c %a ~/sm-conf/application.yml` is `600` | 1 s |
+| `restart` | `restart-binding-1-3 gen=3 -> APPLIED` | `docker inspect -f '{{.State.Running}} {{.State.StartedAt}}' java1` is `true` with a **newer** `StartedAt` | 11 s running · 1 s stopped |
+| `stop` | `stop-binding-1-4 gen=4 -> APPLIED` | `docker inspect -f '{{.State.Running}} {{.State.ExitCode}}' java1` is `false 137` | 11 s |
 
-Each command first prints `<op>-<n> gen=<n>: offered`; the `->` line follows when the agent acks.
+Each command first prints `<op>-<binding>-<n> gen=<n>: offered`; the `->` line follows when the agent acks. (The 2026-10-01 run
+printed ids without the binding, `preflight-1`; the binding was added to the id on 2026-10-14.)
 
 - **You need not wait for one result before typing the next.** The agent runs commands one at a time, in the order
   you typed them.
@@ -144,6 +146,25 @@ Each command first prints `<op>-<n> gen=<n>: offered`; the `->` line follows whe
 - A failure prints the agent's reason on the same line, for example
   `-> FAILED_NO_EFFECT: Cannot connect to the Docker daemon …`. See [If it goes wrong](#if-it-goes-wrong).
 
+### More than one container
+
+**Status: executed on 2026-10-14**, against two busybox stand-ins `cont1` and `cont2` (bindings of the same names), with
+gateway `127.0.0.1:18443` and admin `127.0.0.1:19464` because another run held the defaults.
+
+Give the gateway a `--scenario` whose lease names every binding, for example `lease: {binding_ids: [cont1, cont2]}`.
+Each container needs the label, the declared config location and the bind mount from precondition 3, under its own
+binding id and its own host directory. A command then names its target with an `@` word, anywhere on the line:
+
+| Type | Prints |
+|---|---|
+| `preflight` | `which binding? add @cont1 \| @cont2 \| @all`: nothing is offered without a target |
+| `restart @nope` | `binding "nope" is not in the lease (cont1, cont2)` |
+| `preflight @all` | `preflight-cont1-1 gen=1 -> PREFLIGHT_OK`, then `preflight-cont2-1 gen=1 -> PREFLIGHT_OK`: one command per binding, in lease order |
+| `apply <file> @cont2` | `apply-cont2-2 gen=2 -> APPLIED`; only `cont2`'s `application.yml` changes |
+| `stop @cont1` | `stop-cont1-2 gen=2 -> APPLIED`: generations count per binding |
+
+The agent still runs one command at a time, so `@all` restarts the containers one after the other, not together.
+
 ### 4. Stop
 
 `Ctrl-C` the agent (terminal 2), then the gateway (terminal 1). On exit the gateway prints its transcript, one line
@@ -160,14 +181,14 @@ Rows marked *observed* were reproduced on 2026-10-01; the others are read from t
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `restart-1 gen=1 -> FAILED_NO_EFFECT: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?` (a `preflight` says `PREFLIGHT_REFUSED` instead). *Observed.* | `DOCKER_HOST` is not exported in the agent's terminal. | `Ctrl-C` the agent, `export` it, start the agent again **without** the `rm -rf` — the gateway is still the same one. |
+| `restart-binding-1-1 gen=1 -> FAILED_NO_EFFECT: Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?` (a `preflight` says `PREFLIGHT_REFUSED` instead). *Observed.* | `DOCKER_HOST` is not exported in the agent's terminal. | `Ctrl-C` the agent, `export` it, start the agent again **without** the `rm -rf` — the gateway is still the same one. |
 | `-> PREFLIGHT_REFUSED: docker: no container carries the binding label: com.solace.sm.binding-id=binding-1` (`FAILED_NO_EFFECT` for the other commands). *Observed.* | `java1` lacks the label. | Precondition 3. |
 | The same, with `more than one container carries the binding label`. | Another container — a stopped one counts — carries `binding-1`. | Precondition 3's check must print only `java1`. |
 | The same, with `declares no external config location` or `is not a bind mount`. | `java1` lacks the env var or the mount. | Recreate it with precondition 3's `docker run`. |
 | `-> PREFLIGHT_REFUSED: config directory is not writable`. | `~/sm-conf` is mounted read-only. | Mount it read-write. |
 | Every command prints `no agent connected`, and terminal 1 never logged `agent connected`. With the agent running, `curl -s localhost:9464/healthz` shows `"session_phase":"CLOSED"`. *Observed.* | The agent started from an earlier gateway's data dir; that gateway's CA and enrolment are gone (fact 3). | `Ctrl-C` the agent and redo step 2 — including the `rm -rf`. |
 | `apply: open <file>: no such file or directory`. | The path is relative to `go-agent/`, where the gateway runs. | Give an absolute path. |
-| `<op>-<n> gen=<n>: no ack within 5m0s`. | The agent went away while the command was in flight. | Check terminal 2; restart the agent (no `rm -rf`) and type the command again. |
+| `<op>-<binding>-<n> gen=<n>: no ack within 5m0s`. | The agent went away while the command was in flight. | Check terminal 2; restart the agent (no `rm -rf`) and type the command again. |
 | The gateway exits with `bind: address already in use`. | An earlier `fake-gateway` or `sm-agent` is still running. | `pkill -f bin/fake-gateway; pkill -f bin/sm-agent`, then start again from step 1. |
 | `"msg":"send failed","err":"EOF"` when you `Ctrl-C` the agent. *Observed, every run.* | The stream closes under it. | Nothing — expected. |
 

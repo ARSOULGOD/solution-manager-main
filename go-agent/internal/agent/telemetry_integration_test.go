@@ -194,7 +194,7 @@ func TestIntegrationTelemetryOnlyRoleRefusesCommands(t *testing.T) {
 	}
 	out := &syncBuffer{}
 	go gw.Console(strings.NewReader("restart\n"), out)
-	waitOutput(t, out, "restart-1 gen=1 -> REFUSED (CAPABILITY_MISSING)", 10*time.Second)
+	waitOutput(t, out, "restart-binding-1-1 gen=1 -> REFUSED (CAPABILITY_MISSING)", 10*time.Second)
 	if !gw.WaitFor("TelemetryBatch", 1, 10*time.Second) {
 		t.Fatal("a telemetry-only agent must still send telemetry")
 	}
