@@ -85,13 +85,13 @@ type LogsPolicy struct {
 }
 
 type Policy struct {
-	Logs      LogsPolicy      `yaml:"logs"`
 	Discovery DiscoveryPolicy `yaml:"discovery"`
 	OnOpen    string          `yaml:"on_open"` // accept | renew-required | reject:<CODE>
 	Renew     string          `yaml:"renew"`   // grant | refuse:<CODE> | silent
 	Heartbeat HeartbeatPolicy `yaml:"heartbeat"`
 	Report    ReportPolicy    `yaml:"report"`
 	Telemetry TelemetryPolicy `yaml:"telemetry"`
+	Logs      LogsPolicy      `yaml:"logs"`
 }
 
 type ExpectStep struct {
@@ -120,6 +120,9 @@ type OfferStep struct {
 type LogRetentionStep struct {
 	Placement string `yaml:"placement"`
 	MaxBytes  uint64 `yaml:"max_bytes"`
+	// Force sends even to a session that did not advertise CAPABILITY_LOGS, to
+	// prove the agent ignores what it never asked for. Test-only.
+	Force bool `yaml:"-"`
 }
 
 type LogPageStep struct {
@@ -139,6 +142,8 @@ type LogRequestStep struct {
 	RequestID string         `yaml:"request_id"`
 	Page      *LogPageStep   `yaml:"page"`
 	Export    *LogExportStep `yaml:"export"`
+	// Force: see LogRetentionStep.Force.
+	Force bool `yaml:"-"`
 }
 
 // ExpectLogPageStep waits for the LogPage answering RequestID (default: the

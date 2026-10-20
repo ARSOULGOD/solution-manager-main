@@ -5,6 +5,8 @@ package agent
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -201,17 +203,21 @@ func TestExportEndToEndWithCreditsAndFinal(t *testing.T) {
 	gw := startGateway(t, sc)
 	startLogsAgent(t, gw, feed, logsOnly, 1<<20)
 
-	// The agent has Logs open once the session is active; wait for the feed to land.
+	// The request may only be sent once the agent's Logs stream is open and the feed has landed.
 	feed.waitDelivered(feed.size())
-	time.Sleep(200 * time.Millisecond)
+	waitLogsStream(t, gw)
 	if err := gw.RequestLogs(msg.LogRequest{RequestID: "req-exp", PlacementRef: "binding-1", Export: &msg.LogExportQuery{}}); err != nil {
 		t.Fatal(err)
 	}
 	if !gw.WaitFor("LogChunk", 1, 10*time.Second) {
 		t.Fatal("no first chunk")
 	}
-	time.Sleep(400 * time.Millisecond)
-	if n := len(logChunks(gw)); n != 1 { // initial_credits 1: one chunk, then the agent waits
+	// initial_credits 1: one chunk, then the agent waits. A negative cannot be
+	// awaited, so allow a bounded window (several round trips on loopback,
+	// where a spurious second chunk would arrive within milliseconds); the
+	// positive half below (credit -> the rest arrives) is what makes it meaningful.
+	time.Sleep(300 * time.Millisecond)
+	if n := len(logChunks(gw)); n != 1 {
 		t.Fatalf("%d chunks before any credit, want exactly 1", n)
 	}
 	first := logChunks(gw)[0]
@@ -263,7 +269,9 @@ func TestExportEndToEndWithCreditsAndFinal(t *testing.T) {
 	// request can reach the agent first and is dropped (design 4.1). Wait for
 	// the first chunk, which initial_credits pays for, then grant.
 	waitChunkFor(t, gw, "req-resume")
-	gw.GrantLogCredit("req-resume", 100)
+	if err := gw.GrantLogCredit("req-resume", 100); err != nil {
+		t.Fatal(err)
+	}
 	var resumed []string
 	deadline = time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
@@ -338,27 +346,76 @@ func TestAgentWithoutLogsRoleNeverReceivesLogMessages(t *testing.T) {
 	feed := newLogFeed()
 	feed.push("never collected")
 	sc := fakegw.DefaultScenario()
+	sc.Limits.HeartbeatInterval = 100 * time.Millisecond
+	// Forced: the fake sends these although the session did not advertise
+	// logs, so the agent's own behaviour is under test, not the fake's gating.
 	sc.Steps = []fakegw.Step{
-		{LogRetention: &fakegw.LogRetentionStep{Placement: "binding-1", MaxBytes: 4096}},
-		{LogRequest: &fakegw.LogRequestStep{Placement: "binding-1", RequestID: "req-none", Page: &fakegw.LogPageStep{Limit: 10}}},
-		{Sleep: durPtr(500 * time.Millisecond)},
+		{LogRetention: &fakegw.LogRetentionStep{Placement: "binding-1", MaxBytes: 4096, Force: true}},
+		{LogRequest: &fakegw.LogRequestStep{Placement: "binding-1", RequestID: "req-none", Page: &fakegw.LogPageStep{Limit: 10}, Force: true}},
 	}
 	gw := startGateway(t, sc)
 	h := startLogsAgent(t, gw, feed, Roles{Control: true}, 1<<20)
 	waitPhase(t, h.loop, PhaseActive, 10*time.Second)
-	time.Sleep(1500 * time.Millisecond) // the steps have run, skipped
 
-	for _, e := range gw.Transcript() {
-		if e.Dir == "out" && (e.Kind == "LogRetention" || e.Kind == "LogRequest" || e.Kind == "LogCredit") {
-			t.Fatalf("gateway sent %s to an agent that did not advertise logs", e.Kind)
-		}
+	// The steps have run once both forced messages are in the transcript.
+	waitOut(t, gw, "LogRetention")
+	waitOut(t, gw, "LogRequest")
+	// The control session stays healthy: heartbeats keep being answered after them.
+	hb := gw.Count("Heartbeat")
+	if !gw.WaitFor("Heartbeat", hb+2, 10*time.Second) {
+		t.Fatal("no heartbeat after the forced log messages")
 	}
+	if h.loop.Snapshot().Session.Phase != PhaseActive {
+		t.Fatalf("phase %s after log messages", h.loop.Snapshot().Session.Phase)
+	}
+
 	if n := gw.LogsStreams(); n != 0 {
 		t.Fatalf("Logs stream opened %d times by an agent without the role", n)
 	}
 	if n := gw.Count("LogPage") + gw.Count("LogChunk"); n != 0 {
 		t.Fatalf("%d log messages from an agent without the role", n)
 	}
+	if _, err := os.Stat(filepath.Join(h.dir, "logs")); !os.IsNotExist(err) {
+		t.Fatalf("a log ring was created without the role: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(h.dir, "logs-dp-cap")); !os.IsNotExist(err) {
+		t.Fatalf("a DP cap was persisted without the role: %v", err)
+	}
+	// And the fake's own gating, directly.
+	if err := gw.RequestLogs(msg.LogRequest{RequestID: "r", PlacementRef: "binding-1", Page: &msg.LogPageQuery{Limit: 1}}); err == nil {
+		t.Fatal("RequestLogs to a session that did not advertise logs must fail")
+	}
+	if err := gw.SetLogRetention("binding-1", 1); err == nil {
+		t.Fatal("SetLogRetention to a session that did not advertise logs must fail")
+	}
+}
+
+// waitOut waits for the gateway to have sent a message of kind.
+func waitOut(t *testing.T, gw *fakegw.Server, kind string) {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		for _, e := range gw.Transcript() {
+			if e.Dir == "out" && e.Kind == kind {
+				return
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("gateway never sent %s", kind)
+}
+
+// waitLogsStream waits for the agent's Logs stream to be open.
+func waitLogsStream(t *testing.T, gw *fakegw.Server) {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		if gw.LogsStreams() >= 1 {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("the agent never opened its Logs stream")
 }
 
 func waitChunkFor(t *testing.T, gw *fakegw.Server, id string) {

@@ -475,12 +475,12 @@ func (ss *session) runStep(st Step) bool {
 	case st.Hold != nil:
 		st.Hold()
 	case st.LogRetention != nil:
-		if ss.logs {
+		if ss.logs || st.LogRetention.Force {
 			ss.sendLogRetention(st.LogRetention.Placement, st.LogRetention.MaxBytes)
 		}
 	case st.LogRequest != nil:
 		r := ss.logRequestOf(*st.LogRequest)
-		if ss.logs {
+		if ss.logs || st.LogRequest.Force {
 			ss.sendLogRequest(r)
 		}
 	case st.ExpectLogPage != nil:
