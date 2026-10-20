@@ -55,7 +55,7 @@ Additions use **new field numbers only** (`AGW-D11`).
 - `GatewayToAgent` (on `Connect`): `LogRetention{placement_ref, max_bytes}`; `LogRequest{request_id, placement_ref,
   mode}` where `mode` is `PAGE{limit, after, before}` or `EXPORT{from_seq}`.
 - New RPC `Logs(stream LogUp) returns (stream LogDown)`, opened after `SessionAccept`, as `Telemetry` is.
-  - `LogUp`: `LogPage{request_id, lines[], gap_markers[], unavailable_reason}` and `LogChunk{request_id, seq, lines[],
+  - `LogUp`: `LogPage{request_id, lines[], gaps[], unavailable_reason}` and `LogChunk{request_id, seq, lines[],
     final}`.
   - `LogDown`: `LogCredit` and `LogCancel{request_id}`.
 - A page must fit `Limits.max_message_bytes`; a chunk must fit `Limits.max_batch_bytes`.
@@ -79,6 +79,44 @@ match them.
 - **`placement_ref` is the binding id** — one of the lease's `binding_ids`.
 - **A refusal is always a `LogPage` with an `UnavailableReason`**, for an export request too, because `LogChunk` has
   no reason field.
+- **No final chunk on a broken export.** An export that is revoked (its placement left the lease), cancelled, or ends
+  with the session or the `Logs` stream sends **no** final chunk; the gateway relies on its own deadline.
+- **The cap counts on-disk encoded bytes.** `LogRetention.max_bytes` caps the encoded records on disk (JSON with
+  base64 text), so only about 70% of the cap is log text.
+- **Vocabulary.** Gap reasons emitted: `DROPPED_OLDEST`, `COLLECTION_PAUSED`, `CONTAINER_UNREADABLE`, `CAP_REDUCED`.
+  `OVERSIZE` is reserved and never emitted (an oversize line is truncated and flagged `truncated = true`).
+  `LogLine.stream` is `"stdout"` or `"stderr"`.
+- **Outage behaviour.** See §7: requests are served from the store while Docker is unreachable; the gap shows up after
+  collection resumes. `CONTAINER_MISSING` is reserved.
+- **A repeated gap marker** across consecutive chunks is possible; the gateway must tolerate it.
+
+### 4.2 Contract notes for the Java side
+
+Verified against the Go agent (`go-agent/internal/logs/`, `go-agent/internal/agent/logs_role.go`,
+`go-agent/internal/wire/codec/`).
+
+1. Never send `LogRetention` or `LogRequest` (`GatewayToAgent` fields 15 and 16) to a session without
+   `CAPABILITY_LOGS`: an older agent's `GatewayFromPB` rejects an unknown variant with an error ("unsupported gateway
+   message"), it does not skip it.
+2. Pages: `limit = 0` means no line limit (only the byte budget applies). `after` and `before` are exclusive, optional,
+   and their presence is meaningful (unset is not epoch 0). A page returns the **newest** lines in the window, oldest
+   first, with no "more" flag. To page backwards use `before` = the oldest returned timestamp; lines sharing that exact
+   timestamp can be skipped.
+3. Exports: `from_seq = 0`, or a value older than the ring, starts at the oldest retained line; sequence numbers start at
+   1. An export is not a snapshot: it follows the live ring until it catches up, so the DP's total-size and deadline
+   caps are the only bound. A read error mid-export ends with a final chunk carrying a `COLLECTION_PAUSED` gap; cap 0
+   mid-export ends with a final chunk carrying `CAP_REDUCED`.
+4. Message sizes: a chunk is sized to `max_batch_bytes` and a page to `max_message_bytes`; the gateway's maximum inbound
+   message size must be at least the larger. A limit of 0, or over 1 GiB, makes the agent use 1 MiB.
+5. The agent allows 4 requests in flight by default (`LogsConfig.MaxConcurrent`, `serve.DefaultMaxConcurrent`) and
+   answers more with `BUSY`; keep the DP bound at or below that.
+6. `initial_credits` comes from the session-wide `Limits` shared with `Telemetry`; the gateway counts it once per export
+   and keeps it above 0.
+7. Gateway threading: never block inside the `Logs` `onNext` (hand the message off), and keep Netty's auto-refill
+   connection flow controller. (Operational advice; not a property the agent code enforces.)
+8. `placement_ref` must match `^[A-Za-z0-9._-]+$`. Any other ref is silently ignored for retention (a warning in the
+   agent log) and, for requests, refused with `PLACEMENT_NOT_IN_LEASE`, so binding ids must stay within that set.
+9. A `LogRequest` whose `request_id` is already in flight gets **no reply** (ignored and counted); use unique ids.
 
 ## 5. Data plane
 
@@ -109,12 +147,12 @@ assumption fails, that is a **blocker to raise with the project owner**, not a r
 |---|---|
 | Agent lacks `CAPABILITY_LOGS`, or no session | Degraded page; nothing is sent. |
 | No reply by the deadline | Degraded page; `LogCancel` sent; pending request dropped. |
-| Docker unreachable or container missing | Agent replies with a declared reason code naming no host, path or container. |
+| Docker unreachable or container missing | Page and export requests are **served from the store** during the outage. The missing window appears as a `CONTAINER_UNREADABLE` gap only after collection resumes (written when the next line arrives or the collector exits). `UnavailableReason` `CONTAINER_MISSING` is **reserved** and not emitted in v1 (§9 item 4). |
 | Disk full or write error | Collection pauses for that placement and a gap is recorded; the agent stays up. |
 | Cap reduced below current size | Oldest segments trimmed at once; gap recorded. |
 | Export interrupted | Resume from the last acknowledged `seq`, or fail the download cleanly; total bytes and time capped. |
 | Restart or container recreate | Resume from the stored timestamp; missed window becomes a gap marker. |
-| Duplicate or late reply | Matched by `request_id`; unknown ids ignored and counted. |
+| Duplicate or late reply | Matched by `request_id`; unknown ids ignored and counted (the counters are accessors on the serving and codec layers, not yet exported on `/metrics`). |
 | Concurrent reads over the bound | "Busy" page; no queue. |
 
 ## 8. Testing
@@ -134,3 +172,6 @@ assumption fails, that is a **blocker to raise with the project owner**, not a r
 2. Default values: `logs.defaultMaxBytes`, export size and time caps, request deadline.
 3. Whether `LogRetention` belongs beside `TelemetryDeclarations` or in its own message family — to settle against
    `AGW-D11` when allocating decision ids.
+4. `UnavailableReason` `CONTAINER_MISSING` is reserved. Follow-up: surface the collector's pending gap as an open-ended
+   gap marker in replies while collection is down (option b of the outage-behaviour ruling), so a reader sees the
+   outage while it is happening rather than after collection resumes.

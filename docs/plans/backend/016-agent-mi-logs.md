@@ -7,7 +7,7 @@
 | **Component** | `go-agent` + `contracts/agent` + `backend/agent-gateway` + `backend/dp-core` + `backend/console-gateway` (cross-component; filed under `backend/` beside plan 015, whose gateway it extends) |
 | **Design** | [`2026-10-20-agent-mi-logs-design.md`](../../design/backend/agent-gateway/specs/2026-10-20-agent-mi-logs-design.md) |
 | **Decisions** | `AGW-D2` (module boundary), `AGW-D11` (new proto numbers only), `AG-D8` (slog), `I1`, `I5`, `I6`, `I7`. **No decision ids are allocated by this plan** — `DECISIONS.md` is the one allocator. |
-| **Status** | DRAFT — not reviewed |
+| **Status** | Tasks 1-6 DONE; 7-10 NOT STARTED |
 
 **Goal:** A `host-local` agent collects its placements' MI application logs into a DP-capped on-disk ring and serves them to the DP only on request: a paged read through the existing `LogService`, and a bulk export.
 
@@ -295,4 +295,45 @@ public interface AgentLogPort {
 
 ## Results
 
-*(Filled after execution.)*
+**Executed: Tasks 1-6 (contract, agent message types and codec, ring store, Docker collector, serving and the agent
+role, fake-gateway scripting and agent end to end), each independently reviewed.** Commits on `feature/agent-mi-logs`:
+
+| Task | Commits |
+|---|---|
+| 1 Wire contract | `d698349` |
+| 2 Message types and codec | `adeafe1` |
+| 3 Ring store | `f10d6a9`, `5ac641a` |
+| 4 Docker log collector | `5c49a63`, `217f34e`, `bdd2fa1` |
+| 5 Serving, `Logs` stream, agent role | `e54e075`, `ffd4ded`, `3927a36`, `6f39c92`, `d8f8847` (semantics doc) |
+| 6 `fakegw` scenarios and end to end | `b4a986e`, `51d5ba9` |
+| Final-review fixes | the `UnavailableReason` enum rename and codec hardening; spec, plan and runbook corrections |
+
+**Not executed.** Tasks 7-10 (Java gateway, DP `AgentLogService`, cap plumbing, export endpoint) and the Java-dependent
+steps of Task 11. There is no JDK or Maven on the machine that ran this, and the user chose to stop after the Go side.
+Not verified: the Java stub compile (Task 1 Step 5), and `contracts/run-checks.sh`, which fails identically before and
+after the change for environment reasons (missing git anchor commits, file-mesh-ui SQL, no `view-models` `node_modules`).
+`contracts/agent/v1/check_proto_append_only.py` (plain and `--superset`) passes. The Task 9 owner question (which existing
+verb authorizes setting the cap) is still open.
+
+**Post-final-review fix.** The `UnavailableReason` enum values broke the proto file's own rule that every enum value
+carries the enum-name prefix; they are now `UNAVAILABLE_REASON_*` with unchanged numbers (legal because the merge base has no
+baseline entry for the enum). The codec maps with explicit switches in both directions and an unknown value is an
+error, not a silent "available".
+
+**Differences from the plan.**
+- Task 5's role code lives in `go-agent/internal/agent/logs_role.go`, not `wiring.go`.
+- The Makefile `test-integration` pattern was widened to cover the log tests.
+- Added: `Ring.Cap()`, the `msg.Gap*` constants, a gap `End` sequence, `repairOverlap`, and `Server.Revoke`.
+- Added to the codec: `DecodeLogUp` and `EncodeLogDown` (gateway-side counterparts, used by `fakegw` and tests).
+
+**Tracked follow-ups.**
+- M-1: a stalled `Logs` stream stalls all log replies, and refusals spawn unbounded goroutines (add a send watchdog and bound refusals).
+- M-2: resume-by-timestamp can skip a line after an agent restart (millisecond window).
+- M-3: `LogRetention` is not checked against the lease, so a misbehaving gateway can create unbounded empty directories.
+- M-4: collectors may restart once on reconnect if the grant is nil at the first ACTIVE.
+- The ignored and undecodable counters are not exported on `/metrics`.
+- `dropOldest` deletes segments before `gaps.json` is saved.
+- The Task 3 crash test builds its state by hand.
+- A non-TTY trailing `\r` is not handled.
+- No hostile-id test for `retain`.
+

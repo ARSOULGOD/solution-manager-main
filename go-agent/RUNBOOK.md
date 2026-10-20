@@ -261,6 +261,49 @@ curl -s localhost:9464/metrics | grep sm_agent_telemetry_
 | No `telemetry …` lines at all | Still inside the first report interval, or every scrape fails. | Wait one minute; then `curl -s localhost:9464/metrics \| grep scrape_errors_total` and read the `reason` label. |
 | Agent log: `declared binding is not in the lease; not collecting`, and it stays | `examples/telemetry.yaml` names a binding the gateway's lease does not grant. | Rename the binding to one in the lease, or give the gateway a `--scenario` whose `lease: {binding_ids: [...]}` lists it. |
 
+## Logs
+
+**Status: agent side only.** The agent collects and stores a placement's container logs and answers log requests on the
+`Logs` stream (plan 016, Tasks 1-6; executed against `fake-gateway` scenarios). The gateway and DP side is **not
+implemented yet**, so nothing in production asks for these logs, and the DP cannot yet set a cap. The description below
+is what the agent does today.
+
+**Enable it.** Add `logs` to the roles: `--roles control,telemetry,logs` (or `SM_AGENT_ROLES`). The agent advertises
+`CAPABILITY_LOGS` to the gateway, opens the `Logs` stream after the session is accepted, and follows the logs of every
+placement in its lease.
+
+**Cap.** `--logs-default-max-bytes` (`SM_AGENT_LOGS_DEFAULT_MAX_BYTES`, default `16MiB`, provisional) is a placement's
+ring cap until the DP sets one; `0` leaves collection off until then. A cap the DP sets (`LogRetention`) overrides the
+default, is persisted (a marker under `<data-dir>/logs-dp-cap/`), and from then on the default is never applied to that
+placement again. A cap of `0` turns collection off and **deletes the stored logs**. Reducing a cap trims the oldest
+segments at once and records a `CAP_REDUCED` gap.
+
+**What the cap counts.** On-disk **encoded** bytes. Records are JSON with base64-encoded text, so only about 70% of the
+cap is log text.
+
+**Where it lives.** One ring per placement at `<data-dir>/logs/<placement>/`. A placement ref must match
+`^[A-Za-z0-9._-]+$`; any other is ignored.
+
+**Gaps.** A reply can carry gap markers where lines are missing:
+
+| Reason | Meaning |
+|---|---|
+| `DROPPED_OLDEST` | The cap was reached and the oldest segment was deleted. |
+| `COLLECTION_PAUSED` | A disk or read error paused collection (also ends an export whose read failed). |
+| `CONTAINER_UNREADABLE` | The container could not be read (Docker down, container missing or recreated); written after collection resumes. During the outage the stored logs are still served. |
+| `CAP_REDUCED` | The cap was lowered, or set to `0` under a running export. |
+
+`OVERSIZE` is reserved and never emitted: a line over the size limit is cut and flagged `truncated`.
+
+**Unavailable page.** A page with an unavailable reason carries no lines: `NOT_COLLECTING` (no ring, or cap `0`), `BUSY`
+(more than 4 requests in flight), `PLACEMENT_NOT_IN_LEASE`. `CONTAINER_MISSING` is reserved and not emitted.
+
+**Known limitation (follow-up M-2).** Collection resumes from the newest stored timestamp. After an agent restart, a line
+from the other stream that completed later than the stored maximum can be skipped; the window is milliseconds.
+
+**Privacy.** Nothing is redacted: stored and served lines are the container's output as written. Log text never goes to
+the agent's own log (only binding ids and error text do).
+
 ## Rollback
 
 - `preflight` — nothing to undo.
