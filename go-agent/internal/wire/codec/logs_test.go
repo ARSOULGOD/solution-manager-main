@@ -82,7 +82,7 @@ func TestLogPageEncodeKeepsGapsAndUnavailable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.GetLogPage().GetUnavailable() != pb.UnavailableReason_BUSY {
+	if p.GetLogPage().GetUnavailable() != pb.UnavailableReason_UNAVAILABLE_REASON_BUSY {
 		t.Fatalf("unavailable not on the wire: %+v", p)
 	}
 	if got := len(p.GetLogPage().GetGaps()); got != 1 {
@@ -97,7 +97,7 @@ func TestLogPageEncodeKeepsGapsAndUnavailable(t *testing.T) {
 	}
 	none := msg.LogPage{RequestID: "r"}
 	p, _ = EncodeLogUp(none)
-	if p.GetLogPage().GetUnavailable() != pb.UnavailableReason_UNAVAILABLE_NONE {
+	if p.GetLogPage().GetUnavailable() != pb.UnavailableReason_UNAVAILABLE_REASON_UNSPECIFIED {
 		t.Fatal("empty reason must be NONE")
 	}
 }
@@ -143,5 +143,72 @@ func TestUnknownLogsDownMessageIsAnError(t *testing.T) {
 	}
 	if _, err := EncodeLogUp(nil); err == nil {
 		t.Fatal("nil outbound must be an error")
+	}
+}
+
+func TestUnavailableReasonRoundTripAll(t *testing.T) {
+	for _, r := range []msg.UnavailableReason{msg.UnavailableNone, msg.UnavailableNotCollecting,
+		msg.UnavailableContainerMissing, msg.UnavailableBusy, msg.UnavailablePlacementNotLease} {
+		in := msg.LogPage{Envelope: msg.Envelope{MessageID: "m", SentAt: now}, RequestID: "r", Unavailable: r}
+		p, err := EncodeLogUp(in)
+		if err != nil {
+			t.Fatalf("%q: %v", r, err)
+		}
+		out, err := DecodeLogUp(p)
+		if err != nil {
+			t.Fatalf("%q: %v", r, err)
+		}
+		if !reflect.DeepEqual(out, in) {
+			t.Fatalf("%q: got %+v", r, out)
+		}
+	}
+}
+
+func TestUnknownUnavailableReasonIsAnError(t *testing.T) {
+	if _, err := EncodeLogUp(msg.LogPage{RequestID: "r", Unavailable: "BOGUS"}); err == nil {
+		t.Fatal("encode of unknown reason must fail")
+	}
+	p := &pb.LogUp{Msg: &pb.LogUp_LogPage{LogPage: &pb.LogPage{RequestId: "r", Unavailable: pb.UnavailableReason(99)}}}
+	if _, err := DecodeLogUp(p); err == nil {
+		t.Fatal("decode of unknown pb reason must fail")
+	}
+}
+
+func TestLogUpChunkRoundTrip(t *testing.T) {
+	in := msg.LogChunk{Envelope: msg.Envelope{MessageID: "m", SentAt: now}, RequestID: "r", Seq: 7,
+		Lines: []msg.LogLine{{TS: now, Stream: "stderr", Text: []byte("x"), Truncated: true}},
+		Gaps:  []msg.LogGap{{From: now, To: now.Add(time.Second), Reason: "CAP_REDUCED"}}, Final: true}
+	p, err := EncodeLogUp(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := DecodeLogUp(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(out, in) {
+		t.Fatalf("got %+v want %+v", out, in)
+	}
+	if _, err := DecodeLogUp(&pb.LogUp{}); err == nil {
+		t.Fatal("empty LogUp must fail")
+	}
+}
+
+func TestLogDownRoundTrip(t *testing.T) {
+	for _, in := range []msg.LogsInbound{msg.LogCredit{RequestID: "r", CreditsGranted: 5}, msg.LogCancel{RequestID: "r"}} {
+		p, err := EncodeLogDown(in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		out, err := DecodeLogDown(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(out, in) {
+			t.Fatalf("got %+v want %+v", out, in)
+		}
+	}
+	if _, err := DecodeLogDown(&pb.LogDown{}); err == nil {
+		t.Fatal("empty LogDown must fail")
 	}
 }

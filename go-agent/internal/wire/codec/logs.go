@@ -9,18 +9,41 @@ import (
 
 // ---- MI logs (plan 016) ----
 
-func unavailableToPB(r msg.UnavailableReason) pb.UnavailableReason {
-	if r == msg.UnavailableNone {
-		return pb.UnavailableReason_UNAVAILABLE_NONE
+// unavailableToPB maps explicitly (no name-string lookup). An unknown value is
+// an error, never silently "available": a page that claims lines exist when the
+// agent meant otherwise would mislead the gateway.
+func unavailableToPB(r msg.UnavailableReason) (pb.UnavailableReason, error) {
+	switch r {
+	case msg.UnavailableNone:
+		return pb.UnavailableReason_UNAVAILABLE_REASON_UNSPECIFIED, nil
+	case msg.UnavailableNotCollecting:
+		return pb.UnavailableReason_UNAVAILABLE_REASON_NOT_COLLECTING, nil
+	case msg.UnavailableContainerMissing:
+		return pb.UnavailableReason_UNAVAILABLE_REASON_CONTAINER_MISSING, nil
+	case msg.UnavailableBusy:
+		return pb.UnavailableReason_UNAVAILABLE_REASON_BUSY, nil
+	case msg.UnavailablePlacementNotLease:
+		return pb.UnavailableReason_UNAVAILABLE_REASON_PLACEMENT_NOT_IN_LEASE, nil
 	}
-	return pb.UnavailableReason(pb.UnavailableReason_value[string(r)])
+	return 0, fmt.Errorf("codec: unknown unavailable reason %q", string(r))
 }
 
-func unavailableFromPB(p pb.UnavailableReason) msg.UnavailableReason {
-	if p == pb.UnavailableReason_UNAVAILABLE_NONE {
-		return msg.UnavailableNone
+// unavailableFromPB is the inverse. A value this build does not know (a newer
+// peer) is an error rather than a guess; the caller drops the message.
+func unavailableFromPB(p pb.UnavailableReason) (msg.UnavailableReason, error) {
+	switch p {
+	case pb.UnavailableReason_UNAVAILABLE_REASON_UNSPECIFIED:
+		return msg.UnavailableNone, nil
+	case pb.UnavailableReason_UNAVAILABLE_REASON_NOT_COLLECTING:
+		return msg.UnavailableNotCollecting, nil
+	case pb.UnavailableReason_UNAVAILABLE_REASON_CONTAINER_MISSING:
+		return msg.UnavailableContainerMissing, nil
+	case pb.UnavailableReason_UNAVAILABLE_REASON_BUSY:
+		return msg.UnavailableBusy, nil
+	case pb.UnavailableReason_UNAVAILABLE_REASON_PLACEMENT_NOT_IN_LEASE:
+		return msg.UnavailablePlacementNotLease, nil
 	}
-	return msg.UnavailableReason(pb.UnavailableReason_name[int32(p)])
+	return "", fmt.Errorf("codec: unknown pb unavailable reason %d", int32(p))
 }
 
 func logLinesToPB(ls []msg.LogLine) []*pb.LogLine {
@@ -85,8 +108,12 @@ func logRequestFromPB(p *pb.LogRequest) msg.LogRequest {
 func EncodeLogUp(m msg.LogsOutbound) (*pb.LogUp, error) {
 	switch v := m.(type) {
 	case msg.LogPage:
+		un, err := unavailableToPB(v.Unavailable)
+		if err != nil {
+			return nil, err
+		}
 		return &pb.LogUp{Msg: &pb.LogUp_LogPage{LogPage: &pb.LogPage{
-			Envelope: envToPB(v.Envelope), RequestId: v.RequestID, Lines: logLinesToPB(v.Lines), Gaps: logGapsToPB(v.Gaps), Unavailable: unavailableToPB(v.Unavailable)}}}, nil
+			Envelope: envToPB(v.Envelope), RequestId: v.RequestID, Lines: logLinesToPB(v.Lines), Gaps: logGapsToPB(v.Gaps), Unavailable: un}}}, nil
 	case msg.LogChunk:
 		return &pb.LogUp{Msg: &pb.LogUp_LogChunk{LogChunk: &pb.LogChunk{
 			Envelope: envToPB(v.Envelope), RequestId: v.RequestID, Seq: v.Seq, Lines: logLinesToPB(v.Lines), Gaps: logGapsToPB(v.Gaps), Final: v.Final}}}, nil
@@ -115,7 +142,11 @@ func logUpFromPB(p *pb.LogUp) (msg.LogsOutbound, error) {
 	switch v := p.GetMsg().(type) {
 	case *pb.LogUp_LogPage:
 		g := v.LogPage
-		return msg.LogPage{Envelope: envFromPB(g.GetEnvelope()), RequestID: g.GetRequestId(), Lines: logLinesFromPB(g.GetLines()), Gaps: logGapsFromPB(g.GetGaps()), Unavailable: unavailableFromPB(g.GetUnavailable())}, nil
+		un, err := unavailableFromPB(g.GetUnavailable())
+		if err != nil {
+			return nil, err
+		}
+		return msg.LogPage{Envelope: envFromPB(g.GetEnvelope()), RequestID: g.GetRequestId(), Lines: logLinesFromPB(g.GetLines()), Gaps: logGapsFromPB(g.GetGaps()), Unavailable: un}, nil
 	case *pb.LogUp_LogChunk:
 		c := v.LogChunk
 		return msg.LogChunk{Envelope: envFromPB(c.GetEnvelope()), RequestID: c.GetRequestId(), Seq: c.GetSeq(), Lines: logLinesFromPB(c.GetLines()), Gaps: logGapsFromPB(c.GetGaps()), Final: c.GetFinal()}, nil

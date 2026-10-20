@@ -1022,28 +1022,28 @@ func (ProbeKind) EnumDescriptor() ([]byte, []int) {
 type UnavailableReason int32
 
 const (
-	UnavailableReason_UNAVAILABLE_NONE       UnavailableReason = 0
-	UnavailableReason_NOT_COLLECTING         UnavailableReason = 1
-	UnavailableReason_CONTAINER_MISSING      UnavailableReason = 2
-	UnavailableReason_BUSY                   UnavailableReason = 3
-	UnavailableReason_PLACEMENT_NOT_IN_LEASE UnavailableReason = 4
+	UnavailableReason_UNAVAILABLE_REASON_UNSPECIFIED            UnavailableReason = 0
+	UnavailableReason_UNAVAILABLE_REASON_NOT_COLLECTING         UnavailableReason = 1
+	UnavailableReason_UNAVAILABLE_REASON_CONTAINER_MISSING      UnavailableReason = 2
+	UnavailableReason_UNAVAILABLE_REASON_BUSY                   UnavailableReason = 3
+	UnavailableReason_UNAVAILABLE_REASON_PLACEMENT_NOT_IN_LEASE UnavailableReason = 4
 )
 
 // Enum value maps for UnavailableReason.
 var (
 	UnavailableReason_name = map[int32]string{
-		0: "UNAVAILABLE_NONE",
-		1: "NOT_COLLECTING",
-		2: "CONTAINER_MISSING",
-		3: "BUSY",
-		4: "PLACEMENT_NOT_IN_LEASE",
+		0: "UNAVAILABLE_REASON_UNSPECIFIED",
+		1: "UNAVAILABLE_REASON_NOT_COLLECTING",
+		2: "UNAVAILABLE_REASON_CONTAINER_MISSING",
+		3: "UNAVAILABLE_REASON_BUSY",
+		4: "UNAVAILABLE_REASON_PLACEMENT_NOT_IN_LEASE",
 	}
 	UnavailableReason_value = map[string]int32{
-		"UNAVAILABLE_NONE":       0,
-		"NOT_COLLECTING":         1,
-		"CONTAINER_MISSING":      2,
-		"BUSY":                   3,
-		"PLACEMENT_NOT_IN_LEASE": 4,
+		"UNAVAILABLE_REASON_UNSPECIFIED":            0,
+		"UNAVAILABLE_REASON_NOT_COLLECTING":         1,
+		"UNAVAILABLE_REASON_CONTAINER_MISSING":      2,
+		"UNAVAILABLE_REASON_BUSY":                   3,
+		"UNAVAILABLE_REASON_PLACEMENT_NOT_IN_LEASE": 4,
 	}
 )
 
@@ -6025,7 +6025,7 @@ func (x *LogPage) GetUnavailable() UnavailableReason {
 	if x != nil {
 		return x.Unavailable
 	}
-	return UnavailableReason_UNAVAILABLE_NONE
+	return UnavailableReason_UNAVAILABLE_REASON_UNSPECIFIED
 }
 
 // A chunk must fit Limits.max_batch_bytes.
@@ -6993,13 +6993,13 @@ const file_agent_gateway_proto_rawDesc = "" +
 	"\tProbeKind\x12\x1a\n" +
 	"\x16PROBE_KIND_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aPROBE_KIND_ACTUATOR_HEALTH\x10\x01\x12\x1a\n" +
-	"\x16PROBE_KIND_HTTP_STATUS\x10\x02*z\n" +
-	"\x11UnavailableReason\x12\x14\n" +
-	"\x10UNAVAILABLE_NONE\x10\x00\x12\x12\n" +
-	"\x0eNOT_COLLECTING\x10\x01\x12\x15\n" +
-	"\x11CONTAINER_MISSING\x10\x02\x12\b\n" +
-	"\x04BUSY\x10\x03\x12\x1a\n" +
-	"\x16PLACEMENT_NOT_IN_LEASE\x10\x042\xaf\x03\n" +
+	"\x16PROBE_KIND_HTTP_STATUS\x10\x02*\xd4\x01\n" +
+	"\x11UnavailableReason\x12\"\n" +
+	"\x1eUNAVAILABLE_REASON_UNSPECIFIED\x10\x00\x12%\n" +
+	"!UNAVAILABLE_REASON_NOT_COLLECTING\x10\x01\x12(\n" +
+	"$UNAVAILABLE_REASON_CONTAINER_MISSING\x10\x02\x12\x1b\n" +
+	"\x17UNAVAILABLE_REASON_BUSY\x10\x03\x12-\n" +
+	")UNAVAILABLE_REASON_PLACEMENT_NOT_IN_LEASE\x10\x042\xaf\x03\n" +
 	"\fAgentGateway\x12g\n" +
 	"\x06Enroll\x12-.solace.sm.agentgateway.v1draft.EnrollRequest\x1a..solace.sm.agentgateway.v1draft.EnrollResponse\x12m\n" +
 	"\aConnect\x12..solace.sm.agentgateway.v1draft.AgentToGateway\x1a..solace.sm.agentgateway.v1draft.GatewayToAgent(\x010\x01\x12k\n" +
