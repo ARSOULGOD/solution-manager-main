@@ -120,6 +120,9 @@ func (s *lineSplitter) Write(p []byte) (int, error) {
 }
 
 func (s *lineSplitter) hold(b []byte) {
+	if s.over {
+		return // the rest of an oversized line is discarded, never spliced on
+	}
 	room := maxHeldLine - len(s.buf)
 	if len(b) > room {
 		b, s.over = b[:max(room, 0)], true

@@ -328,3 +328,22 @@ func TestLiveLateCompletingOlderLineIsKept(t *testing.T) {
 	waitFor(t, "three lines", func() bool { return count(r) == 3 })
 	stop()
 }
+
+// Replay follows Docker's file order, which is not timestamp order: a newer line
+// can precede the replayed boundary line. The boundary must keep matching for
+// the whole replay.
+func TestBoundaryDedupeSurvivesNewerLineBeforeReplayedBoundary(t *testing.T) {
+	r := openRing(t, 1<<20)
+	r.Append(ln(1, "one"))
+	r.Append(ln(2, "two"))
+	src := &fakeSource{places: []runtime.Placement{{ContainerID: "c1"}},
+		sessions: []session{{lines: []msg.LogLine{ln(3, "three"), ln(2, "two")}}}}
+	stop := run(t, New(src, r, quiet(), noBackoff))
+	waitFor(t, "three stored", func() bool { return count(r) >= 3 })
+	time.Sleep(50 * time.Millisecond)
+	stop()
+	l, _ := page(t, r)
+	if got := texts(l); len(got) != 3 || got[0] != "one" || got[1] != "two" || got[2] != "three" {
+		t.Fatalf("got %v", got)
+	}
+}

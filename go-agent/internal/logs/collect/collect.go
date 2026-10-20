@@ -188,11 +188,9 @@ func (d *deduper) skip(l msg.LogLine) bool {
 	}
 	if !l.TS.Equal(d.last) {
 		// Not the boundary. A line that completed late may legitimately be older
-		// than the stored maximum, so age alone never drops a line; and once the
-		// stream moves past the boundary there is nothing left to dedupe.
-		if l.TS.After(d.last) {
-			d.has = false
-		}
+		// than the stored maximum, so age alone never drops a line. The boundary
+		// stays armed for the whole session: replay order is Docker's file
+		// order, so a newer line can precede the replayed boundary line.
 		return false
 	}
 	for i, s := range d.stored {

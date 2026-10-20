@@ -207,3 +207,16 @@ func mux(s string) []byte {
 	stdcopy.NewStdWriter(&b, stdcopy.Stdout).Write([]byte(s))
 	return b.Bytes()
 }
+
+func TestFollowLogsOversizedLineInManyWritesStaysValidUTF8(t *testing.T) {
+	var buf bytes.Buffer
+	so := stdcopy.NewStdWriter(&buf, stdcopy.Stdout)
+	so.Write(append([]byte("2026-10-01T10:00:00Z "), bytes.Repeat([]byte("x"), maxHeldLine-len("2026-10-01T10:00:00Z ")-1)...))
+	so.Write([]byte("\u00e9"))     // straddles the cut
+	so.Write([]byte("\xa9tail\n")) // later content of the same line must be discarded
+	lines, errs := New(logEngine(false, buf.Bytes(), nil)).FollowLogs(context.Background(), runtime.Placement{ContainerID: "c1"}, time.Time{})
+	got, err := drain(t, lines, errs)
+	if err != nil || len(got) != 1 || !got[0].Truncated || !utf8.Valid(got[0].Text) || bytes.HasSuffix(got[0].Text, []byte("tail")) {
+		t.Fatalf("%v %d", err, len(got))
+	}
+}
