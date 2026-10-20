@@ -35,6 +35,8 @@ const (
 	CapDiscovery     Capability = "discovery"
 	CapRematerialize Capability = "rematerialize"
 	CapDeclarations  Capability = "declarations"
+	// CapLogs: the agent collects MI container logs (plan 016).
+	CapLogs Capability = "logs"
 )
 
 // RequiredCapability mirrors gateway §4.6: apply-config for preflight/apply,
@@ -767,3 +769,95 @@ type TelemetryDeclarations struct {
 }
 
 func (TelemetryDeclarations) inbound() {}
+
+// ---- MI logs (plan 016): agent-collected container logs ----
+
+// LogRetention sets a placement's local log byte cap.
+type LogRetention struct {
+	Envelope
+	PlacementRef string
+	MaxBytes     uint64
+}
+
+func (LogRetention) inbound() {}
+
+// LogPageQuery asks for the newest Limit lines in (After, Before).
+type LogPageQuery struct {
+	Limit  uint32
+	After  *time.Time
+	Before *time.Time
+}
+
+// LogExportQuery asks for a streamed export starting at FromSeq.
+type LogExportQuery struct{ FromSeq uint64 }
+
+// LogRequest carries exactly one of Page or Export.
+type LogRequest struct {
+	Envelope
+	RequestID    string
+	PlacementRef string
+	Page         *LogPageQuery
+	Export       *LogExportQuery
+}
+
+func (LogRequest) inbound() {}
+
+type LogLine struct {
+	TS        time.Time
+	Stream    string
+	Text      []byte
+	Truncated bool
+}
+
+// LogGap reason: DROPPED_OLDEST | COLLECTION_PAUSED | OVERSIZE |
+// CONTAINER_UNREADABLE | CAP_REDUCED.
+type LogGap struct {
+	From, To time.Time
+	Reason   string
+}
+
+// UnavailableReason says why a LogPage carries no lines; "" means available.
+type UnavailableReason string
+
+const (
+	UnavailableNone              UnavailableReason = ""
+	UnavailableNotCollecting     UnavailableReason = "NOT_COLLECTING"
+	UnavailableContainerMissing  UnavailableReason = "CONTAINER_MISSING"
+	UnavailableBusy              UnavailableReason = "BUSY"
+	UnavailablePlacementNotLease UnavailableReason = "PLACEMENT_NOT_IN_LEASE"
+)
+
+// LogsOutbound is an agent → gateway message on the Logs stream.
+type LogsOutbound interface{ logsOutbound() }
+
+// LogsInbound is a gateway → agent message on the Logs stream.
+type LogsInbound interface{ logsInbound() }
+
+type LogPage struct {
+	Envelope
+	RequestID   string
+	Lines       []LogLine
+	Gaps        []LogGap
+	Unavailable UnavailableReason
+}
+
+type LogChunk struct {
+	Envelope
+	RequestID string
+	Seq       uint64
+	Lines     []LogLine
+	Gaps      []LogGap
+	Final     bool
+}
+
+type LogCredit struct {
+	RequestID      string
+	CreditsGranted uint32
+}
+
+type LogCancel struct{ RequestID string }
+
+func (LogPage) logsOutbound()  {}
+func (LogChunk) logsOutbound() {}
+func (LogCredit) logsInbound() {}
+func (LogCancel) logsInbound() {}

@@ -429,6 +429,10 @@ func GatewayToPB(m msg.Inbound) (*pb.GatewayToAgent, error) {
 		return &pb.GatewayToAgent{Msg: &pb.GatewayToAgent_DiscoveryAck{DiscoveryAck: discoveryAckToPB(v)}}, nil
 	case msg.TelemetryDeclarations:
 		return &pb.GatewayToAgent{Msg: &pb.GatewayToAgent_TelemetryDeclarations{TelemetryDeclarations: declarationsToPB(v)}}, nil
+	case msg.LogRetention:
+		return &pb.GatewayToAgent{Msg: &pb.GatewayToAgent_LogRetention{LogRetention: &pb.LogRetention{Envelope: envToPB(v.Envelope), PlacementRef: v.PlacementRef, MaxBytes: v.MaxBytes}}}, nil
+	case msg.LogRequest:
+		return &pb.GatewayToAgent{Msg: &pb.GatewayToAgent_LogRequest{LogRequest: logRequestToPB(v)}}, nil
 	}
 	return nil, fmt.Errorf("codec: unsupported inbound %T", m)
 }
@@ -488,6 +492,10 @@ func GatewayFromPB(p *pb.GatewayToAgent) (msg.Inbound, error) {
 		return discoveryAckFromPB(v.DiscoveryAck), nil
 	case *pb.GatewayToAgent_TelemetryDeclarations:
 		return declarationsFromPB(v.TelemetryDeclarations), nil
+	case *pb.GatewayToAgent_LogRetention:
+		return logRetentionFromPB(v.LogRetention), nil
+	case *pb.GatewayToAgent_LogRequest:
+		return logRequestFromPB(v.LogRequest), nil
 	}
 	return nil, fmt.Errorf("codec: unsupported gateway message %T", p.GetMsg())
 }
