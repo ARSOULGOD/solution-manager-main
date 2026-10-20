@@ -36,8 +36,8 @@ const (
 	maxSegSize = 1 << 20
 	maxGaps    = 256
 
-	reasonDroppedOldest = "DROPPED_OLDEST"
-	reasonCapReduced    = "CAP_REDUCED"
+	reasonDroppedOldest = msg.GapDroppedOldest
+	reasonCapReduced    = msg.GapCapReduced
 )
 
 var safeID = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
@@ -558,6 +558,13 @@ func (r *Ring) Close() error {
 	err := r.active.Close()
 	r.active = nil
 	return err
+}
+
+// Cap is the current byte cap; zero means collection is off.
+func (r *Ring) Cap() uint64 {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.cap
 }
 
 // LastTimestamp is the timestamp of the newest stored line.

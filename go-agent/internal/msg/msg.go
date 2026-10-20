@@ -810,7 +810,16 @@ type LogLine struct {
 }
 
 // LogGap reason: DROPPED_OLDEST | COLLECTION_PAUSED | OVERSIZE |
-// CONTAINER_UNREADABLE | CAP_REDUCED.
+// CONTAINER_UNREADABLE | CAP_REDUCED. Use the Gap* constants; they are the
+// single source of the vocabulary.
+const (
+	GapDroppedOldest       = "DROPPED_OLDEST"
+	GapCollectionPaused    = "COLLECTION_PAUSED"
+	GapOversize            = "OVERSIZE"
+	GapContainerUnreadable = "CONTAINER_UNREADABLE"
+	GapCapReduced          = "CAP_REDUCED"
+)
+
 type LogGap struct {
 	From, To time.Time
 	Reason   string
