@@ -212,6 +212,7 @@ const (
 	Capability_CAPABILITY_DISCOVERY     Capability = 4 // sends DiscoveryReport, understands DiscoveryAck
 	Capability_CAPABILITY_REMATERIALIZE Capability = 5 // understands OPERATION_REMATERIALIZE + expected_current_sha256
 	Capability_CAPABILITY_DECLARATIONS  Capability = 6 // understands TelemetryDeclarations
+	Capability_CAPABILITY_LOGS          Capability = 7 // agent-collected MI logs: understands LogRetention/LogRequest, opens the Logs RPC (plan 016 T1)
 )
 
 // Enum value maps for Capability.
@@ -224,6 +225,7 @@ var (
 		4: "CAPABILITY_DISCOVERY",
 		5: "CAPABILITY_REMATERIALIZE",
 		6: "CAPABILITY_DECLARATIONS",
+		7: "CAPABILITY_LOGS",
 	}
 	Capability_value = map[string]int32{
 		"CAPABILITY_UNSPECIFIED":   0,
@@ -233,6 +235,7 @@ var (
 		"CAPABILITY_DISCOVERY":     4,
 		"CAPABILITY_REMATERIALIZE": 5,
 		"CAPABILITY_DECLARATIONS":  6,
+		"CAPABILITY_LOGS":          7,
 	}
 )
 
@@ -1014,6 +1017,61 @@ func (x ProbeKind) Number() protoreflect.EnumNumber {
 // Deprecated: Use ProbeKind.Descriptor instead.
 func (ProbeKind) EnumDescriptor() ([]byte, []int) {
 	return file_agent_gateway_proto_rawDescGZIP(), []int{15}
+}
+
+type UnavailableReason int32
+
+const (
+	UnavailableReason_UNAVAILABLE_NONE       UnavailableReason = 0
+	UnavailableReason_NOT_COLLECTING         UnavailableReason = 1
+	UnavailableReason_CONTAINER_MISSING      UnavailableReason = 2
+	UnavailableReason_BUSY                   UnavailableReason = 3
+	UnavailableReason_PLACEMENT_NOT_IN_LEASE UnavailableReason = 4
+)
+
+// Enum value maps for UnavailableReason.
+var (
+	UnavailableReason_name = map[int32]string{
+		0: "UNAVAILABLE_NONE",
+		1: "NOT_COLLECTING",
+		2: "CONTAINER_MISSING",
+		3: "BUSY",
+		4: "PLACEMENT_NOT_IN_LEASE",
+	}
+	UnavailableReason_value = map[string]int32{
+		"UNAVAILABLE_NONE":       0,
+		"NOT_COLLECTING":         1,
+		"CONTAINER_MISSING":      2,
+		"BUSY":                   3,
+		"PLACEMENT_NOT_IN_LEASE": 4,
+	}
+)
+
+func (x UnavailableReason) Enum() *UnavailableReason {
+	p := new(UnavailableReason)
+	*p = x
+	return p
+}
+
+func (x UnavailableReason) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (UnavailableReason) Descriptor() protoreflect.EnumDescriptor {
+	return file_agent_gateway_proto_enumTypes[16].Descriptor()
+}
+
+func (UnavailableReason) Type() protoreflect.EnumType {
+	return &file_agent_gateway_proto_enumTypes[16]
+}
+
+func (x UnavailableReason) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use UnavailableReason.Descriptor instead.
+func (UnavailableReason) EnumDescriptor() ([]byte, []int) {
+	return file_agent_gateway_proto_rawDescGZIP(), []int{16}
 }
 
 type Envelope struct {
@@ -3851,6 +3909,8 @@ type GatewayToAgent struct {
 	//	*GatewayToAgent_Error
 	//	*GatewayToAgent_DiscoveryAck
 	//	*GatewayToAgent_TelemetryDeclarations
+	//	*GatewayToAgent_LogRetention
+	//	*GatewayToAgent_LogRequest
 	Msg           isGatewayToAgent_Msg `protobuf_oneof:"msg"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -4019,6 +4079,24 @@ func (x *GatewayToAgent) GetTelemetryDeclarations() *TelemetryDeclarations {
 	return nil
 }
 
+func (x *GatewayToAgent) GetLogRetention() *LogRetention {
+	if x != nil {
+		if x, ok := x.Msg.(*GatewayToAgent_LogRetention); ok {
+			return x.LogRetention
+		}
+	}
+	return nil
+}
+
+func (x *GatewayToAgent) GetLogRequest() *LogRequest {
+	if x != nil {
+		if x, ok := x.Msg.(*GatewayToAgent_LogRequest); ok {
+			return x.LogRequest
+		}
+	}
+	return nil
+}
+
 type isGatewayToAgent_Msg interface {
 	isGatewayToAgent_Msg()
 }
@@ -4079,6 +4157,14 @@ type GatewayToAgent_TelemetryDeclarations struct {
 	TelemetryDeclarations *TelemetryDeclarations `protobuf:"bytes,14,opt,name=telemetry_declarations,json=telemetryDeclarations,proto3,oneof"` // plan 015 T2.3 (e)
 }
 
+type GatewayToAgent_LogRetention struct {
+	LogRetention *LogRetention `protobuf:"bytes,15,opt,name=log_retention,json=logRetention,proto3,oneof"` // plan 016 T1
+}
+
+type GatewayToAgent_LogRequest struct {
+	LogRequest *LogRequest `protobuf:"bytes,16,opt,name=log_request,json=logRequest,proto3,oneof"` // plan 016 T1
+}
+
 func (*GatewayToAgent_SessionAccept) isGatewayToAgent_Msg() {}
 
 func (*GatewayToAgent_SessionReject) isGatewayToAgent_Msg() {}
@@ -4106,6 +4192,10 @@ func (*GatewayToAgent_Error) isGatewayToAgent_Msg() {}
 func (*GatewayToAgent_DiscoveryAck) isGatewayToAgent_Msg() {}
 
 func (*GatewayToAgent_TelemetryDeclarations) isGatewayToAgent_Msg() {}
+
+func (*GatewayToAgent_LogRetention) isGatewayToAgent_Msg() {}
+
+func (*GatewayToAgent_LogRequest) isGatewayToAgent_Msg() {}
 
 type Sample struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -5462,6 +5552,827 @@ func (x *TelemetryDeclarations) GetHealthProbe() *HealthProbe {
 	return nil
 }
 
+type LogRetention struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Envelope      *Envelope              `protobuf:"bytes,1,opt,name=envelope,proto3" json:"envelope,omitempty"`
+	PlacementRef  string                 `protobuf:"bytes,2,opt,name=placement_ref,json=placementRef,proto3" json:"placement_ref,omitempty"`
+	MaxBytes      uint64                 `protobuf:"varint,3,opt,name=max_bytes,json=maxBytes,proto3" json:"max_bytes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LogRetention) Reset() {
+	*x = LogRetention{}
+	mi := &file_agent_gateway_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LogRetention) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LogRetention) ProtoMessage() {}
+
+func (x *LogRetention) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_gateway_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LogRetention.ProtoReflect.Descriptor instead.
+func (*LogRetention) Descriptor() ([]byte, []int) {
+	return file_agent_gateway_proto_rawDescGZIP(), []int{55}
+}
+
+func (x *LogRetention) GetEnvelope() *Envelope {
+	if x != nil {
+		return x.Envelope
+	}
+	return nil
+}
+
+func (x *LogRetention) GetPlacementRef() string {
+	if x != nil {
+		return x.PlacementRef
+	}
+	return ""
+}
+
+func (x *LogRetention) GetMaxBytes() uint64 {
+	if x != nil {
+		return x.MaxBytes
+	}
+	return 0
+}
+
+type LogPageQuery struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Limit         uint32                 `protobuf:"varint,1,opt,name=limit,proto3" json:"limit,omitempty"`
+	After         *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=after,proto3,oneof" json:"after,omitempty"`
+	Before        *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=before,proto3,oneof" json:"before,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LogPageQuery) Reset() {
+	*x = LogPageQuery{}
+	mi := &file_agent_gateway_proto_msgTypes[56]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LogPageQuery) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LogPageQuery) ProtoMessage() {}
+
+func (x *LogPageQuery) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_gateway_proto_msgTypes[56]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LogPageQuery.ProtoReflect.Descriptor instead.
+func (*LogPageQuery) Descriptor() ([]byte, []int) {
+	return file_agent_gateway_proto_rawDescGZIP(), []int{56}
+}
+
+func (x *LogPageQuery) GetLimit() uint32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *LogPageQuery) GetAfter() *timestamppb.Timestamp {
+	if x != nil {
+		return x.After
+	}
+	return nil
+}
+
+func (x *LogPageQuery) GetBefore() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Before
+	}
+	return nil
+}
+
+type LogExportQuery struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	FromSeq       uint64                 `protobuf:"varint,1,opt,name=from_seq,json=fromSeq,proto3" json:"from_seq,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LogExportQuery) Reset() {
+	*x = LogExportQuery{}
+	mi := &file_agent_gateway_proto_msgTypes[57]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LogExportQuery) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LogExportQuery) ProtoMessage() {}
+
+func (x *LogExportQuery) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_gateway_proto_msgTypes[57]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LogExportQuery.ProtoReflect.Descriptor instead.
+func (*LogExportQuery) Descriptor() ([]byte, []int) {
+	return file_agent_gateway_proto_rawDescGZIP(), []int{57}
+}
+
+func (x *LogExportQuery) GetFromSeq() uint64 {
+	if x != nil {
+		return x.FromSeq
+	}
+	return 0
+}
+
+type LogRequest struct {
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Envelope     *Envelope              `protobuf:"bytes,1,opt,name=envelope,proto3" json:"envelope,omitempty"`
+	RequestId    string                 `protobuf:"bytes,2,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	PlacementRef string                 `protobuf:"bytes,3,opt,name=placement_ref,json=placementRef,proto3" json:"placement_ref,omitempty"`
+	// Types that are valid to be assigned to Mode:
+	//
+	//	*LogRequest_Page
+	//	*LogRequest_Export
+	Mode          isLogRequest_Mode `protobuf_oneof:"mode"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LogRequest) Reset() {
+	*x = LogRequest{}
+	mi := &file_agent_gateway_proto_msgTypes[58]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LogRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LogRequest) ProtoMessage() {}
+
+func (x *LogRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_gateway_proto_msgTypes[58]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LogRequest.ProtoReflect.Descriptor instead.
+func (*LogRequest) Descriptor() ([]byte, []int) {
+	return file_agent_gateway_proto_rawDescGZIP(), []int{58}
+}
+
+func (x *LogRequest) GetEnvelope() *Envelope {
+	if x != nil {
+		return x.Envelope
+	}
+	return nil
+}
+
+func (x *LogRequest) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *LogRequest) GetPlacementRef() string {
+	if x != nil {
+		return x.PlacementRef
+	}
+	return ""
+}
+
+func (x *LogRequest) GetMode() isLogRequest_Mode {
+	if x != nil {
+		return x.Mode
+	}
+	return nil
+}
+
+func (x *LogRequest) GetPage() *LogPageQuery {
+	if x != nil {
+		if x, ok := x.Mode.(*LogRequest_Page); ok {
+			return x.Page
+		}
+	}
+	return nil
+}
+
+func (x *LogRequest) GetExport() *LogExportQuery {
+	if x != nil {
+		if x, ok := x.Mode.(*LogRequest_Export); ok {
+			return x.Export
+		}
+	}
+	return nil
+}
+
+type isLogRequest_Mode interface {
+	isLogRequest_Mode()
+}
+
+type LogRequest_Page struct {
+	Page *LogPageQuery `protobuf:"bytes,4,opt,name=page,proto3,oneof"`
+}
+
+type LogRequest_Export struct {
+	Export *LogExportQuery `protobuf:"bytes,5,opt,name=export,proto3,oneof"`
+}
+
+func (*LogRequest_Page) isLogRequest_Mode() {}
+
+func (*LogRequest_Export) isLogRequest_Mode() {}
+
+type LogLine struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ts            *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=ts,proto3" json:"ts,omitempty"`
+	Stream        string                 `protobuf:"bytes,2,opt,name=stream,proto3" json:"stream,omitempty"`
+	Text          []byte                 `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"`
+	Truncated     bool                   `protobuf:"varint,4,opt,name=truncated,proto3" json:"truncated,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LogLine) Reset() {
+	*x = LogLine{}
+	mi := &file_agent_gateway_proto_msgTypes[59]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LogLine) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LogLine) ProtoMessage() {}
+
+func (x *LogLine) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_gateway_proto_msgTypes[59]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LogLine.ProtoReflect.Descriptor instead.
+func (*LogLine) Descriptor() ([]byte, []int) {
+	return file_agent_gateway_proto_rawDescGZIP(), []int{59}
+}
+
+func (x *LogLine) GetTs() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Ts
+	}
+	return nil
+}
+
+func (x *LogLine) GetStream() string {
+	if x != nil {
+		return x.Stream
+	}
+	return ""
+}
+
+func (x *LogLine) GetText() []byte {
+	if x != nil {
+		return x.Text
+	}
+	return nil
+}
+
+func (x *LogLine) GetTruncated() bool {
+	if x != nil {
+		return x.Truncated
+	}
+	return false
+}
+
+// reason: DROPPED_OLDEST | COLLECTION_PAUSED | OVERSIZE | CONTAINER_UNREADABLE | CAP_REDUCED
+type LogGap struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	From          *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=from,proto3" json:"from,omitempty"`
+	To            *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=to,proto3" json:"to,omitempty"`
+	Reason        string                 `protobuf:"bytes,3,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LogGap) Reset() {
+	*x = LogGap{}
+	mi := &file_agent_gateway_proto_msgTypes[60]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LogGap) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LogGap) ProtoMessage() {}
+
+func (x *LogGap) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_gateway_proto_msgTypes[60]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LogGap.ProtoReflect.Descriptor instead.
+func (*LogGap) Descriptor() ([]byte, []int) {
+	return file_agent_gateway_proto_rawDescGZIP(), []int{60}
+}
+
+func (x *LogGap) GetFrom() *timestamppb.Timestamp {
+	if x != nil {
+		return x.From
+	}
+	return nil
+}
+
+func (x *LogGap) GetTo() *timestamppb.Timestamp {
+	if x != nil {
+		return x.To
+	}
+	return nil
+}
+
+func (x *LogGap) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+// A page must fit Limits.max_message_bytes.
+type LogPage struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Envelope      *Envelope              `protobuf:"bytes,1,opt,name=envelope,proto3" json:"envelope,omitempty"`
+	RequestId     string                 `protobuf:"bytes,2,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	Lines         []*LogLine             `protobuf:"bytes,3,rep,name=lines,proto3" json:"lines,omitempty"`
+	Gaps          []*LogGap              `protobuf:"bytes,4,rep,name=gaps,proto3" json:"gaps,omitempty"`
+	Unavailable   UnavailableReason      `protobuf:"varint,5,opt,name=unavailable,proto3,enum=solace.sm.agentgateway.v1draft.UnavailableReason" json:"unavailable,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LogPage) Reset() {
+	*x = LogPage{}
+	mi := &file_agent_gateway_proto_msgTypes[61]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LogPage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LogPage) ProtoMessage() {}
+
+func (x *LogPage) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_gateway_proto_msgTypes[61]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LogPage.ProtoReflect.Descriptor instead.
+func (*LogPage) Descriptor() ([]byte, []int) {
+	return file_agent_gateway_proto_rawDescGZIP(), []int{61}
+}
+
+func (x *LogPage) GetEnvelope() *Envelope {
+	if x != nil {
+		return x.Envelope
+	}
+	return nil
+}
+
+func (x *LogPage) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *LogPage) GetLines() []*LogLine {
+	if x != nil {
+		return x.Lines
+	}
+	return nil
+}
+
+func (x *LogPage) GetGaps() []*LogGap {
+	if x != nil {
+		return x.Gaps
+	}
+	return nil
+}
+
+func (x *LogPage) GetUnavailable() UnavailableReason {
+	if x != nil {
+		return x.Unavailable
+	}
+	return UnavailableReason_UNAVAILABLE_NONE
+}
+
+// A chunk must fit Limits.max_batch_bytes.
+type LogChunk struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Envelope      *Envelope              `protobuf:"bytes,1,opt,name=envelope,proto3" json:"envelope,omitempty"`
+	RequestId     string                 `protobuf:"bytes,2,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	Seq           uint64                 `protobuf:"varint,3,opt,name=seq,proto3" json:"seq,omitempty"`
+	Lines         []*LogLine             `protobuf:"bytes,4,rep,name=lines,proto3" json:"lines,omitempty"`
+	Gaps          []*LogGap              `protobuf:"bytes,5,rep,name=gaps,proto3" json:"gaps,omitempty"`
+	Final         bool                   `protobuf:"varint,6,opt,name=final,proto3" json:"final,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LogChunk) Reset() {
+	*x = LogChunk{}
+	mi := &file_agent_gateway_proto_msgTypes[62]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LogChunk) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LogChunk) ProtoMessage() {}
+
+func (x *LogChunk) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_gateway_proto_msgTypes[62]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LogChunk.ProtoReflect.Descriptor instead.
+func (*LogChunk) Descriptor() ([]byte, []int) {
+	return file_agent_gateway_proto_rawDescGZIP(), []int{62}
+}
+
+func (x *LogChunk) GetEnvelope() *Envelope {
+	if x != nil {
+		return x.Envelope
+	}
+	return nil
+}
+
+func (x *LogChunk) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *LogChunk) GetSeq() uint64 {
+	if x != nil {
+		return x.Seq
+	}
+	return 0
+}
+
+func (x *LogChunk) GetLines() []*LogLine {
+	if x != nil {
+		return x.Lines
+	}
+	return nil
+}
+
+func (x *LogChunk) GetGaps() []*LogGap {
+	if x != nil {
+		return x.Gaps
+	}
+	return nil
+}
+
+func (x *LogChunk) GetFinal() bool {
+	if x != nil {
+		return x.Final
+	}
+	return false
+}
+
+type LogCredit struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	RequestId      string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	CreditsGranted uint32                 `protobuf:"varint,2,opt,name=credits_granted,json=creditsGranted,proto3" json:"credits_granted,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *LogCredit) Reset() {
+	*x = LogCredit{}
+	mi := &file_agent_gateway_proto_msgTypes[63]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LogCredit) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LogCredit) ProtoMessage() {}
+
+func (x *LogCredit) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_gateway_proto_msgTypes[63]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LogCredit.ProtoReflect.Descriptor instead.
+func (*LogCredit) Descriptor() ([]byte, []int) {
+	return file_agent_gateway_proto_rawDescGZIP(), []int{63}
+}
+
+func (x *LogCredit) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *LogCredit) GetCreditsGranted() uint32 {
+	if x != nil {
+		return x.CreditsGranted
+	}
+	return 0
+}
+
+type LogCancel struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RequestId     string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LogCancel) Reset() {
+	*x = LogCancel{}
+	mi := &file_agent_gateway_proto_msgTypes[64]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LogCancel) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LogCancel) ProtoMessage() {}
+
+func (x *LogCancel) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_gateway_proto_msgTypes[64]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LogCancel.ProtoReflect.Descriptor instead.
+func (*LogCancel) Descriptor() ([]byte, []int) {
+	return file_agent_gateway_proto_rawDescGZIP(), []int{64}
+}
+
+func (x *LogCancel) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+type LogUp struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Msg:
+	//
+	//	*LogUp_LogPage
+	//	*LogUp_LogChunk
+	Msg           isLogUp_Msg `protobuf_oneof:"msg"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LogUp) Reset() {
+	*x = LogUp{}
+	mi := &file_agent_gateway_proto_msgTypes[65]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LogUp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LogUp) ProtoMessage() {}
+
+func (x *LogUp) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_gateway_proto_msgTypes[65]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LogUp.ProtoReflect.Descriptor instead.
+func (*LogUp) Descriptor() ([]byte, []int) {
+	return file_agent_gateway_proto_rawDescGZIP(), []int{65}
+}
+
+func (x *LogUp) GetMsg() isLogUp_Msg {
+	if x != nil {
+		return x.Msg
+	}
+	return nil
+}
+
+func (x *LogUp) GetLogPage() *LogPage {
+	if x != nil {
+		if x, ok := x.Msg.(*LogUp_LogPage); ok {
+			return x.LogPage
+		}
+	}
+	return nil
+}
+
+func (x *LogUp) GetLogChunk() *LogChunk {
+	if x != nil {
+		if x, ok := x.Msg.(*LogUp_LogChunk); ok {
+			return x.LogChunk
+		}
+	}
+	return nil
+}
+
+type isLogUp_Msg interface {
+	isLogUp_Msg()
+}
+
+type LogUp_LogPage struct {
+	LogPage *LogPage `protobuf:"bytes,1,opt,name=log_page,json=logPage,proto3,oneof"`
+}
+
+type LogUp_LogChunk struct {
+	LogChunk *LogChunk `protobuf:"bytes,2,opt,name=log_chunk,json=logChunk,proto3,oneof"`
+}
+
+func (*LogUp_LogPage) isLogUp_Msg() {}
+
+func (*LogUp_LogChunk) isLogUp_Msg() {}
+
+type LogDown struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Msg:
+	//
+	//	*LogDown_LogCredit
+	//	*LogDown_LogCancel
+	Msg           isLogDown_Msg `protobuf_oneof:"msg"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LogDown) Reset() {
+	*x = LogDown{}
+	mi := &file_agent_gateway_proto_msgTypes[66]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LogDown) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LogDown) ProtoMessage() {}
+
+func (x *LogDown) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_gateway_proto_msgTypes[66]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LogDown.ProtoReflect.Descriptor instead.
+func (*LogDown) Descriptor() ([]byte, []int) {
+	return file_agent_gateway_proto_rawDescGZIP(), []int{66}
+}
+
+func (x *LogDown) GetMsg() isLogDown_Msg {
+	if x != nil {
+		return x.Msg
+	}
+	return nil
+}
+
+func (x *LogDown) GetLogCredit() *LogCredit {
+	if x != nil {
+		if x, ok := x.Msg.(*LogDown_LogCredit); ok {
+			return x.LogCredit
+		}
+	}
+	return nil
+}
+
+func (x *LogDown) GetLogCancel() *LogCancel {
+	if x != nil {
+		if x, ok := x.Msg.(*LogDown_LogCancel); ok {
+			return x.LogCancel
+		}
+	}
+	return nil
+}
+
+type isLogDown_Msg interface {
+	isLogDown_Msg()
+}
+
+type LogDown_LogCredit struct {
+	LogCredit *LogCredit `protobuf:"bytes,1,opt,name=log_credit,json=logCredit,proto3,oneof"`
+}
+
+type LogDown_LogCancel struct {
+	LogCancel *LogCancel `protobuf:"bytes,2,opt,name=log_cancel,json=logCancel,proto3,oneof"`
+}
+
+func (*LogDown_LogCredit) isLogDown_Msg() {}
+
+func (*LogDown_LogCancel) isLogDown_Msg() {}
+
 var File_agent_gateway_proto protoreflect.FileDescriptor
 
 const file_agent_gateway_proto_rawDesc = "" +
@@ -5754,7 +6665,8 @@ const file_agent_gateway_proto_rawDesc = "" +
 	"\x0edrain_complete\x18\n" +
 	" \x01(\v2-.solace.sm.agentgateway.v1draft.DrainCompleteH\x00R\rdrainComplete\x12\\\n" +
 	"\x10discovery_report\x18\v \x01(\v2/.solace.sm.agentgateway.v1draft.DiscoveryReportH\x00R\x0fdiscoveryReportB\x05\n" +
-	"\x03msg\"\xa8\t\n" +
+	"\x03msg\"\xcc\n" +
+	"\n" +
 	"\x0eGatewayToAgent\x12V\n" +
 	"\x0esession_accept\x18\x01 \x01(\v2-.solace.sm.agentgateway.v1draft.SessionAcceptH\x00R\rsessionAccept\x12V\n" +
 	"\x0esession_reject\x18\x02 \x01(\v2-.solace.sm.agentgateway.v1draft.SessionRejectH\x00R\rsessionReject\x12M\n" +
@@ -5772,7 +6684,10 @@ const file_agent_gateway_proto_rawDesc = "" +
 	"\bteardown\x18\v \x01(\v2(.solace.sm.agentgateway.v1draft.TeardownH\x00R\bteardown\x12=\n" +
 	"\x05error\x18\f \x01(\v2%.solace.sm.agentgateway.v1draft.ErrorH\x00R\x05error\x12S\n" +
 	"\rdiscovery_ack\x18\r \x01(\v2,.solace.sm.agentgateway.v1draft.DiscoveryAckH\x00R\fdiscoveryAck\x12n\n" +
-	"\x16telemetry_declarations\x18\x0e \x01(\v25.solace.sm.agentgateway.v1draft.TelemetryDeclarationsH\x00R\x15telemetryDeclarationsB\x05\n" +
+	"\x16telemetry_declarations\x18\x0e \x01(\v25.solace.sm.agentgateway.v1draft.TelemetryDeclarationsH\x00R\x15telemetryDeclarations\x12S\n" +
+	"\rlog_retention\x18\x0f \x01(\v2,.solace.sm.agentgateway.v1draft.LogRetentionH\x00R\flogRetention\x12M\n" +
+	"\vlog_request\x18\x10 \x01(\v2*.solace.sm.agentgateway.v1draft.LogRequestH\x00R\n" +
+	"logRequestB\x05\n" +
 	"\x03msg\"\xb0\x02\n" +
 	"\x06Sample\x12\x1d\n" +
 	"\n" +
@@ -5884,7 +6799,69 @@ const file_agent_gateway_proto_rawDesc = "" +
 	"binding_id\x18\x02 \x01(\tR\tbindingId\x125\n" +
 	"\binterval\x18\x03 \x01(\v2\x19.google.protobuf.DurationR\binterval\x12I\n" +
 	"\ametrics\x18\x04 \x03(\v2/.solace.sm.agentgateway.v1draft.TelemetryMetricR\ametrics\x12N\n" +
-	"\fhealth_probe\x18\x05 \x01(\v2+.solace.sm.agentgateway.v1draft.HealthProbeR\vhealthProbe*\xc2\n" +
+	"\fhealth_probe\x18\x05 \x01(\v2+.solace.sm.agentgateway.v1draft.HealthProbeR\vhealthProbe\"\x96\x01\n" +
+	"\fLogRetention\x12D\n" +
+	"\benvelope\x18\x01 \x01(\v2(.solace.sm.agentgateway.v1draft.EnvelopeR\benvelope\x12#\n" +
+	"\rplacement_ref\x18\x02 \x01(\tR\fplacementRef\x12\x1b\n" +
+	"\tmax_bytes\x18\x03 \x01(\x04R\bmaxBytes\"\xa9\x01\n" +
+	"\fLogPageQuery\x12\x14\n" +
+	"\x05limit\x18\x01 \x01(\rR\x05limit\x125\n" +
+	"\x05after\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\x05after\x88\x01\x01\x127\n" +
+	"\x06before\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampH\x01R\x06before\x88\x01\x01B\b\n" +
+	"\x06_afterB\t\n" +
+	"\a_before\"+\n" +
+	"\x0eLogExportQuery\x12\x19\n" +
+	"\bfrom_seq\x18\x01 \x01(\x04R\afromSeq\"\xac\x02\n" +
+	"\n" +
+	"LogRequest\x12D\n" +
+	"\benvelope\x18\x01 \x01(\v2(.solace.sm.agentgateway.v1draft.EnvelopeR\benvelope\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x02 \x01(\tR\trequestId\x12#\n" +
+	"\rplacement_ref\x18\x03 \x01(\tR\fplacementRef\x12B\n" +
+	"\x04page\x18\x04 \x01(\v2,.solace.sm.agentgateway.v1draft.LogPageQueryH\x00R\x04page\x12H\n" +
+	"\x06export\x18\x05 \x01(\v2..solace.sm.agentgateway.v1draft.LogExportQueryH\x00R\x06exportB\x06\n" +
+	"\x04mode\"\x7f\n" +
+	"\aLogLine\x12*\n" +
+	"\x02ts\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x02ts\x12\x16\n" +
+	"\x06stream\x18\x02 \x01(\tR\x06stream\x12\x12\n" +
+	"\x04text\x18\x03 \x01(\fR\x04text\x12\x1c\n" +
+	"\ttruncated\x18\x04 \x01(\bR\ttruncated\"|\n" +
+	"\x06LogGap\x12.\n" +
+	"\x04from\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x04from\x12*\n" +
+	"\x02to\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x02to\x12\x16\n" +
+	"\x06reason\x18\x03 \x01(\tR\x06reason\"\xbe\x02\n" +
+	"\aLogPage\x12D\n" +
+	"\benvelope\x18\x01 \x01(\v2(.solace.sm.agentgateway.v1draft.EnvelopeR\benvelope\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x02 \x01(\tR\trequestId\x12=\n" +
+	"\x05lines\x18\x03 \x03(\v2'.solace.sm.agentgateway.v1draft.LogLineR\x05lines\x12:\n" +
+	"\x04gaps\x18\x04 \x03(\v2&.solace.sm.agentgateway.v1draft.LogGapR\x04gaps\x12S\n" +
+	"\vunavailable\x18\x05 \x01(\x0e21.solace.sm.agentgateway.v1draft.UnavailableReasonR\vunavailable\"\x92\x02\n" +
+	"\bLogChunk\x12D\n" +
+	"\benvelope\x18\x01 \x01(\v2(.solace.sm.agentgateway.v1draft.EnvelopeR\benvelope\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x02 \x01(\tR\trequestId\x12\x10\n" +
+	"\x03seq\x18\x03 \x01(\x04R\x03seq\x12=\n" +
+	"\x05lines\x18\x04 \x03(\v2'.solace.sm.agentgateway.v1draft.LogLineR\x05lines\x12:\n" +
+	"\x04gaps\x18\x05 \x03(\v2&.solace.sm.agentgateway.v1draft.LogGapR\x04gaps\x12\x14\n" +
+	"\x05final\x18\x06 \x01(\bR\x05final\"S\n" +
+	"\tLogCredit\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\x12'\n" +
+	"\x0fcredits_granted\x18\x02 \x01(\rR\x0ecreditsGranted\"*\n" +
+	"\tLogCancel\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\"\x9d\x01\n" +
+	"\x05LogUp\x12D\n" +
+	"\blog_page\x18\x01 \x01(\v2'.solace.sm.agentgateway.v1draft.LogPageH\x00R\alogPage\x12G\n" +
+	"\tlog_chunk\x18\x02 \x01(\v2(.solace.sm.agentgateway.v1draft.LogChunkH\x00R\blogChunkB\x05\n" +
+	"\x03msg\"\xa8\x01\n" +
+	"\aLogDown\x12J\n" +
+	"\n" +
+	"log_credit\x18\x01 \x01(\v2).solace.sm.agentgateway.v1draft.LogCreditH\x00R\tlogCredit\x12J\n" +
+	"\n" +
+	"log_cancel\x18\x02 \x01(\v2).solace.sm.agentgateway.v1draft.LogCancelH\x00R\tlogCancelB\x05\n" +
+	"\x03msg*\xc2\n" +
 	"\n" +
 	"\tErrorCode\x12\x1a\n" +
 	"\x16ERROR_CODE_UNSPECIFIED\x10\x00\x12'\n" +
@@ -5927,7 +6904,7 @@ const file_agent_gateway_proto_rawDesc = "" +
 	"\x13ERROR_CODE_DRAINING\x10$\x12#\n" +
 	"\x1fERROR_CODE_INTERNAL_UNAVAILABLE\x10%\x12\x1b\n" +
 	"\x17ERROR_CODE_TARGET_MOVED\x10&\x12\x1d\n" +
-	"\x19ERROR_CODE_RENDER_CHANGED\x10'*\xd0\x01\n" +
+	"\x19ERROR_CODE_RENDER_CHANGED\x10'*\xe5\x01\n" +
 	"\n" +
 	"Capability\x12\x1a\n" +
 	"\x16CAPABILITY_UNSPECIFIED\x10\x00\x12\x1b\n" +
@@ -5936,7 +6913,8 @@ const file_agent_gateway_proto_rawDesc = "" +
 	"\x16CAPABILITY_REPORT_ONLY\x10\x03\x12\x18\n" +
 	"\x14CAPABILITY_DISCOVERY\x10\x04\x12\x1c\n" +
 	"\x18CAPABILITY_REMATERIALIZE\x10\x05\x12\x1b\n" +
-	"\x17CAPABILITY_DECLARATIONS\x10\x06*\x9c\x01\n" +
+	"\x17CAPABILITY_DECLARATIONS\x10\x06\x12\x13\n" +
+	"\x0fCAPABILITY_LOGS\x10\a*\x9c\x01\n" +
 	"\tOperation\x12\x19\n" +
 	"\x15OPERATION_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13OPERATION_PREFLIGHT\x10\x01\x12\x13\n" +
@@ -6015,11 +6993,18 @@ const file_agent_gateway_proto_rawDesc = "" +
 	"\tProbeKind\x12\x1a\n" +
 	"\x16PROBE_KIND_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aPROBE_KIND_ACTUATOR_HEALTH\x10\x01\x12\x1a\n" +
-	"\x16PROBE_KIND_HTTP_STATUS\x10\x022\xd3\x02\n" +
+	"\x16PROBE_KIND_HTTP_STATUS\x10\x02*z\n" +
+	"\x11UnavailableReason\x12\x14\n" +
+	"\x10UNAVAILABLE_NONE\x10\x00\x12\x12\n" +
+	"\x0eNOT_COLLECTING\x10\x01\x12\x15\n" +
+	"\x11CONTAINER_MISSING\x10\x02\x12\b\n" +
+	"\x04BUSY\x10\x03\x12\x1a\n" +
+	"\x16PLACEMENT_NOT_IN_LEASE\x10\x042\xaf\x03\n" +
 	"\fAgentGateway\x12g\n" +
 	"\x06Enroll\x12-.solace.sm.agentgateway.v1draft.EnrollRequest\x1a..solace.sm.agentgateway.v1draft.EnrollResponse\x12m\n" +
 	"\aConnect\x12..solace.sm.agentgateway.v1draft.AgentToGateway\x1a..solace.sm.agentgateway.v1draft.GatewayToAgent(\x010\x01\x12k\n" +
-	"\tTelemetry\x12+.solace.sm.agentgateway.v1draft.TelemetryUp\x1a-.solace.sm.agentgateway.v1draft.TelemetryDown(\x010\x01BAZ?github.com/solace/solution-manager/go-agent/internal/wire/pb;pbb\x06proto3"
+	"\tTelemetry\x12+.solace.sm.agentgateway.v1draft.TelemetryUp\x1a-.solace.sm.agentgateway.v1draft.TelemetryDown(\x010\x01\x12Z\n" +
+	"\x04Logs\x12%.solace.sm.agentgateway.v1draft.LogUp\x1a'.solace.sm.agentgateway.v1draft.LogDown(\x010\x01BAZ?github.com/solace/solution-manager/go-agent/internal/wire/pb;pbb\x06proto3"
 
 var (
 	file_agent_gateway_proto_rawDescOnce sync.Once
@@ -6033,8 +7018,8 @@ func file_agent_gateway_proto_rawDescGZIP() []byte {
 	return file_agent_gateway_proto_rawDescData
 }
 
-var file_agent_gateway_proto_enumTypes = make([]protoimpl.EnumInfo, 16)
-var file_agent_gateway_proto_msgTypes = make([]protoimpl.MessageInfo, 60)
+var file_agent_gateway_proto_enumTypes = make([]protoimpl.EnumInfo, 17)
+var file_agent_gateway_proto_msgTypes = make([]protoimpl.MessageInfo, 72)
 var file_agent_gateway_proto_goTypes = []any{
 	(ErrorCode)(0),                 // 0: solace.sm.agentgateway.v1draft.ErrorCode
 	(Capability)(0),                // 1: solace.sm.agentgateway.v1draft.Capability
@@ -6052,228 +7037,265 @@ var file_agent_gateway_proto_goTypes = []any{
 	(DiscoveryState)(0),            // 13: solace.sm.agentgateway.v1draft.DiscoveryState
 	(OnUnavailable)(0),             // 14: solace.sm.agentgateway.v1draft.OnUnavailable
 	(ProbeKind)(0),                 // 15: solace.sm.agentgateway.v1draft.ProbeKind
-	(*Envelope)(nil),               // 16: solace.sm.agentgateway.v1draft.Envelope
-	(*HostFacts)(nil),              // 17: solace.sm.agentgateway.v1draft.HostFacts
-	(*EnrollRequest)(nil),          // 18: solace.sm.agentgateway.v1draft.EnrollRequest
-	(*TrustBundle)(nil),            // 19: solace.sm.agentgateway.v1draft.TrustBundle
-	(*EnrollResponse)(nil),         // 20: solace.sm.agentgateway.v1draft.EnrollResponse
-	(*Resume)(nil),                 // 21: solace.sm.agentgateway.v1draft.Resume
-	(*SessionOpen)(nil),            // 22: solace.sm.agentgateway.v1draft.SessionOpen
-	(*Limits)(nil),                 // 23: solace.sm.agentgateway.v1draft.Limits
-	(*LeaseGrant)(nil),             // 24: solace.sm.agentgateway.v1draft.LeaseGrant
-	(*SessionAccept)(nil),          // 25: solace.sm.agentgateway.v1draft.SessionAccept
-	(*SessionReject)(nil),          // 26: solace.sm.agentgateway.v1draft.SessionReject
-	(*LeaseRenew)(nil),             // 27: solace.sm.agentgateway.v1draft.LeaseRenew
-	(*Revoke)(nil),                 // 28: solace.sm.agentgateway.v1draft.Revoke
-	(*GenerationAvailable)(nil),    // 29: solace.sm.agentgateway.v1draft.GenerationAvailable
-	(*OperationCorrelation)(nil),   // 30: solace.sm.agentgateway.v1draft.OperationCorrelation
-	(*CommandPull)(nil),            // 31: solace.sm.agentgateway.v1draft.CommandPull
-	(*CommandOffer)(nil),           // 32: solace.sm.agentgateway.v1draft.CommandOffer
-	(*CommandReceived)(nil),        // 33: solace.sm.agentgateway.v1draft.CommandReceived
-	(*PreflightResult)(nil),        // 34: solace.sm.agentgateway.v1draft.PreflightResult
-	(*AckDetail)(nil),              // 35: solace.sm.agentgateway.v1draft.AckDetail
-	(*CommandAck)(nil),             // 36: solace.sm.agentgateway.v1draft.CommandAck
-	(*ApplyProgress)(nil),          // 37: solace.sm.agentgateway.v1draft.ApplyProgress
-	(*VersionObservation)(nil),     // 38: solace.sm.agentgateway.v1draft.VersionObservation
-	(*ActualStateReport)(nil),      // 39: solace.sm.agentgateway.v1draft.ActualStateReport
-	(*ActualStateReportBatch)(nil), // 40: solace.sm.agentgateway.v1draft.ActualStateReportBatch
-	(*ReportResult)(nil),           // 41: solace.sm.agentgateway.v1draft.ReportResult
-	(*ReportAck)(nil),              // 42: solace.sm.agentgateway.v1draft.ReportAck
-	(*Heartbeat)(nil),              // 43: solace.sm.agentgateway.v1draft.Heartbeat
-	(*HeartbeatAck)(nil),           // 44: solace.sm.agentgateway.v1draft.HeartbeatAck
-	(*TrustBundleUpdate)(nil),      // 45: solace.sm.agentgateway.v1draft.TrustBundleUpdate
-	(*Drain)(nil),                  // 46: solace.sm.agentgateway.v1draft.Drain
-	(*DrainComplete)(nil),          // 47: solace.sm.agentgateway.v1draft.DrainComplete
-	(*Teardown)(nil),               // 48: solace.sm.agentgateway.v1draft.Teardown
-	(*Error)(nil),                  // 49: solace.sm.agentgateway.v1draft.Error
-	(*AgentToGateway)(nil),         // 50: solace.sm.agentgateway.v1draft.AgentToGateway
-	(*GatewayToAgent)(nil),         // 51: solace.sm.agentgateway.v1draft.GatewayToAgent
-	(*Sample)(nil),                 // 52: solace.sm.agentgateway.v1draft.Sample
-	(*GapMarker)(nil),              // 53: solace.sm.agentgateway.v1draft.GapMarker
-	(*TelemetryBatch)(nil),         // 54: solace.sm.agentgateway.v1draft.TelemetryBatch
-	(*TelemetryAck)(nil),           // 55: solace.sm.agentgateway.v1draft.TelemetryAck
-	(*TelemetryCredit)(nil),        // 56: solace.sm.agentgateway.v1draft.TelemetryCredit
-	(*TelemetryReject)(nil),        // 57: solace.sm.agentgateway.v1draft.TelemetryReject
-	(*TelemetryUp)(nil),            // 58: solace.sm.agentgateway.v1draft.TelemetryUp
-	(*TelemetryDown)(nil),          // 59: solace.sm.agentgateway.v1draft.TelemetryDown
-	(*HealthObservation)(nil),      // 60: solace.sm.agentgateway.v1draft.HealthObservation
-	(*DiscoveredMount)(nil),        // 61: solace.sm.agentgateway.v1draft.DiscoveredMount
-	(*DiscoveredPort)(nil),         // 62: solace.sm.agentgateway.v1draft.DiscoveredPort
-	(*DiscoveredContainer)(nil),    // 63: solace.sm.agentgateway.v1draft.DiscoveredContainer
-	(*DiscoveryReport)(nil),        // 64: solace.sm.agentgateway.v1draft.DiscoveryReport
-	(*DiscoveryResult)(nil),        // 65: solace.sm.agentgateway.v1draft.DiscoveryResult
-	(*DiscoveryAck)(nil),           // 66: solace.sm.agentgateway.v1draft.DiscoveryAck
-	(*HttpJsonSource)(nil),         // 67: solace.sm.agentgateway.v1draft.HttpJsonSource
-	(*TelemetryMetric)(nil),        // 68: solace.sm.agentgateway.v1draft.TelemetryMetric
-	(*HealthProbe)(nil),            // 69: solace.sm.agentgateway.v1draft.HealthProbe
-	(*TelemetryDeclarations)(nil),  // 70: solace.sm.agentgateway.v1draft.TelemetryDeclarations
-	nil,                            // 71: solace.sm.agentgateway.v1draft.Resume.LastAckedGenerationByBindingEntry
-	nil,                            // 72: solace.sm.agentgateway.v1draft.Resume.LastTelemetrySeqByStreamEntry
-	nil,                            // 73: solace.sm.agentgateway.v1draft.LeaseGrant.VerbCeilingsEntry
-	nil,                            // 74: solace.sm.agentgateway.v1draft.Sample.LabelsEntry
-	nil,                            // 75: solace.sm.agentgateway.v1draft.DiscoveredContainer.LabelsEntry
-	(*timestamppb.Timestamp)(nil),  // 76: google.protobuf.Timestamp
-	(*durationpb.Duration)(nil),    // 77: google.protobuf.Duration
+	(UnavailableReason)(0),         // 16: solace.sm.agentgateway.v1draft.UnavailableReason
+	(*Envelope)(nil),               // 17: solace.sm.agentgateway.v1draft.Envelope
+	(*HostFacts)(nil),              // 18: solace.sm.agentgateway.v1draft.HostFacts
+	(*EnrollRequest)(nil),          // 19: solace.sm.agentgateway.v1draft.EnrollRequest
+	(*TrustBundle)(nil),            // 20: solace.sm.agentgateway.v1draft.TrustBundle
+	(*EnrollResponse)(nil),         // 21: solace.sm.agentgateway.v1draft.EnrollResponse
+	(*Resume)(nil),                 // 22: solace.sm.agentgateway.v1draft.Resume
+	(*SessionOpen)(nil),            // 23: solace.sm.agentgateway.v1draft.SessionOpen
+	(*Limits)(nil),                 // 24: solace.sm.agentgateway.v1draft.Limits
+	(*LeaseGrant)(nil),             // 25: solace.sm.agentgateway.v1draft.LeaseGrant
+	(*SessionAccept)(nil),          // 26: solace.sm.agentgateway.v1draft.SessionAccept
+	(*SessionReject)(nil),          // 27: solace.sm.agentgateway.v1draft.SessionReject
+	(*LeaseRenew)(nil),             // 28: solace.sm.agentgateway.v1draft.LeaseRenew
+	(*Revoke)(nil),                 // 29: solace.sm.agentgateway.v1draft.Revoke
+	(*GenerationAvailable)(nil),    // 30: solace.sm.agentgateway.v1draft.GenerationAvailable
+	(*OperationCorrelation)(nil),   // 31: solace.sm.agentgateway.v1draft.OperationCorrelation
+	(*CommandPull)(nil),            // 32: solace.sm.agentgateway.v1draft.CommandPull
+	(*CommandOffer)(nil),           // 33: solace.sm.agentgateway.v1draft.CommandOffer
+	(*CommandReceived)(nil),        // 34: solace.sm.agentgateway.v1draft.CommandReceived
+	(*PreflightResult)(nil),        // 35: solace.sm.agentgateway.v1draft.PreflightResult
+	(*AckDetail)(nil),              // 36: solace.sm.agentgateway.v1draft.AckDetail
+	(*CommandAck)(nil),             // 37: solace.sm.agentgateway.v1draft.CommandAck
+	(*ApplyProgress)(nil),          // 38: solace.sm.agentgateway.v1draft.ApplyProgress
+	(*VersionObservation)(nil),     // 39: solace.sm.agentgateway.v1draft.VersionObservation
+	(*ActualStateReport)(nil),      // 40: solace.sm.agentgateway.v1draft.ActualStateReport
+	(*ActualStateReportBatch)(nil), // 41: solace.sm.agentgateway.v1draft.ActualStateReportBatch
+	(*ReportResult)(nil),           // 42: solace.sm.agentgateway.v1draft.ReportResult
+	(*ReportAck)(nil),              // 43: solace.sm.agentgateway.v1draft.ReportAck
+	(*Heartbeat)(nil),              // 44: solace.sm.agentgateway.v1draft.Heartbeat
+	(*HeartbeatAck)(nil),           // 45: solace.sm.agentgateway.v1draft.HeartbeatAck
+	(*TrustBundleUpdate)(nil),      // 46: solace.sm.agentgateway.v1draft.TrustBundleUpdate
+	(*Drain)(nil),                  // 47: solace.sm.agentgateway.v1draft.Drain
+	(*DrainComplete)(nil),          // 48: solace.sm.agentgateway.v1draft.DrainComplete
+	(*Teardown)(nil),               // 49: solace.sm.agentgateway.v1draft.Teardown
+	(*Error)(nil),                  // 50: solace.sm.agentgateway.v1draft.Error
+	(*AgentToGateway)(nil),         // 51: solace.sm.agentgateway.v1draft.AgentToGateway
+	(*GatewayToAgent)(nil),         // 52: solace.sm.agentgateway.v1draft.GatewayToAgent
+	(*Sample)(nil),                 // 53: solace.sm.agentgateway.v1draft.Sample
+	(*GapMarker)(nil),              // 54: solace.sm.agentgateway.v1draft.GapMarker
+	(*TelemetryBatch)(nil),         // 55: solace.sm.agentgateway.v1draft.TelemetryBatch
+	(*TelemetryAck)(nil),           // 56: solace.sm.agentgateway.v1draft.TelemetryAck
+	(*TelemetryCredit)(nil),        // 57: solace.sm.agentgateway.v1draft.TelemetryCredit
+	(*TelemetryReject)(nil),        // 58: solace.sm.agentgateway.v1draft.TelemetryReject
+	(*TelemetryUp)(nil),            // 59: solace.sm.agentgateway.v1draft.TelemetryUp
+	(*TelemetryDown)(nil),          // 60: solace.sm.agentgateway.v1draft.TelemetryDown
+	(*HealthObservation)(nil),      // 61: solace.sm.agentgateway.v1draft.HealthObservation
+	(*DiscoveredMount)(nil),        // 62: solace.sm.agentgateway.v1draft.DiscoveredMount
+	(*DiscoveredPort)(nil),         // 63: solace.sm.agentgateway.v1draft.DiscoveredPort
+	(*DiscoveredContainer)(nil),    // 64: solace.sm.agentgateway.v1draft.DiscoveredContainer
+	(*DiscoveryReport)(nil),        // 65: solace.sm.agentgateway.v1draft.DiscoveryReport
+	(*DiscoveryResult)(nil),        // 66: solace.sm.agentgateway.v1draft.DiscoveryResult
+	(*DiscoveryAck)(nil),           // 67: solace.sm.agentgateway.v1draft.DiscoveryAck
+	(*HttpJsonSource)(nil),         // 68: solace.sm.agentgateway.v1draft.HttpJsonSource
+	(*TelemetryMetric)(nil),        // 69: solace.sm.agentgateway.v1draft.TelemetryMetric
+	(*HealthProbe)(nil),            // 70: solace.sm.agentgateway.v1draft.HealthProbe
+	(*TelemetryDeclarations)(nil),  // 71: solace.sm.agentgateway.v1draft.TelemetryDeclarations
+	(*LogRetention)(nil),           // 72: solace.sm.agentgateway.v1draft.LogRetention
+	(*LogPageQuery)(nil),           // 73: solace.sm.agentgateway.v1draft.LogPageQuery
+	(*LogExportQuery)(nil),         // 74: solace.sm.agentgateway.v1draft.LogExportQuery
+	(*LogRequest)(nil),             // 75: solace.sm.agentgateway.v1draft.LogRequest
+	(*LogLine)(nil),                // 76: solace.sm.agentgateway.v1draft.LogLine
+	(*LogGap)(nil),                 // 77: solace.sm.agentgateway.v1draft.LogGap
+	(*LogPage)(nil),                // 78: solace.sm.agentgateway.v1draft.LogPage
+	(*LogChunk)(nil),               // 79: solace.sm.agentgateway.v1draft.LogChunk
+	(*LogCredit)(nil),              // 80: solace.sm.agentgateway.v1draft.LogCredit
+	(*LogCancel)(nil),              // 81: solace.sm.agentgateway.v1draft.LogCancel
+	(*LogUp)(nil),                  // 82: solace.sm.agentgateway.v1draft.LogUp
+	(*LogDown)(nil),                // 83: solace.sm.agentgateway.v1draft.LogDown
+	nil,                            // 84: solace.sm.agentgateway.v1draft.Resume.LastAckedGenerationByBindingEntry
+	nil,                            // 85: solace.sm.agentgateway.v1draft.Resume.LastTelemetrySeqByStreamEntry
+	nil,                            // 86: solace.sm.agentgateway.v1draft.LeaseGrant.VerbCeilingsEntry
+	nil,                            // 87: solace.sm.agentgateway.v1draft.Sample.LabelsEntry
+	nil,                            // 88: solace.sm.agentgateway.v1draft.DiscoveredContainer.LabelsEntry
+	(*timestamppb.Timestamp)(nil),  // 89: google.protobuf.Timestamp
+	(*durationpb.Duration)(nil),    // 90: google.protobuf.Duration
 }
 var file_agent_gateway_proto_depIdxs = []int32{
-	76,  // 0: solace.sm.agentgateway.v1draft.Envelope.sent_at:type_name -> google.protobuf.Timestamp
-	17,  // 1: solace.sm.agentgateway.v1draft.EnrollRequest.host_facts:type_name -> solace.sm.agentgateway.v1draft.HostFacts
-	76,  // 2: solace.sm.agentgateway.v1draft.TrustBundle.valid_from:type_name -> google.protobuf.Timestamp
-	76,  // 3: solace.sm.agentgateway.v1draft.TrustBundle.valid_to:type_name -> google.protobuf.Timestamp
-	19,  // 4: solace.sm.agentgateway.v1draft.EnrollResponse.trust_bundle:type_name -> solace.sm.agentgateway.v1draft.TrustBundle
-	71,  // 5: solace.sm.agentgateway.v1draft.Resume.last_acked_generation_by_binding:type_name -> solace.sm.agentgateway.v1draft.Resume.LastAckedGenerationByBindingEntry
-	72,  // 6: solace.sm.agentgateway.v1draft.Resume.last_telemetry_seq_by_stream:type_name -> solace.sm.agentgateway.v1draft.Resume.LastTelemetrySeqByStreamEntry
-	16,  // 7: solace.sm.agentgateway.v1draft.SessionOpen.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	89,  // 0: solace.sm.agentgateway.v1draft.Envelope.sent_at:type_name -> google.protobuf.Timestamp
+	18,  // 1: solace.sm.agentgateway.v1draft.EnrollRequest.host_facts:type_name -> solace.sm.agentgateway.v1draft.HostFacts
+	89,  // 2: solace.sm.agentgateway.v1draft.TrustBundle.valid_from:type_name -> google.protobuf.Timestamp
+	89,  // 3: solace.sm.agentgateway.v1draft.TrustBundle.valid_to:type_name -> google.protobuf.Timestamp
+	20,  // 4: solace.sm.agentgateway.v1draft.EnrollResponse.trust_bundle:type_name -> solace.sm.agentgateway.v1draft.TrustBundle
+	84,  // 5: solace.sm.agentgateway.v1draft.Resume.last_acked_generation_by_binding:type_name -> solace.sm.agentgateway.v1draft.Resume.LastAckedGenerationByBindingEntry
+	85,  // 6: solace.sm.agentgateway.v1draft.Resume.last_telemetry_seq_by_stream:type_name -> solace.sm.agentgateway.v1draft.Resume.LastTelemetrySeqByStreamEntry
+	17,  // 7: solace.sm.agentgateway.v1draft.SessionOpen.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
 	1,   // 8: solace.sm.agentgateway.v1draft.SessionOpen.capabilities_supported:type_name -> solace.sm.agentgateway.v1draft.Capability
-	21,  // 9: solace.sm.agentgateway.v1draft.SessionOpen.resume:type_name -> solace.sm.agentgateway.v1draft.Resume
-	76,  // 10: solace.sm.agentgateway.v1draft.SessionOpen.agent_clock:type_name -> google.protobuf.Timestamp
-	77,  // 11: solace.sm.agentgateway.v1draft.Limits.heartbeat_interval:type_name -> google.protobuf.Duration
-	77,  // 12: solace.sm.agentgateway.v1draft.Limits.keepalive_interval:type_name -> google.protobuf.Duration
-	77,  // 13: solace.sm.agentgateway.v1draft.Limits.skew_tolerance:type_name -> google.protobuf.Duration
-	77,  // 14: solace.sm.agentgateway.v1draft.Limits.report_interval:type_name -> google.protobuf.Duration
-	16,  // 15: solace.sm.agentgateway.v1draft.LeaseGrant.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	76,  // 16: solace.sm.agentgateway.v1draft.LeaseGrant.issued_at:type_name -> google.protobuf.Timestamp
-	76,  // 17: solace.sm.agentgateway.v1draft.LeaseGrant.expires_at:type_name -> google.protobuf.Timestamp
+	22,  // 9: solace.sm.agentgateway.v1draft.SessionOpen.resume:type_name -> solace.sm.agentgateway.v1draft.Resume
+	89,  // 10: solace.sm.agentgateway.v1draft.SessionOpen.agent_clock:type_name -> google.protobuf.Timestamp
+	90,  // 11: solace.sm.agentgateway.v1draft.Limits.heartbeat_interval:type_name -> google.protobuf.Duration
+	90,  // 12: solace.sm.agentgateway.v1draft.Limits.keepalive_interval:type_name -> google.protobuf.Duration
+	90,  // 13: solace.sm.agentgateway.v1draft.Limits.skew_tolerance:type_name -> google.protobuf.Duration
+	90,  // 14: solace.sm.agentgateway.v1draft.Limits.report_interval:type_name -> google.protobuf.Duration
+	17,  // 15: solace.sm.agentgateway.v1draft.LeaseGrant.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	89,  // 16: solace.sm.agentgateway.v1draft.LeaseGrant.issued_at:type_name -> google.protobuf.Timestamp
+	89,  // 17: solace.sm.agentgateway.v1draft.LeaseGrant.expires_at:type_name -> google.protobuf.Timestamp
 	1,   // 18: solace.sm.agentgateway.v1draft.LeaseGrant.capabilities:type_name -> solace.sm.agentgateway.v1draft.Capability
-	73,  // 19: solace.sm.agentgateway.v1draft.LeaseGrant.verb_ceilings:type_name -> solace.sm.agentgateway.v1draft.LeaseGrant.VerbCeilingsEntry
-	77,  // 20: solace.sm.agentgateway.v1draft.LeaseGrant.admission_margin:type_name -> google.protobuf.Duration
-	76,  // 21: solace.sm.agentgateway.v1draft.LeaseGrant.server_clock:type_name -> google.protobuf.Timestamp
-	16,  // 22: solace.sm.agentgateway.v1draft.SessionAccept.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	86,  // 19: solace.sm.agentgateway.v1draft.LeaseGrant.verb_ceilings:type_name -> solace.sm.agentgateway.v1draft.LeaseGrant.VerbCeilingsEntry
+	90,  // 20: solace.sm.agentgateway.v1draft.LeaseGrant.admission_margin:type_name -> google.protobuf.Duration
+	89,  // 21: solace.sm.agentgateway.v1draft.LeaseGrant.server_clock:type_name -> google.protobuf.Timestamp
+	17,  // 22: solace.sm.agentgateway.v1draft.SessionAccept.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
 	1,   // 23: solace.sm.agentgateway.v1draft.SessionAccept.required_capabilities:type_name -> solace.sm.agentgateway.v1draft.Capability
-	24,  // 24: solace.sm.agentgateway.v1draft.SessionAccept.lease:type_name -> solace.sm.agentgateway.v1draft.LeaseGrant
-	23,  // 25: solace.sm.agentgateway.v1draft.SessionAccept.limits:type_name -> solace.sm.agentgateway.v1draft.Limits
-	76,  // 26: solace.sm.agentgateway.v1draft.SessionAccept.server_clock:type_name -> google.protobuf.Timestamp
-	16,  // 27: solace.sm.agentgateway.v1draft.SessionReject.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	25,  // 24: solace.sm.agentgateway.v1draft.SessionAccept.lease:type_name -> solace.sm.agentgateway.v1draft.LeaseGrant
+	24,  // 25: solace.sm.agentgateway.v1draft.SessionAccept.limits:type_name -> solace.sm.agentgateway.v1draft.Limits
+	89,  // 26: solace.sm.agentgateway.v1draft.SessionAccept.server_clock:type_name -> google.protobuf.Timestamp
+	17,  // 27: solace.sm.agentgateway.v1draft.SessionReject.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
 	0,   // 28: solace.sm.agentgateway.v1draft.SessionReject.code:type_name -> solace.sm.agentgateway.v1draft.ErrorCode
-	77,  // 29: solace.sm.agentgateway.v1draft.SessionReject.retry_after:type_name -> google.protobuf.Duration
-	16,  // 30: solace.sm.agentgateway.v1draft.LeaseRenew.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	76,  // 31: solace.sm.agentgateway.v1draft.LeaseRenew.agent_clock:type_name -> google.protobuf.Timestamp
-	16,  // 32: solace.sm.agentgateway.v1draft.Revoke.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	16,  // 33: solace.sm.agentgateway.v1draft.GenerationAvailable.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	90,  // 29: solace.sm.agentgateway.v1draft.SessionReject.retry_after:type_name -> google.protobuf.Duration
+	17,  // 30: solace.sm.agentgateway.v1draft.LeaseRenew.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	89,  // 31: solace.sm.agentgateway.v1draft.LeaseRenew.agent_clock:type_name -> google.protobuf.Timestamp
+	17,  // 32: solace.sm.agentgateway.v1draft.Revoke.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	17,  // 33: solace.sm.agentgateway.v1draft.GenerationAvailable.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
 	2,   // 34: solace.sm.agentgateway.v1draft.GenerationAvailable.operation:type_name -> solace.sm.agentgateway.v1draft.Operation
-	76,  // 35: solace.sm.agentgateway.v1draft.GenerationAvailable.deadline:type_name -> google.protobuf.Timestamp
-	30,  // 36: solace.sm.agentgateway.v1draft.GenerationAvailable.correlation:type_name -> solace.sm.agentgateway.v1draft.OperationCorrelation
-	16,  // 37: solace.sm.agentgateway.v1draft.CommandPull.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	16,  // 38: solace.sm.agentgateway.v1draft.CommandOffer.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	89,  // 35: solace.sm.agentgateway.v1draft.GenerationAvailable.deadline:type_name -> google.protobuf.Timestamp
+	31,  // 36: solace.sm.agentgateway.v1draft.GenerationAvailable.correlation:type_name -> solace.sm.agentgateway.v1draft.OperationCorrelation
+	17,  // 37: solace.sm.agentgateway.v1draft.CommandPull.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	17,  // 38: solace.sm.agentgateway.v1draft.CommandOffer.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
 	2,   // 39: solace.sm.agentgateway.v1draft.CommandOffer.operation:type_name -> solace.sm.agentgateway.v1draft.Operation
-	76,  // 40: solace.sm.agentgateway.v1draft.CommandOffer.deadline:type_name -> google.protobuf.Timestamp
-	30,  // 41: solace.sm.agentgateway.v1draft.CommandOffer.correlation:type_name -> solace.sm.agentgateway.v1draft.OperationCorrelation
-	16,  // 42: solace.sm.agentgateway.v1draft.CommandReceived.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	89,  // 40: solace.sm.agentgateway.v1draft.CommandOffer.deadline:type_name -> google.protobuf.Timestamp
+	31,  // 41: solace.sm.agentgateway.v1draft.CommandOffer.correlation:type_name -> solace.sm.agentgateway.v1draft.OperationCorrelation
+	17,  // 42: solace.sm.agentgateway.v1draft.CommandReceived.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
 	8,   // 43: solace.sm.agentgateway.v1draft.AckDetail.code:type_name -> solace.sm.agentgateway.v1draft.AckDetailCode
 	0,   // 44: solace.sm.agentgateway.v1draft.AckDetail.error_code:type_name -> solace.sm.agentgateway.v1draft.ErrorCode
-	34,  // 45: solace.sm.agentgateway.v1draft.AckDetail.preflight_result:type_name -> solace.sm.agentgateway.v1draft.PreflightResult
-	16,  // 46: solace.sm.agentgateway.v1draft.CommandAck.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	35,  // 45: solace.sm.agentgateway.v1draft.AckDetail.preflight_result:type_name -> solace.sm.agentgateway.v1draft.PreflightResult
+	17,  // 46: solace.sm.agentgateway.v1draft.CommandAck.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
 	3,   // 47: solace.sm.agentgateway.v1draft.CommandAck.outcome:type_name -> solace.sm.agentgateway.v1draft.Outcome
-	35,  // 48: solace.sm.agentgateway.v1draft.CommandAck.detail:type_name -> solace.sm.agentgateway.v1draft.AckDetail
-	76,  // 49: solace.sm.agentgateway.v1draft.CommandAck.agent_clock:type_name -> google.protobuf.Timestamp
-	76,  // 50: solace.sm.agentgateway.v1draft.CommandAck.container_started_at:type_name -> google.protobuf.Timestamp
-	16,  // 51: solace.sm.agentgateway.v1draft.ApplyProgress.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	36,  // 48: solace.sm.agentgateway.v1draft.CommandAck.detail:type_name -> solace.sm.agentgateway.v1draft.AckDetail
+	89,  // 49: solace.sm.agentgateway.v1draft.CommandAck.agent_clock:type_name -> google.protobuf.Timestamp
+	89,  // 50: solace.sm.agentgateway.v1draft.CommandAck.container_started_at:type_name -> google.protobuf.Timestamp
+	17,  // 51: solace.sm.agentgateway.v1draft.ApplyProgress.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
 	4,   // 52: solace.sm.agentgateway.v1draft.ApplyProgress.step:type_name -> solace.sm.agentgateway.v1draft.ProgressStep
-	76,  // 53: solace.sm.agentgateway.v1draft.ApplyProgress.at:type_name -> google.protobuf.Timestamp
-	76,  // 54: solace.sm.agentgateway.v1draft.ActualStateReport.restart_observed_at:type_name -> google.protobuf.Timestamp
-	38,  // 55: solace.sm.agentgateway.v1draft.ActualStateReport.version_observation:type_name -> solace.sm.agentgateway.v1draft.VersionObservation
-	30,  // 56: solace.sm.agentgateway.v1draft.ActualStateReport.correlation:type_name -> solace.sm.agentgateway.v1draft.OperationCorrelation
-	60,  // 57: solace.sm.agentgateway.v1draft.ActualStateReport.health:type_name -> solace.sm.agentgateway.v1draft.HealthObservation
-	76,  // 58: solace.sm.agentgateway.v1draft.ActualStateReport.container_started_at:type_name -> google.protobuf.Timestamp
-	16,  // 59: solace.sm.agentgateway.v1draft.ActualStateReportBatch.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	39,  // 60: solace.sm.agentgateway.v1draft.ActualStateReportBatch.items:type_name -> solace.sm.agentgateway.v1draft.ActualStateReport
+	89,  // 53: solace.sm.agentgateway.v1draft.ApplyProgress.at:type_name -> google.protobuf.Timestamp
+	89,  // 54: solace.sm.agentgateway.v1draft.ActualStateReport.restart_observed_at:type_name -> google.protobuf.Timestamp
+	39,  // 55: solace.sm.agentgateway.v1draft.ActualStateReport.version_observation:type_name -> solace.sm.agentgateway.v1draft.VersionObservation
+	31,  // 56: solace.sm.agentgateway.v1draft.ActualStateReport.correlation:type_name -> solace.sm.agentgateway.v1draft.OperationCorrelation
+	61,  // 57: solace.sm.agentgateway.v1draft.ActualStateReport.health:type_name -> solace.sm.agentgateway.v1draft.HealthObservation
+	89,  // 58: solace.sm.agentgateway.v1draft.ActualStateReport.container_started_at:type_name -> google.protobuf.Timestamp
+	17,  // 59: solace.sm.agentgateway.v1draft.ActualStateReportBatch.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	40,  // 60: solace.sm.agentgateway.v1draft.ActualStateReportBatch.items:type_name -> solace.sm.agentgateway.v1draft.ActualStateReport
 	5,   // 61: solace.sm.agentgateway.v1draft.ReportResult.trust:type_name -> solace.sm.agentgateway.v1draft.Trust
 	6,   // 62: solace.sm.agentgateway.v1draft.ReportResult.disposition:type_name -> solace.sm.agentgateway.v1draft.Disposition
 	0,   // 63: solace.sm.agentgateway.v1draft.ReportResult.refused_reason:type_name -> solace.sm.agentgateway.v1draft.ErrorCode
-	16,  // 64: solace.sm.agentgateway.v1draft.ReportAck.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	41,  // 65: solace.sm.agentgateway.v1draft.ReportAck.results:type_name -> solace.sm.agentgateway.v1draft.ReportResult
-	16,  // 66: solace.sm.agentgateway.v1draft.Heartbeat.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	76,  // 67: solace.sm.agentgateway.v1draft.Heartbeat.agent_clock:type_name -> google.protobuf.Timestamp
-	77,  // 68: solace.sm.agentgateway.v1draft.Heartbeat.lease_remaining_at_send:type_name -> google.protobuf.Duration
-	16,  // 69: solace.sm.agentgateway.v1draft.HeartbeatAck.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	76,  // 70: solace.sm.agentgateway.v1draft.HeartbeatAck.server_clock:type_name -> google.protobuf.Timestamp
+	17,  // 64: solace.sm.agentgateway.v1draft.ReportAck.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	42,  // 65: solace.sm.agentgateway.v1draft.ReportAck.results:type_name -> solace.sm.agentgateway.v1draft.ReportResult
+	17,  // 66: solace.sm.agentgateway.v1draft.Heartbeat.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	89,  // 67: solace.sm.agentgateway.v1draft.Heartbeat.agent_clock:type_name -> google.protobuf.Timestamp
+	90,  // 68: solace.sm.agentgateway.v1draft.Heartbeat.lease_remaining_at_send:type_name -> google.protobuf.Duration
+	17,  // 69: solace.sm.agentgateway.v1draft.HeartbeatAck.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	89,  // 70: solace.sm.agentgateway.v1draft.HeartbeatAck.server_clock:type_name -> google.protobuf.Timestamp
 	7,   // 71: solace.sm.agentgateway.v1draft.HeartbeatAck.clock_state:type_name -> solace.sm.agentgateway.v1draft.ClockState
-	16,  // 72: solace.sm.agentgateway.v1draft.TrustBundleUpdate.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	19,  // 73: solace.sm.agentgateway.v1draft.TrustBundleUpdate.trust_bundle:type_name -> solace.sm.agentgateway.v1draft.TrustBundle
-	16,  // 74: solace.sm.agentgateway.v1draft.Drain.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	77,  // 75: solace.sm.agentgateway.v1draft.Drain.reconnect_after:type_name -> google.protobuf.Duration
-	77,  // 76: solace.sm.agentgateway.v1draft.Drain.deadline:type_name -> google.protobuf.Duration
-	16,  // 77: solace.sm.agentgateway.v1draft.DrainComplete.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	16,  // 78: solace.sm.agentgateway.v1draft.Teardown.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	16,  // 79: solace.sm.agentgateway.v1draft.Error.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	17,  // 72: solace.sm.agentgateway.v1draft.TrustBundleUpdate.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	20,  // 73: solace.sm.agentgateway.v1draft.TrustBundleUpdate.trust_bundle:type_name -> solace.sm.agentgateway.v1draft.TrustBundle
+	17,  // 74: solace.sm.agentgateway.v1draft.Drain.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	90,  // 75: solace.sm.agentgateway.v1draft.Drain.reconnect_after:type_name -> google.protobuf.Duration
+	90,  // 76: solace.sm.agentgateway.v1draft.Drain.deadline:type_name -> google.protobuf.Duration
+	17,  // 77: solace.sm.agentgateway.v1draft.DrainComplete.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	17,  // 78: solace.sm.agentgateway.v1draft.Teardown.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	17,  // 79: solace.sm.agentgateway.v1draft.Error.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
 	0,   // 80: solace.sm.agentgateway.v1draft.Error.code:type_name -> solace.sm.agentgateway.v1draft.ErrorCode
-	77,  // 81: solace.sm.agentgateway.v1draft.Error.retry_after:type_name -> google.protobuf.Duration
-	22,  // 82: solace.sm.agentgateway.v1draft.AgentToGateway.session_open:type_name -> solace.sm.agentgateway.v1draft.SessionOpen
-	27,  // 83: solace.sm.agentgateway.v1draft.AgentToGateway.lease_renew:type_name -> solace.sm.agentgateway.v1draft.LeaseRenew
-	31,  // 84: solace.sm.agentgateway.v1draft.AgentToGateway.command_pull:type_name -> solace.sm.agentgateway.v1draft.CommandPull
-	33,  // 85: solace.sm.agentgateway.v1draft.AgentToGateway.command_received:type_name -> solace.sm.agentgateway.v1draft.CommandReceived
-	36,  // 86: solace.sm.agentgateway.v1draft.AgentToGateway.command_ack:type_name -> solace.sm.agentgateway.v1draft.CommandAck
-	37,  // 87: solace.sm.agentgateway.v1draft.AgentToGateway.apply_progress:type_name -> solace.sm.agentgateway.v1draft.ApplyProgress
-	40,  // 88: solace.sm.agentgateway.v1draft.AgentToGateway.actual_state_report_batch:type_name -> solace.sm.agentgateway.v1draft.ActualStateReportBatch
-	43,  // 89: solace.sm.agentgateway.v1draft.AgentToGateway.heartbeat:type_name -> solace.sm.agentgateway.v1draft.Heartbeat
-	48,  // 90: solace.sm.agentgateway.v1draft.AgentToGateway.teardown:type_name -> solace.sm.agentgateway.v1draft.Teardown
-	47,  // 91: solace.sm.agentgateway.v1draft.AgentToGateway.drain_complete:type_name -> solace.sm.agentgateway.v1draft.DrainComplete
-	64,  // 92: solace.sm.agentgateway.v1draft.AgentToGateway.discovery_report:type_name -> solace.sm.agentgateway.v1draft.DiscoveryReport
-	25,  // 93: solace.sm.agentgateway.v1draft.GatewayToAgent.session_accept:type_name -> solace.sm.agentgateway.v1draft.SessionAccept
-	26,  // 94: solace.sm.agentgateway.v1draft.GatewayToAgent.session_reject:type_name -> solace.sm.agentgateway.v1draft.SessionReject
-	24,  // 95: solace.sm.agentgateway.v1draft.GatewayToAgent.lease_grant:type_name -> solace.sm.agentgateway.v1draft.LeaseGrant
-	28,  // 96: solace.sm.agentgateway.v1draft.GatewayToAgent.revoke:type_name -> solace.sm.agentgateway.v1draft.Revoke
-	29,  // 97: solace.sm.agentgateway.v1draft.GatewayToAgent.generation_available:type_name -> solace.sm.agentgateway.v1draft.GenerationAvailable
-	32,  // 98: solace.sm.agentgateway.v1draft.GatewayToAgent.command_offer:type_name -> solace.sm.agentgateway.v1draft.CommandOffer
-	42,  // 99: solace.sm.agentgateway.v1draft.GatewayToAgent.report_ack:type_name -> solace.sm.agentgateway.v1draft.ReportAck
-	44,  // 100: solace.sm.agentgateway.v1draft.GatewayToAgent.heartbeat_ack:type_name -> solace.sm.agentgateway.v1draft.HeartbeatAck
-	45,  // 101: solace.sm.agentgateway.v1draft.GatewayToAgent.trust_bundle_update:type_name -> solace.sm.agentgateway.v1draft.TrustBundleUpdate
-	46,  // 102: solace.sm.agentgateway.v1draft.GatewayToAgent.drain:type_name -> solace.sm.agentgateway.v1draft.Drain
-	48,  // 103: solace.sm.agentgateway.v1draft.GatewayToAgent.teardown:type_name -> solace.sm.agentgateway.v1draft.Teardown
-	49,  // 104: solace.sm.agentgateway.v1draft.GatewayToAgent.error:type_name -> solace.sm.agentgateway.v1draft.Error
-	66,  // 105: solace.sm.agentgateway.v1draft.GatewayToAgent.discovery_ack:type_name -> solace.sm.agentgateway.v1draft.DiscoveryAck
-	70,  // 106: solace.sm.agentgateway.v1draft.GatewayToAgent.telemetry_declarations:type_name -> solace.sm.agentgateway.v1draft.TelemetryDeclarations
-	9,   // 107: solace.sm.agentgateway.v1draft.Sample.type:type_name -> solace.sm.agentgateway.v1draft.MetricType
-	76,  // 108: solace.sm.agentgateway.v1draft.Sample.ts:type_name -> google.protobuf.Timestamp
-	74,  // 109: solace.sm.agentgateway.v1draft.Sample.labels:type_name -> solace.sm.agentgateway.v1draft.Sample.LabelsEntry
-	16,  // 110: solace.sm.agentgateway.v1draft.TelemetryBatch.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	52,  // 111: solace.sm.agentgateway.v1draft.TelemetryBatch.samples:type_name -> solace.sm.agentgateway.v1draft.Sample
-	53,  // 112: solace.sm.agentgateway.v1draft.TelemetryBatch.gap_markers:type_name -> solace.sm.agentgateway.v1draft.GapMarker
-	76,  // 113: solace.sm.agentgateway.v1draft.TelemetryBatch.produced_at:type_name -> google.protobuf.Timestamp
-	16,  // 114: solace.sm.agentgateway.v1draft.TelemetryAck.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	16,  // 115: solace.sm.agentgateway.v1draft.TelemetryCredit.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	16,  // 116: solace.sm.agentgateway.v1draft.TelemetryReject.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	0,   // 117: solace.sm.agentgateway.v1draft.TelemetryReject.code:type_name -> solace.sm.agentgateway.v1draft.ErrorCode
-	77,  // 118: solace.sm.agentgateway.v1draft.TelemetryReject.retry_after:type_name -> google.protobuf.Duration
-	16,  // 119: solace.sm.agentgateway.v1draft.TelemetryUp.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	54,  // 120: solace.sm.agentgateway.v1draft.TelemetryUp.telemetry_batch:type_name -> solace.sm.agentgateway.v1draft.TelemetryBatch
-	16,  // 121: solace.sm.agentgateway.v1draft.TelemetryDown.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	55,  // 122: solace.sm.agentgateway.v1draft.TelemetryDown.telemetry_ack:type_name -> solace.sm.agentgateway.v1draft.TelemetryAck
-	56,  // 123: solace.sm.agentgateway.v1draft.TelemetryDown.telemetry_credit:type_name -> solace.sm.agentgateway.v1draft.TelemetryCredit
-	57,  // 124: solace.sm.agentgateway.v1draft.TelemetryDown.telemetry_reject:type_name -> solace.sm.agentgateway.v1draft.TelemetryReject
-	10,  // 125: solace.sm.agentgateway.v1draft.HealthObservation.state:type_name -> solace.sm.agentgateway.v1draft.HealthState
-	76,  // 126: solace.sm.agentgateway.v1draft.HealthObservation.observed_at:type_name -> google.protobuf.Timestamp
-	11,  // 127: solace.sm.agentgateway.v1draft.HealthObservation.probe_strength:type_name -> solace.sm.agentgateway.v1draft.ProbeStrength
-	12,  // 128: solace.sm.agentgateway.v1draft.HealthObservation.failure:type_name -> solace.sm.agentgateway.v1draft.ProbeFailure
-	75,  // 129: solace.sm.agentgateway.v1draft.DiscoveredContainer.labels:type_name -> solace.sm.agentgateway.v1draft.DiscoveredContainer.LabelsEntry
-	61,  // 130: solace.sm.agentgateway.v1draft.DiscoveredContainer.mounts:type_name -> solace.sm.agentgateway.v1draft.DiscoveredMount
-	62,  // 131: solace.sm.agentgateway.v1draft.DiscoveredContainer.published_ports:type_name -> solace.sm.agentgateway.v1draft.DiscoveredPort
-	16,  // 132: solace.sm.agentgateway.v1draft.DiscoveryReport.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	63,  // 133: solace.sm.agentgateway.v1draft.DiscoveryReport.items:type_name -> solace.sm.agentgateway.v1draft.DiscoveredContainer
-	13,  // 134: solace.sm.agentgateway.v1draft.DiscoveryResult.state:type_name -> solace.sm.agentgateway.v1draft.DiscoveryState
-	16,  // 135: solace.sm.agentgateway.v1draft.DiscoveryAck.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	65,  // 136: solace.sm.agentgateway.v1draft.DiscoveryAck.results:type_name -> solace.sm.agentgateway.v1draft.DiscoveryResult
-	14,  // 137: solace.sm.agentgateway.v1draft.HttpJsonSource.on_unavailable:type_name -> solace.sm.agentgateway.v1draft.OnUnavailable
-	9,   // 138: solace.sm.agentgateway.v1draft.TelemetryMetric.metric_type:type_name -> solace.sm.agentgateway.v1draft.MetricType
-	67,  // 139: solace.sm.agentgateway.v1draft.TelemetryMetric.http_json:type_name -> solace.sm.agentgateway.v1draft.HttpJsonSource
-	15,  // 140: solace.sm.agentgateway.v1draft.HealthProbe.kind:type_name -> solace.sm.agentgateway.v1draft.ProbeKind
-	11,  // 141: solace.sm.agentgateway.v1draft.HealthProbe.strength:type_name -> solace.sm.agentgateway.v1draft.ProbeStrength
-	16,  // 142: solace.sm.agentgateway.v1draft.TelemetryDeclarations.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	77,  // 143: solace.sm.agentgateway.v1draft.TelemetryDeclarations.interval:type_name -> google.protobuf.Duration
-	68,  // 144: solace.sm.agentgateway.v1draft.TelemetryDeclarations.metrics:type_name -> solace.sm.agentgateway.v1draft.TelemetryMetric
-	69,  // 145: solace.sm.agentgateway.v1draft.TelemetryDeclarations.health_probe:type_name -> solace.sm.agentgateway.v1draft.HealthProbe
-	77,  // 146: solace.sm.agentgateway.v1draft.LeaseGrant.VerbCeilingsEntry.value:type_name -> google.protobuf.Duration
-	18,  // 147: solace.sm.agentgateway.v1draft.AgentGateway.Enroll:input_type -> solace.sm.agentgateway.v1draft.EnrollRequest
-	50,  // 148: solace.sm.agentgateway.v1draft.AgentGateway.Connect:input_type -> solace.sm.agentgateway.v1draft.AgentToGateway
-	58,  // 149: solace.sm.agentgateway.v1draft.AgentGateway.Telemetry:input_type -> solace.sm.agentgateway.v1draft.TelemetryUp
-	20,  // 150: solace.sm.agentgateway.v1draft.AgentGateway.Enroll:output_type -> solace.sm.agentgateway.v1draft.EnrollResponse
-	51,  // 151: solace.sm.agentgateway.v1draft.AgentGateway.Connect:output_type -> solace.sm.agentgateway.v1draft.GatewayToAgent
-	59,  // 152: solace.sm.agentgateway.v1draft.AgentGateway.Telemetry:output_type -> solace.sm.agentgateway.v1draft.TelemetryDown
-	150, // [150:153] is the sub-list for method output_type
-	147, // [147:150] is the sub-list for method input_type
-	147, // [147:147] is the sub-list for extension type_name
-	147, // [147:147] is the sub-list for extension extendee
-	0,   // [0:147] is the sub-list for field type_name
+	90,  // 81: solace.sm.agentgateway.v1draft.Error.retry_after:type_name -> google.protobuf.Duration
+	23,  // 82: solace.sm.agentgateway.v1draft.AgentToGateway.session_open:type_name -> solace.sm.agentgateway.v1draft.SessionOpen
+	28,  // 83: solace.sm.agentgateway.v1draft.AgentToGateway.lease_renew:type_name -> solace.sm.agentgateway.v1draft.LeaseRenew
+	32,  // 84: solace.sm.agentgateway.v1draft.AgentToGateway.command_pull:type_name -> solace.sm.agentgateway.v1draft.CommandPull
+	34,  // 85: solace.sm.agentgateway.v1draft.AgentToGateway.command_received:type_name -> solace.sm.agentgateway.v1draft.CommandReceived
+	37,  // 86: solace.sm.agentgateway.v1draft.AgentToGateway.command_ack:type_name -> solace.sm.agentgateway.v1draft.CommandAck
+	38,  // 87: solace.sm.agentgateway.v1draft.AgentToGateway.apply_progress:type_name -> solace.sm.agentgateway.v1draft.ApplyProgress
+	41,  // 88: solace.sm.agentgateway.v1draft.AgentToGateway.actual_state_report_batch:type_name -> solace.sm.agentgateway.v1draft.ActualStateReportBatch
+	44,  // 89: solace.sm.agentgateway.v1draft.AgentToGateway.heartbeat:type_name -> solace.sm.agentgateway.v1draft.Heartbeat
+	49,  // 90: solace.sm.agentgateway.v1draft.AgentToGateway.teardown:type_name -> solace.sm.agentgateway.v1draft.Teardown
+	48,  // 91: solace.sm.agentgateway.v1draft.AgentToGateway.drain_complete:type_name -> solace.sm.agentgateway.v1draft.DrainComplete
+	65,  // 92: solace.sm.agentgateway.v1draft.AgentToGateway.discovery_report:type_name -> solace.sm.agentgateway.v1draft.DiscoveryReport
+	26,  // 93: solace.sm.agentgateway.v1draft.GatewayToAgent.session_accept:type_name -> solace.sm.agentgateway.v1draft.SessionAccept
+	27,  // 94: solace.sm.agentgateway.v1draft.GatewayToAgent.session_reject:type_name -> solace.sm.agentgateway.v1draft.SessionReject
+	25,  // 95: solace.sm.agentgateway.v1draft.GatewayToAgent.lease_grant:type_name -> solace.sm.agentgateway.v1draft.LeaseGrant
+	29,  // 96: solace.sm.agentgateway.v1draft.GatewayToAgent.revoke:type_name -> solace.sm.agentgateway.v1draft.Revoke
+	30,  // 97: solace.sm.agentgateway.v1draft.GatewayToAgent.generation_available:type_name -> solace.sm.agentgateway.v1draft.GenerationAvailable
+	33,  // 98: solace.sm.agentgateway.v1draft.GatewayToAgent.command_offer:type_name -> solace.sm.agentgateway.v1draft.CommandOffer
+	43,  // 99: solace.sm.agentgateway.v1draft.GatewayToAgent.report_ack:type_name -> solace.sm.agentgateway.v1draft.ReportAck
+	45,  // 100: solace.sm.agentgateway.v1draft.GatewayToAgent.heartbeat_ack:type_name -> solace.sm.agentgateway.v1draft.HeartbeatAck
+	46,  // 101: solace.sm.agentgateway.v1draft.GatewayToAgent.trust_bundle_update:type_name -> solace.sm.agentgateway.v1draft.TrustBundleUpdate
+	47,  // 102: solace.sm.agentgateway.v1draft.GatewayToAgent.drain:type_name -> solace.sm.agentgateway.v1draft.Drain
+	49,  // 103: solace.sm.agentgateway.v1draft.GatewayToAgent.teardown:type_name -> solace.sm.agentgateway.v1draft.Teardown
+	50,  // 104: solace.sm.agentgateway.v1draft.GatewayToAgent.error:type_name -> solace.sm.agentgateway.v1draft.Error
+	67,  // 105: solace.sm.agentgateway.v1draft.GatewayToAgent.discovery_ack:type_name -> solace.sm.agentgateway.v1draft.DiscoveryAck
+	71,  // 106: solace.sm.agentgateway.v1draft.GatewayToAgent.telemetry_declarations:type_name -> solace.sm.agentgateway.v1draft.TelemetryDeclarations
+	72,  // 107: solace.sm.agentgateway.v1draft.GatewayToAgent.log_retention:type_name -> solace.sm.agentgateway.v1draft.LogRetention
+	75,  // 108: solace.sm.agentgateway.v1draft.GatewayToAgent.log_request:type_name -> solace.sm.agentgateway.v1draft.LogRequest
+	9,   // 109: solace.sm.agentgateway.v1draft.Sample.type:type_name -> solace.sm.agentgateway.v1draft.MetricType
+	89,  // 110: solace.sm.agentgateway.v1draft.Sample.ts:type_name -> google.protobuf.Timestamp
+	87,  // 111: solace.sm.agentgateway.v1draft.Sample.labels:type_name -> solace.sm.agentgateway.v1draft.Sample.LabelsEntry
+	17,  // 112: solace.sm.agentgateway.v1draft.TelemetryBatch.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	53,  // 113: solace.sm.agentgateway.v1draft.TelemetryBatch.samples:type_name -> solace.sm.agentgateway.v1draft.Sample
+	54,  // 114: solace.sm.agentgateway.v1draft.TelemetryBatch.gap_markers:type_name -> solace.sm.agentgateway.v1draft.GapMarker
+	89,  // 115: solace.sm.agentgateway.v1draft.TelemetryBatch.produced_at:type_name -> google.protobuf.Timestamp
+	17,  // 116: solace.sm.agentgateway.v1draft.TelemetryAck.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	17,  // 117: solace.sm.agentgateway.v1draft.TelemetryCredit.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	17,  // 118: solace.sm.agentgateway.v1draft.TelemetryReject.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	0,   // 119: solace.sm.agentgateway.v1draft.TelemetryReject.code:type_name -> solace.sm.agentgateway.v1draft.ErrorCode
+	90,  // 120: solace.sm.agentgateway.v1draft.TelemetryReject.retry_after:type_name -> google.protobuf.Duration
+	17,  // 121: solace.sm.agentgateway.v1draft.TelemetryUp.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	55,  // 122: solace.sm.agentgateway.v1draft.TelemetryUp.telemetry_batch:type_name -> solace.sm.agentgateway.v1draft.TelemetryBatch
+	17,  // 123: solace.sm.agentgateway.v1draft.TelemetryDown.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	56,  // 124: solace.sm.agentgateway.v1draft.TelemetryDown.telemetry_ack:type_name -> solace.sm.agentgateway.v1draft.TelemetryAck
+	57,  // 125: solace.sm.agentgateway.v1draft.TelemetryDown.telemetry_credit:type_name -> solace.sm.agentgateway.v1draft.TelemetryCredit
+	58,  // 126: solace.sm.agentgateway.v1draft.TelemetryDown.telemetry_reject:type_name -> solace.sm.agentgateway.v1draft.TelemetryReject
+	10,  // 127: solace.sm.agentgateway.v1draft.HealthObservation.state:type_name -> solace.sm.agentgateway.v1draft.HealthState
+	89,  // 128: solace.sm.agentgateway.v1draft.HealthObservation.observed_at:type_name -> google.protobuf.Timestamp
+	11,  // 129: solace.sm.agentgateway.v1draft.HealthObservation.probe_strength:type_name -> solace.sm.agentgateway.v1draft.ProbeStrength
+	12,  // 130: solace.sm.agentgateway.v1draft.HealthObservation.failure:type_name -> solace.sm.agentgateway.v1draft.ProbeFailure
+	88,  // 131: solace.sm.agentgateway.v1draft.DiscoveredContainer.labels:type_name -> solace.sm.agentgateway.v1draft.DiscoveredContainer.LabelsEntry
+	62,  // 132: solace.sm.agentgateway.v1draft.DiscoveredContainer.mounts:type_name -> solace.sm.agentgateway.v1draft.DiscoveredMount
+	63,  // 133: solace.sm.agentgateway.v1draft.DiscoveredContainer.published_ports:type_name -> solace.sm.agentgateway.v1draft.DiscoveredPort
+	17,  // 134: solace.sm.agentgateway.v1draft.DiscoveryReport.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	64,  // 135: solace.sm.agentgateway.v1draft.DiscoveryReport.items:type_name -> solace.sm.agentgateway.v1draft.DiscoveredContainer
+	13,  // 136: solace.sm.agentgateway.v1draft.DiscoveryResult.state:type_name -> solace.sm.agentgateway.v1draft.DiscoveryState
+	17,  // 137: solace.sm.agentgateway.v1draft.DiscoveryAck.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	66,  // 138: solace.sm.agentgateway.v1draft.DiscoveryAck.results:type_name -> solace.sm.agentgateway.v1draft.DiscoveryResult
+	14,  // 139: solace.sm.agentgateway.v1draft.HttpJsonSource.on_unavailable:type_name -> solace.sm.agentgateway.v1draft.OnUnavailable
+	9,   // 140: solace.sm.agentgateway.v1draft.TelemetryMetric.metric_type:type_name -> solace.sm.agentgateway.v1draft.MetricType
+	68,  // 141: solace.sm.agentgateway.v1draft.TelemetryMetric.http_json:type_name -> solace.sm.agentgateway.v1draft.HttpJsonSource
+	15,  // 142: solace.sm.agentgateway.v1draft.HealthProbe.kind:type_name -> solace.sm.agentgateway.v1draft.ProbeKind
+	11,  // 143: solace.sm.agentgateway.v1draft.HealthProbe.strength:type_name -> solace.sm.agentgateway.v1draft.ProbeStrength
+	17,  // 144: solace.sm.agentgateway.v1draft.TelemetryDeclarations.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	90,  // 145: solace.sm.agentgateway.v1draft.TelemetryDeclarations.interval:type_name -> google.protobuf.Duration
+	69,  // 146: solace.sm.agentgateway.v1draft.TelemetryDeclarations.metrics:type_name -> solace.sm.agentgateway.v1draft.TelemetryMetric
+	70,  // 147: solace.sm.agentgateway.v1draft.TelemetryDeclarations.health_probe:type_name -> solace.sm.agentgateway.v1draft.HealthProbe
+	17,  // 148: solace.sm.agentgateway.v1draft.LogRetention.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	89,  // 149: solace.sm.agentgateway.v1draft.LogPageQuery.after:type_name -> google.protobuf.Timestamp
+	89,  // 150: solace.sm.agentgateway.v1draft.LogPageQuery.before:type_name -> google.protobuf.Timestamp
+	17,  // 151: solace.sm.agentgateway.v1draft.LogRequest.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	73,  // 152: solace.sm.agentgateway.v1draft.LogRequest.page:type_name -> solace.sm.agentgateway.v1draft.LogPageQuery
+	74,  // 153: solace.sm.agentgateway.v1draft.LogRequest.export:type_name -> solace.sm.agentgateway.v1draft.LogExportQuery
+	89,  // 154: solace.sm.agentgateway.v1draft.LogLine.ts:type_name -> google.protobuf.Timestamp
+	89,  // 155: solace.sm.agentgateway.v1draft.LogGap.from:type_name -> google.protobuf.Timestamp
+	89,  // 156: solace.sm.agentgateway.v1draft.LogGap.to:type_name -> google.protobuf.Timestamp
+	17,  // 157: solace.sm.agentgateway.v1draft.LogPage.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	76,  // 158: solace.sm.agentgateway.v1draft.LogPage.lines:type_name -> solace.sm.agentgateway.v1draft.LogLine
+	77,  // 159: solace.sm.agentgateway.v1draft.LogPage.gaps:type_name -> solace.sm.agentgateway.v1draft.LogGap
+	16,  // 160: solace.sm.agentgateway.v1draft.LogPage.unavailable:type_name -> solace.sm.agentgateway.v1draft.UnavailableReason
+	17,  // 161: solace.sm.agentgateway.v1draft.LogChunk.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	76,  // 162: solace.sm.agentgateway.v1draft.LogChunk.lines:type_name -> solace.sm.agentgateway.v1draft.LogLine
+	77,  // 163: solace.sm.agentgateway.v1draft.LogChunk.gaps:type_name -> solace.sm.agentgateway.v1draft.LogGap
+	78,  // 164: solace.sm.agentgateway.v1draft.LogUp.log_page:type_name -> solace.sm.agentgateway.v1draft.LogPage
+	79,  // 165: solace.sm.agentgateway.v1draft.LogUp.log_chunk:type_name -> solace.sm.agentgateway.v1draft.LogChunk
+	80,  // 166: solace.sm.agentgateway.v1draft.LogDown.log_credit:type_name -> solace.sm.agentgateway.v1draft.LogCredit
+	81,  // 167: solace.sm.agentgateway.v1draft.LogDown.log_cancel:type_name -> solace.sm.agentgateway.v1draft.LogCancel
+	90,  // 168: solace.sm.agentgateway.v1draft.LeaseGrant.VerbCeilingsEntry.value:type_name -> google.protobuf.Duration
+	19,  // 169: solace.sm.agentgateway.v1draft.AgentGateway.Enroll:input_type -> solace.sm.agentgateway.v1draft.EnrollRequest
+	51,  // 170: solace.sm.agentgateway.v1draft.AgentGateway.Connect:input_type -> solace.sm.agentgateway.v1draft.AgentToGateway
+	59,  // 171: solace.sm.agentgateway.v1draft.AgentGateway.Telemetry:input_type -> solace.sm.agentgateway.v1draft.TelemetryUp
+	82,  // 172: solace.sm.agentgateway.v1draft.AgentGateway.Logs:input_type -> solace.sm.agentgateway.v1draft.LogUp
+	21,  // 173: solace.sm.agentgateway.v1draft.AgentGateway.Enroll:output_type -> solace.sm.agentgateway.v1draft.EnrollResponse
+	52,  // 174: solace.sm.agentgateway.v1draft.AgentGateway.Connect:output_type -> solace.sm.agentgateway.v1draft.GatewayToAgent
+	60,  // 175: solace.sm.agentgateway.v1draft.AgentGateway.Telemetry:output_type -> solace.sm.agentgateway.v1draft.TelemetryDown
+	83,  // 176: solace.sm.agentgateway.v1draft.AgentGateway.Logs:output_type -> solace.sm.agentgateway.v1draft.LogDown
+	173, // [173:177] is the sub-list for method output_type
+	169, // [169:173] is the sub-list for method input_type
+	169, // [169:169] is the sub-list for extension type_name
+	169, // [169:169] is the sub-list for extension extendee
+	0,   // [0:169] is the sub-list for field type_name
 }
 
 func init() { file_agent_gateway_proto_init() }
@@ -6319,6 +7341,8 @@ func file_agent_gateway_proto_init() {
 		(*GatewayToAgent_Error)(nil),
 		(*GatewayToAgent_DiscoveryAck)(nil),
 		(*GatewayToAgent_TelemetryDeclarations)(nil),
+		(*GatewayToAgent_LogRetention)(nil),
+		(*GatewayToAgent_LogRequest)(nil),
 	}
 	file_agent_gateway_proto_msgTypes[41].OneofWrappers = []any{}
 	file_agent_gateway_proto_msgTypes[42].OneofWrappers = []any{
@@ -6332,13 +7356,26 @@ func file_agent_gateway_proto_init() {
 	file_agent_gateway_proto_msgTypes[52].OneofWrappers = []any{
 		(*TelemetryMetric_HttpJson)(nil),
 	}
+	file_agent_gateway_proto_msgTypes[56].OneofWrappers = []any{}
+	file_agent_gateway_proto_msgTypes[58].OneofWrappers = []any{
+		(*LogRequest_Page)(nil),
+		(*LogRequest_Export)(nil),
+	}
+	file_agent_gateway_proto_msgTypes[65].OneofWrappers = []any{
+		(*LogUp_LogPage)(nil),
+		(*LogUp_LogChunk)(nil),
+	}
+	file_agent_gateway_proto_msgTypes[66].OneofWrappers = []any{
+		(*LogDown_LogCredit)(nil),
+		(*LogDown_LogCancel)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_agent_gateway_proto_rawDesc), len(file_agent_gateway_proto_rawDesc)),
-			NumEnums:      16,
-			NumMessages:   60,
+			NumEnums:      17,
+			NumMessages:   72,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -31,6 +31,8 @@ service AgentGateway {
   // Opened only after SessionAccept (gateway §4.1); credits are the only
   // backpressure (§4.10).
   rpc Telemetry(stream TelemetryUp) returns (stream TelemetryDown);
+  // plan 016 T1: opened after SessionAccept, as Telemetry is; only to a session advertising CAPABILITY_LOGS.
+  rpc Logs(stream LogUp) returns (stream LogDown);
 }
 
 message Envelope {
@@ -91,6 +93,7 @@ enum Capability {
   CAPABILITY_DISCOVERY = 4;        // sends DiscoveryReport, understands DiscoveryAck
   CAPABILITY_REMATERIALIZE = 5;    // understands OPERATION_REMATERIALIZE + expected_current_sha256
   CAPABILITY_DECLARATIONS = 6;     // understands TelemetryDeclarations
+  CAPABILITY_LOGS = 7;             // agent-collected MI logs: understands LogRetention/LogRequest, opens the Logs RPC (plan 016 T1)
 }
 
 enum Operation {
@@ -469,6 +472,8 @@ message GatewayToAgent {
     Error error = 12;
     DiscoveryAck discovery_ack = 13;                    // plan 015 T2.3 (d)
     TelemetryDeclarations telemetry_declarations = 14;  // plan 015 T2.3 (e)
+    LogRetention log_retention = 15;                    // plan 016 T1
+    LogRequest log_request = 16;                        // plan 016 T1
   }
 }
 
@@ -676,4 +681,96 @@ message TelemetryDeclarations {
   // OR-130 D-4. Absent = the package declares no probe: NOTHING is probed (OR-101). Sent only to a session whose
   // capabilities_supported names CAPABILITY_DECLARATIONS.
   HealthProbe health_probe = 5;
+}
+
+// ---- plan 016 T1: agent-collected MI logs (design 2026-10-20-agent-mi-logs-design.md section 4; AGW-D11: new numbers only) ----
+
+message LogRetention {
+  Envelope envelope = 1;
+  string placement_ref = 2;
+  uint64 max_bytes = 3;
+}
+
+message LogPageQuery {
+  uint32 limit = 1;
+  optional google.protobuf.Timestamp after = 2;
+  optional google.protobuf.Timestamp before = 3;
+}
+
+message LogExportQuery {
+  uint64 from_seq = 1;
+}
+
+message LogRequest {
+  Envelope envelope = 1;
+  string request_id = 2;
+  string placement_ref = 3;
+  oneof mode {
+    LogPageQuery page = 4;
+    LogExportQuery export = 5;
+  }
+}
+
+message LogLine {
+  google.protobuf.Timestamp ts = 1;
+  string stream = 2;
+  bytes text = 3;
+  bool truncated = 4;
+}
+
+// reason: DROPPED_OLDEST | COLLECTION_PAUSED | OVERSIZE | CONTAINER_UNREADABLE | CAP_REDUCED
+message LogGap {
+  google.protobuf.Timestamp from = 1;
+  google.protobuf.Timestamp to = 2;
+  string reason = 3;
+}
+
+enum UnavailableReason {
+  UNAVAILABLE_NONE = 0;
+  NOT_COLLECTING = 1;
+  CONTAINER_MISSING = 2;
+  BUSY = 3;
+  PLACEMENT_NOT_IN_LEASE = 4;
+}
+
+// A page must fit Limits.max_message_bytes.
+message LogPage {
+  Envelope envelope = 1;
+  string request_id = 2;
+  repeated LogLine lines = 3;
+  repeated LogGap gaps = 4;
+  UnavailableReason unavailable = 5;
+}
+
+// A chunk must fit Limits.max_batch_bytes.
+message LogChunk {
+  Envelope envelope = 1;
+  string request_id = 2;
+  uint64 seq = 3;
+  repeated LogLine lines = 4;
+  repeated LogGap gaps = 5;
+  bool final = 6;
+}
+
+message LogCredit {
+  string request_id = 1;
+  uint32 credits_granted = 2;
+}
+
+message LogCancel {
+  string request_id = 1;
+}
+
+message LogUp {
+  oneof msg {
+    LogPage log_page = 1;
+    LogChunk log_chunk = 2;
+  }
+}
+
+message LogDown {
+  oneof msg {
+    LogCredit log_credit = 1;
+    LogCancel log_cancel = 2;
+  }
 }

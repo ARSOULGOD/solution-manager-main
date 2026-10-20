@@ -39,6 +39,7 @@ const (
 	AgentGateway_Enroll_FullMethodName    = "/solace.sm.agentgateway.v1draft.AgentGateway/Enroll"
 	AgentGateway_Connect_FullMethodName   = "/solace.sm.agentgateway.v1draft.AgentGateway/Connect"
 	AgentGateway_Telemetry_FullMethodName = "/solace.sm.agentgateway.v1draft.AgentGateway/Telemetry"
+	AgentGateway_Logs_FullMethodName      = "/solace.sm.agentgateway.v1draft.AgentGateway/Logs"
 )
 
 // AgentGatewayClient is the client API for AgentGateway service.
@@ -52,6 +53,8 @@ type AgentGatewayClient interface {
 	// Opened only after SessionAccept (gateway §4.1); credits are the only
 	// backpressure (§4.10).
 	Telemetry(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[TelemetryUp, TelemetryDown], error)
+	// plan 016 T1: opened after SessionAccept, as Telemetry is; only to a session advertising CAPABILITY_LOGS.
+	Logs(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[LogUp, LogDown], error)
 }
 
 type agentGatewayClient struct {
@@ -98,6 +101,19 @@ func (c *agentGatewayClient) Telemetry(ctx context.Context, opts ...grpc.CallOpt
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type AgentGateway_TelemetryClient = grpc.BidiStreamingClient[TelemetryUp, TelemetryDown]
 
+func (c *agentGatewayClient) Logs(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[LogUp, LogDown], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &AgentGateway_ServiceDesc.Streams[2], AgentGateway_Logs_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[LogUp, LogDown]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type AgentGateway_LogsClient = grpc.BidiStreamingClient[LogUp, LogDown]
+
 // AgentGatewayServer is the server API for AgentGateway service.
 // All implementations must embed UnimplementedAgentGatewayServer
 // for forward compatibility.
@@ -109,6 +125,8 @@ type AgentGatewayServer interface {
 	// Opened only after SessionAccept (gateway §4.1); credits are the only
 	// backpressure (§4.10).
 	Telemetry(grpc.BidiStreamingServer[TelemetryUp, TelemetryDown]) error
+	// plan 016 T1: opened after SessionAccept, as Telemetry is; only to a session advertising CAPABILITY_LOGS.
+	Logs(grpc.BidiStreamingServer[LogUp, LogDown]) error
 	mustEmbedUnimplementedAgentGatewayServer()
 }
 
@@ -127,6 +145,9 @@ func (UnimplementedAgentGatewayServer) Connect(grpc.BidiStreamingServer[AgentToG
 }
 func (UnimplementedAgentGatewayServer) Telemetry(grpc.BidiStreamingServer[TelemetryUp, TelemetryDown]) error {
 	return status.Errorf(codes.Unimplemented, "method Telemetry not implemented")
+}
+func (UnimplementedAgentGatewayServer) Logs(grpc.BidiStreamingServer[LogUp, LogDown]) error {
+	return status.Errorf(codes.Unimplemented, "method Logs not implemented")
 }
 func (UnimplementedAgentGatewayServer) mustEmbedUnimplementedAgentGatewayServer() {}
 func (UnimplementedAgentGatewayServer) testEmbeddedByValue()                      {}
@@ -181,6 +202,13 @@ func _AgentGateway_Telemetry_Handler(srv interface{}, stream grpc.ServerStream) 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type AgentGateway_TelemetryServer = grpc.BidiStreamingServer[TelemetryUp, TelemetryDown]
 
+func _AgentGateway_Logs_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(AgentGatewayServer).Logs(&grpc.GenericServerStream[LogUp, LogDown]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type AgentGateway_LogsServer = grpc.BidiStreamingServer[LogUp, LogDown]
+
 // AgentGateway_ServiceDesc is the grpc.ServiceDesc for AgentGateway service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -203,6 +231,12 @@ var AgentGateway_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "Telemetry",
 			Handler:       _AgentGateway_Telemetry_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "Logs",
+			Handler:       _AgentGateway_Logs_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},

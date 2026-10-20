@@ -13,7 +13,8 @@
    "3": "CAPABILITY_REPORT_ONLY",
    "4": "CAPABILITY_DISCOVERY",
    "5": "CAPABILITY_REMATERIALIZE",
-   "6": "CAPABILITY_DECLARATIONS"
+   "6": "CAPABILITY_DECLARATIONS",
+   "7": "CAPABILITY_LOGS"
   },
   "ClockState": {
    "0": "CLOCK_STATE_UNSPECIFIED",
@@ -141,6 +142,13 @@
    "0": "TRUST_UNSPECIFIED",
    "1": "TRUST_TRUSTED",
    "2": "TRUST_UNTRUSTED"
+  },
+  "UnavailableReason": {
+   "0": "UNAVAILABLE_NONE",
+   "1": "NOT_COLLECTING",
+   "2": "CONTAINER_MISSING",
+   "3": "BUSY",
+   "4": "PLACEMENT_NOT_IN_LEASE"
   }
  },
  "messages": {
@@ -297,6 +305,8 @@
    "12": "oneof:msg Error error",
    "13": "oneof:msg DiscoveryAck discovery_ack",
    "14": "oneof:msg TelemetryDeclarations telemetry_declarations",
+   "15": "oneof:msg LogRetention log_retention",
+   "16": "oneof:msg LogRequest log_request",
    "2": "oneof:msg SessionReject session_reject",
    "3": "oneof:msg LeaseGrant lease_grant",
    "4": "oneof:msg Revoke revoke",
@@ -385,6 +395,67 @@
    "5": "google.protobuf.Duration keepalive_interval",
    "6": "google.protobuf.Duration skew_tolerance",
    "7": "google.protobuf.Duration report_interval"
+  },
+  "LogCancel": {
+   "1": "string request_id"
+  },
+  "LogChunk": {
+   "1": "Envelope envelope",
+   "2": "string request_id",
+   "3": "uint64 seq",
+   "4": "repeated LogLine lines",
+   "5": "repeated LogGap gaps",
+   "6": "bool final"
+  },
+  "LogCredit": {
+   "1": "string request_id",
+   "2": "uint32 credits_granted"
+  },
+  "LogDown": {
+   "1": "oneof:msg LogCredit log_credit",
+   "2": "oneof:msg LogCancel log_cancel"
+  },
+  "LogExportQuery": {
+   "1": "uint64 from_seq"
+  },
+  "LogGap": {
+   "1": "google.protobuf.Timestamp from",
+   "2": "google.protobuf.Timestamp to",
+   "3": "string reason"
+  },
+  "LogLine": {
+   "1": "google.protobuf.Timestamp ts",
+   "2": "string stream",
+   "3": "bytes text",
+   "4": "bool truncated"
+  },
+  "LogPage": {
+   "1": "Envelope envelope",
+   "2": "string request_id",
+   "3": "repeated LogLine lines",
+   "4": "repeated LogGap gaps",
+   "5": "UnavailableReason unavailable"
+  },
+  "LogPageQuery": {
+   "1": "uint32 limit",
+   "2": "optional google.protobuf.Timestamp after",
+   "3": "optional google.protobuf.Timestamp before"
+  },
+  "LogRequest": {
+   "1": "Envelope envelope",
+   "2": "string request_id",
+   "3": "string placement_ref",
+   "4": "oneof:mode LogPageQuery page",
+   "5": "oneof:mode LogExportQuery export"
+  },
+  "LogRetention": {
+   "1": "Envelope envelope",
+   "2": "string placement_ref",
+   "3": "uint64 max_bytes"
+  },
+  "LogUp": {
+   "1": "oneof:msg LogPage log_page",
+   "2": "oneof:msg LogChunk log_chunk"
   },
   "OperationCorrelation": {
    "1": "string apply_id",
@@ -530,6 +601,7 @@
   "AgentGateway": {
    "Connect": "stream AgentToGateway -> stream GatewayToAgent",
    "Enroll": "EnrollRequest -> EnrollResponse",
+   "Logs": "stream LogUp -> stream LogDown",
    "Telemetry": "stream TelemetryUp -> stream TelemetryDown"
   }
  },
