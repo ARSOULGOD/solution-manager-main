@@ -61,6 +61,25 @@ Additions use **new field numbers only** (`AGW-D11`).
 - A page must fit `Limits.max_message_bytes`; a chunk must fit `Limits.max_batch_bytes`.
 - Gate: `contracts/run-checks.sh` passes on the amended proto; Go and Java stubs are regenerated.
 
+### 4.1 Semantics the gateway must match
+
+Fixed by the agent implementation (plan 016 Task 5); the gateway side (Task 7) and the export path (Task 10) must
+match them.
+
+- **`LogChunk.seq` is the resume point:** the `from_seq` that continues right after that chunk, not the sequence
+  number of its first line. An interrupted export resumes with `LogExportQuery{from_seq: <last received chunk's seq>}`.
+- **Deliver the `LogRequest` before any credit.** A `LogCredit` that reaches the agent before its `LogRequest` is
+  dropped as an unknown id; `Connect` and `Logs` are separate streams, so their relative order at the agent is not
+  guaranteed. The agent starts every export with `Limits.initial_credits` of credit (as `Telemetry` does), and the
+  gateway counts those per export. Credit granted after a chunk of that request has arrived cannot race; with
+  `initial_credits` 0 the first credit can, so the gateway should keep `initial_credits` above 0 for logs (a lost
+  first credit stalls the export until the request deadline).
+- **Accepting a session that advertised `CAPABILITY_LOGS` is accepting `CAPABILITY_LOGS`.** `SessionAccept` has no
+  per-capability field; the agent opens `Logs` only after such a `SessionAccept`.
+- **`placement_ref` is the binding id** — one of the lease's `binding_ids`.
+- **A refusal is always a `LogPage` with an `UnavailableReason`**, for an export request too, because `LogChunk` has
+  no reason field.
+
 ## 5. Data plane
 
 - **`AgentLogService`** implements `dp-api`'s `LogService` for agent placements, so callers do not change.
