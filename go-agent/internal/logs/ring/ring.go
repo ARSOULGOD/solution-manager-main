@@ -62,6 +62,7 @@ func (s state) Version() int { return s.SchemaVersion }
 
 type gapRec struct {
 	Pos uint64     `json:"pos"` // seq of the line that followed the gap when it was recorded
+	End uint64     `json:"end"` // exclusive end seq; End == Pos for a marker covering no stored seq
 	G   msg.LogGap `json:"gap"`
 }
 
@@ -129,8 +130,7 @@ func Open(s *store.Store, placement string, maxBytes uint64) (*Ring, error) {
 		return nil, err
 	}
 	if maxBytes != 0 && maxBytes != r.cap {
-		r.cap = maxBytes
-		if err := r.saveState(); err != nil {
+		if err := r.setCap(maxBytes); err != nil {
 			return nil, err
 		}
 	}
@@ -178,11 +178,52 @@ func (r *Ring) load() error {
 		r.segs = append(r.segs, seg)
 	}
 	slices.SortFunc(r.segs, func(a, b *segment) int { return cmp.Compare(a.first, b.first) })
+	if err := r.repairOverlap(); err != nil {
+		return err
+	}
 	if n := len(r.segs); n > 0 {
 		l := r.segs[n-1]
 		r.next = max(r.next, l.first+uint64(l.count))
 		if recs, err := r.readSeg(l); err == nil && len(recs) > 0 {
 			r.last, r.hasLast = recs[len(recs)-1].T, true
+		}
+	}
+	return nil
+}
+
+// repairOverlap handles a crash inside resegment: later pieces were written
+// but the original was not yet replaced, so it still holds records the next
+// segment repeats. Cut it back to the records before that segment's first seq.
+func (r *Ring) repairOverlap() error {
+	for i := 0; i+1 < len(r.segs); i++ {
+		s, nx := r.segs[i], r.segs[i+1]
+		if s.first+uint64(s.count) <= nx.first {
+			continue
+		}
+		keep := int(nx.first - s.first)
+		data, err := os.ReadFile(r.st.Path(r.segRel(s.first)))
+		if err != nil {
+			return err
+		}
+		off, recs := 0, 0
+		for recs < keep {
+			nl := bytes.IndexByte(data[off:], '\n')
+			if nl < 0 {
+				break
+			}
+			off += nl + 1
+			recs++
+		}
+		if err := os.Truncate(r.st.Path(r.segRel(s.first)), int64(off)); err != nil {
+			return err
+		}
+		s.count, s.bytes = recs, int64(off)
+		s.min, s.max = time.Time{}, time.Time{}
+		parsed, _ := r.readSeg(s)
+		s.count = 0
+		for _, rc := range parsed {
+			s.note(rc.T)
+			s.count++
 		}
 	}
 	return nil
@@ -348,7 +389,9 @@ func (r *Ring) rotate() error {
 		_ = d.Close()
 	}
 	r.segs = append(r.segs, &segment{first: r.next})
-	return nil
+	// Item 2: persist Next whenever a segment is created or dropped (not on
+	// every Append), so an emptied or torn ring never reuses seq numbers.
+	return r.saveState()
 }
 
 // enforce drops the oldest segment while the ring is over its cap, recording
@@ -362,6 +405,9 @@ func (r *Ring) enforce(reason string) error {
 		changed = true
 	}
 	if changed {
+		if err := r.saveState(); err != nil {
+			return err
+		}
 		return r.saveGaps()
 	}
 	return nil
@@ -379,22 +425,23 @@ func (r *Ring) dropOldest(reason string) error {
 	}
 	r.segs = r.segs[1:]
 	if len(recs) > 0 {
-		r.addGap(s.first, msg.LogGap{From: s.min, To: s.max, Reason: reason})
+		r.addGap(s.first, s.first+uint64(s.count), msg.LogGap{From: s.min, To: s.max, Reason: reason})
 	}
 	return nil
 }
 
-func (r *Ring) addGap(pos uint64, g msg.LogGap) {
+func (r *Ring) addGap(pos, end uint64, g msg.LogGap) {
 	if n := len(r.gaps); n > 0 {
 		p := &r.gaps[n-1]
 		if p.G.Reason == g.Reason && (g.Reason == reasonDroppedOldest || g.Reason == reasonCapReduced) {
 			if g.To.After(p.G.To) {
 				p.G.To = g.To
 			}
+			p.End = max(p.End, end)
 			return
 		}
 	}
-	r.gaps = append(r.gaps, gapRec{Pos: pos, G: g})
+	r.gaps = append(r.gaps, gapRec{Pos: pos, End: end, G: g})
 	if len(r.gaps) > maxGaps {
 		r.gaps = r.gaps[len(r.gaps)-maxGaps:]
 	}
@@ -404,7 +451,7 @@ func (r *Ring) addGap(pos uint64, g msg.LogGap) {
 func (r *Ring) MarkGap(g msg.LogGap) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.gaps = append(r.gaps, gapRec{Pos: r.next, G: g})
+	r.gaps = append(r.gaps, gapRec{Pos: r.next, End: r.next, G: g})
 	if len(r.gaps) > maxGaps {
 		r.gaps = r.gaps[len(r.gaps)-maxGaps:]
 	}
@@ -416,6 +463,10 @@ func (r *Ring) MarkGap(g msg.LogGap) error {
 func (r *Ring) SetCap(maxBytes uint64) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	return r.setCap(maxBytes)
+}
+
+func (r *Ring) setCap(maxBytes uint64) error {
 	r.cap = maxBytes
 	if err := r.saveState(); err != nil {
 		return err
@@ -434,6 +485,11 @@ func (r *Ring) SetCap(maxBytes uint64) error {
 		return r.st.Delete(r.dir + "/" + gapsFile)
 	}
 	if err := r.resegment(); err != nil {
+		// Files may have changed halfway: rebuild the index from disk.
+		r.segs = nil
+		if lerr := r.load(); lerr != nil {
+			return errors.Join(err, lerr)
+		}
 		return err
 	}
 	return r.enforce(reasonCapReduced)
@@ -441,6 +497,12 @@ func (r *Ring) SetCap(maxBytes uint64) error {
 
 // resegment splits segments larger than the current segment size so a cap
 // reduction trims by whole small segments instead of discarding a big one.
+//
+// Crash safety: for each oversize segment the later pieces are written first
+// under their final names, then the first piece replaces the original (same
+// name) last. A crash before that last step leaves the original whole plus
+// pieces that repeat its tail; load's repairOverlap cuts the original back, so
+// nothing is lost or duplicated. r.segs is only replaced on success.
 func (r *Ring) resegment() error {
 	size := int64(r.segSize())
 	var out []*segment
@@ -457,40 +519,30 @@ func (r *Ring) resegment() error {
 			_ = r.active.Close()
 			r.active = nil
 		}
-		var piece *segment
-		var buf []byte
-		flush := func() error {
-			if piece == nil {
-				return nil
-			}
-			piece.bytes = int64(len(buf))
-			out = append(out, piece)
-			err := r.st.Save(store.Blob{RelPath: r.segRel(piece.first), Data: buf})
-			piece, buf = nil, nil
-			return err
-		}
-		// Pieces are written before the original is replaced; the first piece
-		// reuses the original's name, so a crash leaves a readable superset.
+		var pieces []*segment
+		var bufs [][]byte
 		for j, rc := range recs {
 			b, err := encode(rc)
 			if err != nil {
 				return err
 			}
-			if piece != nil && int64(len(buf)+len(b)) > size {
-				if err := flush(); err != nil {
-					return err
-				}
+			n := len(pieces) - 1
+			if n < 0 || int64(len(bufs[n])+len(b)) > size {
+				pieces = append(pieces, &segment{first: s.first + uint64(j)})
+				bufs = append(bufs, nil)
+				n++
 			}
-			if piece == nil {
-				piece = &segment{first: s.first + uint64(j)}
+			pieces[n].note(rc.T)
+			pieces[n].count++
+			bufs[n] = append(bufs[n], b...)
+		}
+		for i := len(pieces) - 1; i >= 0; i-- {
+			pieces[i].bytes = int64(len(bufs[i]))
+			if err := r.st.Save(store.Blob{RelPath: r.segRel(pieces[i].first), Data: bufs[i]}); err != nil {
+				return err
 			}
-			piece.note(rc.T)
-			piece.count++
-			buf = append(buf, b...)
 		}
-		if err := flush(); err != nil {
-			return err
-		}
+		out = append(out, pieces...)
 	}
 	r.segs = out
 	return nil
@@ -628,7 +680,7 @@ scan:
 	}
 	var gaps []msg.LogGap
 	for _, g := range r.gaps {
-		if g.Pos >= seq && (done || g.Pos < next) {
+		if (g.Pos >= seq || g.End > seq) && (done || g.Pos < next) {
 			gaps = append(gaps, g.G)
 		}
 	}
