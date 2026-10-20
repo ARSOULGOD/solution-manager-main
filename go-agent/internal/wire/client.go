@@ -4,6 +4,7 @@ package wire
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -18,6 +19,11 @@ import (
 	"github.com/solace/solution-manager/go-agent/internal/wire/codec"
 	"github.com/solace/solution-manager/go-agent/internal/wire/pb"
 )
+
+// ErrUndecodable wraps a stream message that arrived intact but could not be
+// decoded (an empty or unknown variant): the stream itself is still usable,
+// unlike a transport error.
+var ErrUndecodable = errors.New("wire: undecodable message")
 
 const MetadataTokenKey = "x-sm-enrollment-token"
 
@@ -206,7 +212,11 @@ func (s *LogsStream) Recv() (msg.LogsInbound, error) {
 	if err != nil {
 		return nil, codec.ErrorFromStatus(err)
 	}
-	return codec.DecodeLogDown(p)
+	m, err := codec.DecodeLogDown(p)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrUndecodable, err)
+	}
+	return m, nil
 }
 
 func (s *LogsStream) Close() error {

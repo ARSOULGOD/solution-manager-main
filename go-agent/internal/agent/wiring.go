@@ -8,6 +8,7 @@ import (
 	"math/rand/v2"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -249,7 +250,11 @@ type logsRole struct {
 	rings map[string]*ring.Ring
 	cur   *LogsSession
 
+	backoff     func(int) time.Duration
+	undecodable atomic.Uint64
+
 	// owned by Run
+	bound      map[string]bool // the last session's lease: the placements collected
 	collectors map[string]*logCollector
 	sess       *logsSess
 }
@@ -268,7 +273,7 @@ type logsSess struct {
 
 func newLogsRole(s *store.Store, cfg LogsConfig, src collect.Source, newID func() string, log *slog.Logger) *logsRole {
 	r := &logsRole{store: s, cfg: cfg, src: src, log: log, wake: make(chan struct{}, 1),
-		rings: map[string]*ring.Ring{}, collectors: map[string]*logCollector{}}
+		rings: map[string]*ring.Ring{}, collectors: map[string]*logCollector{}, backoff: collectorBackoff}
 	opts := []serve.Option{serve.WithNewID(newID), serve.WithInitialCredits(r.initialCredits)}
 	if cfg.MaxConcurrent > 0 {
 		opts = append(opts, serve.WithMaxConcurrent(cfg.MaxConcurrent))
@@ -374,6 +379,8 @@ func (r *logsRole) initialCredits() uint32 {
 
 func (r *logsRole) setSession(ctx context.Context, ls *LogsSession) {
 	if ls == nil {
+		// The session ended: its stream and requests go; collectors stay, so
+		// logs keep being collected across a reconnect.
 		r.endSession()
 		r.mu.Lock()
 		r.cur = nil
@@ -381,8 +388,14 @@ func (r *logsRole) setSession(ctx context.Context, ls *LogsSession) {
 		return
 	}
 	r.mu.Lock()
-	r.cur = ls
+	r.cur = ls // first: a placement that left the lease is refused from here on
 	r.mu.Unlock()
+	for _, p := range slices.Sorted(maps.Keys(r.bound)) {
+		if !ls.Bindings[p] {
+			r.release(p)
+		}
+	}
+	r.bound = maps.Clone(ls.Bindings)
 	if r.sess == nil {
 		r.startSession(ctx, ls)
 	}
@@ -391,48 +404,93 @@ func (r *logsRole) setSession(ctx context.Context, ls *LogsSession) {
 	}
 }
 
+// release lets go of a placement that left the lease: its requests end, its
+// collector stops and its ring is closed. The stored logs stay on disk; only a
+// DP cap of 0 deletes them.
+func (r *logsRole) release(p string) {
+	r.srv.Revoke(p)
+	r.stopCollector(p)
+	r.mu.Lock()
+	rg := r.rings[p]
+	delete(r.rings, p)
+	r.mu.Unlock()
+	if rg != nil {
+		_ = rg.Close()
+	}
+}
+
+// startSession runs the session's Logs stream. A message that cannot be
+// decoded is counted and skipped; a transport error closes the stream (Sends
+// fail fast, every request ends) and the stream is reopened after a backoff
+// with a one-second floor, for as long as the session lasts.
 func (r *logsRole) startSession(ctx context.Context, ls *LogsSession) {
 	sctx, cancel := context.WithCancel(ctx)
-	out := &logsSender{ready: make(chan struct{})}
+	out := newLogsSender()
 	done := make(chan struct{})
 	r.sess = &logsSess{ctx: sctx, cancel: cancel, out: out, done: done}
 	go func() {
 		defer close(done)
-		st, err := ls.Open(sctx)
-		if err != nil {
-			out.attach(nil)
-			if sctx.Err() == nil {
-				r.log.Warn("logs stream: open failed", "err", err)
-			}
-			return
-		}
-		if !out.attach(st) {
-			return
-		}
-		for {
-			m, err := st.Recv()
-			if err != nil {
-				if sctx.Err() == nil {
-					r.log.Warn("logs stream ended", "err", err)
-					r.srv.CancelAll() // nothing more can be sent on it
+		for attempt := 0; ; {
+			stctx, stcancel := context.WithCancel(sctx)
+			out.opening()
+			st, err := ls.Open(stctx)
+			got := false
+			if err == nil {
+				if !out.attach(st) {
+					stcancel()
+					return
 				}
+				got, err = r.pump(st)
+			}
+			stcancel() // first: unblocks a Send waiting on flow control
+			out.fail()
+			r.srv.CancelAll() // nothing in flight can be sent any more
+			if sctx.Err() != nil {
 				return
 			}
-			switch v := m.(type) {
-			case msg.LogCredit:
-				r.srv.Credit(v.RequestID, v.CreditsGranted)
-			case msg.LogCancel:
-				r.srv.Cancel(v.RequestID)
+			if got {
+				attempt = 0
+			}
+			attempt++
+			r.log.Warn("logs stream broken; reopening", "attempt", attempt, "err", err)
+			t := time.NewTimer(r.backoff(attempt))
+			select {
+			case <-sctx.Done():
+				t.Stop()
+				return
+			case <-t.C:
 			}
 		}
 	}()
+}
+
+// pump reads credits and cancels until a transport error; got says whether
+// anything arrived.
+func (r *logsRole) pump(st LogsStream) (got bool, err error) {
+	for {
+		m, err := st.Recv()
+		if errors.Is(err, wire.ErrUndecodable) {
+			r.undecodable.Add(1) // the stream is intact: skip it
+			continue
+		}
+		if err != nil {
+			return got, err
+		}
+		got = true
+		switch v := m.(type) {
+		case msg.LogCredit:
+			r.srv.Credit(v.RequestID, v.CreditsGranted)
+		case msg.LogCancel:
+			r.srv.Cancel(v.RequestID)
+		}
+	}
 }
 
 func (r *logsRole) endSession() {
 	if r.sess == nil {
 		return
 	}
-	r.sess.cancel() // first: unblocks a Send waiting on flow control
+	r.sess.cancel()
 	r.srv.CancelAll()
 	r.sess.out.close()
 	<-r.sess.done
@@ -459,6 +517,10 @@ func (r *logsRole) openRing(p string, capIfNew func() uint64) (*ring.Ring, error
 // only while the DP has never set one — and starts its collector if the cap is
 // above zero.
 func (r *logsRole) ensure(ctx context.Context, p string) {
+	if !ring.ValidPlacement(p) { // before any path is built from a DP-supplied id
+		r.log.Warn("logs: invalid placement ref; ignored")
+		return
+	}
 	rg, err := r.openRing(p, func() uint64 {
 		if r.store.Exists(logsDPCapDir + "/" + p) {
 			return 0
@@ -480,6 +542,10 @@ func (r *logsRole) ensure(ctx context.Context, p string) {
 // collection started or stopped to match.
 func (r *logsRole) retain(ctx context.Context, m msg.LogRetention) {
 	p := m.PlacementRef
+	if !ring.ValidPlacement(p) {
+		r.log.Warn("logs: invalid placement ref; ignored")
+		return
+	}
 	rg, err := r.openRing(p, func() uint64 { return 0 })
 	if err != nil {
 		r.log.Warn("log retention refused", "binding_id", p, "err", err)
@@ -545,47 +611,74 @@ func (r *logsRole) stopCollector(p string) {
 	delete(r.collectors, p)
 }
 
-// logsSender is the session's Logs stream as serve sends on it: Send waits
-// until the stream is open (a request can arrive on Connect first), serializes
-// senders, and fails once the session has ended.
+// logsSender is the session's Logs stream as serve sends on it. While a
+// stream is being opened Send waits for it (a request can arrive on Connect
+// first); between streams, and once the session ended, Send fails fast. Sends
+// are serialized.
 type logsSender struct {
-	ready  chan struct{}
-	once   sync.Once
 	mu     sync.Mutex
 	st     LogsStream
+	ready  chan struct{} // non-nil while a stream is being opened
 	closed bool
 }
 
 var errNoLogsStream = errors.New("agent: no Logs stream")
 
+func newLogsSender() *logsSender { return &logsSender{} }
+
+func (s *logsSender) opening() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.closed && s.ready == nil {
+		s.ready = make(chan struct{})
+	}
+}
+
+func (s *logsSender) release() {
+	if s.ready != nil {
+		close(s.ready)
+		s.ready = nil
+	}
+}
+
 func (s *logsSender) attach(st LogsStream) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	defer s.once.Do(func() { close(s.ready) })
-	if s.closed || st == nil {
-		if st != nil {
-			_ = st.Close()
-		}
+	if s.closed {
+		_ = st.Close()
 		return false
 	}
 	s.st = st
+	s.release()
 	return true
 }
 
-func (s *logsSender) close() {
+// fail drops the current stream; Sends fail until the next attach.
+func (s *logsSender) fail() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.closed = true
 	if s.st != nil {
 		_ = s.st.Close()
 		s.st = nil
 	}
-	s.once.Do(func() { close(s.ready) })
+	s.release()
+}
+
+func (s *logsSender) close() {
+	s.mu.Lock()
+	s.closed = true
+	s.mu.Unlock()
+	s.fail()
 }
 
 func (s *logsSender) Send(m msg.LogsOutbound) error {
-	<-s.ready
 	s.mu.Lock()
+	for s.ready != nil {
+		r := s.ready
+		s.mu.Unlock()
+		<-r
+		s.mu.Lock()
+	}
 	defer s.mu.Unlock()
 	if s.st == nil {
 		return errNoLogsStream

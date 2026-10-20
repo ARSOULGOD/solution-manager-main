@@ -83,10 +83,11 @@ type Server struct {
 }
 
 type request struct {
-	cancel  context.CancelFunc
-	export  bool
-	credits uint32
-	wake    chan struct{} // capacity 1: a credit arrived
+	placement string
+	cancel    context.CancelFunc
+	export    bool
+	credits   uint32
+	wake      chan struct{} // capacity 1: a credit arrived
 }
 
 func New(rings func(placementRef string) (*ring.Ring, bool), inLease func(placementRef string) bool, limits func() (maxMsg, maxBatch uint64), opts ...Option) *Server {
@@ -137,7 +138,7 @@ func (s *Server) Handle(ctx context.Context, req msg.LogRequest, out LogsSender)
 		return
 	}
 	rctx, cancel := context.WithCancel(ctx)
-	rq := &request{cancel: cancel, export: req.Export != nil, wake: make(chan struct{}, 1)}
+	rq := &request{placement: req.PlacementRef, cancel: cancel, export: req.Export != nil, wake: make(chan struct{}, 1)}
 	if rq.export {
 		rq.credits = s.initial()
 	}
@@ -200,6 +201,23 @@ func (s *Server) CancelAll() {
 	s.active = map[string]*request{}
 	s.mu.Unlock()
 	for _, rq := range all {
+		rq.cancel()
+	}
+}
+
+// Revoke ends every request for a placement that left the lease: an export
+// admitted before the revocation sends nothing more. Not counted as ignored.
+func (s *Server) Revoke(placementRef string) {
+	s.mu.Lock()
+	var gone []*request
+	for id, rq := range s.active {
+		if rq.placement == placementRef {
+			gone = append(gone, rq)
+			delete(s.active, id)
+		}
+	}
+	s.mu.Unlock()
+	for _, rq := range gone {
 		rq.cancel()
 	}
 }
@@ -392,8 +410,10 @@ func fitRead(limit, fixed int, read func(textBudget int) ([]msg.LogLine, []msg.L
 
 // trim enforces room (the bytes left after the fixed framing): it drops
 // lines — the oldest for a page (fromFront), the newest for an export, which
-// resumes there — then gap markers, oldest first, then cuts the one remaining
-// line's text on a rune boundary. dropped counts lines dropped from the end.
+// resumes there — down to one, then cuts that one line's text on a rune
+// boundary, and drops gap markers (oldest first) only once the line is empty:
+// a gap says what is missing, so it outranks the text of one line. dropped
+// counts lines dropped from the end.
 func trim(lines []msg.LogLine, gaps []msg.LogGap, room int, fromFront bool) ([]msg.LogLine, []msg.LogGap, int) {
 	dropped := 0
 	for len(lines) > 1 && size(lines, gaps) > room {
@@ -404,13 +424,13 @@ func trim(lines []msg.LogLine, gaps []msg.LogGap, room int, fromFront bool) ([]m
 			dropped++
 		}
 	}
-	for len(gaps) > 0 && size(lines, gaps) > room {
-		gaps = gaps[1:]
-	}
 	if over := size(lines, gaps) - room; over > 0 && len(lines) == 1 {
 		l := lines[0]
 		l.Text, l.Truncated = truncRunes(l.Text, len(l.Text)-over), true
 		lines = []msg.LogLine{l}
+	}
+	for len(gaps) > 0 && size(lines, gaps) > room {
+		gaps = gaps[1:]
 	}
 	return lines, gaps, dropped
 }

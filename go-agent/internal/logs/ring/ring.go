@@ -45,6 +45,11 @@ var safeID = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
 // validID: a placement id is a path segment under logs/.
 func validID(id string) bool { return id != "." && id != ".." && safeID.MatchString(id) }
 
+// ValidPlacement reports whether id is usable as a placement id (a single safe
+// path segment). Callers that build their own paths from a placement id check
+// it first.
+func ValidPlacement(id string) bool { return validID(id) }
+
 type rec struct {
 	T time.Time `json:"t"`
 	S string    `json:"s"`

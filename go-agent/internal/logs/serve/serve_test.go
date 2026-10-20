@@ -408,3 +408,36 @@ func TestBusyWhenConcurrentRequestsExceedBound(t *testing.T) {
 		t.Fatalf("a freed slot must serve again: %+v", p.Unavailable)
 	}
 }
+
+func TestTrimTruncatesTheLoneLineBeforeDroppingGaps(t *testing.T) {
+	line := []msg.LogLine{{TS: t0, Stream: "stdout", Text: bytes.Repeat([]byte("é"), 500)}}
+	gaps := []msg.LogGap{{Reason: msg.GapDroppedOldest}, {Reason: msg.GapCapReduced}}
+	room := size(line, gaps) - 300
+	ls, gs, _ := trim(line, gaps, room, true)
+	if len(gs) != 2 || len(ls) != 1 || !ls[0].Truncated || !utf8.Valid(ls[0].Text) || size(ls, gs) > room {
+		t.Fatalf("the line must be cut first and the gaps kept: %d gaps, %d text", len(gs), len(ls[0].Text))
+	}
+	// Room below the gaps alone: the line is emptied, then gaps go oldest first.
+	ls, gs, _ = trim(line, gaps, size(nil, gaps[1:])+lineOverhead+len("stdout"), true)
+	if len(gs) != 1 || gs[0].Reason != msg.GapCapReduced || len(ls) != 1 || len(ls[0].Text) != 0 {
+		t.Fatalf("%d gaps, %d lines", len(gs), len(ls))
+	}
+}
+
+func TestRevokeCancelsThePlacementsRequests(t *testing.T) {
+	r := openRing(t, 1<<20)
+	fill(t, r, 10, 100)
+	srv := newServer(t, r, 1<<20, 1<<20)
+	out := newSink()
+	srv.Handle(context.Background(), exportReq("e1", 0), out)
+	srv.Revoke("other")
+	if srv.Inflight() != 1 {
+		t.Fatal("revoking another placement touches nothing")
+	}
+	srv.Revoke("p1")
+	if srv.Inflight() != 0 {
+		t.Fatal("revoke must end the placement's requests")
+	}
+	srv.Credit("e1", 3)
+	out.none(t)
+}

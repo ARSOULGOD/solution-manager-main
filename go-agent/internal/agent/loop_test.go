@@ -3,10 +3,12 @@ package agent
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -14,8 +16,10 @@ import (
 	"github.com/solace/solution-manager/go-agent/internal/identity"
 	"github.com/solace/solution-manager/go-agent/internal/msg"
 	"github.com/solace/solution-manager/go-agent/internal/reactor"
+	"github.com/solace/solution-manager/go-agent/internal/runtime"
 	"github.com/solace/solution-manager/go-agent/internal/store"
 	"github.com/solace/solution-manager/go-agent/internal/testca"
+	"github.com/solace/solution-manager/go-agent/internal/wire"
 )
 
 // fakeConn is a channel-backed Conn: the test reads what the agent sends and
@@ -413,18 +417,30 @@ func TestLogCollectorBackoffHasAFloorOnEveryAttempt(t *testing.T) {
 type fakeLogsStream struct {
 	sent   chan msg.LogsOutbound
 	inject chan msg.LogsInbound
+	errs   chan error // a Recv error: undecodable (wraps wire.ErrUndecodable) or transport
 	closed chan struct{}
 	once   sync.Once
 }
 
 func newFakeLogsStream() *fakeLogsStream {
-	return &fakeLogsStream{sent: make(chan msg.LogsOutbound, 64), inject: make(chan msg.LogsInbound, 64), closed: make(chan struct{})}
+	return &fakeLogsStream{sent: make(chan msg.LogsOutbound, 64), inject: make(chan msg.LogsInbound, 64),
+		errs: make(chan error, 4), closed: make(chan struct{})}
 }
-func (s *fakeLogsStream) Send(m msg.LogsOutbound) error { s.sent <- m; return nil }
+func (s *fakeLogsStream) Send(m msg.LogsOutbound) error {
+	select {
+	case <-s.closed:
+		return io.EOF
+	default:
+	}
+	s.sent <- m
+	return nil
+}
 func (s *fakeLogsStream) Recv() (msg.LogsInbound, error) {
 	select {
 	case m := <-s.inject:
 		return m, nil
+	case err := <-s.errs:
+		return nil, err
 	case <-s.closed:
 		return nil, io.EOF
 	}
@@ -509,5 +525,239 @@ func TestLogsRoleServesOverTheSessionStreamAndKeepsTheDPCap(t *testing.T) {
 			t.Fatalf("%s: cap %d, want %d", p, rg.Cap(), want)
 		}
 		_ = rg.Close()
+	}
+}
+
+func (s *fakeLogsStream) chunk(t *testing.T) msg.LogChunk {
+	t.Helper()
+	select {
+	case m := <-s.sent:
+		c, ok := m.(msg.LogChunk)
+		if !ok {
+			t.Fatalf("want LogChunk, got %T %+v", m, m)
+		}
+		return c
+	case <-time.After(2 * time.Second):
+		t.Fatal("no LogChunk")
+	}
+	panic("unreachable")
+}
+
+func isClosed(c chan struct{}) bool {
+	select {
+	case <-c:
+		return true
+	default:
+		return false
+	}
+}
+
+// startRole runs a logsRole over a fresh store with fast reopen backoff.
+func startRole(t *testing.T, src *fakeLogSource) (*logsRole, *store.Store, *strings.Builder) {
+	t.Helper()
+	s, err := store.Open(filepath.Join(t.TempDir(), "d"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var buf strings.Builder
+	var mu sync.Mutex
+	log := slog.New(slog.NewTextHandler(lockedWriter{&mu, &buf}, nil))
+	var cs collectSource
+	if src != nil {
+		cs = src
+	}
+	role := newLogsRole(s, LogsConfig{DefaultMaxBytes: 1 << 20}, cs, func() string { return "m" }, log)
+	role.backoff = func(int) time.Duration { return 10 * time.Millisecond }
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { defer close(done); role.Run(ctx) }()
+	t.Cleanup(func() { cancel(); <-done })
+	return role, s, &buf
+}
+
+type lockedWriter struct {
+	mu *sync.Mutex
+	b  *strings.Builder
+}
+
+func (w lockedWriter) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.b.Write(p)
+}
+
+// streams hands out a new fake stream per Open.
+type streams struct {
+	mu  sync.Mutex
+	all []*fakeLogsStream
+}
+
+func (ss *streams) open(context.Context) (LogsStream, error) {
+	ss.mu.Lock()
+	defer ss.mu.Unlock()
+	st := newFakeLogsStream()
+	ss.all = append(ss.all, st)
+	return st, nil
+}
+
+func (ss *streams) get(t *testing.T, i int) *fakeLogsStream {
+	t.Helper()
+	var st *fakeLogsStream
+	waitFor(t, func() bool {
+		ss.mu.Lock()
+		defer ss.mu.Unlock()
+		if len(ss.all) > i {
+			st = ss.all[i]
+			return true
+		}
+		return false
+	})
+	return st
+}
+
+func session(ss *streams, bindings ...string) *LogsSession {
+	b := map[string]bool{}
+	for _, x := range bindings {
+		b[x] = true
+	}
+	return &LogsSession{ID: "s1", Limits: msg.Limits{MaxMessageBytes: 1 << 20, MaxBatchBytes: 1 << 20}, Bindings: b, Open: ss.open}
+}
+
+func TestLogsStreamSkipsAnUndecodableMessageAndKeepsServing(t *testing.T) {
+	role, _, _ := startRole(t, nil)
+	ss := &streams{}
+	role.Session(session(ss, "b1"))
+	role.Retention(msg.LogRetention{PlacementRef: "b1", MaxBytes: 1 << 20})
+	st := ss.get(t, 0)
+	waitFor(t, func() bool { _, ok := role.ring("b1"); return ok })
+	rg, _ := role.ring("b1")
+	_ = rg.Append(msg.LogLine{TS: time.Now(), Stream: "stdout", Text: []byte("x")})
+
+	st.errs <- fmt.Errorf("decode: %w", wire.ErrUndecodable)
+	for i := range serveBound + 1 { // more exports than the bound: none may be BUSY
+		id := fmt.Sprintf("e%d", i)
+		role.Request(msg.LogRequest{RequestID: id, PlacementRef: "b1", Export: &msg.LogExportQuery{}})
+		waitFor(t, func() bool { return role.srv.Inflight() == 1 })
+		st.inject <- msg.LogCredit{RequestID: id, CreditsGranted: 1}
+		if c := st.chunk(t); c.RequestID != id || !c.Final {
+			t.Fatalf("%+v", c)
+		}
+		waitFor(t, func() bool { return role.srv.Inflight() == 0 })
+	}
+	if role.undecodable.Load() != 1 {
+		t.Fatalf("undecodable=%d", role.undecodable.Load())
+	}
+	if len(ss.all) != 1 {
+		t.Fatal("an undecodable message must not reopen the stream")
+	}
+}
+
+const serveBound = 4
+
+func TestLogsStreamTransportErrorEndsPendingExportsAndReopens(t *testing.T) {
+	role, _, _ := startRole(t, nil)
+	ss := &streams{}
+	role.Session(session(ss, "b1"))
+	role.Retention(msg.LogRetention{PlacementRef: "b1", MaxBytes: 1 << 20})
+	st := ss.get(t, 0)
+	waitFor(t, func() bool { _, ok := role.ring("b1"); return ok })
+	rg, _ := role.ring("b1")
+	_ = rg.Append(msg.LogLine{TS: time.Now(), Stream: "stdout", Text: []byte("x")})
+	role.Request(msg.LogRequest{RequestID: "e1", PlacementRef: "b1", Export: &msg.LogExportQuery{}})
+	waitFor(t, func() bool { return role.srv.Inflight() == 1 })
+
+	st.errs <- io.ErrUnexpectedEOF // transport: the stream is gone
+	waitFor(t, func() bool { return role.srv.Inflight() == 0 && isClosed(st.closed) })
+
+	st2 := ss.get(t, 1) // reopened within the same session
+	role.Request(msg.LogRequest{RequestID: "r2", PlacementRef: "b1", Page: &msg.LogPageQuery{Limit: 5}})
+	if p := st2.page(t); p.RequestID != "r2" || len(p.Lines) != 1 {
+		t.Fatalf("%+v", p)
+	}
+}
+
+// fakeLogSource follows nothing; it counts live follows per binding.
+type fakeLogSource struct {
+	mu   sync.Mutex
+	live map[string]int
+}
+
+type collectSource interface {
+	FollowLogs(ctx context.Context, p runtime.Placement, since time.Time) (<-chan msg.LogLine, <-chan error)
+	ResolveByName(ctx context.Context, containerName, bindingID string) (runtime.Placement, error)
+}
+
+func (f *fakeLogSource) ResolveByName(_ context.Context, _ string, b string) (runtime.Placement, error) {
+	return runtime.Placement{BindingID: b, ContainerID: "c-" + b}, nil
+}
+
+func (f *fakeLogSource) FollowLogs(ctx context.Context, p runtime.Placement, _ time.Time) (<-chan msg.LogLine, <-chan error) {
+	f.mu.Lock()
+	f.live[p.BindingID]++
+	f.mu.Unlock()
+	lines, errs := make(chan msg.LogLine), make(chan error, 1)
+	go func() {
+		<-ctx.Done()
+		f.mu.Lock()
+		f.live[p.BindingID]--
+		f.mu.Unlock()
+		close(lines)
+		errs <- nil
+	}()
+	return lines, errs
+}
+
+func (f *fakeLogSource) following(b string) int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.live[b]
+}
+
+func TestLeaseShrinkStopsCollectorClosesRingAndCancelsExport(t *testing.T) {
+	src := &fakeLogSource{live: map[string]int{}}
+	role, _, _ := startRole(t, src)
+	ss := &streams{}
+	role.Session(session(ss, "b1", "b2"))
+	st := ss.get(t, 0)
+	waitFor(t, func() bool { return src.following("b1") == 1 && src.following("b2") == 1 })
+	rg, _ := role.ring("b1")
+	_ = rg.Append(msg.LogLine{TS: time.Now(), Stream: "stdout", Text: []byte("kept")})
+	role.Request(msg.LogRequest{RequestID: "e1", PlacementRef: "b1", Export: &msg.LogExportQuery{}})
+	waitFor(t, func() bool { return role.srv.Inflight() == 1 })
+
+	role.Session(session(ss, "b2")) // b1 leaves the lease, same session
+	waitFor(t, func() bool {
+		_, open := role.ring("b1")
+		return src.following("b1") == 0 && !open && role.srv.Inflight() == 0
+	})
+	if src.following("b2") != 1 {
+		t.Fatal("a placement still in the lease keeps its collector")
+	}
+	st.inject <- msg.LogCredit{RequestID: "e1", CreditsGranted: 5}
+	select {
+	case m := <-st.sent:
+		t.Fatalf("a revoked export must send nothing more: %T", m)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	role.Session(session(ss, "b1", "b2")) // re-enters
+	waitFor(t, func() bool { return src.following("b1") == 1 })
+	role.Request(msg.LogRequest{RequestID: "r2", PlacementRef: "b1", Page: &msg.LogPageQuery{Limit: 5}})
+	if p := st.page(t); len(p.Lines) != 1 || string(p.Lines[0].Text) != "kept" {
+		t.Fatalf("stored logs must survive leaving the lease: %+v", p)
+	}
+}
+
+func TestEnsureRefusesAHostileBindingIDBeforeTouchingTheStore(t *testing.T) {
+	role, s, buf := startRole(t, nil)
+	if err := s.Save(store.Blob{RelPath: "x"}); err != nil { // what "logs-dp-cap/../x" would resolve to
+		t.Fatal(err)
+	}
+	role.ensure(context.Background(), "../x")
+	if _, ok := role.ring("../x"); ok {
+		t.Fatal("a hostile id must get no ring")
+	}
+	if !strings.Contains(buf.String(), "invalid placement ref") {
+		t.Fatalf("want the id refused up front; log: %s", buf.String())
 	}
 }
