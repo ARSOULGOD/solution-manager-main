@@ -304,3 +304,210 @@ func TestRunReleasesItsGoroutinesOnTheFatalPath(t *testing.T) {
 		}
 	}
 }
+
+// ---- logs role (plan 016) ----
+
+// fakeLogsRole records what the loop hands the logs role.
+type fakeLogsRole struct {
+	mu       sync.Mutex
+	sessions []*LogsSession
+	requests []msg.LogRequest
+	retains  []msg.LogRetention
+}
+
+func (f *fakeLogsRole) Run(ctx context.Context) { <-ctx.Done() }
+func (f *fakeLogsRole) Session(s *LogsSession) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.sessions = append(f.sessions, s)
+}
+func (f *fakeLogsRole) Retention(m msg.LogRetention) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.retains = append(f.retains, m)
+}
+func (f *fakeLogsRole) Request(m msg.LogRequest) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.requests = append(f.requests, m)
+}
+func (f *fakeLogsRole) counts() (int, int, int) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.sessions), len(f.requests), len(f.retains)
+}
+
+func runLogsLoop(t *testing.T, caps []msg.Capability) (*fakeLogsRole, *fakeConn, *Loop) {
+	t.Helper()
+	ca, _ := testca.New()
+	w := &fakeWire{ca: ca}
+	l, _ := newTestLoop(t, w)
+	l.d.Config.Capabilities = caps
+	role := &fakeLogsRole{}
+	l.d.Logs = role
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- l.Run(ctx) }()
+	t.Cleanup(func() { cancel(); <-done })
+	c := w.conn(0)
+	expect[msg.SessionOpen](t, c)
+	return role, c, l
+}
+
+func TestLogsSessionStartsOnlyAfterSessionAcceptWithCapLogs(t *testing.T) {
+	role, c, l := runLogsLoop(t, []msg.Capability{msg.CapReportOnly, msg.CapLogs})
+	if n, _, _ := role.counts(); n != 0 {
+		t.Fatal("no logs session before SessionAccept")
+	}
+	c.inject <- msg.SessionAccept{SessionID: "s1", Limits: msg.Limits{HeartbeatInterval: time.Hour, MaxMessageBytes: 4096},
+		Lease: msg.LeaseGrant{BindingIDs: []string{"b1"}, ExpiresAt: time.Now().Add(time.Hour)}}
+	c.inject <- msg.LogRetention{PlacementRef: "b1", MaxBytes: 1 << 20}
+	c.inject <- msg.LogRequest{RequestID: "r1", PlacementRef: "b1", Page: &msg.LogPageQuery{Limit: 1}}
+	waitFor(t, func() bool { _, r, k := role.counts(); return r == 1 && k == 1 })
+	role.mu.Lock()
+	s := role.sessions[0]
+	role.mu.Unlock()
+	if s == nil || s.ID != "s1" || s.Limits.MaxMessageBytes != 4096 || s.Open == nil {
+		t.Fatalf("%+v", s)
+	}
+	if l.Snapshot().Session.Phase != PhaseActive {
+		t.Fatal("not active")
+	}
+}
+
+func TestAgentWithoutCapLogsNeverHandsTheRoleLogMessages(t *testing.T) {
+	role, c, _ := runLogsLoop(t, []msg.Capability{msg.CapReportOnly})
+	c.inject <- msg.SessionAccept{SessionID: "s1", Limits: msg.Limits{HeartbeatInterval: time.Hour}}
+	c.inject <- msg.LogRetention{PlacementRef: "b1", MaxBytes: 1 << 20}
+	c.inject <- msg.LogRequest{RequestID: "r1", PlacementRef: "b1", Page: &msg.LogPageQuery{Limit: 1}}
+	c.inject <- msg.HeartbeatAck{}
+	time.Sleep(100 * time.Millisecond)
+	if s, r, k := role.counts(); s != 0 || r != 0 || k != 0 {
+		t.Fatalf("sessions=%d requests=%d retentions=%d; a session without CapLogs must carry no logs", s, r, k)
+	}
+}
+
+func waitFor(t *testing.T, cond func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for !cond() {
+		if time.Now().After(deadline) {
+			t.Fatal("condition not met")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+func TestLogCollectorBackoffHasAFloorOnEveryAttempt(t *testing.T) {
+	for a := range 12 {
+		for range 50 {
+			if d := collectorBackoff(a); d < time.Second || d > 31*time.Second {
+				t.Fatalf("attempt %d: %v", a, d)
+			}
+		}
+	}
+}
+
+// fakeLogsStream is the Logs RPC: the test reads what the agent sends and
+// injects credits and cancels.
+type fakeLogsStream struct {
+	sent   chan msg.LogsOutbound
+	inject chan msg.LogsInbound
+	closed chan struct{}
+	once   sync.Once
+}
+
+func newFakeLogsStream() *fakeLogsStream {
+	return &fakeLogsStream{sent: make(chan msg.LogsOutbound, 64), inject: make(chan msg.LogsInbound, 64), closed: make(chan struct{})}
+}
+func (s *fakeLogsStream) Send(m msg.LogsOutbound) error { s.sent <- m; return nil }
+func (s *fakeLogsStream) Recv() (msg.LogsInbound, error) {
+	select {
+	case m := <-s.inject:
+		return m, nil
+	case <-s.closed:
+		return nil, io.EOF
+	}
+}
+func (s *fakeLogsStream) Close() error { s.once.Do(func() { close(s.closed) }); return nil }
+
+func (s *fakeLogsStream) page(t *testing.T) msg.LogPage {
+	t.Helper()
+	select {
+	case m := <-s.sent:
+		p, ok := m.(msg.LogPage)
+		if !ok {
+			t.Fatalf("want LogPage, got %T", m)
+		}
+		return p
+	case <-time.After(2 * time.Second):
+		t.Fatal("no LogPage")
+	}
+	panic("unreachable")
+}
+
+func TestLogsRoleServesOverTheSessionStreamAndKeepsTheDPCap(t *testing.T) {
+	s, err := store.Open(filepath.Join(t.TempDir(), "d"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	role := newLogsRole(s, LogsConfig{DefaultMaxBytes: 4096}, nil, func() string { return "m" }, log)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { defer close(done); role.Run(ctx) }()
+
+	st := newFakeLogsStream()
+	opened := make(chan struct{}, 4)
+	role.Session(&LogsSession{ID: "s1", Limits: msg.Limits{MaxMessageBytes: 1 << 20, MaxBatchBytes: 1 << 20},
+		Bindings: map[string]bool{"b1": true, "b2": true},
+		Open:     func(context.Context) (LogsStream, error) { opened <- struct{}{}; return st, nil }})
+	role.Retention(msg.LogRetention{PlacementRef: "b1", MaxBytes: 1 << 20})
+	role.Retention(msg.LogRetention{PlacementRef: "b2", MaxBytes: 0})
+	waitFor(t, func() bool { rg, ok := role.ring("b1"); return ok && rg.Cap() == 1<<20 })
+	rg, _ := role.ring("b1")
+	if err := rg.Append(msg.LogLine{TS: time.Now(), Stream: "stdout", Text: []byte("hello")}); err != nil {
+		t.Fatal(err)
+	}
+
+	role.Request(msg.LogRequest{RequestID: "r1", PlacementRef: "b1", Page: &msg.LogPageQuery{Limit: 10}})
+	if p := st.page(t); p.RequestID != "r1" || len(p.Lines) != 1 || string(p.Lines[0].Text) != "hello" {
+		t.Fatalf("%+v", p)
+	}
+	role.Request(msg.LogRequest{RequestID: "r2", PlacementRef: "elsewhere", Page: &msg.LogPageQuery{Limit: 10}})
+	if p := st.page(t); p.Unavailable != msg.UnavailablePlacementNotLease {
+		t.Fatalf("%+v", p)
+	}
+	role.Request(msg.LogRequest{RequestID: "r3", PlacementRef: "b2", Page: &msg.LogPageQuery{Limit: 10}})
+	if p := st.page(t); p.Unavailable != msg.UnavailableNotCollecting {
+		t.Fatalf("a DP cap of 0 turns collection off: %+v", p)
+	}
+
+	// A new lease on the same session refreshes it without reopening the stream.
+	role.Session(&LogsSession{ID: "s1", Bindings: map[string]bool{"b1": true}, Open: func(context.Context) (LogsStream, error) { opened <- struct{}{}; return st, nil }})
+	role.Session(nil)
+	waitFor(t, func() bool {
+		select {
+		case <-st.closed:
+			return true
+		default:
+			return false
+		}
+	})
+	if len(opened) != 1 {
+		t.Fatalf("stream opened %d times", len(opened))
+	}
+	cancel()
+	<-done
+
+	// After a restart the configured default never overrides the DP's caps.
+	role2 := newLogsRole(s, LogsConfig{DefaultMaxBytes: 4096}, nil, func() string { return "m" }, log)
+	for p, want := range map[string]uint64{"b1": 1 << 20, "b2": 0, "b3": 4096} {
+		role2.ensure(context.Background(), p)
+		rg, ok := role2.ring(p)
+		if !ok || rg.Cap() != want {
+			t.Fatalf("%s: cap %d, want %d", p, rg.Cap(), want)
+		}
+		_ = rg.Close()
+	}
+}

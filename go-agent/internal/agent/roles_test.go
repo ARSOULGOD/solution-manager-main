@@ -2,6 +2,8 @@ package agent
 
 import (
 	"reflect"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -38,6 +40,45 @@ func TestCapabilitiesFollowTheRoles(t *testing.T) {
 	} {
 		if got := r.capabilities(); !reflect.DeepEqual(got, want) {
 			t.Errorf("%+v → %v, want %v", r, got, want)
+		}
+	}
+}
+
+func TestParseRolesAcceptsLogs(t *testing.T) {
+	for in, want := range map[string]Roles{
+		"logs":                   {Logs: true},
+		"control,logs":           {Control: true, Logs: true},
+		"telemetry, logs":        {Telemetry: true, Logs: true},
+		"control,telemetry,logs": {Control: true, Telemetry: true, Logs: true},
+	} {
+		got, err := ParseRoles(in)
+		if err != nil || got != want {
+			t.Errorf("%q → %+v %v, want %+v", in, got, err, want)
+		}
+	}
+	_, err := ParseRoles("billing")
+	if err == nil || !strings.Contains(err.Error(), "want control, telemetry, logs") {
+		t.Fatalf("the refusal must name every role: %v", err)
+	}
+}
+
+func TestLogsRoleAdvertisesCapLogs(t *testing.T) {
+	control := []msg.Capability{msg.CapApplyConfig, msg.CapLifecycle, msg.CapRematerialize, msg.CapDiscovery, msg.CapDeclarations}
+	for r, want := range map[Roles][]msg.Capability{
+		{Control: true, Logs: true}:                  append(slices.Clone(control), msg.CapLogs),
+		{Control: true, Telemetry: true, Logs: true}: append(slices.Clone(control), msg.CapLogs),
+		// A logs-only agent is report-only, as a telemetry-only one is: it
+		// executes nothing on its lease.
+		{Logs: true}:                  {msg.CapReportOnly, msg.CapDeclarations, msg.CapLogs},
+		{Telemetry: true, Logs: true}: {msg.CapReportOnly, msg.CapDeclarations, msg.CapLogs},
+	} {
+		if got := r.capabilities(); !reflect.DeepEqual(got, want) {
+			t.Errorf("%+v → %v, want %v", r, got, want)
+		}
+	}
+	for _, r := range []Roles{{}, {Control: true}, {Telemetry: true}, {Control: true, Telemetry: true}} {
+		if slices.Contains(r.capabilities(), msg.CapLogs) {
+			t.Errorf("%+v advertises logs without the role", r)
 		}
 	}
 }

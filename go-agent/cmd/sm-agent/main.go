@@ -24,10 +24,11 @@ func main() {
 	trust := flag.String("trust-bundle", "", "PEM file with the DP server trust bundle or pin")
 	level := flag.String("log-level", "info", "debug|info|warn|error")
 	adminAddr := flag.String("admin-addr", "127.0.0.1:9464", "/healthz and /metrics listener; loopback by default — a non-loopback address exposes both unauthenticated, at the operator's choice; empty disables")
-	roles := flag.String("roles", envOr("SM_AGENT_ROLES", "control"), "comma list: control, telemetry")
+	roles := flag.String("roles", envOr("SM_AGENT_ROLES", "control"), "comma list: control, telemetry, logs")
 	telemetryCfg := flag.String("telemetry-config", "", "development-only metric declarations file (AG-D22); the DP pushes declarations on the wire (AG-D28)")
 	bufBytes := flag.String("telemetry-buffer-bytes", "64MiB", "AG-D9 byte cap across all streams (provisional default)")
 	bufAge := flag.Duration("telemetry-buffer-age", 24*time.Hour, "AG-D9 time horizon (provisional default)")
+	logsDefault := flag.String("logs-default-max-bytes", envOr("SM_AGENT_LOGS_DEFAULT_MAX_BYTES", "16MiB"), "logs role: a placement's log ring cap until the DP sets one; 0 leaves collection off until then (provisional default)")
 	flag.Parse()
 	*token = resolveToken(*token, os.Getenv)
 
@@ -64,6 +65,18 @@ func main() {
 		}
 		tc = &agent.TelemetryConfig{Declarations: decl, BufferBytes: n, BufferAge: *bufAge}
 	}
+	var lc *agent.LogsConfig
+	if r.Logs {
+		var n int64
+		if *logsDefault != "0" {
+			var err error
+			if n, err = parseBytes(*logsDefault); err != nil {
+				fmt.Fprintln(os.Stderr, "--logs-default-max-bytes:", err)
+				os.Exit(2)
+			}
+		}
+		lc = &agent.LogsConfig{DefaultMaxBytes: uint64(n)}
+	}
 	log := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: lvl}))
 
 	var bundle []byte
@@ -83,7 +96,7 @@ func main() {
 	defer closeDocker()
 
 	l, _, err := agent.Build(agent.BuildConfig{
-		DataDir: *dataDir, Endpoint: *endpoint, Token: *token, TrustBundlePEM: bundle, AgentVersion: version, AdminAddr: *adminAddr, Adapter: adapter, Log: log, Roles: r, Telemetry: tc,
+		DataDir: *dataDir, Endpoint: *endpoint, Token: *token, TrustBundlePEM: bundle, AgentVersion: version, AdminAddr: *adminAddr, Adapter: adapter, Log: log, Roles: r, Telemetry: tc, Logs: lc,
 	})
 	if err != nil {
 		log.Error("build", "err", err)

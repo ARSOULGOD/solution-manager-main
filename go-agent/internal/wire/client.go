@@ -174,3 +174,43 @@ func (t *TelemetryStream) Close() error {
 	t.cancel()
 	return err
 }
+
+// LogsStream is the Logs RPC (plan 016) on the Conn's own connection, opened
+// after SessionAccept as Telemetry is. Send is not safe for concurrent use;
+// the caller serializes it.
+type LogsStream struct {
+	stream pb.AgentGateway_LogsClient
+	cancel context.CancelFunc
+}
+
+func (c *Conn) OpenLogs(ctx context.Context) (*LogsStream, error) {
+	sctx, cancel := context.WithCancel(ctx)
+	st, err := pb.NewAgentGatewayClient(c.cc).Logs(sctx)
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("wire: logs: %w", codec.ErrorFromStatus(err))
+	}
+	return &LogsStream{stream: st, cancel: cancel}, nil
+}
+
+func (s *LogsStream) Send(m msg.LogsOutbound) error {
+	p, err := codec.EncodeLogUp(m)
+	if err != nil {
+		return err
+	}
+	return s.stream.Send(p)
+}
+
+func (s *LogsStream) Recv() (msg.LogsInbound, error) {
+	p, err := s.stream.Recv()
+	if err != nil {
+		return nil, codec.ErrorFromStatus(err)
+	}
+	return codec.DecodeLogDown(p)
+}
+
+func (s *LogsStream) Close() error {
+	err := s.stream.CloseSend()
+	s.cancel()
+	return err
+}

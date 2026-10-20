@@ -69,6 +69,37 @@ type Deps struct {
 	Names        *discovery.Names
 	OnTruncated  func(int)
 	OnDropped    func(int)
+
+	Logs LogsRole // nil: no logs role
+}
+
+// LogsStream is the Logs RPC as the logs role uses it; *wire.LogsStream
+// satisfies it.
+type LogsStream interface {
+	Send(msg.LogsOutbound) error
+	Recv() (msg.LogsInbound, error)
+	Close() error
+}
+
+// LogsSession is what the loop hands the logs role while a session that
+// advertised CapLogs is ACTIVE. Bindings are the lease's binding_ids: the
+// placement refs the role collects for and serves.
+type LogsSession struct {
+	ID       string
+	Limits   msg.Limits
+	Bindings map[string]bool
+	Open     func(ctx context.Context) (LogsStream, error)
+}
+
+// LogsRole is the logs role (plan 016) as the loop drives it. No method may
+// block the loop on disk or network: each only queues work for Run.
+// Session(nil) ends the current session (its Logs stream and every request);
+// a new session always follows a Session(nil).
+type LogsRole interface {
+	Run(ctx context.Context)
+	Session(*LogsSession)
+	Retention(msg.LogRetention)
+	Request(msg.LogRequest)
 }
 
 // loop-private events
@@ -111,6 +142,16 @@ type Loop struct {
 	intentionalCloseGen int
 
 	viewPublished bool
+
+	// logsOn: the logs role holds a session; logsKey says which one.
+	logsOn  bool
+	logsKey logsKey
+}
+
+type logsKey struct {
+	gen   int
+	id    string
+	grant *msg.LeaseGrant
 }
 
 func New(d Deps, initial State) *Loop {
@@ -201,6 +242,9 @@ func (l *Loop) Run(ctx context.Context) error {
 	if l.d.Telemetry != nil {
 		tele.Go(func() { l.d.Telemetry.Run(ctx) })
 	}
+	if l.d.Logs != nil {
+		tele.Go(func() { l.d.Logs.Run(ctx) })
+	}
 	go l.worker(ctx)
 	go func() {
 		<-ctx.Done()
@@ -227,6 +271,14 @@ func (l *Loop) Run(ctx context.Context) error {
 				}
 			case msg.TelemetryDeclarations:
 				l.declare(m)
+			case msg.LogRetention:
+				if l.logsOn { // only a session that advertised CapLogs
+					l.d.Logs.Retention(m)
+				}
+			case msg.LogRequest:
+				if l.logsOn {
+					l.d.Logs.Request(m) // queued: the role serves it off the loop
+				}
 			}
 		}
 		// l.mu covers the Reduce call itself, not just the state swap: the
@@ -244,6 +296,7 @@ func (l *Loop) Run(ctx context.Context) error {
 			l.d.Names.Set(next.Discovery.Bindings.ByName)
 		}
 		l.publish(st, next, ev)
+		l.publishLogs(next)
 		effs = reactor.Sort(effs)
 		if l.d.Observe != nil {
 			l.d.Observe(ev, effs)
@@ -665,5 +718,54 @@ func telemetryOpener(c Conn) func(context.Context) (view.Stream, error) {
 			return nil, errors.New("agent: this connection carries no Telemetry stream")
 		}
 		return tc.OpenTelemetry(ctx)
+	}
+}
+
+// publishLogs hands the logs role the session: only once SessionAccept made it
+// ACTIVE, and only when this agent advertised CapLogs (the gateway's accepting
+// a SessionOpen that named it is what accepts the capability — SessionAccept
+// carries no per-capability answer). A new connection or session id ends the
+// old session first; a new lease on the same session only refreshes it.
+func (l *Loop) publishLogs(next State) {
+	if l.d.Logs == nil {
+		return
+	}
+	on := next.Session.Phase == PhaseActive && l.conn != nil && slices.Contains(l.d.Config.Capabilities, msg.CapLogs)
+	if !on {
+		if l.logsOn {
+			l.logsOn = false
+			l.d.Logs.Session(nil)
+		}
+		return
+	}
+	key := logsKey{gen: l.connGen, id: next.Session.SessionID, grant: next.Authority.Grant}
+	if l.logsOn && key == l.logsKey {
+		return
+	}
+	if l.logsOn && (key.gen != l.logsKey.gen || key.id != l.logsKey.id) {
+		l.d.Logs.Session(nil)
+	}
+	l.logsOn, l.logsKey = true, key
+	ls := &LogsSession{ID: key.id, Limits: next.Session.Limits, Bindings: map[string]bool{}, Open: logsOpener(l.conn)}
+	if g := key.grant; g != nil {
+		for _, b := range g.BindingIDs {
+			ls.Bindings[b] = true
+		}
+	}
+	l.d.Logs.Session(ls)
+}
+
+type logsConn interface {
+	OpenLogs(ctx context.Context) (LogsStream, error)
+}
+
+// logsOpener binds the opener to this connection, as telemetryOpener does.
+func logsOpener(c Conn) func(context.Context) (LogsStream, error) {
+	return func(ctx context.Context) (LogsStream, error) {
+		lc, ok := c.(logsConn)
+		if !ok {
+			return nil, errors.New("agent: this connection carries no Logs stream")
+		}
+		return lc.OpenLogs(ctx)
 	}
 }

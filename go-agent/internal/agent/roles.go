@@ -11,8 +11,9 @@ import (
 )
 
 // Roles are the agent's enabled roles (AG-D1; spec §2.3). The zero value is
-// the slice-1 default: control.
-type Roles struct{ Control, Telemetry bool }
+// the slice-1 default: control. Logs (plan 016) collects the placements' MI
+// container logs and serves them on request.
+type Roles struct{ Control, Telemetry, Logs bool }
 
 func ParseRoles(s string) (Roles, error) {
 	var r Roles
@@ -22,8 +23,10 @@ func ParseRoles(s string) (Roles, error) {
 			r.Control = true
 		case "telemetry":
 			r.Telemetry = true
+		case "logs":
+			r.Logs = true
 		default:
-			return Roles{}, fmt.Errorf("unknown role %q (want control, telemetry)", strings.TrimSpace(p))
+			return Roles{}, fmt.Errorf("unknown role %q (want control, telemetry, logs)", strings.TrimSpace(p))
 		}
 	}
 	return r, nil
@@ -31,16 +34,26 @@ func ParseRoles(s string) (Roles, error) {
 
 // capabilities is what SessionOpen advertises. A telemetry-only agent still
 // runs the session and reports — a TRUSTED report is what mints the ids its
-// samples carry — but executes nothing (AG-11 stays open on its lease).
+// samples carry — but executes nothing (AG-11 stays open on its lease). A
+// logs-only agent is treated exactly like a telemetry-only one: report-only,
+// executing nothing on its lease. CapLogs is appended whenever the logs role
+// is on; the gateway sends LogRetention and LogRequest only to a session that
+// names it.
 func (r Roles) capabilities() []msg.Capability {
 	// The last three of a control agent are plan 015 T2.3's feature
 	// capabilities: the gateway sends DiscoveryAck, TelemetryDeclarations and
 	// OPERATION_REMATERIALIZE only to a session that names them. A report-only agent
 	// still takes declarations (its collectors and health probe).
-	if r.Control || !r.Telemetry {
-		return []msg.Capability{msg.CapApplyConfig, msg.CapLifecycle, msg.CapRematerialize, msg.CapDiscovery, msg.CapDeclarations}
+	var caps []msg.Capability
+	if r.Control || (!r.Telemetry && !r.Logs) {
+		caps = []msg.Capability{msg.CapApplyConfig, msg.CapLifecycle, msg.CapRematerialize, msg.CapDiscovery, msg.CapDeclarations}
+	} else {
+		caps = []msg.Capability{msg.CapReportOnly, msg.CapDeclarations}
 	}
-	return []msg.Capability{msg.CapReportOnly, msg.CapDeclarations}
+	if r.Logs {
+		caps = append(caps, msg.CapLogs)
+	}
+	return caps
 }
 
 // gate refuses an operation whose capability this agent did not advertise
