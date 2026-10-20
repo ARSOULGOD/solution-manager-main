@@ -33,3 +33,29 @@ func TestT23ScenariosLoad(t *testing.T) {
 		t.Fatalf("%+v", disc.Policy.Discovery)
 	}
 }
+
+// The plan 016 logs scenario parses into the log steps and policy.
+func TestLogsScenarioLoads(t *testing.T) {
+	sc, err := LoadScenario(filepath.Join("scenarios", "logs.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sc.Policy.Logs.CreditsPerChunk != 1 || len(sc.Steps) != 6 {
+		t.Fatalf("%+v", sc.Policy.Logs)
+	}
+	if r := sc.Steps[0].LogRetention; r == nil || r.Placement != "binding-1" || r.MaxBytes != 512000 {
+		t.Fatalf("%+v", sc.Steps[0])
+	}
+	if r := sc.Steps[2].LogRequest; r == nil || r.Page == nil || r.Page.Limit != 50 || r.RequestID != "demo-page" {
+		t.Fatalf("%+v", sc.Steps[2])
+	}
+	if r := sc.Steps[4].LogRequest; r == nil || r.Export == nil || r.Page != nil {
+		t.Fatalf("%+v", sc.Steps[4])
+	}
+	if e := sc.Steps[3].ExpectLogPage; e == nil || e.RequestID != "demo-page" {
+		t.Fatalf("%+v", sc.Steps[3])
+	}
+	if e := sc.Steps[5].ExpectLogChunks; e == nil || !e.Final {
+		t.Fatalf("%+v", sc.Steps[5])
+	}
+}

@@ -64,6 +64,10 @@ type session struct {
 	accepted  chan struct{}
 	cursor    int  // transcript index the next `expect` scans from
 	mustClose bool // set by disconnect/drain/revoke steps: drop the stream when steps finish
+
+	logs       bool   // SessionOpen advertised CAPABILITY_LOGS (plan 016); set before the session is live
+	logSeq     int    // request ids minted for log_request steps; step-runner goroutine only
+	lastLogReq string // the last log_request's id, for expect_log_* steps that name none
 }
 
 func (s *Server) Connect(stream pb.AgentGateway_ConnectServer) error {
@@ -162,7 +166,11 @@ func (ss *session) run() error {
 	if !ok {
 		return nil
 	}
-	if _, isOpen := m.(msg.SessionOpen); !isOpen {
+	open, isOpen := m.(msg.SessionOpen)
+	if isOpen {
+		ss.logs = advertisesLogs(open)
+	}
+	if !isOpen {
 		ss.send(msg.Error{Envelope: ss.env(), Code: msg.ErrUnauthenticatedIdentity, Message: "SessionOpen expected first"})
 		return nil
 	}
@@ -464,6 +472,21 @@ func (ss *session) runStep(st Step) bool {
 	case st.Declarations != nil:
 		<-ss.accepted
 		ss.send(declarationsOf(ss.env(), *st.Declarations))
+	case st.Hold != nil:
+		st.Hold()
+	case st.LogRetention != nil:
+		if ss.logs {
+			ss.sendLogRetention(st.LogRetention.Placement, st.LogRetention.MaxBytes)
+		}
+	case st.LogRequest != nil:
+		r := ss.logRequestOf(*st.LogRequest)
+		if ss.logs {
+			ss.sendLogRequest(r)
+		}
+	case st.ExpectLogPage != nil:
+		return ss.expectLogPage(*st.ExpectLogPage)
+	case st.ExpectLogChunks != nil:
+		return ss.expectLogChunks(*st.ExpectLogChunks)
 	case st.Superseded != nil:
 		ss.mu.Lock()
 		if c := ss.commands[*st.Superseded]; c != nil {

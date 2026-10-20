@@ -1,0 +1,31 @@
+# Plan 016: the agent collects binding-1's container logs and serves them on request.
+# Run the agent with the logs role (SM_AGENT_ROLES=control,logs) against a container that
+# resolves to binding-1. Gateway side: the retention cap first (500 KiB), then a page of
+# the newest 50 lines, then a credit-gated export of everything stored. The fake prints one
+# summary line per page and chunk (counts, never the log text).
+lease:
+  target_id: target-1
+  binding_ids: [binding-1]
+  capabilities: [apply-config, lifecycle]
+  duration: 1h
+limits:
+  max_message_bytes: 1048576
+  max_batch_bytes: 65536
+  initial_credits: 4
+  heartbeat_interval: 5s
+  keepalive_interval: 30s
+  skew_tolerance: 30s
+  report_interval: 20s
+policy:
+  on_open: accept
+  renew: grant
+  heartbeat: {offset_ms: 0, state: OK}
+  report: {mode: auto}
+  logs: {credits_per_chunk: 1}
+steps:
+  - log_retention: {placement: binding-1, max_bytes: 512000}
+  - sleep: 5s   # let the collector store some lines
+  - log_request: {placement: binding-1, request_id: demo-page, page: {limit: 50}}
+  - expect_log_page: {request_id: demo-page, timeout: 30s}
+  - log_request: {placement: binding-1, request_id: demo-export, export: {from_seq: 0}}
+  - expect_log_chunks: {request_id: demo-export, final: true, timeout: 60s}

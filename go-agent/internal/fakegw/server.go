@@ -69,6 +69,8 @@ type Server struct {
 
 	tele       map[string]map[string]uint64 // agent_id → stream → watermark: the DP's telemetry_ingest_watermark (§6.2)
 	tstream    *teleStream                  // the live Telemetry stream, for unsolicited credits
+	lstream    *logStream                   // the live Logs stream (plan 016), for credits and cancels
+	logStreams int                          // Logs RPCs accepted
 	paused     bool
 	rejectNext string
 	outMu      sync.Mutex

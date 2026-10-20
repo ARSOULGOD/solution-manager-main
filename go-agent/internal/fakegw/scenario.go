@@ -77,7 +77,15 @@ type DeclarationsStep struct {
 	HealthProbe *ProbeStep    `yaml:"health_probe"`
 }
 
+// LogsPolicy is how the fake grants credit on the Logs stream (plan 016).
+type LogsPolicy struct {
+	// CreditsPerChunk is granted back for every non-final LogChunk received;
+	// zero grants nothing automatically (Server.GrantLogCredit does).
+	CreditsPerChunk uint32 `yaml:"credits_per_chunk"`
+}
+
 type Policy struct {
+	Logs      LogsPolicy      `yaml:"logs"`
 	Discovery DiscoveryPolicy `yaml:"discovery"`
 	OnOpen    string          `yaml:"on_open"` // accept | renew-required | reject:<CODE>
 	Renew     string          `yaml:"renew"`   // grant | refuse:<CODE> | silent
@@ -108,6 +116,51 @@ type OfferStep struct {
 	Deadline time.Duration `yaml:"deadline"`
 }
 
+// LogRetentionStep sends LogRetention for a placement (a binding id).
+type LogRetentionStep struct {
+	Placement string `yaml:"placement"`
+	MaxBytes  uint64 `yaml:"max_bytes"`
+}
+
+type LogPageStep struct {
+	Limit  uint32     `yaml:"limit"`
+	After  *time.Time `yaml:"after"`
+	Before *time.Time `yaml:"before"`
+}
+
+type LogExportStep struct {
+	FromSeq uint64 `yaml:"from_seq"`
+}
+
+// LogRequestStep sends a LogRequest carrying exactly one of Page or Export.
+// An empty RequestID becomes "req-<n>" for the session.
+type LogRequestStep struct {
+	Placement string         `yaml:"placement"`
+	RequestID string         `yaml:"request_id"`
+	Page      *LogPageStep   `yaml:"page"`
+	Export    *LogExportStep `yaml:"export"`
+}
+
+// ExpectLogPageStep waits for the LogPage answering RequestID (default: the
+// last log_request's) with at least MinLines lines and, when Unavailable is
+// set, that UnavailableReason. A timeout ends the script.
+type ExpectLogPageStep struct {
+	RequestID   string        `yaml:"request_id"`
+	MinLines    int           `yaml:"min_lines"`
+	Unavailable string        `yaml:"unavailable"`
+	Timeout     time.Duration `yaml:"timeout"`
+}
+
+// ExpectLogChunksStep waits until the chunks for RequestID (default: the last
+// log_request's) carry at least MinLines lines in all and, when Final is set,
+// the final chunk has arrived.
+type ExpectLogChunksStep struct {
+	RequestID string        `yaml:"request_id"`
+	MinLines  int           `yaml:"min_lines"`
+	Final     bool          `yaml:"final"`
+	Timeout   time.Duration `yaml:"timeout"`
+}
+
 type ErrorStep struct {
 	Code       string         `yaml:"code"`
 	RetryAfter *time.Duration `yaml:"retry_after"`
@@ -128,6 +181,17 @@ type Step struct {
 	RenewPolicy     *string           `yaml:"renew_policy"`
 	HeartbeatPolicy *HeartbeatPolicy  `yaml:"heartbeat_policy"`
 	ReportPolicy    *ReportPolicy     `yaml:"report_policy"`
+
+	// Plan 016: MI logs. The sends are skipped for a session that did not
+	// advertise CAPABILITY_LOGS, as the real gateway skips them.
+	LogRetention    *LogRetentionStep    `yaml:"log_retention"`
+	LogRequest      *LogRequestStep      `yaml:"log_request"`
+	ExpectLogPage   *ExpectLogPageStep   `yaml:"expect_log_page"`
+	ExpectLogChunks *ExpectLogChunksStep `yaml:"expect_log_chunks"`
+
+	// Hold is a test-only barrier: the runner calls it and continues when it
+	// returns. It cannot be written in a scenario file.
+	Hold func() `yaml:"-"`
 }
 
 type Scenario struct {
@@ -146,7 +210,7 @@ func DefaultScenario() *Scenario {
 			AdmissionMargin: 30 * time.Second,
 		},
 		Limits: LimitsSpec{MaxMessageBytes: 1 << 20, MaxBatchBytes: 65536, InitialCredits: 4, HeartbeatInterval: 10 * time.Second, KeepaliveInterval: 30 * time.Second, SkewTolerance: 30 * time.Second, ReportInterval: time.Minute},
-		Policy: Policy{OnOpen: "accept", Renew: "grant", Heartbeat: HeartbeatPolicy{State: "OK"}, Report: ReportPolicy{Mode: "auto"}, Telemetry: TelemetryPolicy{CreditsPerAck: 1}},
+		Policy: Policy{OnOpen: "accept", Renew: "grant", Heartbeat: HeartbeatPolicy{State: "OK"}, Report: ReportPolicy{Mode: "auto"}, Telemetry: TelemetryPolicy{CreditsPerAck: 1}, Logs: LogsPolicy{CreditsPerChunk: 1}},
 	}
 }
 

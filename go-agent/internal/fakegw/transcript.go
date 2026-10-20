@@ -128,3 +128,26 @@ func (t *transcript) length() int {
 	defer t.mu.Unlock()
 	return len(t.entries)
 }
+
+// waitScan blocks until scan, given the inbound-and-outbound entries from index
+// `from` on, reports a match; it returns the index after the matching entry.
+// Used by the log expectations, which match on a request id and on totals
+// across several entries rather than on a kind alone.
+func (t *transcript) waitScan(from int, scan func(es []Entry) (end int, ok bool), timeout time.Duration) (int, bool) {
+	deadline := time.Now().Add(timeout)
+	timer := time.AfterFunc(timeout, func() { t.cond.Broadcast() })
+	defer timer.Stop()
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	for {
+		if from <= len(t.entries) {
+			if end, ok := scan(t.entries[from:]); ok {
+				return from + end, true
+			}
+		}
+		if time.Now().After(deadline) {
+			return from, false
+		}
+		t.cond.Wait()
+	}
+}

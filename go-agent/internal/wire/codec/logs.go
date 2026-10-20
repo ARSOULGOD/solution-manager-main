@@ -94,8 +94,23 @@ func EncodeLogUp(m msg.LogsOutbound) (*pb.LogUp, error) {
 	return nil, fmt.Errorf("codec: unknown logs message %T", m)
 }
 
-// logUpFromPB is the inverse of EncodeLogUp (the gateway side; used by tests
-// and any in-process loopback).
+// DecodeLogUp is the gateway-side inverse of EncodeLogUp (fakegw, tests and any
+// in-process loopback).
+func DecodeLogUp(p *pb.LogUp) (msg.LogsOutbound, error) { return logUpFromPB(p) }
+
+// EncodeLogDown encodes a gateway → agent Logs-stream message; the inverse of
+// DecodeLogDown.
+func EncodeLogDown(m msg.LogsInbound) (*pb.LogDown, error) {
+	switch v := m.(type) {
+	case msg.LogCredit:
+		return &pb.LogDown{Msg: &pb.LogDown_LogCredit{LogCredit: &pb.LogCredit{RequestId: v.RequestID, CreditsGranted: v.CreditsGranted}}}, nil
+	case msg.LogCancel:
+		return &pb.LogDown{Msg: &pb.LogDown_LogCancel{LogCancel: &pb.LogCancel{RequestId: v.RequestID}}}, nil
+	}
+	return nil, fmt.Errorf("codec: unknown logs message %T", m)
+}
+
+// logUpFromPB is the inverse of EncodeLogUp.
 func logUpFromPB(p *pb.LogUp) (msg.LogsOutbound, error) {
 	switch v := p.GetMsg().(type) {
 	case *pb.LogUp_LogPage:

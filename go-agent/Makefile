@@ -12,7 +12,7 @@ test:
 	go test ./...
 
 test-integration:
-	go test -tags integration ./internal/agent/ -run Integration -v
+	go test -tags integration ./internal/agent/ -run 'Integration|Log|EndToEnd|Retention' -v
 
 test-docker:
 	go test -tags docker ./internal/runtime/docker/ -run E2E -v
