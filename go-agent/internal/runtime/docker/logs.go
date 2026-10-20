@@ -7,6 +7,7 @@ import (
 	"io"
 	"strconv"
 	"time"
+	"unicode/utf8"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/pkg/stdcopy"
@@ -71,8 +72,8 @@ func (a *Adapter) follow(ctx context.Context, p runtime.Placement, since time.Ti
 			return ctx.Err()
 		}
 	}
-	so := &lineSplitter{stream: "stdout", tty: tty, emit: emit}
-	se := &lineSplitter{stream: "stderr", tty: tty, emit: emit}
+	so := &lineSplitter{stream: "stdout", tty: tty, emit: emit, since: since}
+	se := &lineSplitter{stream: "stderr", tty: tty, emit: emit, since: since}
 	if tty {
 		_, err = io.Copy(so, rc)
 	} else {
@@ -98,6 +99,7 @@ type lineSplitter struct {
 	buf    []byte
 	over   bool // the held line already exceeded maxHeldLine; the rest is discarded
 	lastTS time.Time
+	since  time.Time // last-resort timestamp for a line with no usable prefix
 }
 
 func (s *lineSplitter) Write(p []byte) (int, error) {
@@ -123,6 +125,15 @@ func (s *lineSplitter) hold(b []byte) {
 		b, s.over = b[:max(room, 0)], true
 	}
 	s.buf = append(s.buf, b...)
+	if s.over { // never end the kept bytes inside a multibyte rune
+		i := len(s.buf) - 1
+		for i > 0 && !utf8.RuneStart(s.buf[i]) {
+			i--
+		}
+		if i >= 0 && !utf8.FullRune(s.buf[i:]) {
+			s.buf = s.buf[:i]
+		}
+	}
 }
 
 func (s *lineSplitter) flush() error {
@@ -139,9 +150,23 @@ func (s *lineSplitter) line() error {
 		b = bytes.TrimSuffix(b, []byte("\r"))
 	}
 	ts, text := s.lastTS, b
+	if ts.IsZero() {
+		ts = s.since
+	}
+	if ts.IsZero() {
+		ts = time.Unix(0, 0).UTC() // no prefix and no bound: still a non-zero time
+	}
 	if i := bytes.IndexByte(b, ' '); i > 0 {
 		if t, err := time.Parse(time.RFC3339Nano, string(b[:i])); err == nil {
 			ts, text = t.UTC(), b[i+1:]
+			// A line over 16 KiB reaches us as partial messages that share the
+			// first one's timestamp, each written with its own prefix and no
+			// newline between them (daemon/logger/copier.go:147-155,
+			// api/server/httputils/write_log_stream.go). Remove exactly those
+			// repeats of this line's own prefix.
+			if tok := b[:i+1]; bytes.Contains(text, tok) {
+				text = bytes.ReplaceAll(text, tok, nil)
+			}
 		}
 	}
 	l := msg.LogLine{TS: ts, Stream: s.stream, Text: append([]byte(nil), text...), Truncated: s.over}

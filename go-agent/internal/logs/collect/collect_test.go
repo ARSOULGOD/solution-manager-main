@@ -294,3 +294,37 @@ func TestMIOutputNeverReachesAgentSlog(t *testing.T) {
 		t.Fatal("expected the collector to log the failures (sanity)")
 	}
 }
+
+// Lines complete out of order across stdout/stderr, so the newest APPENDED
+// timestamp is not the newest STORED one. Resume must use the maximum, or Docker
+// replays a stored newer line that dedupe no longer recognises.
+func TestOutOfOrderAppendResumesFromMaxTimestampWithoutDuplicates(t *testing.T) {
+	r := openRing(t, 1<<20)
+	r.Append(ln(2, "two"))
+	r.Append(ln(1, "one")) // completed late
+	src := &fakeSource{places: []runtime.Placement{{ContainerID: "c1"}},
+		sessions: []session{{lines: []msg.LogLine{ln(2, "two"), ln(3, "three")}}}}
+	stop := run(t, New(src, r, quiet(), noBackoff))
+	waitFor(t, "three lines", func() bool { return count(r) == 3 })
+	time.Sleep(50 * time.Millisecond)
+	stop()
+	if !src.sinces[0].Equal(t0.Add(2 * time.Second)) {
+		t.Fatalf("since = %v, want the max stored timestamp", src.sinces[0])
+	}
+	l, _ := page(t, r)
+	got := texts(l) // storage order is completion order: two, one, three
+	if len(got) != 3 || got[0] != "two" || got[1] != "one" || got[2] != "three" {
+		t.Fatalf("got %v", got)
+	}
+}
+
+// A live line that completes after a newer one must still be stored.
+func TestLiveLateCompletingOlderLineIsKept(t *testing.T) {
+	r := openRing(t, 1<<20)
+	r.Append(ln(1, "seed"))
+	src := &fakeSource{places: []runtime.Placement{{ContainerID: "c1"}},
+		sessions: []session{{lines: []msg.LogLine{ln(3, "late-err"), ln(2, "early-out")}}}}
+	stop := run(t, New(src, r, quiet(), noBackoff))
+	waitFor(t, "three lines", func() bool { return count(r) == 3 })
+	stop()
+}

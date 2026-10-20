@@ -184,8 +184,10 @@ func (r *Ring) load() error {
 	if n := len(r.segs); n > 0 {
 		l := r.segs[n-1]
 		r.next = max(r.next, l.first+uint64(l.count))
-		if recs, err := r.readSeg(l); err == nil && len(recs) > 0 {
-			r.last, r.hasLast = recs[len(recs)-1].T, true
+		for _, sg := range r.segs { // lines complete out of order: take the maximum
+			if sg.count > 0 && (!r.hasLast || sg.max.After(r.last)) {
+				r.last, r.hasLast = sg.max, true
+			}
 		}
 	}
 	return nil
@@ -357,7 +359,9 @@ func (r *Ring) Append(l msg.LogLine) error {
 	seg.count++
 	seg.bytes += int64(len(b))
 	r.next++
-	r.last, r.hasLast = rc.T, true
+	if !r.hasLast || rc.T.After(r.last) {
+		r.last, r.hasLast = rc.T, true
+	}
 	return r.enforce(reasonDroppedOldest)
 }
 
@@ -567,7 +571,9 @@ func (r *Ring) Cap() uint64 {
 	return r.cap
 }
 
-// LastTimestamp is the timestamp of the newest stored line.
+// LastTimestamp is the greatest timestamp of any line stored. Lines complete
+// out of order across stdout and stderr, so this is a maximum, not the
+// timestamp of the most recently appended line.
 func (r *Ring) LastTimestamp() (time.Time, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
