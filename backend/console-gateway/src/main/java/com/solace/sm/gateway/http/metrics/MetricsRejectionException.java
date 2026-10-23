@@ -18,6 +18,8 @@ public final class MetricsRejectionException extends RuntimeException {
 
     public static final String QUERY_RATE = "query-rate";
     public static final String EXPORT_CONCURRENCY = "export-concurrency";
+    /** {@code exportLogs}: too many log exports at once (the data plane's cap or the gateway's own threads), plan 016 task 10. */
+    public static final String LOG_EXPORT_CONCURRENCY = "log-export-concurrency";
     public static final String METRIC_DECLARE_DEFERRED = "metric-declare-deferred";
 
     private final ErrorCode code;

@@ -3326,19 +3326,29 @@ paths:
         ⚠️ **SM does not redact log lines.** A line is the managed integration's own output (a stack trace can carry a
         connection string); `logs.read` is the only control, so grant it narrowly. It is the same verb as `readLogs`.
 
-        **Bounded.** The download stops at the data plane's `sm.dp.logs.export-max-bytes` (bytes of line text, default 50 MiB)
-        or `sm.dp.logs.export-deadline` (default 5 minutes), and at most `sm.dp.logs.export-max-concurrent` exports run at once. The
+        **Bounded.** The download stops at the data plane's `sm.dp.logs.export-max-bytes` (the size of the **download**: every
+        UTF-8 byte written counts, markers included; default 50 MiB, minimum 1024) or `sm.dp.logs.export-deadline` (default 5
+        minutes). At most `sm.dp.logs.export-max-concurrent` exports run at once on the data plane and
+        `sm.gateway.logs.export-max-threads` on the gateway, which has its own threads, separate from the metrics export's. The
         stream is pulled as the client reads it, so a slow client slows the agent; a client that disconnects cancels the agent's
         request.
 
-        **Marker lines.** Everything the agent or the data plane has to say about the download is a line that starts with
-        `# sm-export:` and whose text is fixed by SM (it never names a host, path, container or secret): `gap <REASON> from <instant> to
-        <instant>` where the agent's collected log has a hole (`REASON` is one of `DROPPED_OLDEST`, `COLLECTION_PAUSED`,
-        `CONTAINER_UNREADABLE`, `CAP_REDUCED`, `OVERSIZE`, or `UNKNOWN`); `truncated: the size limit was reached` or `truncated:
-        the time limit was reached`, and `incomplete: the agent's connection was lost`, each followed by `; resume from seq <n>`;
-        `unavailable: <reason>` as the only line when the agent cannot serve it (not connected, not collecting, busy, at capacity);
-        and `complete, with gaps` as the last line of a finished download that had gaps. A download with no marker at its end is
-        complete. An export that loses its agent sends no final chunk, so it ends at the deadline with a marker rather than hanging.
+        **Refused before the first byte, as a status.** `429 RATE_LIMITED` with `reason: log-export-concurrency` (too many exports
+        running, `Retry-After`), `503 SERVICE_UNAVAILABLE` with a fixed `detail` when the agent cannot serve it now (not connected, no
+        log support, not collecting, busy, silent, or its connection ended) - the data plane waits up to
+        `sm.dp.logs.export-start-timeout` (default 5s) for the agent's first answer so these are known before the response starts -
+        `404` for an unknown or foreign instance, component or placement, `400` for an ambiguous placement and `501` for an SSH
+        placement.
+
+        **Marker lines** are for what happens after the first byte. Each starts with `# sm-export:` and its text is fixed by SM (it
+        never names a host, path, container or secret): `gap <REASON> from <instant> to <instant>` where the collected log has a hole
+        (`REASON` is one of `DROPPED_OLDEST`, `COLLECTION_PAUSED`, `CONTAINER_UNREADABLE`, `CAP_REDUCED`, `OVERSIZE`, or `UNKNOWN`);
+        `truncated: the size limit was reached`, `truncated: the time limit was reached`, `incomplete: the agent's connection was
+        lost` and `incomplete: the export ended unexpectedly`, each followed by `; resume from seq <n>`; and `complete, with gaps` as
+        the last line of a finished download that had gaps. **A download whose last line is not such a marker is complete**: every
+        abnormal end writes a marker, and when it cannot be written the connection is aborted so the download fails. A resume from
+        `seq <n>` may repeat up to one chunk of lines already written. An export that loses its agent sends no final chunk, so it ends at
+        the deadline with a marker rather than hanging.
 
         Once the first byte is sent the status cannot change, which is why everything after that point is a marker line, not an HTTP error.
       x-sm-permission: logs.read
@@ -3353,7 +3363,7 @@ paths:
           description: The log as a download.
           headers:
             Content-Disposition:
-              description: '`attachment; filename="<component>-<instanceId>.log"`'
+              description: '`attachment; filename="logs-<instanceId>.log"`'
               schema: { type: string }
           content:
             text/plain:
@@ -3362,6 +3372,19 @@ paths:
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+        '429':
+          description: "`RATE_LIMITED`, `reason: log-export-concurrency` - too many log exports are running (the data plane's cap or the gateway's own threads). Nothing was sent. Carries `Retry-After`."
+          headers:
+            Retry-After:
+              schema: { type: integer, minimum: 1 }
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ReasonedProblem' }
+        '503':
+          description: "`SERVICE_UNAVAILABLE` - the agent cannot serve the export now; `detail` is a fixed reason that names no host or container. Nothing was sent."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
         '501':
           description: "`AGENT_OPERATION_UNSUPPORTED` — the placement is on an SSH target: only agent placements can be exported. Nothing was read and no SSH connection was made."
           content:
@@ -6635,7 +6658,7 @@ components:
           description: |
             A `Problem` that also says **why**, for the refusals whose `code` alone does not (RFC 9457 extension
             member). Known reasons: `metric-declare-deferred` (`NOT_IMPLEMENTED`, M-Q6), `query-rate` and
-            `export-concurrency` (`RATE_LIMITED`, M-Q22).
+            `export-concurrency` (`RATE_LIMITED`, M-Q22), `log-export-concurrency` (`RATE_LIMITED`, `exportLogs`, plan 016).
           required: [reason]
           properties:
             reason: { type: string, pattern: '^[a-z][a-z-]{0,63}$' }

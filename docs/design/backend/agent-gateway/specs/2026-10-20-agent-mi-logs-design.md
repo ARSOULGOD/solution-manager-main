@@ -184,3 +184,7 @@ sent them. Nothing calls `setCap` until the verb is named.
 4. `UnavailableReason` `CONTAINER_MISSING` is reserved. Follow-up: surface the collector's pending gap as an open-ended
    gap marker in replies while collection is down (option b of the outage-behaviour ruling), so a reader sees the
    outage while it is happening rather than after collection resumes.
+5. Whether a bulk log export (`exportLogs`) should be audited like the metrics export (`OR-112` (6)). It discloses far more
+   unredacted log text than a page, but neither the brief nor the approval record asks for a row; project-owner call.
+   (Defaults chosen in plan 016 task 10: download size 50 MiB counting every byte written, 5 minutes, 2 concurrent on the
+   data plane and 4 gateway threads; resume from a marker's `seq` may repeat up to one chunk of lines.)

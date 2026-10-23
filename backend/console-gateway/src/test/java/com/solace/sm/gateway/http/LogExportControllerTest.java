@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -71,20 +72,39 @@ class LogExportControllerTest {
         final List<Open> opens = new ArrayList<>();
         final AtomicInteger closes = new AtomicInteger();
         List<String> pieces = List.of();
+        LogExportStream.Refusal refusal;
+        RuntimeException failAfterPieces;
 
         @Override
         public LogExportStream open(UUID organizationId, UUID instanceId, UUID placementId) {
             opens.add(new Open(organizationId, instanceId, placementId));
             List<String> script = new ArrayList<>(pieces);
+            AtomicBoolean closed = new AtomicBoolean();
             return new LogExportStream() {
                 @Override
                 public String next() {
-                    return script.isEmpty() ? null : script.remove(0);
+                    if (script.isEmpty() && failAfterPieces != null) {
+                        throw failAfterPieces;
+                    }
+                    return script.isEmpty() || refusal != null ? null : script.remove(0);
+                }
+
+                @Override
+                public Optional<Refusal> refusal() {
+                    return Optional.ofNullable(refusal);
+                }
+
+                @Override
+                public String abort() {
+                    close();
+                    return LogExportStream.MARKER_PREFIX + " incomplete: the export ended unexpectedly; resume from seq 3\n";
                 }
 
                 @Override
                 public void close() {
-                    closes.incrementAndGet();
+                    if (closed.compareAndSet(false, true)) {
+                        closes.incrementAndGet();
+                    }
                 }
             };
         }
@@ -101,9 +121,21 @@ class LogExportControllerTest {
             return new LogsControllerTest.FakeComponents();
         }
 
+        @Bean LogExportErrorAdvice logExportErrorAdvice() {
+            return new LogExportErrorAdvice();
+        }
+
+        @Bean com.solace.sm.gateway.http.metrics.MetricsErrorAdvice metricsErrorAdvice() {
+            return new com.solace.sm.gateway.http.metrics.MetricsErrorAdvice();
+        }
+
+        @Bean LogExportExecution logExportExecution() {
+            return new LogExportExecution(1, java.time.Duration.ofSeconds(30));
+        }
+
         @Bean LogExportController logExportController(DeclareOrchestrator orchestrator, SolutionCatalog catalog,
-                DesignerCodec codec, LogExportService export) {
-            return new LogExportController(orchestrator, catalog, codec, export);
+                DesignerCodec codec, LogExportService export, LogExportExecution execution) {
+            return new LogExportController(orchestrator, catalog, codec, export, execution);
         }
     }
 
@@ -165,7 +197,8 @@ class LogExportControllerTest {
         assertEquals("2026-10-06T06:25:01Z one\n2026-10-06T06:25:02Z two\n", result.getResponse().getContentAsString());
         assertTrue(result.getResponse().getContentType().startsWith("text/plain"), result.getResponse().getContentType());
         String disposition = result.getResponse().getHeader("Content-Disposition");
-        assertTrue(disposition.startsWith("attachment;") && disposition.contains("cache-engine"), disposition);
+        assertEquals("attachment; filename=\"logs-" + instanceId + ".log\"", disposition,
+                "a fixed name: nothing package-authored reaches a header");
         assertEquals(1, export.closes.get(), "the stream is closed when the body ends");
         assertEquals(agentPlacement, export.opens.get(0).placement(), "the single live placement is the default");
     }
@@ -276,5 +309,134 @@ class LogExportControllerTest {
         assertEquals("a\n", out.toString(StandardCharsets.UTF_8));
         assertEquals(3, flushes.get(), "every piece, keep-alives included, is flushed so a gone client is noticed");
         assertEquals(1, export.closes.get());
+    }
+
+    // ---- fix round 1 --------------------------------------------------------------------------------------------
+
+    @Test
+    void aCapacityRefusalIsA429WithALogSpecificReasonAndNothingIsStreamed() throws Exception {
+        login("tok-429");
+        export.refusal = new LogExportStream.Refusal(LogExportStream.Refusal.Kind.CAPACITY, "log reads are at capacity");
+
+        MvcResult result = download("tok-429", "cache-engine", "");
+
+        assertEquals(429, result.getResponse().getStatus());
+        assertEquals("5", result.getResponse().getHeader("Retry-After"));
+        String body = result.getResponse().getContentAsString();
+        assertTrue(body.contains("RATE_LIMITED") && body.contains("log-export-concurrency"), body);
+        assertTrue(result.getResponse().getHeader("Content-Disposition") == null, "no download headers on a refusal");
+        assertEquals(1, export.closes.get());
+    }
+
+    @Test
+    void anUnavailableAgentIsA503WithTheFixedReasonAsDetail() throws Exception {
+        login("tok-503");
+        export.refusal = new LogExportStream.Refusal(LogExportStream.Refusal.Kind.UNAVAILABLE, "the agent is not connected");
+
+        MvcResult result = download("tok-503", "cache-engine", "");
+
+        assertEquals(503, result.getResponse().getStatus());
+        String body = result.getResponse().getContentAsString();
+        assertTrue(body.contains("SERVICE_UNAVAILABLE") && body.contains("the agent is not connected"), body);
+        assertTrue(result.getResponse().getHeader("Content-Disposition") == null);
+        assertEquals(1, export.closes.get());
+    }
+
+    @Test
+    void anUnresolvablePlacementIsTheSame404AsOutOfScope() throws Exception {
+        login("tok-unres");
+        export.refusal = new LogExportStream.Refusal(LogExportStream.Refusal.Kind.UNRESOLVABLE, "not available");
+
+        MvcResult result = download("tok-unres", "cache-engine", "");
+
+        assertEquals(404, result.getResponse().getStatus());
+        assertEquals(1, export.closes.get());
+    }
+
+    @Test
+    void whenTheGatewaysOwnExportThreadsAreAllBusyItIsA429WithoutOpeningAnything() throws Exception {
+        login("tok-busy");
+        LogExportExecution execution = context.getBean(LogExportExecution.class);
+        assertTrue(execution.tryAcquire(), "the single permit is taken");
+        try {
+            MvcResult result = download("tok-busy", "cache-engine", "");
+
+            assertEquals(429, result.getResponse().getStatus());
+            assertTrue(result.getResponse().getContentAsString().contains("log-export-concurrency"));
+            assertTrue(export.opens.isEmpty(), "refused before the data plane is asked");
+        } finally {
+            execution.release();
+        }
+        assertEquals(200, download("tok-busy", "cache-engine", "").getResponse().getStatus(),
+                "the permit comes back when a download ends");
+        assertEquals(200, download("tok-busy", "cache-engine", "").getResponse().getStatus());
+    }
+
+    @Test
+    void anInterruptWritesTheFixedIncompleteMarkerAndRestoresTheFlag() throws Exception {
+        LogExportStream stream = new LogExportStream() {
+            @Override public String next() throws InterruptedException { throw new InterruptedException(); }
+            @Override public String abort() { return LogExportStream.MARKER_PREFIX + " incomplete: x\n"; }
+            @Override public void close() { }
+        };
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        try {
+            LogExportController.pump(stream, out);
+
+            assertEquals("# sm-export: incomplete: x\n", out.toString(StandardCharsets.UTF_8));
+            assertTrue(Thread.currentThread().isInterrupted(), "the interrupt flag is restored, not swallowed");
+        } finally {
+            Thread.interrupted();
+        }
+    }
+
+    @Test
+    void anUnexpectedFailureAfterBytesWereWrittenWritesTheMarkerAndPropagates() throws Exception {
+        export.pieces = List.of("one\n");
+        export.failAfterPieces = new IllegalStateException("boom");
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> LogExportController.pump(export.open(organization, instanceId, agentPlacement), out));
+
+        String body = out.toString(StandardCharsets.UTF_8);
+        assertTrue(body.startsWith("one\n") && body.endsWith("resume from seq 3\n"), body);
+        assertEquals(1, export.closes.get());
+    }
+
+    @Test
+    void ifTheMarkerCannotBeWrittenTheFailureReachesTheContainerSoTheConnectionIsAborted() {
+        export.pieces = List.of("one\n");
+        export.failAfterPieces = new IllegalStateException("boom");
+        OutputStream broken = new OutputStream() {
+            int writes;
+
+            @Override
+            public void write(int b) throws IOException {
+                throw new IOException("closed");
+            }
+
+            @Override
+            public void write(byte[] b, int off, int len) throws IOException {
+                if (writes++ > 0) {
+                    throw new IOException("closed");
+                }
+            }
+        };
+
+        org.junit.jupiter.api.Assertions.assertThrows(IOException.class,
+                () -> LogExportController.pump(export.open(organization, instanceId, agentPlacement), broken));
+        assertEquals(1, export.closes.get());
+    }
+
+    @Test
+    void aNormalEndWritesNoMarkerOfItsOwn() throws Exception {
+        export.pieces = List.of("a\n");
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        LogExportController.pump(export.open(organization, instanceId, agentPlacement), out);
+
+        assertEquals("a\n", out.toString(StandardCharsets.UTF_8));
     }
 }

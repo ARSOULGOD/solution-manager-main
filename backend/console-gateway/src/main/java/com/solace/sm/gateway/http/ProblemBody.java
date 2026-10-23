@@ -54,7 +54,7 @@ public record ProblemBody(String type, String title, int status, ErrorCode code,
             // Plan 013 T1: the connection registration API's connectivity-test refusal.
             Map.entry(ErrorCode.CONNECTION_TEST_FAILED, "Connection test failed"),
             // Plan 015 T3.3: an operation an agent placement cannot serve.
-            Map.entry(ErrorCode.AGENT_OPERATION_UNSUPPORTED, "Operation not available on an agent placement"),
+            Map.entry(ErrorCode.AGENT_OPERATION_UNSUPPORTED, "Operation not available on this placement"),
             // Plan 015 T3.5: the agent target's refusals.
             Map.entry(ErrorCode.TARGET_TRANSPORT_UNSUPPORTED, "Target transport unsupported"),
             Map.entry(ErrorCode.AGENT_STILL_ENROLLED, "Agent still enrolled"),
