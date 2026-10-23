@@ -597,6 +597,9 @@ class PlaneBoundaryTest {
             "com.solace.sm.dp.api.agw.AgentEnrollmentPort",
             "com.solace.sm.dp.api.agw.AgentIdentityPort",
             "com.solace.sm.dp.api.agw.AgentLeasePort",
+            // plan 016 task 7: implemented by the gateway (like AgentDrainPort); AbstractAgentLogPortContractTest, run by
+            // AgentLogPortGatewayContractTest over the real service
+            "com.solace.sm.dp.api.agw.AgentLogPort",
             "com.solace.sm.dp.api.agw.AgentSessionPort",
             "com.solace.sm.dp.api.agw.AgentTelemetryDeclarationsPort",
             "com.solace.sm.dp.api.agw.AgentTelemetryPort");

@@ -80,6 +80,8 @@ public final class AgentGatewayService extends AgentGatewayGrpc.AgentGatewayImpl
     /** Runs the full polls of the sessions that have something to be told about (a fixed, small pool; never one thread per session). */
     private final ExecutorService pollers;
     private final AdmissionLimiter admission;
+    /** Plan 016 task 7: log requests, their replies and the Logs stream (in memory only). */
+    private final AgentLogBroker logs;
 
     public AgentGatewayService(AgentGatewayPortSet ports, AgentGatewayProperties properties,
             ScheduledExecutorService scheduler) {
@@ -107,6 +109,8 @@ public final class AgentGatewayService extends AgentGatewayGrpc.AgentGatewayImpl
         this.thumbprints = thumbprints;
         this.metrics = metrics;
         this.admission = new AdmissionLimiter(properties);
+        this.logs = new AgentLogBroker(agent -> activeSessions.get(agent), () -> new ArrayList<>(activeSessions.keySet()),
+                scheduler, properties, metrics);
         this.pollers = Executors.newFixedThreadPool(Math.max(1, properties.getPollThreads()), task -> {
             Thread thread = new Thread(task, "agent-gateway-poll");
             thread.setDaemon(true);
@@ -307,6 +311,36 @@ public final class AgentGatewayService extends AgentGatewayGrpc.AgentGatewayImpl
         };
     }
 
+    /** The log port the data plane's reads call (plan 016 task 7); the gateway implements it over its live sessions. */
+    public com.solace.sm.dp.api.agw.AgentLogPort logPort() { return logs; }
+
+    /**
+     * The {@code Logs} stream, opened by an agent after its {@code SessionAccept} when it advertised log capability. Refused unless the
+     * caller has a live accepted session that advertised it. Its {@code onNext} only hands the message to the broker (a lookup and a
+     * queue offer), so it never holds up the {@code Connect} stream's heartbeats or lease renewals, which run on their own monitor.
+     */
+    @Override
+    public StreamObserver<AgentGatewayOuterClass.LogUp> logs(StreamObserver<AgentGatewayOuterClass.LogDown> response) {
+        String thumbprint = thumbprints.resolve();
+        AgentIdentity identity = thumbprint == null ? null : ports.identity().resolve(thumbprint).orElse(null);
+        ConnectSession live = identity == null ? null : activeSessions.get(identity.agentId());
+        AgentSessionRef session = live == null ? null : live.session;
+        if (session == null || !live.logsSupported()) {
+            response.onError(Status.UNAUTHENTICATED.withDescription("accepted agent session with log capability is required")
+                    .asRuntimeException());
+            return new StreamObserver<>() { public void onNext(AgentGatewayOuterClass.LogUp x) {} public void onError(Throwable x) {} public void onCompleted() {} };
+        }
+        AgentLogBroker.LogStream stream = logs.attach(session, response);
+        return new StreamObserver<>() {
+            @Override public void onNext(AgentGatewayOuterClass.LogUp value) {
+                try { logs.onUp(stream, value); }
+                catch (RuntimeException failure) { LOG.warn("agent-gateway log message dropped: {}", failure.getClass().getName()); }
+            }
+            @Override public void onError(Throwable t) { logs.detach(stream); }
+            @Override public void onCompleted() { logs.detach(stream); }
+        };
+    }
+
     /** The outcome of a planned drain, for the operator's log and the tests. */
     public record DrainSummary(int sessions, int answered, int forced) { }
 
@@ -495,7 +529,7 @@ public final class AgentGatewayService extends AgentGatewayGrpc.AgentGatewayImpl
     /** Number of live agent sessions on this gateway. */
     public int liveSessions() { return activeSessions.size(); }
 
-    private final class ConnectSession implements StreamObserver<AgentToGateway> {
+    private final class ConnectSession implements StreamObserver<AgentToGateway>, AgentLogBroker.Link {
         private final StreamObserver<GatewayToAgent> response;
         private volatile AgentSessionRef session;
         private AgentIdentity identity;
@@ -513,10 +547,57 @@ public final class AgentGatewayService extends AgentGatewayGrpc.AgentGatewayImpl
         /** The declarations last sent for each placement, without envelope: what makes "on change" exact (config metadata, never a payload). */
         private final Map<UUID, AgentGatewayOuterClass.TelemetryDeclarations> declarationsSent = new java.util.HashMap<>();
         private final CompletableFuture<Boolean> drained = new CompletableFuture<>();
+        /** Plan 016: the agent advertised CAPABILITY_LOGS at SessionOpen (accepting the session accepts it; there is no per-capability field). */
+        private volatile boolean logsSupported;
+        /** The placements (binding ids) of the lease last sent: the only ones a log request or retention may name. */
+        private volatile Set<UUID> leasePlacements = Set.of();
+        /** The retention cap last sent for each placement, so a lease event re-sends only what changed. */
+        private final Map<UUID, Long> retentionSent = new java.util.HashMap<>();
 
         private final AgentRequestOrigin origin = origin();
 
         private ConnectSession(StreamObserver<GatewayToAgent> response) { this.response = response; }
+
+        @Override public AgentSessionRef ref() { return session; }
+        @Override public boolean logsSupported() { return logsSupported; }
+        @Override public boolean inLease(UUID placementId) { return leasePlacements.contains(placementId); }
+
+        @Override public synchronized boolean sendMessage(GatewayToAgent message) {
+            if (streamClosed || !accepted) return false;
+            send(message);
+            return !streamClosed;
+        }
+
+        @Override public synchronized void pushRetention(UUID placementId, long maxBytes) {
+            if (!accepted || !logsSupported || !leasePlacements.contains(placementId)) return;
+            sendRetention(placementId, maxBytes);
+        }
+
+        private void sendRetention(UUID placementId, long maxBytes) {
+            send(GatewayToAgent.newBuilder().setLogRetention(AgentGatewayOuterClass.LogRetention.newBuilder()
+                    .setEnvelope(envelope()).setPlacementRef(placementId.toString()).setMaxBytes(maxBytes)).build());
+            retentionSent.put(placementId, maxBytes);
+        }
+
+        /**
+         * Sends each stored retention cap that differs from what this session was last sent, for the placements of its lease only (the
+         * agent does not check the lease, M-3). Runs with the declarations push: at open, on each renewal or re-issue, and on the data
+         * plane's change signal. A read failure never fails the session; the next lease event tries again.
+         */
+        private void sendLogRetentions() {
+            if (!logsSupported) return;
+            try {
+                Map<UUID, Long> stored = ports.logRetention().capsFor(session);
+                for (UUID placement : leasePlacements) {
+                    Long cap = stored.get(placement);
+                    if (cap == null || cap.equals(retentionSent.get(placement))) continue;
+                    sendRetention(placement, cap);
+                }
+            } catch (RuntimeException failure) {
+                LOG.warn("agent-gateway could not read log retention caps (will retry at the next lease event): {}",
+                        failure.getClass().getName());
+            }
+        }
 
         @Override public synchronized void onNext(AgentToGateway message) {
             try {
@@ -628,6 +709,7 @@ public final class AgentGatewayService extends AgentGatewayGrpc.AgentGatewayImpl
             session = claimed;
             this.claimed = true;
             this.features = sessionOpening(open).features();
+            this.logsSupported = open.getCapabilitiesSupportedList().contains(AgentGatewayOuterClass.Capability.CAPABILITY_LOGS);
             LeaseGrant lease;
             try {
                 // current() never returns a grant from the data plane's store (only the nonce digest is kept): any lease row means
@@ -705,11 +787,12 @@ public final class AgentGatewayService extends AgentGatewayGrpc.AgentGatewayImpl
             ConnectSession previous = activeSessions.put(identity.agentId(), this);
             if (previous != null && previous != this) previous.supersede();
             accepted = true;
+            leasePlacements = Set.copyOf(lease.placementIds());
             metrics.sessionClaimed();
             response.onNext(GatewayToAgent.newBuilder().setSessionAccept(AgentGatewayOuterClass.SessionAccept.newBuilder()
                     .setEnvelope(envelope()).setSessionId("session-" + session.fencingEpoch())
                     .setAssignedTargetId(identity.targetId().toString()).addAllRequiredCapabilities(identity.capabilities().stream().map(AgentGatewayService::capability).toList())
-                    .setLease(lease(lease)).setLimits(limits(properties)).setServerClock(timestamp(Instant.now())).build()).build());
+                    .setLease(lease(lease)).setLimits(limits(properties, logsSupported)).setServerClock(timestamp(Instant.now())).build()).build());
             sendDeclarations();
             // No poll of its own at open: the next shared tick (within poll-interval) tells this session about anything already queued,
             // and a reconnect storm must not buy several database statements per session before the session is even running.
@@ -848,6 +931,7 @@ public final class AgentGatewayService extends AgentGatewayGrpc.AgentGatewayImpl
                 rejectForReEnrolment(renew.getEnvelope().getMessageId());
                 return;
             }
+            leasePlacements = Set.copyOf(grant.placementIds());
             response.onNext(GatewayToAgent.newBuilder().setLeaseGrant(lease(grant)).build());
             sendDeclarations();
         }
@@ -1007,6 +1091,7 @@ public final class AgentGatewayService extends AgentGatewayGrpc.AgentGatewayImpl
         synchronized void pushLease(LeaseGrant grant) {
             if (!accepted || grant == null) return;
             metrics.leaseReissued();
+            leasePlacements = Set.copyOf(grant.placementIds());
             send(GatewayToAgent.newBuilder().setLeaseGrant(lease(grant)).build());
             sendDeclarations();
         }
@@ -1019,6 +1104,11 @@ public final class AgentGatewayService extends AgentGatewayGrpc.AgentGatewayImpl
          * the next lease event or signal tries again.
          */
         private void sendDeclarations() {
+            sendTelemetryDeclarations();
+            sendLogRetentions();
+        }
+
+        private void sendTelemetryDeclarations() {
             if (!features.contains(AgentFeature.DECLARATIONS)) return;
             try {
                 Map<UUID, AgentGatewayOuterClass.TelemetryDeclarations> current = new java.util.LinkedHashMap<>();
@@ -1083,6 +1173,7 @@ public final class AgentGatewayService extends AgentGatewayGrpc.AgentGatewayImpl
                 catch (RuntimeException ignored) { /* the durable row is fenced by epoch; release is best effort */ }
             }
             if (session != null && accepted) {
+                logs.sessionClosed(session);
                 activeSessions.remove(session.agentId(), this);
                 metrics.sessionReleased();
             }
@@ -1108,8 +1199,13 @@ public final class AgentGatewayService extends AgentGatewayGrpc.AgentGatewayImpl
         return new OperationCorrelation(source.getApplyId(), source.getIntentId(), null, source.getAttemptId(), source.getStep());
     }
     private static Instant instant(Timestamp timestamp) { return Instant.ofEpochSecond(timestamp.getSeconds(), timestamp.getNanos()); }
-    private static AgentGatewayOuterClass.Limits limits(AgentGatewayProperties properties) { return AgentGatewayOuterClass.Limits.newBuilder().setMaxMessageBytes(properties.getMaxMessageBytes())
-            .setMaxBatchBytes(Math.min(properties.getMaxMessageBytes(), 4 * 1024 * 1024)).setInitialCredits(properties.getInitialTelemetryCredits()).setHeartbeatInterval(com.google.protobuf.Duration.newBuilder().setSeconds(30))
+    /**
+     * A session that advertised log capability is given at least one initial credit: the agent starts every log export with
+     * {@code initial_credits} itself, and with 0 its first credit could race the request (spec 4.1). Telemetry, which has its own
+     * credit pool in the gateway, is unaffected.
+     */
+    private static AgentGatewayOuterClass.Limits limits(AgentGatewayProperties properties, boolean logs) { return AgentGatewayOuterClass.Limits.newBuilder().setMaxMessageBytes(properties.getMaxMessageBytes())
+            .setMaxBatchBytes(Math.min(properties.getMaxMessageBytes(), 4 * 1024 * 1024)).setInitialCredits(logs ? Math.max(1, properties.getInitialTelemetryCredits()) : properties.getInitialTelemetryCredits()).setHeartbeatInterval(com.google.protobuf.Duration.newBuilder().setSeconds(30))
             .setKeepaliveInterval(com.google.protobuf.Duration.newBuilder().setSeconds(30)).setSkewTolerance(com.google.protobuf.Duration.newBuilder().setSeconds(30))
             .setReportInterval(com.google.protobuf.Duration.newBuilder().setSeconds(30)).build(); }
     private static AgentGatewayOuterClass.LeaseGrant lease(LeaseGrant source) {

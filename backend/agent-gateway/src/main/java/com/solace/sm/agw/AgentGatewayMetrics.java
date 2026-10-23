@@ -23,6 +23,8 @@ public final class AgentGatewayMetrics {
     private final Counter drainAbandonedCommands;
     private final Counter reconcileFailures;
     private final Counter creditsRegranted;
+    private final Counter logRepliesIgnored;
+    private final Counter logRequestTimeouts;
     private final MeterRegistry registry;
     private final AtomicInteger activeSessions = new AtomicInteger();
     private final AtomicInteger creditsOutstanding = new AtomicInteger();
@@ -43,6 +45,8 @@ public final class AgentGatewayMetrics {
         drainAbandonedCommands = registry.counter("agw_drain_abandoned_commands_total");
         reconcileFailures = registry.counter("agw_reconcile_failures_total");
         creditsRegranted = registry.counter("agw_credits_unsolicited_total");
+        logRepliesIgnored = registry.counter("agw_log_replies_ignored_total");
+        logRequestTimeouts = registry.counter("agw_log_request_timeouts_total");
         Gauge.builder("agw_sessions_active", activeSessions, AtomicInteger::get).register(registry);
         Gauge.builder("agw_credits_outstanding", creditsOutstanding, AtomicInteger::get).register(registry);
     }
@@ -76,6 +80,9 @@ public final class AgentGatewayMetrics {
     public void drainAbandoned(long commands) { drainAbandonedCommands.increment(commands); }
     public void reconcileFailed() { reconcileFailures.increment(); }
     public void admissionRejected(String reason) { registry.counter("agw_admission_rejected_total", "reason", reason).increment(); }
+    /** A log reply or chunk for a request id this gateway does not hold for that agent (late, duplicate, or another agent's). */
+    public void logReplyIgnored() { logRepliesIgnored.increment(); }
+    public void logRequestTimedOut() { logRequestTimeouts.increment(); }
     public void creditsRegranted() { creditsRegranted.increment(); }
     public void creditsChanged(int delta) {
         creditsOutstanding.updateAndGet(value -> Math.max(0, value + delta));

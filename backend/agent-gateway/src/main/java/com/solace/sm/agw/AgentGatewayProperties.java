@@ -53,7 +53,14 @@ public class AgentGatewayProperties {
      * be well above the poll interval; it is what recovers a lost acknowledgement inside a live session.
      */
     private Duration noticeRetryInterval = Duration.ofSeconds(15);
+    /**
+     * Log requests (pages and exports) in flight to one agent at once; more are answered with a BUSY page, never queued. The agent
+     * allows 4 by default and answers more with BUSY itself (plan 016 spec 4.2 note 5), so keep this at or below the agent's bound.
+     */
+    private int logMaxInFlightPerAgent = 4;
 
+    public int getLogMaxInFlightPerAgent() { return logMaxInFlightPerAgent; }
+    public void setLogMaxInFlightPerAgent(int logMaxInFlightPerAgent) { this.logMaxInFlightPerAgent = logMaxInFlightPerAgent; }
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
     public String getBindAddress() { return bindAddress; }
@@ -146,6 +153,7 @@ public class AgentGatewayProperties {
         }
         if (pollBatchSize < 1 || pollBatchSize > 1000) throw new IllegalArgumentException("poll-batch-size is invalid");
         if (initialTelemetryCredits < 0) throw new IllegalArgumentException("initial-telemetry-credits is invalid");
+        if (logMaxInFlightPerAgent < 1 || logMaxInFlightPerAgent > 64) throw new IllegalArgumentException("log-max-in-flight-per-agent is invalid");
         if (maxMessageBytes < 1024) throw new IllegalArgumentException("max-message-bytes is invalid");
         if (certificateFile.isBlank() || privateKeyFile.isBlank() || trustBundleFile.isBlank()) {
             throw new IllegalArgumentException("TLS certificate, key and trust bundle are required when the gateway is enabled");

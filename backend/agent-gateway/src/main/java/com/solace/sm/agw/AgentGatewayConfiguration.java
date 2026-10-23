@@ -7,6 +7,8 @@ import com.solace.sm.dp.api.agw.AgentDiscoveryPort;
 import com.solace.sm.dp.api.agw.AgentEnrollmentPort;
 import com.solace.sm.dp.api.agw.AgentIdentityPort;
 import com.solace.sm.dp.api.agw.AgentLeasePort;
+import com.solace.sm.dp.api.agw.AgentLogPort;
+import com.solace.sm.dp.api.agw.AgentLogRetentionSource;
 import com.solace.sm.dp.api.agw.AgentSessionPort;
 import com.solace.sm.dp.api.agw.AgentTelemetryDeclarationsPort;
 import com.solace.sm.dp.api.agw.AgentTelemetryPort;
@@ -51,9 +53,12 @@ public class AgentGatewayConfiguration {
     AgentGatewayPortSet agentGatewayPortSet(AgentEnrollmentPort enrollment, AgentIdentityPort identity,
             AgentSessionPort sessions, AgentLeasePort leases, AgentCommandPort commands,
             ActualStatePort reports, AgentTelemetryPort telemetry, AgentAuditPort audit,
-            AgentDiscoveryPort discovery, AgentTelemetryDeclarationsPort declarations) {
+            AgentDiscoveryPort discovery, AgentTelemetryDeclarationsPort declarations,
+            ObjectProvider<AgentLogRetentionSource> logRetention) {
+        // Interim (plan 016 task 9 supplies the data plane's bean): until then no stored cap exists, so nothing is pushed at session
+        // open. This is the one port that is not required, because it carries no safety property: a missing push leaves the agent's default.
         return new AgentGatewayPortSet(enrollment, identity, sessions, leases, commands, reports, telemetry, audit, discovery,
-                declarations);
+                declarations, logRetention.getIfAvailable(() -> AgentLogRetentionSource.NONE));
     }
 
     @Bean
@@ -72,6 +77,12 @@ public class AgentGatewayConfiguration {
     AgentGatewayServer agentGatewayServer(AgentGatewayProperties properties, AgentGatewayService service,
             ScheduledExecutorService agentGatewayScheduler) {
         return new AgentGatewayServer(properties, service, agentGatewayScheduler);
+    }
+
+    /** What the data plane's log reads call (plan 016 task 7): the gateway implements the port, the live sessions are this process's. */
+    @Bean
+    AgentLogPort agentLogPort(AgentGatewayService service) {
+        return service.logPort();
     }
 
     /** What the console's {@code drainAgent} calls (plan 015 T4.3): the live session map is this process's, so the seam is a port. */

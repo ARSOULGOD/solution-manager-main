@@ -171,6 +171,7 @@ class AgentGatewayServiceTest {
         final AgentGatewayProperties properties = new AgentGatewayProperties();
         final AtomicReference<String> thumbprint = new AtomicReference<>("thumb");
         final AgentGatewayService service;
+        final AgentGatewayMetrics metrics = new AgentGatewayMetrics(new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
         final java.util.Map<String, CapturingObserver> outputs = new java.util.LinkedHashMap<>();
         /** Every observer an agent has had, oldest first (a reconnect replaces its entry in {@link #outputs}). */
         final java.util.Map<String, List<CapturingObserver>> history = new java.util.concurrent.ConcurrentHashMap<>();
@@ -185,7 +186,7 @@ class AgentGatewayServiceTest {
         Fleet(java.util.function.Consumer<AgentGatewayProperties> configure) {
             properties.setPollInterval(Duration.ofHours(1));
             configure.accept(properties);
-            service = new AgentGatewayService(ports.set(), properties, scheduler, () -> thumbprint.get());
+            service = new AgentGatewayService(ports.set(), properties, scheduler, () -> thumbprint.get(), metrics);
         }
 
         void connect(String agent) {
@@ -1265,7 +1266,7 @@ class AgentGatewayServiceTest {
 
     static final class Ports implements AgentEnrollmentPort, AgentIdentityPort, AgentSessionPort, AgentLeasePort,
             AgentCommandPort, ActualStatePort, AgentTelemetryPort, AgentAuditPort, AgentDiscoveryPort,
-            AgentTelemetryDeclarationsPort {
+            AgentTelemetryDeclarationsPort, com.solace.sm.dp.api.agw.AgentLogRetentionSource {
         /** The ports carry UUID ids; the tests name agents by string, so the fake maps both ways. */
         private static final java.util.Map<UUID, String> NAMES = new java.util.concurrent.ConcurrentHashMap<>();
         static final UUID TENANT = UUID.nameUUIDFromBytes("tenant-1".getBytes());
@@ -1286,7 +1287,7 @@ class AgentGatewayServiceTest {
         static String name(UUID id) { return NAMES.getOrDefault(id, id.toString()); }
 
         AgentGatewayPortSet set() {
-            return new AgentGatewayPortSet(this, this, this, this, this, this, this, this, this, this);
+            return new AgentGatewayPortSet(this, this, this, this, this, this, this, this, this, this, this);
         }
 
         final AgentIdentity identity = new AgentIdentity(id("agent-1"), "thumb", TENANT, ENVIRONMENT, TARGET,
@@ -1403,6 +1404,9 @@ class AgentGatewayServiceTest {
             declarationReads.incrementAndGet();
             return declarations;
         }
+        /** Plan 016: the stored retention caps the gateway pushes at open and on lease events. */
+        volatile Map<UUID, Long> storedCaps = Map.of();
+        @Override public Map<UUID, Long> capsFor(AgentSessionRef ref) { return storedCaps; }
         final List<java.util.function.Consumer<UUID>> declarationSubscribers = new java.util.concurrent.CopyOnWriteArrayList<>();
         @Override public void onDeclarationsChanged(java.util.function.Consumer<UUID> affectedAgents) {
             if (!declarationSubscribers.contains(affectedAgents)) declarationSubscribers.add(affectedAgents);

@@ -84,7 +84,9 @@ class AgentGatewayConfigurationTest {
         AgentGatewayPortSet ports = configuration.agentGatewayPortSet(enrollment, inert(AgentIdentityPort.class), inert(AgentSessionPort.class),
                 inert(AgentLeasePort.class), inert(AgentCommandPort.class), RealReportAndTelemetryPorts.REPORTS,
                 RealReportAndTelemetryPorts.TELEMETRY, inert(AgentAuditPort.class), inert(AgentDiscoveryPort.class),
-                inert(AgentTelemetryDeclarationsPort.class));
+                inert(AgentTelemetryDeclarationsPort.class),
+                new org.springframework.beans.factory.support.StaticListableBeanFactory()
+                        .getBeanProvider(com.solace.sm.dp.api.agw.AgentLogRetentionSource.class));
         assertSame(RealReportAndTelemetryPorts.REPORTS, ports.reports());
         assertSame(RealReportAndTelemetryPorts.TELEMETRY, ports.telemetry());
         assertSame(enrollment, ports.enrollment());

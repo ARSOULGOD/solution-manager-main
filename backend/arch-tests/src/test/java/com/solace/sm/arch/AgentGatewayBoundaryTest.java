@@ -119,6 +119,22 @@ class AgentGatewayBoundaryTest {
         mustReport(agentGatewayHoldsNoDatasource, "PlantedAgwHoldsDataSource");
     }
 
+    /**
+     * Plan 016 task 7: the log broker and the Logs RPC live in the gateway, so the datasource and dp-api-only rules must hold over
+     * them. The rules are proven to fire by the planted violations above; this proves the new classes are inside the analysed set and
+     * pass them, and that the AgentLogPort surface they implement names no gRPC type.
+     */
+    @Test
+    void agentGatewayHoldsNoDatasourceStillHoldsOverTheLogBroker() {
+        JavaClasses real = new ClassFileImporter().withImportOption(new PlaneBoundaryTest.ExcludeArchFixtures())
+                .importPackages("com.solace.sm", "solace.sm.agentgateway");
+        assertTrue(real.stream().anyMatch(c -> c.getName().equals("com.solace.sm.agw.AgentLogBroker")),
+                "the broker must be in the analysed set, or this proves nothing");
+        agentGatewayHoldsNoDatasource.check(real);
+        agentGatewayUsesDpApiOnly.check(real);
+        onlyAgentGatewayTouchesGrpc.check(real);
+    }
+
     @Test
     void dpNeverImportsAgentGatewayCatchesAPlantedImport() {
         mustReport(dpNeverImportsAgentGateway, "PlantedDpImportsAgw");

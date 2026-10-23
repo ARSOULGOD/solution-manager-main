@@ -7,6 +7,7 @@ import com.solace.sm.dp.api.agw.AgentDiscoveryPort;
 import com.solace.sm.dp.api.agw.AgentEnrollmentPort;
 import com.solace.sm.dp.api.agw.AgentIdentityPort;
 import com.solace.sm.dp.api.agw.AgentLeasePort;
+import com.solace.sm.dp.api.agw.AgentLogRetentionSource;
 import com.solace.sm.dp.api.agw.AgentSessionPort;
 import com.solace.sm.dp.api.agw.AgentTelemetryDeclarationsPort;
 import com.solace.sm.dp.api.agw.AgentTelemetryPort;
@@ -19,7 +20,8 @@ import java.util.Objects;
  */
 public record AgentGatewayPortSet(AgentEnrollmentPort enrollment, AgentIdentityPort identity, AgentSessionPort sessions,
         AgentLeasePort leases, AgentCommandPort commands, ActualStatePort reports, AgentTelemetryPort telemetry,
-        AgentAuditPort audit, AgentDiscoveryPort discovery, AgentTelemetryDeclarationsPort declarations) {
+        AgentAuditPort audit, AgentDiscoveryPort discovery, AgentTelemetryDeclarationsPort declarations,
+        AgentLogRetentionSource logRetention) {
     public AgentGatewayPortSet {
         Objects.requireNonNull(enrollment, "enrollment");
         Objects.requireNonNull(identity, "identity");
@@ -31,5 +33,6 @@ public record AgentGatewayPortSet(AgentEnrollmentPort enrollment, AgentIdentityP
         Objects.requireNonNull(audit, "audit");
         Objects.requireNonNull(discovery, "discovery");
         Objects.requireNonNull(declarations, "declarations");
+        Objects.requireNonNull(logRetention, "logRetention");
     }
 }
