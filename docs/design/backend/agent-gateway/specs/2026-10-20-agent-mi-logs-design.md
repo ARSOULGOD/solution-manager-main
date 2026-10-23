@@ -142,6 +142,14 @@ The permission catalog is closed at 38 verbs. This design **assumes** the paged 
 that setting the cap uses an existing verb (which one is to be confirmed against the catalog in the plan). If either
 assumption fails, that is a **blocker to raise with the project owner**, not a reason to add a verb.
 
+**Status of the cap write (plan 016 task 9).** The REST write of the per-placement cap is **not built**: no endpoint, no OpenAPI
+change. Which existing catalog verb authorizes it is an **open question for the project owner** (`OR-1` authority); **no verb
+has been added** and no decision id is allocated here. What exists is internal only: `PlacementLogRetention.setCap(organizationId,
+placementId, maxBytes)` in `dp-core` (bounded by `sm.dp.logs.agent-max-cap-bytes`, default 1 GiB; `0` turns collection off;
+stored first in `sm_data.placement_log_retention`, then pushed through `AgentLogPort.sendRetention`, and it reports whether the
+push happened), and the stored caps are supplied to the gateway as its `AgentLogRetentionSource`, so a reconnecting agent is
+sent them. Nothing calls `setCap` until the verb is named.
+
 ## 7. Errors
 
 | Situation | Behaviour |
