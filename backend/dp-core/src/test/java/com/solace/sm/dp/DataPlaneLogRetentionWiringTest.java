@@ -33,5 +33,7 @@ class DataPlaneLogRetentionWiringTest {
         assertEquals(1, factory.getBeanNamesForType(JdbcPlacementLogRetentionRepository.class, true, false).length);
         assertEquals(1, factory.getBeanNamesForType(PlacementLogRetentionRows.class, true, false).length);
         assertEquals(1, factory.getBeanNamesForType(PlacementLogRetention.class, true, false).length);
+        assertEquals(1, factory.getBeanNamesForType(com.solace.sm.dp.api.logs.LogExportService.class, true, false).length,
+                "the export service is wired exactly once (plan 016 T10)");
     }
 }

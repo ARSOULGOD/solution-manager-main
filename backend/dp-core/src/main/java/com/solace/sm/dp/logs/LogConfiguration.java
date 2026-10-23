@@ -1,6 +1,7 @@
 package com.solace.sm.dp.logs;
 
 import com.solace.sm.dp.api.agw.AgentLogPort;
+import com.solace.sm.dp.api.logs.LogExportService;
 import com.solace.sm.dp.api.logs.LogService;
 import com.solace.sm.dp.apply.runtime.PlacementTransports;
 import com.solace.sm.dp.apply.production.SecretStoreCredentialSource;
@@ -70,6 +71,28 @@ public class LogConfiguration {
         LogService agent = new AgentLogService(transports, placementRows, port, agentRequestDeadline, agentMaxConcurrentReads,
                 Duration.ZERO);      // a full agent pool is an immediate busy page, never a queue
         return new RoutingLogService(transports, ssh, agent);
+    }
+
+    /**
+     * The bulk export of an agent placement's collected log (plan 016 T10), streamed as a download by the console gateway.
+     * <ul>
+     *   <li>{@code sm.dp.logs.export-max-bytes} - total bytes of log line text one export carries before it stops with a
+     *       trailing marker; default 52428800 (50 MiB).</li>
+     *   <li>{@code sm.dp.logs.export-deadline} - the longest one export runs; default 5m. An agent that goes away without a
+     *       final chunk ends the export at this bound with a marker, it never hangs.</li>
+     *   <li>{@code sm.dp.logs.export-max-concurrent} - exports in flight at once on this data plane; default 2. One more is
+     *       a declared busy marker, never a queue (the gateway also bounds requests per agent).</li>
+     * </ul>
+     */
+    @Bean
+    LogExportService logExportService(PlacementRows placementRows, ObjectProvider<PlacementTransports> placementTransports,
+            ObjectProvider<AgentLogPort> agentLogPort,
+            @Value("${sm.dp.logs.export-max-bytes:52428800}") long exportMaxBytes,
+            @Value("${sm.dp.logs.export-deadline:5m}") Duration exportDeadline,
+            @Value("${sm.dp.logs.export-max-concurrent:2}") int exportMaxConcurrent) {
+        return new AgentLogExportService(placementTransports.getIfAvailable(() -> PlacementTransports.NONE), placementRows,
+                agentLogPort.getIfAvailable(AgentLogService::absentPort), exportDeadline, exportMaxBytes,
+                exportMaxConcurrent);
     }
 
     /**
