@@ -3309,6 +3309,65 @@ paths:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
 
+  /dp/instances/{instanceId}/logs/{component}/export:
+    parameters:
+      - { $ref: '#/components/parameters/InstanceId' }
+      - { $ref: '#/components/parameters/Component' }
+    get:
+      tags: [governance]
+      operationId: exportLogs
+      summary: Download the collected log of one agent placement
+      description: |
+        Streams the log the host-local agent collected for one placement as a plain-text download
+        (`Content-Disposition: attachment`), oldest first, one line per log line: an RFC 3339 instant, a space, the line's text.
+        **Agent placements only**: a placement on an SSH target answers `501 AGENT_OPERATION_UNSUPPORTED` and nothing is read
+        (there is no SSH export).
+
+        ⚠️ **SM does not redact log lines.** A line is the managed integration's own output (a stack trace can carry a
+        connection string); `logs.read` is the only control, so grant it narrowly. It is the same verb as `readLogs`.
+
+        **Bounded.** The download stops at the data plane's `sm.dp.logs.export-max-bytes` (bytes of line text, default 50 MiB)
+        or `sm.dp.logs.export-deadline` (default 5 minutes), and at most `sm.dp.logs.export-max-concurrent` exports run at once. The
+        stream is pulled as the client reads it, so a slow client slows the agent; a client that disconnects cancels the agent's
+        request.
+
+        **Marker lines.** Everything the agent or the data plane has to say about the download is a line that starts with
+        `# sm-export:` and whose text is fixed by SM (it never names a host, path, container or secret): `gap <REASON> from <instant> to
+        <instant>` where the agent's collected log has a hole (`REASON` is one of `DROPPED_OLDEST`, `COLLECTION_PAUSED`,
+        `CONTAINER_UNREADABLE`, `CAP_REDUCED`, `OVERSIZE`, or `UNKNOWN`); `truncated: the size limit was reached` or `truncated:
+        the time limit was reached`, and `incomplete: the agent's connection was lost`, each followed by `; resume from seq <n>`;
+        `unavailable: <reason>` as the only line when the agent cannot serve it (not connected, not collecting, busy, at capacity);
+        and `complete, with gaps` as the last line of a finished download that had gaps. A download with no marker at its end is
+        complete. An export that loses its agent sends no final chunk, so it ends at the deadline with a marker rather than hanging.
+
+        Once the first byte is sent the status cannot change, which is why everything after that point is a marker line, not an HTTP error.
+      x-sm-permission: logs.read
+      x-sm-scope: instance
+      parameters:
+        - name: placementId
+          in: query
+          description: Required when the instance has more than one live placement.
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The log as a download.
+          headers:
+            Content-Disposition:
+              description: '`attachment; filename="<component>-<instanceId>.log"`'
+              schema: { type: string }
+          content:
+            text/plain:
+              schema: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+        '501':
+          description: "`AGENT_OPERATION_UNSUPPORTED` — the placement is on an SSH target: only agent placements can be exported. Nothing was read and no SSH connection was made."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
   /dp/instances/{instanceId}/log-levels/{component}:
     parameters:
       - { $ref: '#/components/parameters/InstanceId' }

@@ -4,7 +4,6 @@ import com.solace.sm.cp.api.authz.ResourceKind;
 import com.solace.sm.cp.api.authz.ResourceNotFoundException;
 import com.solace.sm.cp.api.catalog.SolutionCatalog;
 import com.solace.sm.cp.api.designer.DesignerCodec;
-import com.solace.sm.cp.api.designer.PackageModel;
 import com.solace.sm.cp.api.session.Session;
 import com.solace.sm.dp.api.inventory.InstanceView;
 import com.solace.sm.dp.api.logs.LogPageView;
@@ -51,15 +50,13 @@ public class LogsController {
     static final String NO_PLACEMENT = "the instance has no live placement to read logs from";
 
     private final DeclareOrchestrator instances;
-    private final SolutionCatalog catalog;
-    private final DesignerCodec codec;
+    private final DeclaredComponents components;
     private final LogService logs;
 
     public LogsController(DeclareOrchestrator instances, SolutionCatalog catalog, DesignerCodec codec,
             LogService logs) {
         this.instances = Objects.requireNonNull(instances, "instances");
-        this.catalog = Objects.requireNonNull(catalog, "catalog");
-        this.codec = Objects.requireNonNull(codec, "codec");
+        this.components = new DeclaredComponents(catalog, codec);
         this.logs = Objects.requireNonNull(logs, "logs");
     }
 
@@ -72,7 +69,7 @@ public class LogsController {
         UUID organization = session.organizationId();
         InstanceView view = instances.get(session, instanceId)
                 .orElseThrow(() -> new ResourceNotFoundException(ResourceKind.INSTANCE));
-        requireDeclaredComponent(organization, view, component);
+        components.require(organization, view, component);
 
         int bound = limit == null ? DEFAULT_LIMIT : limit;
         if (bound < 1 || bound > LogService.MAX_LIMIT) {
@@ -100,26 +97,8 @@ public class LogsController {
                         .toList()));
     }
 
-    /** {@code 404} unless the instance's declared package declares a component of exactly this type. */
-    private void requireDeclaredComponent(UUID organization, InstanceView view, String component) {
-        boolean declared = catalog.documentOf(organization, view.catalogSolutionId(), view.declaredPackageVersion())
-                .map(this::componentTypes)
-                .map(types -> types.contains(component))
-                .orElse(false);
-        if (!declared) {
-            throw new ResourceNotFoundException(ResourceKind.INSTANCE);
-        }
-    }
-
-    private List<String> componentTypes(String document) {
-        try {
-            return codec.readPackage(document).components().stream().map(PackageModel.PackageComponent::type).toList();
-        } catch (IllegalArgumentException unreadable) {
-            return List.of();
-        }
-    }
-
-    private static UUID placementFor(InstanceView view, UUID requested) {
+    /** The placement meant: the requested one (404 if not this instance's), else the only live one (400 when ambiguous). */
+    static UUID placementFor(InstanceView view, UUID requested) {
         if (requested != null) {
             if (view.placements().stream().noneMatch(p -> p.placementId().equals(requested))) {
                 throw new ResourceNotFoundException(ResourceKind.INSTANCE);

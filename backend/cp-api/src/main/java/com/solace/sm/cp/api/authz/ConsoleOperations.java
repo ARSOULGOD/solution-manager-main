@@ -78,6 +78,7 @@ public final class ConsoleOperations {
             .register("getHealth", Permission.HEALTH_VIEW)
             .register("getConfigLadder", Permission.CONFIG_VIEW)
             .register("readLogs", Permission.LOGS_READ)
+            .register("exportLogs", Permission.LOGS_READ)
             .register("getLogLevel", Permission.LOGS_READ)
             .register("setLogLevel", Permission.LOGS_SET_LEVEL)
             // ── data plane: fleet apply (REQ-013, OR-47, OR-57) ──────────────
