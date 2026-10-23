@@ -279,4 +279,29 @@ class AgentGatewayLogsTest {
         return h.sent(label).stream().filter(AgentGatewayOuterClass.GatewayToAgent::hasSessionAccept)
                 .findFirst().orElseThrow().getSessionAccept();
     }
+
+    @Test
+    void replacingTheLogsStreamEndsTheRequestsWaitingOnTheOldOneAndFreesTheirSlots() throws Exception {
+        try (LogsHarness h = new LogsHarness()) {
+            h.connect("capable", true);
+            var page = h.fleet.service.logPort().requestPage(ref("capable"), PLACEMENT, 5, null, null, LONG);
+            LogExportHandle export = h.fleet.service.logPort().openExport(ref("capable"), PLACEMENT, 0, LONG, 1_000_000);
+            var held = new java.util.ArrayList<java.util.concurrent.CompletableFuture<AgentLogPage>>();
+            for (int i = 0; i < 2; i++) held.add(h.fleet.service.logPort().requestPage(ref("capable"), PLACEMENT, 5, null, null, LONG));
+            // the stream flaps: the agent reopens Logs while the old stream has not yet reported its end
+            var oldIn = h.logsIn.get("capable");
+            h.openLogs("capable");
+            assertEquals(Optional.of("NO_SESSION"), page.get(5, TimeUnit.SECONDS).unavailableReason());
+            assertEquals(LogExportHandle.State.SESSION_LOST, export.state());
+            for (var f : held) assertEquals(Optional.of("NO_SESSION"), f.get(5, TimeUnit.SECONDS).unavailableReason());
+            // all four slots are free again, and requests on the new stream are untouched by the old stream's late end
+            var fresh = new java.util.ArrayList<java.util.concurrent.CompletableFuture<AgentLogPage>>();
+            for (int i = 0; i < h.fleet.properties.getLogMaxInFlightPerAgent(); i++) {
+                fresh.add(h.fleet.service.logPort().requestPage(ref("capable"), PLACEMENT, 5, null, null, LONG));
+            }
+            assertTrue(fresh.stream().noneMatch(java.util.concurrent.CompletableFuture::isDone), "no BUSY page: the slots were freed");
+            oldIn.onCompleted();      // the old stream's late end must not touch the new stream's requests
+            assertTrue(fresh.stream().noneMatch(java.util.concurrent.CompletableFuture::isDone));
+        }
+    }
 }

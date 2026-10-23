@@ -21,8 +21,9 @@ public interface AgentLogPort {
 
     /**
      * Asks for one page: the newest lines in the window ({@code after} and {@code before} are exclusive and optional),
-     * oldest first. {@code limit} 0 means no line limit. Never completes exceptionally: a refusal, a missing session, a busy
-     * agent or a missed deadline is a page with a reason. A reply that arrives after the deadline is ignored and counted.
+     * oldest first. {@code limit} 0 means no line limit. Bad arguments (a null {@code deadline}, a negative {@code limit})
+     * throw synchronously ({@code NullPointerException} or {@code IllegalArgumentException}). The future itself never completes
+     * exceptionally: a refusal, a missing session, a busy agent or a missed deadline is a page with a reason. A reply that arrives after the deadline is ignored and counted.
      */
     CompletableFuture<AgentLogPage> requestPage(AgentSessionRef ref, UUID placementId, int limit, Instant after,
             Instant before, Duration deadline);

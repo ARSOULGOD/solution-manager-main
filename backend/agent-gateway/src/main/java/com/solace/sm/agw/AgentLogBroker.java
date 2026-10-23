@@ -166,7 +166,12 @@ final class AgentLogBroker implements AgentLogPort {
     LogStream attach(AgentSessionRef ref, StreamObserver<LogDown> response) {
         LogStream stream = new LogStream(ref, response);
         LogStream previous = streams.put(ref.agentId(), stream);
-        if (previous != null && previous != stream) previous.finish();
+        if (previous != null && previous != stream) {
+            previous.finish();
+            // The agent cancelled everything on the old stream when it ended, and will never answer those requests; they would
+            // otherwise hold per-agent in-flight slots until their deadlines. Requests made from now on belong to the new stream.
+            endAllOf(previous.ref);
+        }
         return stream;
     }
 
