@@ -351,6 +351,19 @@ class LogsControllerTest {
     }
 
     @Test
+    void anAgentPlacementIsServedByTheLogServiceNotRefusedWith501() throws Exception {
+        login("tok-agent");
+        UUID agentPlacement = UUID.randomUUID();
+        putInstance(List.of(new PlacementView(agentPlacement, UUID.randomUUID(), "sm-orders", Optional.empty(),
+                PlacementView.AGENT)));
+
+        MvcResult result = read("tok-agent", "?placementId=" + agentPlacement);
+
+        assertEquals(200, result.getResponse().getStatus(), result.getResponse().getContentAsString());
+        assertEquals(agentPlacement, logs.seen.get(0).placement(), "the data plane's router decides the transport");
+    }
+
+    @Test
     void anInstanceWithNoLivePlacementIsDeclaredUnavailableNotAnEmptyPage() throws Exception {
         login("tok-none");
         putInstance(List.of());

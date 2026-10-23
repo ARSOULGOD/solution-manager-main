@@ -89,7 +89,8 @@ public class LogsController {
                     new Availability(AvailabilityState.UNAVAILABLE, null, NO_PLACEMENT, null), List.of()));
         }
         UUID placement = placementFor(view, placementId);
-        AgentPlacements.refuseIfAgent(view, placement);          // plan 015 T3.3: 501 before any host is touched
+        // an agent placement is served by the data plane's router through the agent's collected log (plan 016); the
+        // log-LEVEL operations still refuse it (plan 015 T3.3)
         LogPageView page = logs.read(organization, instanceId, placement, bound, notBefore, notAfter);
         return ResponseEntity.ok(new LogPage(
                 page.unavailableReason().map(r -> new Availability(AvailabilityState.UNAVAILABLE, null, r, null))

@@ -36,7 +36,7 @@ import org.springframework.test.context.DynamicPropertySource;
 
 /**
  * Plan 015 T3.3 (Global constraint 8, design D-C2): the operations that reach a host over SSH answer a coded
- * {@code 501 AGENT_OPERATION_UNSUPPORTED} on an AGENT placement - logs, log level (read and change), accept-runtime, restore and
+ * {@code 501 AGENT_OPERATION_UNSUPPORTED} on an AGENT placement - log level (read and change), accept-runtime, restore and
  * rollback - through the real application over real HTTP. The proof that nothing was attempted is a counting spy on the data
  * plane's host-reaching services (every SSH path starts in one of them): zero calls for the agent placement, and the same requests
  * on the SSH placement of the same instance DO reach them, so the spy is known to see.
@@ -148,8 +148,6 @@ class AgentPlacementRefusalsEndpointIT {
         Login admin = http.login(DeclareFixtures.ADMIN);
         CALLS.clear();
 
-        assertRefused(http.get("/api/dp/instances/" + instance + "/logs/cache-engine?placementId=" + agentPlacement, admin),
-                "readLogs");
         assertRefused(http.get("/api/dp/instances/" + instance + "/log-levels/cache-engine?placementId=" + agentPlacement, admin),
                 "getLogLevel");
         ObjectNode level = placementBody(agentPlacement).put("level", "DEBUG").put("mode", "config");
@@ -173,6 +171,21 @@ class AgentPlacementRefusalsEndpointIT {
         }
         assertEquals(0, ownerJdbc.queryForObject("SELECT count(*) FROM sm_data.apply_request WHERE tenant_id = :t AND placement_id = :p",
                 Map.of("t", world.organization(), "p", agentPlacement), Long.class), "no doomed apply request was admitted");
+    }
+
+    @Test
+    void readLogsOnAnAgentPlacementIsServedNotRefused() throws Exception {
+        declareOnce();
+        Client http = client();
+        Login admin = http.login(DeclareFixtures.ADMIN);
+
+        HttpResponse<String> logs = http.get("/api/dp/instances/" + instance + "/logs/cache-engine?placementId=" + agentPlacement,
+                admin);
+
+        // plan 016: logs are served for an agent placement. No agent is connected in this fixture, so the page is a
+        // declared 'unavailable' (not a 501, which would read as a refusal of the operation)
+        assertEquals(200, logs.statusCode(), logs.body());
+        assertEquals("unavailable", MAPPER.readTree(logs.body()).at("/availability/state").asText());
     }
 
     @Test

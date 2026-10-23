@@ -45,8 +45,13 @@ final class DockerLogLineParser {
             return Optional.empty();
         }
         String message = line.substring(separator + 1);
+        return Optional.of(new LogLineView(at, levelOf(message), message));
+    }
+
+    /** The level of a Spring Boot or logback shaped message, else empty. Shared with the agent path, whose lines carry no level. */
+    static Optional<String> levelOf(String message) {
         Matcher level = LEVEL.matcher(message);
-        return Optional.of(new LogLineView(at, level.find() ? Optional.of(level.group(1)) : Optional.empty(), message));
+        return level.find() ? Optional.of(level.group(1)) : Optional.empty();
     }
 
     /**

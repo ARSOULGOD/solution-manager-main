@@ -1,6 +1,8 @@
 package com.solace.sm.dp.logs;
 
+import com.solace.sm.dp.api.agw.AgentLogPort;
 import com.solace.sm.dp.api.logs.LogService;
+import com.solace.sm.dp.apply.runtime.PlacementTransports;
 import com.solace.sm.dp.apply.production.SecretStoreCredentialSource;
 import com.solace.sm.dp.apply.runtime.ssh.HostKeyTypeRecorder;
 import com.solace.sm.dp.apply.runtime.ssh.HostLogs;
@@ -12,6 +14,7 @@ import com.solace.sm.dp.inventory.TargetAddressPolicy;
 import com.solace.sm.dp.inventory.TargetConnectionRows;
 import com.solace.sm.dp.secret.SecretResolver;
 import java.time.Duration;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,6 +27,10 @@ import org.springframework.context.annotation.Import;
  * or not {@code ProductionApplyConfiguration} is switched on: a log read is not part of the apply path. The transport
  * opens a session per read and closes it (it never borrows from the health poller's pool), so a read can neither queue
  * behind a probe nor hold a probe's slot.
+ *
+ * <p>The {@code LogService} bean routes by the placement's transport ({@link RoutingLogService}): an SSH placement is read
+ * over SSH, an agent placement through the gateway's {@code AgentLogPort} ({@link AgentLogService}, plan 016), with
+ * {@code sm.dp.logs.agent-request-deadline} (5s) and {@code sm.dp.logs.agent-max-concurrent-reads} (8).
  *
  * <p>Four knobs, each with a safe default: {@code sm.dp.logs.max-concurrent-reads} (8),
  * {@code sm.dp.logs.acquire-timeout} (2s), and, for a {@code before}-only read that pages backwards ({@code OR-108} (5)),
@@ -47,8 +54,18 @@ public class LogConfiguration {
             @Value("${sm.dp.logs.max-concurrent-reads:8}") int maxConcurrentReads,
             @Value("${sm.dp.logs.acquire-timeout:2s}") Duration acquireTimeout,
             @Value("${sm.dp.logs.before-window:15m}") Duration beforeWindow,
-            @Value("${sm.dp.logs.before-max-windows:8}") int beforeMaxWindows) {
-        return new LogServiceImpl(new TablePlacementCatalog(placementRows, targetConnectionRows, instanceRows),
+            @Value("${sm.dp.logs.before-max-windows:8}") int beforeMaxWindows,
+            @Value("${sm.dp.logs.agent-request-deadline:5s}") Duration agentRequestDeadline,
+            @Value("${sm.dp.logs.agent-max-concurrent-reads:8}") int agentMaxConcurrentReads,
+            ObjectProvider<PlacementTransports> placementTransports, ObjectProvider<AgentLogPort> agentLogPort) {
+        LogService ssh = new LogServiceImpl(new TablePlacementCatalog(placementRows, targetConnectionRows, instanceRows),
                 hostLogs, maxConcurrentReads, acquireTimeout, beforeWindow, beforeMaxWindows);
+        // the transport is read from the tables per call; a context with no agent path (no PlacementTransports bean)
+        // has only SSH placements, and one with no gateway port answers an agent placement "not connected"
+        PlacementTransports transports = placementTransports.getIfAvailable(() -> PlacementTransports.NONE);
+        AgentLogPort port = agentLogPort.getIfAvailable(AgentLogService::absentPort);
+        LogService agent = new AgentLogService(transports, port, agentRequestDeadline, agentMaxConcurrentReads,
+                acquireTimeout);
+        return new RoutingLogService(transports, ssh, agent);
     }
 }

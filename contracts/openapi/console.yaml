@@ -3275,7 +3275,7 @@ paths:
         An unreachable host is `200` with `availability: unavailable`, never an empty page that reads as
         "no logs".
 
-        **Agent placements** (plan 015 T3.3): a placement whose target's transport is `agent` answers `501 AGENT_OPERATION_UNSUPPORTED`: the agent path reads no host logs in v1. It is deliberately not a `200` with `availability: unavailable`, which would read as a host problem.
+        **Agent placements** (plan 016): a placement whose target's transport is `agent` is served from the log its host-local agent collected, through the same bounded page. An agent that cannot answer (not connected, not collecting, busy, missed deadline) is `200` with `availability: unavailable` and a fixed reason that names no host or container, exactly as an unreachable host is. The log-level operations are still `501 AGENT_OPERATION_UNSUPPORTED` on an agent placement.
       x-sm-permission: logs.read
       x-sm-scope: instance
       parameters:

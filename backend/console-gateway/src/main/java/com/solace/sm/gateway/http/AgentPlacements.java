@@ -5,7 +5,7 @@ import com.solace.sm.dp.api.inventory.PlacementView;
 import java.util.UUID;
 
 /**
- * The one place the gateway refuses an operation an agent placement cannot serve (plan 015 T3.3, Global constraint 8): logs, log
+ * The one place the gateway refuses an operation an agent placement cannot serve (plan 015 T3.3, Global constraint 8): log
  * level, read-config / accept-runtime, restore and rollback reach the host over SSH, and an agent target has no SSH binding. The
  * refusal is {@code 501 AGENT_OPERATION_UNSUPPORTED}, decided from the placement's transport on the data plane's own view BEFORE any
  * data-plane service that could reach a host is called, so nothing is read, written or connected. It is deliberately not a
