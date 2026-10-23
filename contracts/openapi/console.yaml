@@ -3276,7 +3276,9 @@ paths:
         An unreachable host is `200` with `availability: unavailable`, never an empty page that reads as
         "no logs".
 
-        **Agent placements** (plan 016): a placement whose target's transport is `agent` is served from the log its host-local agent collected, through the same bounded page. An agent that cannot answer (not connected, not collecting, busy, missed deadline) is `200` with `availability: unavailable` and a fixed reason that names no host or container, exactly as an unreachable host is. The log-level operations are still `501 AGENT_OPERATION_UNSUPPORTED` on an agent placement.
+        **Agent placements** (plan 016): a placement whose target's transport is `agent` is served from the log its host-local agent collected, through the same bounded page. An agent that cannot answer (not connected, not collecting, busy, missed deadline, or the placement left the agent's lease) is `200` with `availability: unavailable` and a fixed reason that names no host or container, exactly as an unreachable host is. The log-level operations are still `501 AGENT_OPERATION_UNSUPPORTED` on an agent placement; this operation is not.
+
+        **Gaps and cut lines (agent placements only).** A collected log can have holes (the agent was down, the ring dropped its oldest lines, the cap was reduced) and can hold a line the agent cut for length. Neither is hidden: `gaps` lists each hole that overlaps the page, oldest first, as `{from, to, reason}` where `reason` is one of `DROPPED_OLDEST`, `COLLECTION_PAUSED`, `CONTAINER_UNREADABLE`, `CAP_REDUCED`, `OVERSIZE` or `UNKNOWN` (any other value the agent sends); `truncated` is `true` when at least one line on the page was cut by the agent. Both are **omitted** when there is nothing to say, which is always the case for an SSH placement.
       x-sm-permission: logs.read
       x-sm-scope: instance
       parameters:
@@ -3303,11 +3305,6 @@ paths:
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
-        '501':
-          description: "`AGENT_OPERATION_UNSUPPORTED` — the placement's target is an agent: this operation is not available on it in v1. Nothing was read or written and no SSH connection was made."
-          content:
-            application/problem+json:
-              schema: { $ref: '#/components/schemas/Problem' }
 
   /dp/instances/{instanceId}/logs/{component}/export:
     parameters:
@@ -3344,12 +3341,14 @@ paths:
         never names a host, path, container or secret): `gap <REASON> from <instant> to <instant>` where the collected log has a hole
         (`REASON` is one of `DROPPED_OLDEST`, `COLLECTION_PAUSED`, `CONTAINER_UNREADABLE`, `CAP_REDUCED`, `OVERSIZE`, or `UNKNOWN`);
         `truncated: the size limit was reached`, `truncated: the time limit was reached`, `incomplete: the agent's connection was
-        lost` and `incomplete: the export ended unexpectedly`, each followed by `; resume from seq <n>`; and `complete, with gaps` as
-        the last line of a finished download that had gaps. **A download that ends cleanly with no marker is complete.** After the first byte, every abnormal end (an
+        lost`, `incomplete: the agent could not read the rest of the log` (the agent hit a read error and ended the export early) and
+        `incomplete: the export ended unexpectedly`, each followed by `; resume from seq <n>`; and `complete, with gaps` as the last
+        line of a finished download that had gaps. **A download that ends cleanly with no marker, or with `complete, with gaps`, is
+        complete; every `truncated` and `incomplete` marker means it is not.** After the first byte, every abnormal end (an
         error in the stream, the gateway's backstop timeout, a shutdown) writes the `incomplete` marker where the response is still writable and
         then **aborts the connection without the chunked terminator**, so the client sees a failed transfer; it never appends an error body. A line longer
-        than half the size budget is cut and ends with `[line truncated]`. A resume from
-        `seq <n>` may repeat up to one chunk of lines already written. An export that loses its agent sends no final chunk, so it ends at
+        than half the size budget is cut and ends with `[line truncated]`, and so does a line the agent itself cut. To resume, call again
+        with `fromSeq=<n>`; that may repeat up to one chunk of lines already written, never lose any. An export that loses its agent sends no final chunk, so it ends at
         the deadline with a marker rather than hanging.
 
         Once the first byte is sent the status cannot change, which is why everything after that point is a marker line, not an HTTP error.
@@ -3360,6 +3359,12 @@ paths:
           in: query
           description: Required when the instance has more than one live placement.
           schema: { type: string, format: uuid }
+        - name: fromSeq
+          in: query
+          description: |
+            The resume point: the `<n>` of a marker's `resume from seq <n>`. Absent or `0` starts at the oldest retained line; a point older
+            than the agent's ring keeps does the same. Anything that is not a non-negative integer is `400`.
+          schema: { type: integer, format: int64, minimum: 0, default: 0 }
       responses:
         '200':
           description: The log as a download.
@@ -4551,8 +4556,9 @@ components:
           (`createConnection`/`updateConnection`, `BE-D66`). The broker's or host's own rejection reason is
           in `detail`; nothing was written either way. Secret-typed attributes are stripped from the
           request echo (`I6`).
-        - `AGENT_OPERATION_UNSUPPORTED` (501) — the operation is not available on an agent placement in v1
-          (logs, log level, read-config / accept-runtime, restore, rollback). Nothing was read or written and no SSH
+        - `AGENT_OPERATION_UNSUPPORTED` (501) — the operation is not available on this placement's transport in v1:
+          on an agent placement the log level, read-config / accept-runtime, restore and rollback; on an SSH placement
+          `exportLogs` (`readLogs` is served on both). Nothing was read or written and no SSH
           connection was made. Distinct from `NOT_IMPLEMENTED`, which says no approved verb exists or the build lacks
           it (plan 015 T3.3).
         - `TARGET_TRANSPORT_UNSUPPORTED` (409) — the operation addresses an SSH connection record
@@ -6482,6 +6488,23 @@ components:
                   at: { type: string, format: date-time }
                   level: { type: string }
                   message: { type: string }
+            gaps:
+              type: array
+              description: |
+                Agent placements only; omitted when there are none. Each hole in the collected log that overlaps the page, oldest first.
+                A page with a gap is not continuous, and a client must not show it as if it were.
+              items:
+                type: object
+                required: [from, to, reason]
+                properties:
+                  from: { type: string, format: date-time }
+                  to: { type: string, format: date-time }
+                  reason:
+                    type: string
+                    enum: [DROPPED_OLDEST, COLLECTION_PAUSED, CONTAINER_UNREADABLE, CAP_REDUCED, OVERSIZE, UNKNOWN]
+            truncated:
+              type: boolean
+              description: Agent placements only; omitted unless `true`. At least one line on this page was cut by the agent because it was too long.
 
     # ── fleet (fleet-apply.md §7; REQ-013, OR-47, OR-57) ─────────────────────
     # Q-F4, Q-F5, Q-F6 and Q-F8 (fleet-apply.md §10) were ruled at the T0.1 Step 7 sitting,

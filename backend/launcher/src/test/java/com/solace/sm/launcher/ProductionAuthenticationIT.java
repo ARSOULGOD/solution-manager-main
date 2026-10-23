@@ -701,7 +701,7 @@ class ProductionAuthenticationIT {
                 "listConnections", "getConnectionTypes", "createConnection", "updateConnection", "deactivateConnection",
                 "deleteConnection", "getSolutionPackage",
                 "getDesigner", "stageConfig", "getConfigHistory", "getConfigLadder", "setConfigSecret",
-                "submitApply", "observeApply", "stopInstance", "readLogs", "getLogLevel", "setLogLevel",
+                "submitApply", "observeApply", "stopInstance", "readLogs", "exportLogs", "getLogLevel", "setLogLevel",
                 // plan 012 T7 (OPS-Q9 Sch-2): the schedule list and cancel (creating one is submitApply/rollbackApply)
                 "listApplySchedules", "cancelApplySchedule",
                 // plan 013 T2.3: the five hierarchy writes and the two entitlement operations

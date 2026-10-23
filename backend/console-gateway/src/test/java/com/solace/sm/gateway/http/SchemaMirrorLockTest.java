@@ -647,6 +647,15 @@ class SchemaMirrorLockTest {
         Class<?> itemType = requireClass("com.solace.sm.gateway.http.LogPage$Line");
         assertEquals(textSet(item.get("required")), new TreeSet<>(requiredRecordComponents(itemType)));
         assertEquals(fieldNames(item.get("properties")), new TreeSet<>(recordComponents(itemType)));
+        JsonNode gap = flattenedSchema(page, "gaps").at("/items");
+        Class<?> gapType = requireClass("com.solace.sm.gateway.http.LogPage$Gap");
+        assertEquals(textSet(gap.get("required")), new TreeSet<>(requiredRecordComponents(gapType)), "LogPage gap required");
+        assertEquals(fieldNames(gap.get("properties")), new TreeSet<>(recordComponents(gapType)), "LogPage gap properties");
+        assertEquals(textSet(gap.at("/properties/reason/enum")), new TreeSet<>(com.solace.sm.dp.api.logs.LogGapView.REASONS) {{
+            add(com.solace.sm.dp.api.logs.LogGapView.UNKNOWN);
+        }}, "the gap reasons are the agent's closed vocabulary plus UNKNOWN");
+        assertFalse(requiredRecordComponents(pageType).contains("gaps") || requiredRecordComponents(pageType).contains("truncated"),
+                "gaps and truncated are optional: an SSH page is unchanged");
     }
 
     @Test

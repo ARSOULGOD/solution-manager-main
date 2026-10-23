@@ -41,6 +41,8 @@ import org.springframework.web.context.request.async.WebAsyncTask;
  *       {@code 429 RATE_LIMITED} with {@code reason: log-export-concurrency}; an agent that cannot serve it now is
  *       {@code 503 SERVICE_UNAVAILABLE} with the data plane's fixed reason. The data plane waits, bounded, for the agent's first
  *       answer before {@code open} returns, so these are known here. Only what happens after the first byte is an in-band marker.</li>
+ *   <li>{@code fromSeq} (optional, a non-negative int64, default 0) is the resume point a marker named ({@code resume from seq N}); a
+ *       value that is not one is {@code 400} before anything is read.</li>
  *   <li>The organization is {@code Session.organizationId()} (I5). The data plane re-resolves the placement under it.</li>
  *   <li>The body is written by a {@link WebAsyncTask} on the log export's OWN bounded threads ({@link LogExportExecution}): the stream is pulled one piece at a time, so a slow client slows the agent
  *       (the data plane grants credit per chunk taken) and nothing accumulates here. Size and time bounds, gap and truncation
@@ -69,8 +71,10 @@ public class LogExportController {
     @GetMapping("/instances/{instanceId}/logs/{component}/export")
     @ConsoleOperation(value = "exportLogs", resource = InstanceResolver.class)
     public WebAsyncTask<Void> exportLogs(@PathVariable UUID instanceId, @PathVariable String component,
-            @RequestParam(required = false) UUID placementId, Session session, HttpServletResponse response) {
+            @RequestParam(required = false) UUID placementId, @RequestParam(required = false) String fromSeq,
+            Session session, HttpServletResponse response) {
         UUID organization = session.organizationId();
+        long resumeFrom = resumePoint(fromSeq);
         InstanceView view = instances.get(session, instanceId)
                 .orElseThrow(() -> new ResourceNotFoundException(ResourceKind.INSTANCE));
         components.require(organization, view, component);
@@ -90,7 +94,7 @@ public class LogExportController {
         Runnable release = execution.releaser();
         LogExportStream stream;
         try {
-            stream = export.open(organization, instanceId, placement);
+            stream = export.open(organization, instanceId, placement, resumeFrom);
             Optional<LogExportStream.Refusal> refusal = stream.refusal();
             if (refusal.isPresent()) {
                 stream.close();
@@ -143,6 +147,22 @@ public class LogExportController {
             }
         });
         return task;
+    }
+
+    /** The {@code seq} an earlier abnormal end named: a non-negative int64, absent meaning the oldest line; anything else is {@code 400}. */
+    static long resumePoint(String fromSeq) {
+        if (fromSeq == null) {
+            return 0L;
+        }
+        try {
+            long value = Long.parseLong(fromSeq);
+            if (value < 0) {
+                throw new GatewayRejectionException(ErrorCode.BAD_REQUEST);
+            }
+            return value;
+        } catch (NumberFormatException notANumber) {
+            throw new GatewayRejectionException(ErrorCode.BAD_REQUEST);
+        }
     }
 
     private static MetricsRejectionException busy() {

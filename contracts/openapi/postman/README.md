@@ -256,7 +256,7 @@ Run top to bottom; each step's test script feeds the next. **On a freshly instal
 7. **`9. apply`**: `submitApply` (`generation` from the stage, `placementId` is required, `strategy: manual`) answers
    `202` with `applyId` and a `Location`; **`observeApply`** (enable the `applyId` query parameter, or use
    `sinceStateVersion`) until `terminal: true`. `rollbackApply`, `stopInstance` (Administrator and Operator, `OR-121`).
-8. **`11. governance`**: `getHealth`, `getConfigLadder`, `readLogs`, `getLogLevel`/`setLogLevel`.
+8. **`11. governance`**: `getHealth`, `getConfigLadder`, `readLogs`, `exportLogs` (a plain-text download; `fromSeq` resumes from a marker), `getLogLevel`/`setLogLevel`.
 9. **`12. monitoring`** (served by P11-7.2; `declareMetricType` is the contracted `501`; the export streams CSV and is
    not yet counted proven until the storage gate records its 105 M-row run): `getCapabilities`, `listEntityTypes`, `getMetricsCatalog`,
    `queryRange`/`queryInstant`, dashboards. Dashboard writes need `X-SM-Dashboard-Revision` (captured by

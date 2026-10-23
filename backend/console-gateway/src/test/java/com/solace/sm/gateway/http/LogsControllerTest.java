@@ -416,4 +416,25 @@ class LogsControllerTest {
         assertEquals("the host could not be reached", body.at("/availability/reason").asText());
         assertTrue(body.get("lines").isEmpty());
     }
+
+    @Test
+    void anAgentPagesGapsAndTruncationAreOnTheWireAndAbsentOtherwise() throws Exception {
+        login("tok-gaps");
+        logs.next = new LogPageView(List.of(new LogLineView(Instant.parse("2026-10-06T06:25:18Z"), Optional.empty(), "cut", true)),
+                Optional.empty(), List.of(new com.solace.sm.dp.api.logs.LogGapView(Instant.parse("2026-10-06T06:00:00Z"),
+                        Instant.parse("2026-10-06T06:20:00Z"), "CONTAINER_UNREADABLE")), true);
+
+        JsonNode body = json(read("tok-gaps", ""));
+
+        assertEquals(Set.of("lines", "gaps", "truncated"), fieldNames(body));
+        assertTrue(body.get("truncated").asBoolean());
+        JsonNode gap = body.get("gaps").get(0);
+        assertEquals(Set.of("from", "to", "reason"), fieldNames(gap));
+        assertEquals("2026-10-06T06:00:00Z", gap.get("from").asText());
+        assertEquals("2026-10-06T06:20:00Z", gap.get("to").asText());
+        assertEquals("CONTAINER_UNREADABLE", gap.get("reason").asText());
+
+        logs.next = new LogPageView(List.of(), Optional.empty());
+        assertEquals(Set.of("lines"), fieldNames(json(read("tok-gaps", ""))), "an SSH page (or one with neither) is unchanged");
+    }
 }

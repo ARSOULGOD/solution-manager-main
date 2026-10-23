@@ -66,7 +66,7 @@ class LogExportControllerTest {
 
     /** Scripted pieces; records what it was asked and whether the stream was closed. */
     static final class FakeExport implements LogExportService {
-        record Open(UUID organization, UUID instance, UUID placement) {
+        record Open(UUID organization, UUID instance, UUID placement, long fromSeq) {
         }
 
         final List<Open> opens = new ArrayList<>();
@@ -76,8 +76,8 @@ class LogExportControllerTest {
         RuntimeException failAfterPieces;
 
         @Override
-        public LogExportStream open(UUID organizationId, UUID instanceId, UUID placementId) {
-            opens.add(new Open(organizationId, instanceId, placementId));
+        public LogExportStream open(UUID organizationId, UUID instanceId, UUID placementId, long fromSeq) {
+            opens.add(new Open(organizationId, instanceId, placementId, fromSeq));
             List<String> script = new ArrayList<>(pieces);
             AtomicBoolean closed = new AtomicBoolean();
             return new LogExportStream() {
@@ -264,6 +264,26 @@ class LogExportControllerTest {
         assertEquals(400, download("tok-two", "cache-engine", "").getResponse().getStatus());
         assertEquals(200, download("tok-two", "cache-engine", "?placementId=" + second).getResponse().getStatus());
         assertEquals(second, export.opens.get(0).placement());
+    }
+
+    @Test
+    void fromSeqIsTheResumePointAndDefaultsToTheOldestLine() throws Exception {
+        login("tok-seq");
+
+        assertEquals(200, download("tok-seq", "cache-engine", "").getResponse().getStatus());
+        assertEquals(200, download("tok-seq", "cache-engine", "?fromSeq=48211").getResponse().getStatus());
+        assertEquals(200, download("tok-seq", "cache-engine", "?fromSeq=0").getResponse().getStatus());
+        assertEquals(List.of(0L, 48211L, 0L), export.opens.stream().map(FakeExport.Open::fromSeq).toList());
+    }
+
+    @Test
+    void aBadFromSeqIs400AndTheDataPlaneIsNotAsked() throws Exception {
+        login("tok-badseq");
+
+        for (String bad : List.of("?fromSeq=-1", "?fromSeq=abc", "?fromSeq=1.5", "?fromSeq=9223372036854775808", "?fromSeq=")) {
+            assertEquals(400, download("tok-badseq", "cache-engine", bad).getResponse().getStatus(), bad);
+        }
+        assertTrue(export.opens.isEmpty());
     }
 
     @Test

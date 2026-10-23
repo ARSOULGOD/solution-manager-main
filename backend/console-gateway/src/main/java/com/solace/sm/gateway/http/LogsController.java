@@ -94,7 +94,9 @@ public class LogsController {
                         .orElse(null),
                 page.lines().stream()
                         .map(l -> new LogPage.Line(l.at().toString(), l.level().orElse(null), l.message()))
-                        .toList()));
+                        .toList(),
+                page.gaps().stream().map(g -> new LogPage.Gap(g.from().toString(), g.to().toString(), g.reason())).toList(),
+                page.truncated()));
     }
 
     /** The placement meant: the requested one (404 if not this instance's), else the only live one (400 when ambiguous). */

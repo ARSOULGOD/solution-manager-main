@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "7bfec13e-42e1-55d1-9e68-49a1c3bc3281",
     "name": "Solution Manager — console API",
-    "description": "Solution Manager — console API\n\nGenerated from `contracts/openapi/console.yaml` (contract version 0.1.0) by `contracts/openapi/postman/generate-postman.py` — do not edit by hand; regenerate. 85 operations: 84 SERVED by the production launcher today, 1 WIRED but NOT COUNTED SERVED (plan 011 P11-8.1), 0 CONTRACTED, NOT YET SERVED (answer 501). Start with folder `0. Start here`; see `contracts/openapi/postman/README.md`.",
+    "description": "Solution Manager — console API\n\nGenerated from `contracts/openapi/console.yaml` (contract version 0.1.0) by `contracts/openapi/postman/generate-postman.py` — do not edit by hand; regenerate. 87 operations: 86 SERVED by the production launcher today, 1 WIRED but NOT COUNTED SERVED (plan 011 P11-8.1), 0 CONTRACTED, NOT YET SERVED (answer 501). Start with folder `0. Start here`; see `contracts/openapi/postman/README.md`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -3066,7 +3066,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"<name>\",\n  \"kind\": \"docker\",\n  \"transport\": \"ssh-docker\",\n  \"ownershipScope\": {},\n  \"connection\": {\n    \"host\": \"<matches ^[A-Za-z0-9]([A-Za-z0-9.-]{0,252}[A-Za-z0-9])?$>\",\n    \"sshUser\": \"<matches ^[A-Za-z_][A-Za-z0-9_-]{0,31}$>\",\n    \"hostKeyFingerprint\": \"<matches ^SHA256:[A-Za-z0-9+/]{20,86}={0,2}$>\",\n    \"allowedConfigRoot\": \"<matches ^/([A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+$>\",\n    \"allowedContainerPrefix\": \"<matches ^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$>\"\n  },\n  \"privateKey\": \"<credential>\"\n}",
+              "raw": "{\n  \"name\": \"<name>\",\n  \"kind\": \"docker\",\n  \"transport\": \"ssh-docker\",\n  \"ownershipScope\": {}\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3085,6 +3085,78 @@
                   "const get = (k) => pm.variables.get(k);",
                   "pm.test('status is one this operation declares (200, 201, 400, 401, 403, 404, 409, 422, 429, 503), or 428', function () {",
                   "  pm.expect([200, 201, 400, 401, 403, 404, 409, 422, 429, 503, 428]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code === 428) { console.warn('MUST_ROTATE: run rotateOwnCredential in \"0. Start here\" first.'); }",
+                  "if (pm.response.code >= 400) { try { const p = pm.response.json(); console.warn(p.code + ' correlationId=' + p.correlationId + ' ' + (p.detail || '')); } catch (e) {} }"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "editTarget · Update linked deployment-target metadata",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-SM-CSRF",
+                "value": "{{csrfToken}}",
+                "description": "Session-bound CSRF token (login/identity response)."
+              },
+              {
+                "key": "Origin",
+                "value": "{{origin}}",
+                "description": "Non-browser clients must send a trusted Origin on every state-changing request (login included). Must equal an entry of sm.gateway.trusted-origins."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cp/targets/:targetId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cp",
+                "targets",
+                ":targetId"
+              ],
+              "variable": [
+                {
+                  "key": "targetId",
+                  "value": "{{targetId}}",
+                  "description": ""
+                }
+              ]
+            },
+            "description": {
+              "content": "operationId: `editTarget`\n\n**SERVED — implemented by the production launcher today.**\n\n`PATCH /api/cp/targets/{targetId}`\n\n**Update linked deployment-target metadata**\n\nUpdates the display name and runtime-specific placement settings of a target created from a remote-server\nConnection. The parent connection and runtime are immutable after declaration; edit the Connection separately\nwhen SSH access changes. Docker targets accept `containerPrefix`; systemd targets accept `serviceNamePattern`.\nThe operation never carries or returns SSH credentials.\n\n**Permission:** `target.edit`\n**Scope:** `named`\n\n**Responses:**\n\n- `200` — Updated target metadata.\n- `400` — The request failed validation.\n- `401` — No session, or the session is expired or revoked.\n- `403` — `FORBIDDEN`, `CSRF_REJECTED` or `ORIGIN_REJECTED` — switch on `code`. `FORBIDDEN` means the verb is not held at the resource's scope.\n- `404` — ⚠️ **Deliberately indistinguishable from \"exists but out of your scope\".** Discriminating the two leaks existence across a scope boundary.\n- `409` — `CONFLICT` — the name is already used, or the parent connection/runtime would change.\n- `422` — `VALIDATION_FAILED` — runtime-specific metadata is invalid.\n\nAuth: session cookie (`__Host-SM_SESSION`) from the login call plus the `X-SM-CSRF` header and a trusted `Origin` (both pre-filled).",
+              "type": "text/markdown"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"<name>\",\n  \"connectionId\": \"{{connectionId}}\",\n  \"runtime\": \"docker\",\n  \"configRoot\": \"<matches ^/.*$>\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const set = (k, v) => { if (v === undefined || v === null || v === '') return; if (pm.environment.name) { pm.environment.set(k, String(v)); } else { pm.collectionVariables.set(k, String(v)); } };",
+                  "const clear = (k) => { if (pm.environment.name) { pm.environment.set(k, ''); } else { pm.collectionVariables.set(k, ''); } };",
+                  "const get = (k) => pm.variables.get(k);",
+                  "pm.test('status is one this operation declares (200, 400, 401, 403, 404, 409, 422), or 428', function () {",
+                  "  pm.expect([200, 400, 401, 403, 404, 409, 422, 428]).to.include(pm.response.code);",
                   "});",
                   "if (pm.response.code === 428) { console.warn('MUST_ROTATE: run rotateOwnCredential in \"0. Start here\" first.'); }",
                   "if (pm.response.code >= 400) { try { const p = pm.response.json(); console.warn(p.code + ' correlationId=' + p.correlationId + ' ' + (p.detail || '')); } catch (e) {} }"
@@ -5706,7 +5778,7 @@
               ]
             },
             "description": {
-              "content": "operationId: `readLogs`\n\n**SERVED — implemented by the production launcher today.**\n\n`GET /api/dp/instances/{instanceId}/logs/{component}`\n\n**Read logs for one component**\n\nReturns a bounded page of the component's log lines, read from the host on demand.\n\n⚠️ **SM does not redact log lines.** A line is the managed integration's own output (a stack trace\ncan carry a connection string), unlike every other SM surface; `logs.read` is the only control, so\ngrant it narrowly.\n\nAn unreachable host is `200` with `availability: unavailable`, never an empty page that reads as\n\"no logs\".\n\n**Agent placements** (plan 015 T3.3): a placement whose target's transport is `agent` answers `501 AGENT_OPERATION_UNSUPPORTED`: the agent path reads no host logs in v1. It is deliberately not a `200` with `availability: unavailable`, which would read as a host problem.\n\n**Permission:** `logs.read`\n**Scope:** `instance`\n\n**Responses:**\n\n- `200` — Log lines.\n- `400` — The request failed validation.\n- `401` — No session, or the session is expired or revoked.\n- `403` — `FORBIDDEN`, `CSRF_REJECTED` or `ORIGIN_REJECTED` — switch on `code`. `FORBIDDEN` means the verb is not held at the resource's scope.\n- `404` — ⚠️ **Deliberately indistinguishable from \"exists but out of your scope\".** Discriminating the two leaks existence across a scope boundary.\n- `501` — `AGENT_OPERATION_UNSUPPORTED` — the placement's target is an agent: this operation is not available on it in v1. Nothing was read or written and no SSH connection was made.\n\nAuth: session cookie (`__Host-SM_SESSION`) from the login call.",
+              "content": "operationId: `readLogs`\n\n**SERVED — implemented by the production launcher today.**\n\n`GET /api/dp/instances/{instanceId}/logs/{component}`\n\n**Read logs for one component**\n\nReturns a bounded page of the component's log lines: read from the host on demand (SSH placements), or from the\nlog the host-local agent collected (agent placements).\n\n⚠️ **SM does not redact log lines.** A line is the managed integration's own output (a stack trace\ncan carry a connection string), unlike every other SM surface; `logs.read` is the only control, so\ngrant it narrowly.\n\nAn unreachable host is `200` with `availability: unavailable`, never an empty page that reads as\n\"no logs\".\n\n**Agent placements** (plan 016): a placement whose target's transport is `agent` is served from the log its host-local agent collected, through the same bounded page. An agent that cannot answer (not connected, not collecting, busy, missed deadline, or the placement left the agent's lease) is `200` with `availability: unavailable` and a fixed reason that names no host or container, exactly as an unreachable host is. The log-level operations are still `501 AGENT_OPERATION_UNSUPPORTED` on an agent placement; this operation is not.\n\n**Gaps and cut lines (agent placements only).** A collected log can have holes (the agent was down, the ring dropped its oldest lines, the cap was reduced) and can hold a line the agent cut for length. Neither is hidden: `gaps` lists each hole that overlaps the page, oldest first, as `{from, to, reason}` where `reason` is one of `DROPPED_OLDEST`, `COLLECTION_PAUSED`, `CONTAINER_UNREADABLE`, `CAP_REDUCED`, `OVERSIZE` or `UNKNOWN` (any other value the agent sends); `truncated` is `true` when at least one line on the page was cut by the agent. Both are **omitted** when there is nothing to say, which is always the case for an SSH placement.\n\n**Permission:** `logs.read`\n**Scope:** `instance`\n\n**Responses:**\n\n- `200` — Log lines.\n- `400` — The request failed validation.\n- `401` — No session, or the session is expired or revoked.\n- `403` — `FORBIDDEN`, `CSRF_REJECTED` or `ORIGIN_REJECTED` — switch on `code`. `FORBIDDEN` means the verb is not held at the resource's scope.\n- `404` — ⚠️ **Deliberately indistinguishable from \"exists but out of your scope\".** Discriminating the two leaks existence across a scope boundary.\n\nAuth: session cookie (`__Host-SM_SESSION`) from the login call.",
               "type": "text/markdown"
             }
           },
@@ -5719,11 +5791,81 @@
                   "const set = (k, v) => { if (v === undefined || v === null || v === '') return; if (pm.environment.name) { pm.environment.set(k, String(v)); } else { pm.collectionVariables.set(k, String(v)); } };",
                   "const clear = (k) => { if (pm.environment.name) { pm.environment.set(k, ''); } else { pm.collectionVariables.set(k, ''); } };",
                   "const get = (k) => pm.variables.get(k);",
-                  "pm.test('status is one this operation declares (200, 400, 401, 403, 404, 501), or 428', function () {",
-                  "  pm.expect([200, 400, 401, 403, 404, 501, 428]).to.include(pm.response.code);",
+                  "pm.test('status is one this operation declares (200, 400, 401, 403, 404), or 428', function () {",
+                  "  pm.expect([200, 400, 401, 403, 404, 428]).to.include(pm.response.code);",
                   "});",
                   "if (pm.response.code === 428) { console.warn('MUST_ROTATE: run rotateOwnCredential in \"0. Start here\" first.'); }",
-                  "if (pm.response.code === 501) { console.warn('readLogs answered 501 NOT_IMPLEMENTED: a refusal the contract declares.'); }",
+                  "if (pm.response.code >= 400) { try { const p = pm.response.json(); console.warn(p.code + ' correlationId=' + p.correlationId + ' ' + (p.detail || '')); } catch (e) {} }"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "exportLogs · Download the collected log of one agent placement",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/dp/instances/:instanceId/logs/:component/export",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "dp",
+                "instances",
+                ":instanceId",
+                "logs",
+                ":component",
+                "export"
+              ],
+              "query": [
+                {
+                  "key": "placementId",
+                  "value": "{{placementId}}",
+                  "disabled": true,
+                  "description": "Required when the instance has more than one live placement."
+                },
+                {
+                  "key": "fromSeq",
+                  "value": "",
+                  "disabled": true,
+                  "description": "The resume point: the `<n>` of a marker's `resume from seq <n>`. Absent or `0` starts at the oldest retained line; a point older than the agent's ring keeps does the same. Anything that is not a non-negative integer is `400`."
+                }
+              ],
+              "variable": [
+                {
+                  "key": "instanceId",
+                  "value": "{{instanceId}}",
+                  "description": ""
+                },
+                {
+                  "key": "component",
+                  "value": "{{component}}",
+                  "description": ""
+                }
+              ]
+            },
+            "description": {
+              "content": "operationId: `exportLogs`\n\n**SERVED — implemented by the production launcher today.**\n\n`GET /api/dp/instances/{instanceId}/logs/{component}/export`\n\n**Download the collected log of one agent placement**\n\nStreams the log the host-local agent collected for one placement as a plain-text download\n(`Content-Disposition: attachment`), oldest first, one line per log line: an RFC 3339 instant, a space, the line's text.\n**Agent placements only**: a placement on an SSH target answers `501 AGENT_OPERATION_UNSUPPORTED` and nothing is read\n(there is no SSH export).\n\n⚠️ **SM does not redact log lines.** A line is the managed integration's own output (a stack trace can carry a\nconnection string); `logs.read` is the only control, so grant it narrowly. It is the same verb as `readLogs`.\n\n**Bounded.** The download stops at the data plane's `sm.dp.logs.export-max-bytes` (the size of the **download**: every\nUTF-8 byte written counts, markers included; default 50 MiB, minimum 1024) or `sm.dp.logs.export-deadline` (default 5\nminutes). At most `sm.dp.logs.export-max-concurrent` exports run at once on the data plane and\n`sm.gateway.logs.export-max-threads` on the gateway, which has its own threads, separate from the metrics export's. The\nstream is pulled as the client reads it, so a slow client slows the agent; a client that disconnects cancels the agent's\nrequest.\n\n**Refused before the first byte, as a status.** `429 RATE_LIMITED` with `reason: log-export-concurrency` (too many exports\nrunning, `Retry-After`), `503 SERVICE_UNAVAILABLE` with a fixed `detail` when the agent cannot serve it now (not connected, no\nlog support, not collecting, busy, silent, or its connection ended) - the data plane waits up to\n`sm.dp.logs.export-start-timeout` (default 5s) for the agent's first answer so these are known before the response starts -\n`404` for an unknown or foreign instance, component or placement, `400` for an ambiguous placement and `501` for an SSH\nplacement.\n\n**Marker lines** are for what happens after the first byte. Each starts with `# sm-export:` and its text is fixed by SM (it\nnever names a host, path, container or secret): `gap <REASON> from <instant> to <instant>` where the collected log has a hole\n(`REASON` is one of `DROPPED_OLDEST`, `COLLECTION_PAUSED`, `CONTAINER_UNREADABLE`, `CAP_REDUCED`, `OVERSIZE`, or `UNKNOWN`);\n`truncated: the size limit was reached`, `truncated: the time limit was reached`, `incomplete: the agent's connection was\nlost`, `incomplete: the agent could not read the rest of the log` (the agent hit a read error and ended the export early) and\n`incomplete: the export ended unexpectedly`, each followed by `; resume from seq <n>`; and `complete, with gaps` as the last\nline of a finished download that had gaps. **A download that ends cleanly with no marker, or with `complete, with gaps`, is\ncomplete; every `truncated` and `incomplete` marker means it is not.** After the first byte, every abnormal end (an\nerror in the stream, the gateway's backstop timeout, a shutdown) writes the `incomplete` marker where the response is still writable and\nthen **aborts the connection without the chunked terminator**, so the client sees a failed transfer; it never appends an error body. A line longer\nthan half the size budget is cut and ends with `[line truncated]`, and so does a line the agent itself cut. To resume, call again\nwith `fromSeq=<n>`; that may repeat up to one chunk of lines already written, never lose any. An export that loses its agent sends no final chunk, so it ends at\nthe deadline with a marker rather than hanging.\n\nOnce the first byte is sent the status cannot change, which is why everything after that point is a marker line, not an HTTP error.\n\n**Permission:** `logs.read`\n**Scope:** `instance`\n\n**Responses:**\n\n- `200` — The log as a download.\n- `400` — The request failed validation.\n- `401` — No session, or the session is expired or revoked.\n- `403` — `FORBIDDEN`, `CSRF_REJECTED` or `ORIGIN_REJECTED` — switch on `code`. `FORBIDDEN` means the verb is not held at the resource's scope.\n- `404` — ⚠️ **Deliberately indistinguishable from \"exists but out of your scope\".** Discriminating the two leaks existence across a scope boundary.\n- `429` — `RATE_LIMITED`, `reason: log-export-concurrency` - too many log exports are running (the data plane's cap or the gateway's own threads). Nothing was sent. Carries `Retry-After`.\n- `503` — `SERVICE_UNAVAILABLE` - the agent cannot serve the export now; `detail` is a fixed reason that names no host or container. Nothing was sent.\n- `501` — `AGENT_OPERATION_UNSUPPORTED` — the placement is on an SSH target: only agent placements can be exported. Nothing was read and no SSH connection was made.\n\nAuth: session cookie (`__Host-SM_SESSION`) from the login call.",
+              "type": "text/markdown"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const set = (k, v) => { if (v === undefined || v === null || v === '') return; if (pm.environment.name) { pm.environment.set(k, String(v)); } else { pm.collectionVariables.set(k, String(v)); } };",
+                  "const clear = (k) => { if (pm.environment.name) { pm.environment.set(k, ''); } else { pm.collectionVariables.set(k, ''); } };",
+                  "const get = (k) => pm.variables.get(k);",
+                  "pm.test('status is one this operation declares (200, 400, 401, 403, 404, 429, 503, 501), or 428', function () {",
+                  "  pm.expect([200, 400, 401, 403, 404, 429, 503, 501, 428]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code === 428) { console.warn('MUST_ROTATE: run rotateOwnCredential in \"0. Start here\" first.'); }",
+                  "if (pm.response.code === 501) { console.warn('exportLogs answered 501 NOT_IMPLEMENTED: a refusal the contract declares.'); }",
                   "if (pm.response.code >= 400) { try { const p = pm.response.json(); console.warn(p.code + ' correlationId=' + p.correlationId + ' ' + (p.detail || '')); } catch (e) {} }"
                 ]
               }
