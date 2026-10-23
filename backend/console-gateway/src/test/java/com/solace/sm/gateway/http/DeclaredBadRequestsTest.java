@@ -71,7 +71,7 @@ class DeclaredBadRequestsTest {
 
     /** {@code GatewayRejectionException(ErrorCode.BAD_REQUEST)} call sites per source file: the tripwire for {@link #EXPLICIT}. */
     private static final Map<String, Integer> EXPLICIT_SITES = Map.ofEntries(
-            Map.entry("LogLevelOrchestrator.java", 2), Map.entry("ApplyController.java", 1), Map.entry("LogsController.java", 4),
+            Map.entry("LogLevelOrchestrator.java", 2), Map.entry("ApplyController.java", 1), Map.entry("LogsController.java", 4), Map.entry("LogExportController.java", 1),
             Map.entry("ExportController.java", 2), Map.entry("MetricsCatalogController.java", 3),
             Map.entry("DashboardController.java", 2), Map.entry("QueryComposer.java", 1),
             // plan 013 T2.3: setEntitlement's {solution} outside the catalog's name grammar (the operation is ALSO

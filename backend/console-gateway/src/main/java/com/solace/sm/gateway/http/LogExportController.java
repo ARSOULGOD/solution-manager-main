@@ -154,15 +154,16 @@ public class LogExportController {
         if (fromSeq == null) {
             return 0L;
         }
+        long value;
         try {
-            long value = Long.parseLong(fromSeq);
-            if (value < 0) {
-                throw new GatewayRejectionException(ErrorCode.BAD_REQUEST);
-            }
-            return value;
+            value = Long.parseLong(fromSeq);
         } catch (NumberFormatException notANumber) {
+            value = -1;
+        }
+        if (value < 0) {
             throw new GatewayRejectionException(ErrorCode.BAD_REQUEST);
         }
+        return value;
     }
 
     private static MetricsRejectionException busy() {
