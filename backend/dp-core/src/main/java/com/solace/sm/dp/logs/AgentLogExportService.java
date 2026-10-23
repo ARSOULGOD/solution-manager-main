@@ -9,6 +9,7 @@ import com.solace.sm.dp.api.logs.LogExportService;
 import com.solace.sm.dp.api.logs.LogExportStream;
 import com.solace.sm.dp.api.logs.LogExportStream.Refusal;
 import com.solace.sm.dp.api.logs.LogExportStream.Refusal.Kind;
+import com.solace.sm.dp.api.logs.LogGapView;
 import com.solace.sm.dp.api.logs.LogLineView;
 import com.solace.sm.dp.apply.model.InstanceId;
 import com.solace.sm.dp.apply.model.PlacementId;
@@ -21,7 +22,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -64,10 +64,8 @@ public final class AgentLogExportService implements LogExportService {
     static final String TIME_MARKER = "truncated: the time limit was reached";
     static final String LOST_MARKER = "incomplete: the agent's connection was lost";
     static final String ABORT_MARKER = "incomplete: the export ended unexpectedly";
+    static final String READ_ERROR_MARKER = "incomplete: the agent could not read the rest of the log";
     static final String COMPLETE_WITH_GAPS = "complete, with gaps";
-
-    private static final Set<String> GAP_REASONS =
-            Set.of("DROPPED_OLDEST", "COLLECTION_PAUSED", "CONTAINER_UNREADABLE", "CAP_REDUCED", "OVERSIZE");
 
     /** How long one wait on the handle lasts, so a keep-alive reaches the writer about every second. */
     private static final Duration SLICE = Duration.ofSeconds(1);
@@ -104,10 +102,13 @@ public final class AgentLogExportService implements LogExportService {
     }
 
     @Override
-    public LogExportStream open(UUID organizationId, UUID instanceId, UUID placementId) {
+    public LogExportStream open(UUID organizationId, UUID instanceId, UUID placementId, long fromSeq) {
         Objects.requireNonNull(organizationId, "organizationId");
         Objects.requireNonNull(instanceId, "instanceId");
         Objects.requireNonNull(placementId, "placementId");
+        if (fromSeq < 0) {
+            throw new IllegalArgumentException("fromSeq must not be negative");
+        }
         if (!slots.tryAcquire()) {
             return refused(Kind.CAPACITY, AgentLogService.AT_CAPACITY);
         }
@@ -125,7 +126,7 @@ public final class AgentLogExportService implements LogExportService {
                 slots.release();
                 return refused(Kind.UNAVAILABLE, AgentLogService.NO_SESSION);
             }
-            LogExportHandle handle = port.openExport(session.get(), placementId, 0L, deadline, maxBytes);
+            LogExportHandle handle = port.openExport(session.get(), placementId, fromSeq, deadline, maxBytes);
             stream = new Stream(handle, System.nanoTime() + deadline.toNanos());
             Optional<String> refusal = stream.awaitStart(startTimeout);
             if (refusal.isPresent()) {
@@ -327,6 +328,9 @@ public final class AgentLogExportService implements LogExportService {
                     }
                 }
                 String text = line.message().replace('\r', ' ').replace('\n', ' ');
+                if (line.truncated()) {
+                    text += " " + LINE_TRUNCATED;      // the agent cut this line; say so in the file, as for a line cut here
+                }
                 if (!fits(out, rendered(line.at() + " ", text, budget), budget)) {
                     return cut(out);
                 }
@@ -338,7 +342,11 @@ public final class AgentLogExportService implements LogExportService {
             }
             resumeSeq = chunk.resumeSeq();
             if (chunk.last()) {
-                tail = gapsSeen ? marker(COMPLETE_WITH_GAPS) : "";
+                // The agent ends a failed read with a final chunk of no lines and one COLLECTION_PAUSED gap (what it sends when the
+                // rest of the log could not be read); lines after the failure may still be on its disk, so this is not "complete".
+                boolean readError = chunk.lines().isEmpty() && !gaps.isEmpty()
+                        && "COLLECTION_PAUSED".equals(gaps.get(gaps.size() - 1).reason());
+                tail = readError ? marker(READ_ERROR_MARKER, resumeSeq) : gapsSeen ? marker(COMPLETE_WITH_GAPS) : "";
             }
             return out.toString();
         }
@@ -363,7 +371,7 @@ public final class AgentLogExportService implements LogExportService {
 
         private String gapMarker(AgentLogGap gap) {
             gapsSeen = true;
-            String reason = GAP_REASONS.contains(gap.reason()) ? gap.reason() : "UNKNOWN";
+            String reason = LogGapView.of(gap.from(), gap.to(), gap.reason()).reason();
             return marker("gap " + reason + " from " + gap.from() + " to " + gap.to());
         }
 

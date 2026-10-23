@@ -388,4 +388,128 @@ class AgentLogExportServiceTest {
             assertFalse(all.contains("size limit"), "no stall at seq 0: " + all);
         }
     }
+
+    // ---- final fix wave: resume (I-2), agent-truncated lines (I-3), a read error mid-export (M-7), lease leave (I-1) ----
+
+    @Test
+    void theStartSeqIsPassedToTheAgentAndANegativeOneIsRefusedAsABadArgument() throws Exception {
+        port.handle.chunks.add(chunk(48212, true, line(0, "a")));
+        port.handle.state = LogExportHandle.State.COMPLETE;
+        try (LogExportStream stream = service().open(ORG, INSTANCE, PLACEMENT, 48211L)) {
+            assertEquals(48211L, port.exports.get(0)[2], "the resume point reaches the agent");
+        }
+        assertThrows(IllegalArgumentException.class, () -> service().open(ORG, INSTANCE, PLACEMENT, -1L));
+        assertEquals(1, port.exports.size(), "a bad argument asks the gateway nothing");
+        port.handle.chunks.add(chunk(1, true, line(0, "a")));
+        try (LogExportStream stream = service().open(ORG, INSTANCE, PLACEMENT)) {
+            assertEquals(0L, port.exports.get(1)[2], "the 3-argument open starts at the oldest line");
+        }
+    }
+
+    /** A fake ring: chunks of two lines; an export from seq N serves every chunk that ends after N. */
+    private static final class RingPort implements AgentLogPort {
+        final List<AgentLogChunk> ring = new ArrayList<>();
+        final List<Long> froms = new ArrayList<>();
+
+        RingPort(int lines, int perChunk, String text) {
+            for (int first = 0; first < lines; first += perChunk) {
+                List<LogLineView> ls = new ArrayList<>();
+                for (int i = first; i < Math.min(lines, first + perChunk); i++) ls.add(line(i, text + i));
+                int end = Math.min(lines, first + perChunk);
+                ring.add(new AgentLogChunk(end, ls, List.of(), end == lines));
+            }
+        }
+
+        @Override public Optional<AgentSessionRef> sessionFor(UUID o, UUID p) { return Optional.of(SESSION); }
+        @Override public CompletableFuture<AgentLogPage> requestPage(AgentSessionRef r, UUID p, int l, Instant a, Instant b, Duration d) { throw new AssertionError(); }
+        @Override public void sendRetention(AgentSessionRef r, UUID p, long m) { throw new AssertionError(); }
+
+        @Override
+        public LogExportHandle openExport(AgentSessionRef ref, UUID placementId, long fromSeq, Duration deadline, long maxBytes) {
+            froms.add(fromSeq);
+            FakeHandle handle = new FakeHandle();
+            for (AgentLogChunk c : ring) {
+                if (c.resumeSeq() > fromSeq) handle.chunks.add(c);
+            }
+            handle.state = LogExportHandle.State.OPEN;
+            return handle;
+        }
+    }
+
+    @Test
+    void aBoundedExportCanBeResumedFromTheSeqItsMarkerNamesWithNoLossAndOnlyTheDocumentedChunkRepeat() throws Exception {
+        RingPort ring = new RingPort(12, 3, "x".repeat(60));
+        AgentLogExportService small = new AgentLogExportService(AgentLogServiceTest.KNOWN, AgentLogServiceTest.LIVE, ring,
+                Duration.ofSeconds(5), 1024, 2, Duration.ofMillis(200));
+        String first;
+        try (LogExportStream stream = small.open(ORG, INSTANCE, PLACEMENT)) {
+            first = drain(stream);
+        }
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("resume from seq (\\d+)").matcher(first);
+        assertTrue(m.find(), first);
+        long resume = Long.parseLong(m.group(1));
+        assertTrue(resume > 0 && resume < 12, "it stopped part way: " + first);
+
+        AgentLogExportService big = new AgentLogExportService(AgentLogServiceTest.KNOWN, AgentLogServiceTest.LIVE, ring,
+                Duration.ofSeconds(5), 1_000_000, 2, Duration.ofMillis(200));
+        String second;
+        try (LogExportStream stream = big.open(ORG, INSTANCE, PLACEMENT, resume)) {
+            second = drain(stream);
+        }
+        assertEquals(List.of(0L, resume), ring.froms);
+        for (int i = 0; i < 12; i++) {
+            String wanted = T.plusSeconds(i) + " " + "x".repeat(60) + i + "\n";
+            assertTrue(first.contains(wanted) || second.contains(wanted), "line " + i + " is in one of the two downloads");
+        }
+        assertFalse(second.contains("# sm-export:"), "the resumed download ran to the end: " + second);
+        // the cut fell inside a 3-line chunk, so at most that chunk's lines are in both
+        long repeated = java.util.stream.IntStream.range(0, 12)
+                .filter(i -> first.contains(T.plusSeconds(i) + " ") && second.contains(T.plusSeconds(i) + " ")).count();
+        assertTrue(repeated <= 3, "repeats stay within one chunk: " + repeated);
+    }
+
+    @Test
+    void aLineTheAgentTruncatedIsMarkedInTheExport() throws Exception {
+        port.handle.chunks.add(new AgentLogChunk(2, List.of(new LogLineView(T, Optional.empty(), "cut here", true), line(1, "whole")),
+                List.of(), true));
+        port.handle.state = LogExportHandle.State.COMPLETE;
+        try (LogExportStream stream = service().open(ORG, INSTANCE, PLACEMENT)) {
+            assertEquals(T + " cut here [line truncated]\n" + T.plusSeconds(1) + " whole\n", drain(stream));
+        }
+    }
+
+    @Test
+    void aFinalChunkThatCarriesOnlyACollectionPausedGapIsAReadErrorNotACompleteDownload() throws Exception {
+        port.handle.chunks.add(chunk(3, false, line(0, "one")));
+        port.handle.chunks.add(new AgentLogChunk(3, List.of(), List.of(new AgentLogGap(T.plusSeconds(1), T.plusSeconds(9),
+                "COLLECTION_PAUSED")), true));
+        port.handle.state = LogExportHandle.State.COMPLETE;
+        try (LogExportStream stream = service().open(ORG, INSTANCE, PLACEMENT)) {
+            String all = drain(stream);
+
+            assertTrue(all.contains("# sm-export: gap COLLECTION_PAUSED from "), all);
+            assertTrue(all.endsWith("# sm-export: incomplete: the agent could not read the rest of the log; resume from seq 3\n"), all);
+            assertFalse(all.contains("complete, with gaps"), all);
+        }
+    }
+
+    @Test
+    void anExportTheGatewayEndedBecauseThePlacementLeftTheLeaseFreesItsSlotAtOnce() throws Exception {
+        AgentLogExportService service = service(1_000_000, Duration.ofSeconds(5), 1);
+        port.handle.chunks.add(chunk(1, false, line(0, "a")));
+        LogExportStream first = service.open(ORG, INSTANCE, PLACEMENT);
+        assertEquals(T + " a\n", first.next());
+        port.handle.state = LogExportHandle.State.UNAVAILABLE;
+        port.handle.reason = "PLACEMENT_NOT_IN_LEASE";
+
+        String rest = drain(first);
+
+        assertEquals("# sm-export: incomplete: the export ended unexpectedly; resume from seq 1\n", rest);
+        port.handle.state = LogExportHandle.State.OPEN;
+        port.handle.reason = null;
+        port.handle.chunks.add(chunk(1, false, line(0, "b")));
+        try (LogExportStream second = service.open(ORG, INSTANCE, PLACEMENT)) {
+            assertTrue(second.refusal().isEmpty(), "the slot was released when the export ended, not at the 5 minute deadline");
+        }
+    }
 }

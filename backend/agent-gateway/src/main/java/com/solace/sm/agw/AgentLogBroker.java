@@ -365,7 +365,8 @@ final class AgentLogBroker implements AgentLogPort {
         List<LogLineView> out = new ArrayList<>(source.size());
         for (AgentGatewayOuterClass.LogLine line : source) {
             // The level is not on the wire; the data plane derives it from the text as it does for the SSH path.
-            out.add(new LogLineView(instant(line.getTs()), Optional.empty(), line.getText().toString(StandardCharsets.UTF_8)));
+            out.add(new LogLineView(instant(line.getTs()), Optional.empty(), line.getText().toString(StandardCharsets.UTF_8),
+                    line.getTruncated()));
         }
         return out;
     }

@@ -84,8 +84,15 @@ public class LogConfiguration {
      *   <li>{@code sm.dp.logs.export-deadline} - the longest one export runs; default 5m. An agent that goes away without a
      *       final chunk ends the export at this bound with a marker, it never hangs.</li>
      *   <li>{@code sm.dp.logs.export-max-concurrent} - exports in flight at once on this data plane; default 2. One more is
-     *       a declared busy marker, never a queue (the gateway also bounds requests per agent).</li>
+     *       {@code 429}, never a queue (the gateway also bounds requests per agent).</li>
      * </ul>
+     *
+     * <p><b>Memory envelope</b> (heap of the process that hosts the data plane and gateway). One export holds at most
+     * {@code credits + 2} chunks in the gateway's queue, each up to {@code max_batch_bytes} (4 MiB): about 10 chunks, 40 MiB, at the
+     * default 8 credits, and rendering a chunk to text roughly doubles that while it is held, so about 80 MiB per export, 160 MiB
+     * for the default 2. A page is one agent message of up to {@code max-message-bytes} (16 MiB) and up to
+     * {@code agent-max-concurrent-reads} (8) run at once: 128 MiB. Worst case with both busy is a few hundred MiB; size the heap
+     * for it, or lower {@code export-max-concurrent}, {@code agent-max-concurrent-reads} or the gateway's initial credits.
      */
     @Bean
     LogExportService logExportService(PlacementRows placementRows, ObjectProvider<PlacementTransports> placementTransports,

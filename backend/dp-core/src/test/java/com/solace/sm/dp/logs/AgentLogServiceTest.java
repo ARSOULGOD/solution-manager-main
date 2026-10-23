@@ -105,6 +105,44 @@ class AgentLogServiceTest extends LogServiceContractTest {
     }
 
     @Test
+    void theAgentsGapsAndTruncatedLinesReachThePageSoItNeverReadsAsContinuous() {
+        port.answer = new AgentLogPage(
+                List.of(new LogLineView(T, Optional.empty(), "before"), new LogLineView(T.plusSeconds(60), Optional.empty(), "cut", true)),
+                List.of(new com.solace.sm.dp.api.agw.AgentLogGap(T.plusSeconds(1), T.plusSeconds(59), "CONTAINER_UNREADABLE"),
+                        new com.solace.sm.dp.api.agw.AgentLogGap(T, T.plusSeconds(1), "SOMETHING <script> ELSE")),
+                Optional.empty());
+
+        LogPageView page = over(port, 4).read(ORGANIZATION, INSTANCE, PLACEMENT, 5, null, null);
+
+        assertTrue(page.truncated(), "a line the agent cut is said to be cut");
+        assertEquals(List.of(
+                new com.solace.sm.dp.api.logs.LogGapView(T, T.plusSeconds(1), "UNKNOWN"),
+                new com.solace.sm.dp.api.logs.LogGapView(T.plusSeconds(1), T.plusSeconds(59), "CONTAINER_UNREADABLE")), page.gaps(),
+                "gaps are kept oldest first; a reason outside the closed vocabulary is UNKNOWN and never echoed");
+    }
+
+    @Test
+    void aPageWithoutGapsOrCutLinesSaysNeither() {
+        LogPageView page = over(port, 4).read(ORGANIZATION, INSTANCE, PLACEMENT, 5, null, null);
+
+        assertFalse(page.truncated());
+        assertTrue(page.gaps().isEmpty());
+    }
+
+    @Test
+    void gapsThatEndBeforeTheNewestLinesTheLimitKeptAreNotReported() {
+        port.answer = new AgentLogPage(
+                List.of(new LogLineView(T, Optional.empty(), "old"), new LogLineView(T.plusSeconds(100), Optional.empty(), "new")),
+                List.of(new com.solace.sm.dp.api.agw.AgentLogGap(T.minusSeconds(50), T.minusSeconds(10), "DROPPED_OLDEST")),
+                Optional.empty());
+
+        LogPageView page = over(port, 4).read(ORGANIZATION, INSTANCE, PLACEMENT, 1, null, null);
+
+        assertEquals(1, page.lines().size());
+        assertTrue(page.gaps().isEmpty(), "that hole is older than everything this page shows");
+    }
+
+    @Test
     void aRetiredPlacementIsUnresolvableLikeOnTheSshPath() {
         LIVE_FLAG.set(false);
 

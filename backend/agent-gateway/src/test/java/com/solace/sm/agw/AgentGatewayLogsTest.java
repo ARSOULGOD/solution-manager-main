@@ -206,6 +206,23 @@ class AgentGatewayLogsTest {
         }
     }
 
+    @Test
+    void aLineTheAgentTruncatedKeepsThatFlagInPagesAndExportChunks() throws Exception {
+        try (LogsHarness h = new LogsHarness()) {
+            h.connect("capable", true);
+            var cut = new LogLineView(Instant.parse("2026-10-20T10:00:00Z"), Optional.empty(), "long", true);
+            var page = h.fleet.service.logPort().requestPage(ref("capable"), PLACEMENT, 5, null, null, LONG);
+            h.sendPage("capable", h.requests("capable").get(0).getRequestId(), List.of(cut, line("whole")), List.of(),
+                    AgentGatewayOuterClass.UnavailableReason.UNAVAILABLE_REASON_UNSPECIFIED);
+            assertEquals(List.of(true, false), page.get(5, TimeUnit.SECONDS).lines().stream().map(LogLineView::truncated).toList());
+
+            LogExportHandle export = h.fleet.service.logPort().openExport(ref("capable"), PLACEMENT, 0, LONG, 1_000_000);
+            h.sendChunk("capable", h.requests("capable").get(1).getRequestId(), 2, List.of(cut, line("whole")), true);
+            assertEquals(List.of(true, false), export.next(Duration.ofSeconds(1)).orElseThrow().lines().stream()
+                    .map(LogLineView::truncated).toList());
+        }
+    }
+
     private static void narrowLease(LogsHarness h, String label) {
         LeaseGrant narrower = new LeaseGrant(AgentGatewayServiceTest.Ports.id("agent-1"), label, AgentGatewayServiceTest.Ports.TARGET,
                 List.of(), 1, 1, Instant.now(), Instant.now().plusSeconds(300), "dp", "nonce-2", List.of(AgentCapability.LIFECYCLE),

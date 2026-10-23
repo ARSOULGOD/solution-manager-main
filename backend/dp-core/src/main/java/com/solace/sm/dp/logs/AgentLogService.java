@@ -3,6 +3,7 @@ package com.solace.sm.dp.logs;
 import com.solace.sm.dp.api.agw.AgentLogPage;
 import com.solace.sm.dp.api.agw.AgentLogPort;
 import com.solace.sm.dp.api.agw.AgentSessionRef;
+import com.solace.sm.dp.api.logs.LogGapView;
 import com.solace.sm.dp.api.logs.LogLineView;
 import com.solace.sm.dp.api.logs.LogPageView;
 import com.solace.sm.dp.api.logs.LogService;
@@ -125,7 +126,7 @@ public final class AgentLogService implements LogService {
                     port.requestPage(session.get(), placementId, limit, after, before, deadline);
             AgentLogPage page = future.get(deadline.plus(GRACE).toMillis(), TimeUnit.MILLISECONDS);
             return page.unavailableReason().map(code -> unavailable(reasonText(code)))
-                    .orElseGet(() -> new LogPageView(bounded(page.lines(), limit, after, before), Optional.empty()));
+                    .orElseGet(() -> view(page, limit, after, before));
         } catch (TimeoutException e) {
             return unavailable(TIMEOUT);
         } catch (InterruptedException e) {
@@ -140,6 +141,19 @@ public final class AgentLogService implements LogService {
         }
     }
 
+    /** The page the caller sees: the bounded lines, plus (agent only) the holes in the collected log and whether a line was cut. */
+    private static LogPageView view(AgentLogPage page, int limit, Instant after, Instant before) {
+        List<LogLineView> lines = bounded(page.lines(), limit, after, before);
+        Instant first = lines.isEmpty() ? null : lines.get(0).at();
+        // a hole that ended before the oldest line shown is older than anything this page covers
+        List<LogGapView> gaps = page.gaps().stream()
+                .filter(g -> first == null || !g.to().isBefore(first))
+                .map(g -> LogGapView.of(g.from(), g.to(), g.reason()))
+                .sorted(java.util.Comparator.comparing(LogGapView::from))
+                .toList();
+        return new LogPageView(lines, Optional.empty(), gaps, lines.stream().anyMatch(LogLineView::truncated));
+    }
+
     /**
      * The same guarantees the SSH path gives, whatever the agent sent (it runs on the customer's host): only lines strictly
      * inside {@code (after, before)}, oldest first (equal stamps keep arrival order), the newest {@code limit} of them, each
@@ -151,7 +165,7 @@ public final class AgentLogService implements LogService {
                 .sorted(java.util.Comparator.comparing(LogLineView::at))
                 .toList();
         return inside.subList(Math.max(0, inside.size() - limit), inside.size()).stream()
-                .map(l -> new LogLineView(l.at(), DockerLogLineParser.levelOf(l.message()), l.message()))
+                .map(l -> new LogLineView(l.at(), DockerLogLineParser.levelOf(l.message()), l.message(), l.truncated()))
                 .toList();
     }
 

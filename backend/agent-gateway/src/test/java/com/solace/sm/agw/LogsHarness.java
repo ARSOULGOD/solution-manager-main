@@ -79,7 +79,7 @@ final class LogsHarness implements AutoCloseable {
 
     static AgentGatewayOuterClass.LogLine wireLine(LogLineView line) {
         return AgentGatewayOuterClass.LogLine.newBuilder().setTs(Timestamps.fromMillis(line.at().toEpochMilli()))
-                .setStream("stdout").setText(ByteString.copyFromUtf8(line.message())).build();
+                .setStream("stdout").setText(ByteString.copyFromUtf8(line.message())).setTruncated(line.truncated()).build();
     }
 
     static AgentGatewayOuterClass.LogGap wireGap(com.solace.sm.dp.api.agw.AgentLogGap gap) {
