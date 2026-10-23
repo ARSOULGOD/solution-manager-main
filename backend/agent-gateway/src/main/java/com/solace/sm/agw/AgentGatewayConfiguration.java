@@ -55,8 +55,9 @@ public class AgentGatewayConfiguration {
             ActualStatePort reports, AgentTelemetryPort telemetry, AgentAuditPort audit,
             AgentDiscoveryPort discovery, AgentTelemetryDeclarationsPort declarations,
             ObjectProvider<AgentLogRetentionSource> logRetention) {
-        // Interim (plan 016 task 9 supplies the data plane's bean): until then no stored cap exists, so nothing is pushed at session
-        // open. This is the one port that is not required, because it carries no safety property: a missing push leaves the agent's default.
+        // The data plane supplies the bean (JdbcPlacementLogRetentionRepository); a context without one has no stored cap, so nothing is
+        // pushed at session open. This is the one port that is not required, because it carries no safety property: a missing push
+        // leaves the agent's default.
         return new AgentGatewayPortSet(enrollment, identity, sessions, leases, commands, reports, telemetry, audit, discovery,
                 declarations, logRetention.getIfAvailable(() -> AgentLogRetentionSource.NONE));
     }

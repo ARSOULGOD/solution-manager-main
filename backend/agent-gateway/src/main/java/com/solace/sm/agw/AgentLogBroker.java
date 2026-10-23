@@ -193,6 +193,21 @@ final class AgentLogBroker implements AgentLogPort {
         endAllOf(ref);
     }
 
+    /**
+     * The session's lease no longer names some placements: the requests waiting on them end now. The agent revokes those
+     * requests silently when its lease shrinks (no final chunk, no refusal page), so nothing else would end them before their
+     * deadline, and an export would hold its data-plane slot and a per-agent slot for all of it. The agent already stopped; no
+     * cancel is sent.
+     */
+    void placementsLeft(AgentSessionRef ref, java.util.Set<UUID> leased) {
+        for (Pending request : new ArrayList<>(pending.values())) {
+            if (!request.ref.equals(ref) || leased.contains(request.placementId)) continue;
+            if (release(request.id) == null) continue;
+            if (request instanceof PagePending page) page.complete(AgentLogPage.unavailable("PLACEMENT_NOT_IN_LEASE"));
+            else ((ExportPending) request).end(LogExportHandle.State.UNAVAILABLE, "PLACEMENT_NOT_IN_LEASE");
+        }
+    }
+
     /** One message from the agent's Logs stream. Never blocks: a map lookup and a hand-off. */
     void onUp(LogStream from, LogUp up) {
         if (up.hasLogPage()) {

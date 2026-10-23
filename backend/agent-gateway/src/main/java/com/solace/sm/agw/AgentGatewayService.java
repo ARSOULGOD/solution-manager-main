@@ -932,6 +932,7 @@ public final class AgentGatewayService extends AgentGatewayGrpc.AgentGatewayImpl
                 return;
             }
             leasePlacements = Set.copyOf(grant.placementIds());
+            logs.placementsLeft(session, leasePlacements);
             response.onNext(GatewayToAgent.newBuilder().setLeaseGrant(lease(grant)).build());
             sendDeclarations();
         }
@@ -1092,6 +1093,7 @@ public final class AgentGatewayService extends AgentGatewayGrpc.AgentGatewayImpl
             if (!accepted || grant == null) return;
             metrics.leaseReissued();
             leasePlacements = Set.copyOf(grant.placementIds());
+            logs.placementsLeft(session, leasePlacements);
             send(GatewayToAgent.newBuilder().setLeaseGrant(lease(grant)).build());
             sendDeclarations();
         }

@@ -206,6 +206,62 @@ class AgentGatewayLogsTest {
         }
     }
 
+    private static void narrowLease(LogsHarness h, String label) {
+        LeaseGrant narrower = new LeaseGrant(AgentGatewayServiceTest.Ports.id("agent-1"), label, AgentGatewayServiceTest.Ports.TARGET,
+                List.of(), 1, 1, Instant.now(), Instant.now().plusSeconds(300), "dp", "nonce-2", List.of(AgentCapability.LIFECYCLE),
+                Map.of(), Duration.ZERO, Instant.now());
+        h.fleet.ports.reconciler = sessions -> sessions.stream().map(x -> new IdentityReconciliation(x,
+                IdentityReconciliation.Status.REISSUED, narrower, 1, 1)).toList();
+        h.fleet.service.reconcileSessions();
+    }
+
+    @Test
+    void aPlacementLeavingTheLeaseEndsItsPendingRequestsAtOnceAndFreesTheirSlots() throws Exception {
+        try (LogsHarness h = new LogsHarness()) {
+            h.connect("capable", true);
+            var page = h.fleet.service.logPort().requestPage(ref("capable"), PLACEMENT, 5, null, null, LONG);
+            LogExportHandle export = h.fleet.service.logPort().openExport(ref("capable"), PLACEMENT, 0, LONG, 1_000_000);
+            assertEquals(LogExportHandle.State.OPEN, export.state());
+
+            narrowLease(h, "capable");
+
+            assertEquals(Optional.of("PLACEMENT_NOT_IN_LEASE"), page.get(1, TimeUnit.SECONDS).unavailableReason(),
+                    "a page does not wait out its deadline for a placement the agent no longer serves");
+            assertEquals(LogExportHandle.State.UNAVAILABLE, export.state(), "an export ends now, not at its 5 minute deadline");
+            assertEquals(Optional.of("PLACEMENT_NOT_IN_LEASE"), export.unavailableReason());
+            var fresh = new java.util.ArrayList<LogExportHandle>();
+            for (int i = 0; i < h.fleet.properties.getLogMaxInFlightPerAgent(); i++) {
+                fresh.add(h.fleet.service.logPort().openExport(ref("capable"), PLACEMENT, 0, LONG, 1));
+            }
+            assertTrue(fresh.stream().noneMatch(e -> "BUSY".equals(e.unavailableReason().orElse(null))),
+                    "the per-agent slots were released (these are refused for the lease, not for being busy)");
+        }
+    }
+
+    @Test
+    void aPlacementLeavingTheLeaseLeavesTheRequestsOfThePlacementsThatStayAlone() throws Exception {
+        try (LogsHarness h = new LogsHarness()) {
+            h.connect("capable", true);
+            UUID other = UUID.nameUUIDFromBytes("other-placement".getBytes());
+            LeaseGrant wider = new LeaseGrant(AgentGatewayServiceTest.Ports.id("agent-1"), "capable", AgentGatewayServiceTest.Ports.TARGET,
+                    List.of(PLACEMENT, other), 1, 1, Instant.now(), Instant.now().plusSeconds(300), "dp", "nonce-2",
+                    List.of(AgentCapability.LIFECYCLE), Map.of(), Duration.ZERO, Instant.now());
+            h.fleet.ports.reconciler = sessions -> sessions.stream().map(x -> new IdentityReconciliation(x,
+                    IdentityReconciliation.Status.REISSUED, wider, 1, 1)).toList();
+            h.fleet.service.reconcileSessions();
+            var staying = h.fleet.service.logPort().requestPage(ref("capable"), PLACEMENT, 5, null, null, LONG);
+            var leaving = h.fleet.service.logPort().requestPage(ref("capable"), other, 5, null, null, LONG);
+            LeaseGrant narrower = new LeaseGrant(AgentGatewayServiceTest.Ports.id("agent-1"), "capable", AgentGatewayServiceTest.Ports.TARGET,
+                    List.of(PLACEMENT), 1, 1, Instant.now(), Instant.now().plusSeconds(300), "dp", "nonce-3",
+                    List.of(AgentCapability.LIFECYCLE), Map.of(), Duration.ZERO, Instant.now());
+            h.fleet.ports.reconciler = sessions -> sessions.stream().map(x -> new IdentityReconciliation(x,
+                    IdentityReconciliation.Status.REISSUED, narrower, 1, 1)).toList();
+            h.fleet.service.reconcileSessions();
+            assertEquals(Optional.of("PLACEMENT_NOT_IN_LEASE"), leaving.get(1, TimeUnit.SECONDS).unavailableReason());
+            assertFalse(staying.isDone());
+        }
+    }
+
     @Test
     void logsRpcRefusedBeforeSessionAccept() throws Exception {
         try (LogsHarness h = new LogsHarness()) {

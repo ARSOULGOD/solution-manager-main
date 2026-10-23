@@ -13,6 +13,6 @@ public interface AgentLogRetentionSource {
     /** Placement id to stored cap in bytes (0 means collection off). Must not throw for an unknown agent: answer empty. */
     Map<UUID, Long> capsFor(AgentSessionRef ref);
 
-    /** No stored caps (the interim wiring before the data plane supplies them). */
+    /** No stored caps: what a context with no data-plane bean uses. */
     AgentLogRetentionSource NONE = ref -> Map.of();
 }
