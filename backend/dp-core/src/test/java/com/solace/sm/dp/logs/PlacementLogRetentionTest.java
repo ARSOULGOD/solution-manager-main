@@ -31,10 +31,10 @@ class PlacementLogRetentionTest {
     private static final long MAX = 1_000_000L;
     private static final Instant NOW = Instant.parse("2026-10-23T10:00:00Z");
 
-    /** Everything either fake did, in order. */
-    private static final List<String> EVENTS = new ArrayList<>();
+    /** Everything either fake did, in order (per test instance: no shared mutable state between tests). */
+    private final List<String> events = new ArrayList<>();
 
-    private static final class FakeRows implements PlacementLogRetentionRows {
+    private final class FakeRows implements PlacementLogRetentionRows {
         final Map<String, Long> stored = new HashMap<>();
         final List<Instant> writes = new ArrayList<>();
         RuntimeException upsertFailure;
@@ -46,7 +46,7 @@ class PlacementLogRetentionTest {
 
         @Override
         public void upsert(UUID tenantId, UUID placementId, long maxBytes, Instant at) {
-            EVENTS.add("upsert");
+            events.add("upsert");
             if (upsertFailure != null) throw upsertFailure;
             stored.put(tenantId + "/" + placementId, maxBytes);
             writes.add(at);
@@ -58,7 +58,7 @@ class PlacementLogRetentionTest {
         }
     }
 
-    private static final class FakePort implements AgentLogPort {
+    private final class FakePort implements AgentLogPort {
         final List<Object[]> sent = new ArrayList<>();
         Optional<AgentSessionRef> session = Optional.of(SESSION);
         RuntimeException failure;
@@ -70,7 +70,7 @@ class PlacementLogRetentionTest {
 
         @Override
         public void sendRetention(AgentSessionRef ref, UUID placementId, long maxBytes) {
-            EVENTS.add("push");
+            events.add("push");
             if (failure != null) throw failure;
             sent.add(new Object[] {ref, placementId, maxBytes});
         }
@@ -85,11 +85,6 @@ class PlacementLogRetentionTest {
         public LogExportHandle openExport(AgentSessionRef ref, UUID placementId, long fromSeq, Duration deadline, long maxBytes) {
             throw new AssertionError();
         }
-    }
-
-    @org.junit.jupiter.api.BeforeEach
-    void clear() {
-        EVENTS.clear();
     }
 
     private final FakeRows rows = new FakeRows();
@@ -154,14 +149,14 @@ class PlacementLogRetentionTest {
     @Test
     void theCapIsStoredBeforeItIsPushed() {
         service.setCap(ORG, PLACEMENT, 10);
-        assertEquals(List.of("upsert", "push"), EVENTS);
+        assertEquals(List.of("upsert", "push"), events);
     }
 
     @Test
     void aFailingStoreSendsNothingAndPropagates() {
         rows.upsertFailure = new IllegalStateException("database down");
         assertThrows(IllegalStateException.class, () -> service.setCap(ORG, PLACEMENT, 10));
-        assertEquals(List.of("upsert"), EVENTS, "the agent is never told a value that was not stored");
+        assertEquals(List.of("upsert"), events, "the agent is never told a value that was not stored");
         assertTrue(port.sent.isEmpty());
     }
 }

@@ -80,7 +80,11 @@ match them.
 - **A refusal is always a `LogPage` with an `UnavailableReason`**, for an export request too, because `LogChunk` has
   no reason field.
 - **No final chunk on a broken export.** An export that is revoked (its placement left the lease), cancelled, or ends
-  with the session or the `Logs` stream sends **no** final chunk; the gateway relies on its own deadline.
+  with the session or the `Logs` stream sends **no** final chunk. The gateway therefore ends such requests itself, as soon as
+  it learns of it: when a lease event (renew or re-issue) drops the placement, its pending pages complete
+  `PLACEMENT_NOT_IN_LEASE` and its exports end `UNAVAILABLE` with the same reason (releasing the data plane's export slot and
+  the per-agent slot at once); when the session or `Logs` stream ends, `NO_SESSION` / `SESSION_LOST`. Its own deadline is the
+  backstop only.
 - **The cap counts on-disk encoded bytes.** `LogRetention.max_bytes` caps the encoded records on disk (JSON with
   base64 text), so only about 70% of the cap is log text.
 - **Vocabulary.** Gap reasons emitted: `DROPPED_OLDEST`, `COLLECTION_PAUSED`, `CONTAINER_UNREADABLE`, `CAP_REDUCED`.
@@ -129,7 +133,20 @@ Verified against the Go agent (`go-agent/internal/logs/`, `go-agent/internal/age
 - **Routing.** The existing log service selects SSH for `dp-remote` and `AgentLogService` for `host-local`; neither
   implementation changes for the other.
 - **Export.** A DP endpoint streams `LogChunk`s to the caller as a download, bounded by a maximum total size and a
-  deadline.
+  deadline. The start is parameterised: `fromSeq` (optional, non-negative int64, default 0) is passed to the agent as
+  `from_seq`, so the `resume from seq N` of any abnormal-end marker can be used as `fromSeq=N` to continue (a resume may
+  repeat up to one chunk). A final chunk of no lines that carries a `COLLECTION_PAUSED` gap is the agent's read error (§4.2):
+  the download ends with the fixed marker `incomplete: the agent could not read the rest of the log; resume from seq N`, not
+  `complete, with gaps`.
+- **Gaps and cut lines are never silent at the API.** A page carries the agent's gaps and `truncated` as optional additive
+  `readLogs` fields `gaps` (`{from, to, reason}`, reason in the closed vocabulary or `UNKNOWN`) and `truncated`, for agent
+  placements only (omitted when empty; SSH responses are unchanged); an export marks a line the agent cut with the fixed
+  suffix `[line truncated]`, as it does for a line cut on the data plane.
+- **Memory envelope.** One export holds at most `credits + 2` chunks of up to `max_batch_bytes` (4 MiB) in the gateway queue
+  (about 40 MiB at the default 8 credits; roughly double while rendered to text), so about 80 MiB, 160 MiB for the default 2
+  concurrent exports. A page is one message of up to `max_message_bytes` (16 MiB), up to 8 at once: 128 MiB. Worst case with
+  both busy is a few hundred MiB of heap; the bounds are `sm.dp.logs.export-max-concurrent`, `agent-max-concurrent-reads`
+  and the gateway's initial credits.
 - **Cap.** A per-placement cap (`log_max_bytes`) is stored in the DP side table `sm_data.placement_log_retention` (not a column
   on `placement`, which stays immutable per `OR-29`; a missing row means never set); changing it is an UPDATE of that row and
   sends `LogRetention`, and it is re-sent on agent reconnect.

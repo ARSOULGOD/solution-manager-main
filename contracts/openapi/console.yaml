@@ -3344,9 +3344,8 @@ paths:
         lost`, `incomplete: the agent could not read the rest of the log` (the agent hit a read error and ended the export early) and
         `incomplete: the export ended unexpectedly`, each followed by `; resume from seq <n>`; and `complete, with gaps` as the last
         line of a finished download that had gaps. **A download that ends cleanly with no marker, or with `complete, with gaps`, is
-        complete; every `truncated` and `incomplete` marker means it is not.** After the first byte, every abnormal end (an
-        error in the stream, the gateway's backstop timeout, a shutdown) writes the `incomplete` marker where the response is still writable and
-        then **aborts the connection without the chunked terminator**, so the client sees a failed transfer; it never appends an error body. A line longer
+        complete; every `truncated` and `incomplete` marker means it is not.** After the first byte, an error in the stream or the gateway's backstop timeout writes the `incomplete` marker where the response is still writable and
+        then **aborts the connection without the chunked terminator**, so the client sees a failed transfer; it never appends an error body (a shutdown interrupt writes the same marker and ends the body normally). A line longer
         than half the size budget is cut and ends with `[line truncated]`, and so does a line the agent itself cut. To resume, call again
         with `fromSeq=<n>`; that may repeat up to one chunk of lines already written, never lose any. An export that loses its agent sends no final chunk, so it ends at
         the deadline with a marker rather than hanging.

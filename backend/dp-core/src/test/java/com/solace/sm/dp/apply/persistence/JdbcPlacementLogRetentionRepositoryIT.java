@@ -32,7 +32,24 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * placement is resolved by the DP's own tables, and the stored value is what a reconnecting agent session is handed.
  */
 @Testcontainers(disabledWithoutDocker = true)
-class JdbcPlacementLogRetentionRepositoryIT {
+class JdbcPlacementLogRetentionRepositoryIT extends com.solace.sm.dp.api.agw.kit.AbstractAgentLogRetentionSourceContractTest {
+
+    private World kitWorld;
+    private AgentSessionRef kitSession;
+
+    private void kit() {
+        if (kitWorld == null) {
+            kitWorld = agentWorld();
+            kitSession = openSession(kitWorld, 1);
+            new PlacementLogRetention(repo, new RecordingPort(), Clock.systemUTC(), 1_000_000).setCap(kitWorld.tenant, kitWorld.placement, 777);
+        }
+    }
+
+    @Override protected AgentLogRetentionSource source() { return new JdbcPlacementLogRetentionRepository(runtime); }
+    @Override protected AgentSessionRef liveSession() { kit(); return kitSession; }
+    @Override protected Map<UUID, Long> storedCaps() { kit(); return Map.of(kitWorld.placement, 777L); }
+    @Override protected AgentSessionRef staleSession() { kit(); return new AgentSessionRef(kitWorld.agent, 2); }
+
 
     private static NamedParameterJdbcTemplate runtime;
     private static JdbcPlacementLogRetentionRepository repo;

@@ -7,10 +7,13 @@ package com.solace.sm.dp.api.logs;
  * <p>Every piece is whole lines, each ending in {@code \n}, in order. Besides log lines (an ISO-8601 instant, a space, the
  * line's text) the stream carries <b>marker lines</b>, which always start with {@value #MARKER_PREFIX} and whose text is
  * fixed by SM, never the agent's or the host's (I6): a gap in the collected log, a size or time bound that stopped the export,
- * or the agent's connection being lost, each with the {@code seq} to resume from where there is one. Resuming may repeat up to one
- * chunk of lines already written (the resume point moves a chunk at a time). A stream that ENDS CLEANLY without a marker is
- * complete. After the first byte every abnormal end writes the {@code incomplete} marker where the response is still writable and then
- * the caller aborts the connection (no chunked terminator), so a cut-off file is never a clean one.
+ * or the agent's connection being lost, each with the {@code seq} to resume from where there is one (the {@code fromSeq} of
+ * {@link LogExportService#open(java.util.UUID, java.util.UUID, java.util.UUID, long)}). Resuming may repeat up to one
+ * chunk of lines already written (the resume point moves a chunk at a time). A stream that ENDS CLEANLY with no marker, or whose
+ * last marker is {@code complete, with gaps}, is complete; every {@code truncated} and {@code incomplete} marker means it is not.
+ * After the first byte an error or interrupt writes the {@code incomplete} marker where the response is still writable; an error
+ * the caller cannot recover from then aborts the connection (no chunked terminator), so a cut-off file is never a clean one. The
+ * size, time and lost-session markers end the body normally, after the marker.
  */
 public interface LogExportStream extends AutoCloseable {
 
