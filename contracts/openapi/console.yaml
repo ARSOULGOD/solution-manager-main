@@ -3345,8 +3345,10 @@ paths:
         (`REASON` is one of `DROPPED_OLDEST`, `COLLECTION_PAUSED`, `CONTAINER_UNREADABLE`, `CAP_REDUCED`, `OVERSIZE`, or `UNKNOWN`);
         `truncated: the size limit was reached`, `truncated: the time limit was reached`, `incomplete: the agent's connection was
         lost` and `incomplete: the export ended unexpectedly`, each followed by `; resume from seq <n>`; and `complete, with gaps` as
-        the last line of a finished download that had gaps. **A download whose last line is not such a marker is complete**: every
-        abnormal end writes a marker, and when it cannot be written the connection is aborted so the download fails. A resume from
+        the last line of a finished download that had gaps. **A download that ends cleanly with no marker is complete.** After the first byte, every abnormal end (an
+        error in the stream, the gateway's backstop timeout, a shutdown) writes the `incomplete` marker where the response is still writable and
+        then **aborts the connection without the chunked terminator**, so the client sees a failed transfer; it never appends an error body. A line longer
+        than half the size budget is cut and ends with `[line truncated]`. A resume from
         `seq <n>` may repeat up to one chunk of lines already written. An export that loses its agent sends no final chunk, so it ends at
         the deadline with a marker rather than hanging.
 

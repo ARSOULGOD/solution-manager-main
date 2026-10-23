@@ -182,6 +182,33 @@ public final class AgentLogExportService implements LogExportService {
         return marker(text + "; resume from seq " + resumeSeq);
     }
 
+    static final String LINE_TRUNCATED = "[line truncated]";
+
+    /**
+     * One log line. A line that could never fit the whole budget would stall every resume at the same seq, so it is cut to half
+     * the budget (on a character boundary) with a fixed tail: the export goes on past it.
+     */
+    private static String rendered(String prefix, String text, long budget) {
+        String whole = prefix + text + "\n";
+        if (bytes(whole) <= budget) {
+            return whole;
+        }
+        long room = budget / 2 - bytes(prefix) - bytes(LINE_TRUNCATED) - 1;
+        StringBuilder cut = new StringBuilder();
+        long used = 0;
+        for (int i = 0; i < text.length(); ) {
+            int cp = text.codePointAt(i);
+            long size = bytes(new String(Character.toChars(cp)));
+            if (used + size > room) {
+                break;
+            }
+            cut.appendCodePoint(cp);
+            used += size;
+            i += Character.charCount(cp);
+        }
+        return prefix + cut + LINE_TRUNCATED + "\n";
+    }
+
     private static long bytes(String text) {
         return text.getBytes(StandardCharsets.UTF_8).length;
     }
@@ -300,7 +327,7 @@ public final class AgentLogExportService implements LogExportService {
                     }
                 }
                 String text = line.message().replace('\r', ' ').replace('\n', ' ');
-                if (!fits(out, line.at() + " " + text + "\n", budget)) {
+                if (!fits(out, rendered(line.at() + " ", text, budget), budget)) {
                     return cut(out);
                 }
             }

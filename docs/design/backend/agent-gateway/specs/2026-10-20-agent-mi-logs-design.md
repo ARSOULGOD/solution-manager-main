@@ -188,3 +188,6 @@ sent them. Nothing calls `setCap` until the verb is named.
    unredacted log text than a page, but neither the brief nor the approval record asks for a row; project-owner call.
    (Defaults chosen in plan 016 task 10: download size 50 MiB counting every byte written, 5 minutes, 2 concurrent on the
    data plane and 4 gateway threads; resume from a marker's `seq` may repeat up to one chunk of lines.)
+6. Notes on the export endpoint (plan 016 task 10): an agent-side `BUSY` is a `503`, not a `429` (it is the agent being busy, not
+   the caller exceeding a cap); and `LogExportExecution` reads the data-plane property `sm.dp.logs.export-deadline`, which works
+   while the gateway and data plane are co-deployed and needs its own property if they are ever split.

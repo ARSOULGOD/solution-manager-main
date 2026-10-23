@@ -371,4 +371,21 @@ class AgentLogExportServiceTest {
             assertTrue(port.handle.consumed.get() < 30, "chunks kept flowing but the DP bound still ended it");
         }
     }
+
+    @Test
+    void aSingleLineLongerThanTheWholeBudgetIsCutWithAFixedTailInsteadOfStallingTheResume() throws Exception {
+        String huge = "\u00e9".repeat(5000);          // 10000 bytes of text against a 1024-byte bound
+        port.handle.chunks.add(chunk(1, false, line(0, huge)));
+        port.handle.chunks.add(chunk(2, true, line(1, "after")));
+        port.handle.state = LogExportHandle.State.COMPLETE;
+        try (LogExportStream stream = service(1024, Duration.ofSeconds(5), 2).open(ORG, INSTANCE, PLACEMENT)) {
+            String all = drain(stream);
+
+            assertTrue(all.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= 1024, "within the bound");
+            assertTrue(all.startsWith(T.toString() + " \u00e9"), "the line is there, cut");
+            assertTrue(all.contains("[line truncated]\n"), all);
+            assertTrue(all.contains(T.plusSeconds(1) + " after\n"), "and the export went on to the next chunk: " + all);
+            assertFalse(all.contains("size limit"), "no stall at seq 0: " + all);
+        }
+    }
 }

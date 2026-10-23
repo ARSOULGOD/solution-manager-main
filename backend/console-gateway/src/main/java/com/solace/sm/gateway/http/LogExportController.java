@@ -16,6 +16,7 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.UUID;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -99,20 +100,47 @@ public class LogExportController {
             release.run();
             throw e;
         }
-        // from here on only the async completion hands the permit back and closes the stream
-        response.setContentType(new MediaType("text", "plain", StandardCharsets.UTF_8).toString());
-        response.setHeader(HttpHeaders.CONTENT_DISPOSITION,
-                ContentDisposition.attachment().filename("logs-" + instanceId + ".log").build().toString());
-        response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+        return download(stream, response, "logs-" + instanceId + ".log", execution, release);
+    }
+
+    /**
+     * The download as an async task on the log export's own threads. Headers are set inside the task, so a task the executor
+     * refuses leaves no stray {@code Content-Disposition} on the refusal. The permit goes back when the pump has actually
+     * finished (not at a timeout while a thread may still be writing); if the task never started, completion hands it back.
+     * Every abnormal end after the first byte aborts the connection ({@link LogExportAbortedException}).
+     */
+    static WebAsyncTask<Void> download(LogExportStream stream, HttpServletResponse response, String filename,
+            LogExportExecution execution, Runnable release) {
+        AtomicBoolean started = new AtomicBoolean();
         WebAsyncTask<Void> task = new WebAsyncTask<>(execution.timeoutMillis(), execution.executor(), () -> {
-            pump(stream, response.getOutputStream());
-            return null;
+            started.set(true);
+            try {
+                response.setContentType(new MediaType("text", "plain", StandardCharsets.UTF_8).toString());
+                response.setHeader(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment().filename(filename).build().toString());
+                response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+                pump(stream, response.getOutputStream());
+                return null;
+            } catch (LogExportAbortedException aborted) {
+                throw aborted;
+            } catch (IOException | RuntimeException failed) {
+                throw new LogExportAbortedException(failed);
+            } finally {
+                stream.close();
+                release.run();
+            }
         });
-        task.onTimeout(() -> null);
-        task.onError(() -> null);
+        task.onTimeout(() -> {
+            throw new LogExportAbortedException(null);
+        });
+        task.onError(() -> {
+            throw new LogExportAbortedException(null);
+        });
         task.onCompletion(() -> {
             stream.close();
-            release.run();
+            if (!started.get()) {
+                release.run();
+            }
         });
         return task;
     }
@@ -135,10 +163,12 @@ public class LogExportController {
      * best effort, and a client that went away is certain to be noticed only at the next real write or the deadline). The
      * stream is always closed, which cancels the agent request and releases its slots.
      *
-     * <p>"No marker at the end means complete" must hold, so every abnormal end writes the stream's fixed {@code incomplete}
-     * marker: an interrupt (a shutdown) restores the flag and writes it; an unexpected failure writes it and propagates. If the
-     * marker cannot be written the {@link IOException} propagates and the container aborts the connection, so the client sees a
-     * failed download and not a clean cut-off file.
+     * <p>A clean end with no marker means complete, so every abnormal end writes the stream's fixed {@code incomplete} marker
+     * where the response is still writable: an interrupt (a shutdown) restores the flag and writes it; an unexpected failure
+     * writes it and propagates. {@link #download} then turns the failure (or an {@link IOException} from a write, where no
+     * marker was possible) into a {@link LogExportAbortedException}, which {@link LogExportAbortAdvice} leaves unresolved, so
+     * the container closes the connection WITHOUT the chunked terminator and the client sees a failed transfer; no error body is
+     * appended (measured on a real container, {@code LogExportTomcatTest}).
      */
     static void pump(LogExportStream stream, OutputStream out) throws IOException {
         try (stream) {

@@ -2,11 +2,15 @@ package com.solace.sm.gateway.http;
 
 import java.time.Duration;
 import java.util.Objects;
+import com.solace.sm.gateway.http.metrics.MetricsRejectionException;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.task.AsyncTaskExecutor;
+import org.springframework.core.task.TaskRejectedException;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 
@@ -32,13 +36,20 @@ final class LogExportExecution implements DisposableBean {
     private final Semaphore permits;
     private final ThreadPoolTaskExecutor executor;
     private final long timeoutMillis;
+    private final AsyncTaskExecutor refusing;
 
+    @org.springframework.beans.factory.annotation.Autowired
     LogExportExecution(@Value("${sm.gateway.logs.export-max-threads:4}") int threads,
             @Value("${sm.dp.logs.export-deadline:5m}") Duration deadline) {
+        this(threads, Objects.requireNonNull(deadline, "deadline").plus(BACKSTOP).toMillis());
+    }
+
+    /** @param timeoutMillis the async backstop, explicitly (tests) */
+    LogExportExecution(int threads, long timeoutMillis) {
         if (threads < 1) {
             throw new IllegalArgumentException("at least one log export thread is required");
         }
-        this.timeoutMillis = Objects.requireNonNull(deadline, "deadline").plus(BACKSTOP).toMillis();
+        this.timeoutMillis = timeoutMillis;
         this.permits = new Semaphore(threads);
         this.executor = new ThreadPoolTaskExecutor();
         executor.setThreadNamePrefix("sm-log-export-");
@@ -48,6 +59,38 @@ final class LogExportExecution implements DisposableBean {
         executor.setAllowCoreThreadTimeOut(true);
         executor.setKeepAliveSeconds(30);
         executor.initialize();
+        this.refusing = new AsyncTaskExecutor() {
+            @Override
+            public void execute(Runnable task) {
+                try {
+                    executor.execute(task);
+                } catch (TaskRejectedException rejected) {
+                    throw busy();
+                }
+            }
+
+            @Override
+            public Future<?> submit(Runnable task) {
+                try {
+                    return executor.submit(task);
+                } catch (TaskRejectedException rejected) {
+                    throw busy();
+                }
+            }
+
+            @Override
+            public <T> Future<T> submit(Callable<T> task) {
+                try {
+                    return executor.submit(task);
+                } catch (TaskRejectedException rejected) {
+                    throw busy();
+                }
+            }
+        };
+    }
+
+    private static MetricsRejectionException busy() {
+        return new MetricsRejectionException(ErrorCode.RATE_LIMITED, MetricsRejectionException.LOG_EXPORT_CONCURRENCY, 5);
     }
 
     /** True when a download may start; the caller then owns one permit and must hand it back with {@link #release}. */
@@ -69,8 +112,9 @@ final class LogExportExecution implements DisposableBean {
         };
     }
 
+    /** The executor the download runs on; a refused submit is the log-specific {@code 429}, never the metrics advice's. */
     AsyncTaskExecutor executor() {
-        return executor;
+        return refusing;
     }
 
     long timeoutMillis() {
