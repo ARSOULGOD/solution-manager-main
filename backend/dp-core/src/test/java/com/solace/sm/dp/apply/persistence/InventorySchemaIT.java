@@ -377,6 +377,36 @@ class InventorySchemaIT {
                 new MapSqlParameterSource("t", tenant).addValue("p", p)));
     }
 
+    /** V053 (plan 016 task 8): the agent log cap lives beside the immutable placement, and the runtime role can change it. */
+    @Test
+    void thePlacementLogCapIsASideTableTheRuntimeRoleCanChangeWhileThePlacementStaysImmutable() {
+        UUID tenant = SmDataPostgres.freshTenant();
+        UUID i = declareViaSsh(tenant, "logcap");
+        UUID target = insertTarget(targetRow(tenant));
+        UUID p = insertPlacement(placementRow(tenant, i, target));
+        MapSqlParameterSource key = new MapSqlParameterSource("t", tenant).addValue("p", p);
+
+        runtime.update("INSERT INTO sm_data.placement_log_retention (tenant_id, placement_id, log_max_bytes, updated_at)"
+                + " VALUES (:t, :p, 1048576, now())", key);
+        assertEquals(1, runtime.update("UPDATE sm_data.placement_log_retention SET log_max_bytes = 0, updated_at = now()"
+                + " WHERE tenant_id = :t AND placement_id = :p", key), "the runtime role changes the cap");
+        assertEquals(0L, runtime.queryForObject("SELECT log_max_bytes FROM sm_data.placement_log_retention"
+                + " WHERE tenant_id = :t AND placement_id = :p", key, Long.class), "0 turns collection off");
+        Refusals.assertRefused(Refusals.CHECK_VIOLATION, "placement_log_retention_nonnegative", () -> runtime.update(
+                "UPDATE sm_data.placement_log_retention SET log_max_bytes = -1 WHERE tenant_id = :t AND placement_id = :p", key));
+        // an orphan (no such placement of this tenant) is refused, as is another tenant's placement id
+        Refusals.assertRefused(Refusals.FOREIGN_KEY_VIOLATION, "placement_log_retention_placement_fkey", () -> runtime.update(
+                "INSERT INTO sm_data.placement_log_retention (tenant_id, placement_id, log_max_bytes, updated_at)"
+                        + " VALUES (:t, gen_random_uuid(), 1, now())", key));
+        Refusals.assertRefused(Refusals.FOREIGN_KEY_VIOLATION, "placement_log_retention_placement_fkey", () -> runtime.update(
+                "INSERT INTO sm_data.placement_log_retention (tenant_id, placement_id, log_max_bytes, updated_at)"
+                        + " VALUES (gen_random_uuid(), :p, 1, now())", key));
+        // the registry row itself is still immutable: the cap did not widen its grant or its trigger
+        assertEquals(List.of("retired_at", "retired_by"), runtimeUpdatableColumns("placement"));
+        Refusals.assertRaised("a placement is immutable", () -> superuser.update(
+                "UPDATE sm_data.placement SET container_name = 'sm-b' WHERE tenant_id = :t AND placement_id = :p", key));
+    }
+
     /** Review Focus 2 — three cases, each refused by its own named index. */
     @Test
     void aSecondPlacementOnOneTargetMayNotReuseContainerNameConfigDirOrHealthPort() {

@@ -30,7 +30,8 @@ import org.springframework.context.annotation.Import;
  *
  * <p>The {@code LogService} bean routes by the placement's transport ({@link RoutingLogService}): an SSH placement is read
  * over SSH, an agent placement through the gateway's {@code AgentLogPort} ({@link AgentLogService}, plan 016), with
- * {@code sm.dp.logs.agent-request-deadline} (5s) and {@code sm.dp.logs.agent-max-concurrent-reads} (8).
+ * {@code sm.dp.logs.agent-request-deadline} (5s) and {@code sm.dp.logs.agent-max-concurrent-reads} (8: a GLOBAL bound, deliberately above the gateway's per-agent bound of 4,
+ * which is where a single agent's BUSY comes from).
  *
  * <p>Four knobs, each with a safe default: {@code sm.dp.logs.max-concurrent-reads} (8),
  * {@code sm.dp.logs.acquire-timeout} (2s), and, for a {@code before}-only read that pages backwards ({@code OR-108} (5)),
@@ -65,7 +66,7 @@ public class LogConfiguration {
         PlacementTransports transports = placementTransports.getIfAvailable(() -> PlacementTransports.NONE);
         AgentLogPort port = agentLogPort.getIfAvailable(AgentLogService::absentPort);
         LogService agent = new AgentLogService(transports, port, agentRequestDeadline, agentMaxConcurrentReads,
-                acquireTimeout);
+                Duration.ZERO);      // a full agent pool is an immediate busy page, never a queue
         return new RoutingLogService(transports, ssh, agent);
     }
 }

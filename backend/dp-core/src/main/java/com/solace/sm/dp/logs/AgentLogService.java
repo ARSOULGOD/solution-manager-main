@@ -38,7 +38,8 @@ import org.slf4j.LoggerFactory;
  *       lines and a fixed reason. The reason is chosen from the port's closed vocabulary and quotes nothing (I6): no
  *       host, container, path or message.</li>
  *   <li><b>Bounded.</b> At most {@code maxConcurrentReads} requests are in flight; one that cannot get a slot within
- *       {@code acquireTimeout} is a declared busy page. The wait for the agent is the port's {@code deadline}, which the
+ *       {@code acquireTimeout} (the wired value is zero: an immediate busy page) is a declared busy page. The per-agent
+ *       bound lives in the gateway; this one is a global bound above it. The wait for the agent is the port's {@code deadline}, which the
  *       gateway arms after the request is sent, plus a short grace; this class never waits longer than that.</li>
  *   <li><b>The level is derived here.</b> Log level is not on the wire; it is read from the text exactly as the SSH path
  *       reads it ({@link DockerLogLineParser#levelOf}).</li>
@@ -117,7 +118,7 @@ public final class AgentLogService implements LogService {
                     port.requestPage(session.get(), placementId, limit, after, before, deadline);
             AgentLogPage page = future.get(deadline.plus(GRACE).toMillis(), TimeUnit.MILLISECONDS);
             return page.unavailableReason().map(code -> unavailable(reasonText(code)))
-                    .orElseGet(() -> new LogPageView(withLevels(page.lines()), Optional.empty()));
+                    .orElseGet(() -> new LogPageView(bounded(page.lines(), limit, after, before), Optional.empty()));
         } catch (TimeoutException e) {
             return unavailable(TIMEOUT);
         } catch (InterruptedException e) {
@@ -132,8 +133,17 @@ public final class AgentLogService implements LogService {
         }
     }
 
-    private static List<LogLineView> withLevels(List<LogLineView> lines) {
-        return lines.stream()
+    /**
+     * The same guarantees the SSH path gives, whatever the agent sent (it runs on the customer's host): only lines strictly
+     * inside {@code (after, before)}, oldest first (equal stamps keep arrival order), the newest {@code limit} of them, each
+     * with its level read from the text.
+     */
+    private static List<LogLineView> bounded(List<LogLineView> lines, int limit, Instant after, Instant before) {
+        List<LogLineView> inside = lines.stream()
+                .filter(l -> (after == null || l.at().isAfter(after)) && (before == null || l.at().isBefore(before)))
+                .sorted(java.util.Comparator.comparing(LogLineView::at))
+                .toList();
+        return inside.subList(Math.max(0, inside.size() - limit), inside.size()).stream()
                 .map(l -> new LogLineView(l.at(), DockerLogLineParser.levelOf(l.message()), l.message()))
                 .toList();
     }

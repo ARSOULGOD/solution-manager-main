@@ -65,7 +65,7 @@ class AgentLogServiceTest extends LogServiceContractTest {
     }
 
     /** Transport answers for exactly the known (organization, instance, placement) key: agent. */
-    private static final PlacementTransports KNOWN = new PlacementTransports() {
+    static final PlacementTransports KNOWN = new PlacementTransports() {
         @Override
         public Optional<String> transportOf(PlacementRef p) {
             boolean known = p.tenant().value().equals(ORGANIZATION) && p.instance().value().equals(INSTANCE)
@@ -81,8 +81,13 @@ class AgentLogServiceTest extends LogServiceContractTest {
 
     private FakePort port = new FakePort();
 
-    private AgentLogService over(FakePort p, int slots) {
-        return new AgentLogService(KNOWN, p, Duration.ofSeconds(5), slots, Duration.ofMillis(50));
+    private LogService over(FakePort p, int slots) {
+        return wrap(new AgentLogService(KNOWN, p, Duration.ofSeconds(5), slots, Duration.ZERO));
+    }
+
+    /** The service under test; the router contract run wraps the agent service in the wired {@link RoutingLogService}. */
+    LogService wrap(AgentLogService agent) {
+        return agent;
     }
 
     @Override
@@ -139,6 +144,38 @@ class AgentLogServiceTest extends LogServiceContractTest {
         assertTrue(page.unavailableReason().isEmpty());
     }
 
+    private static LogLineView at(int second, String message) {
+        return new LogLineView(T.plusSeconds(second), Optional.empty(), message);
+    }
+
+    @Test
+    void anAgentThatOverReturnsIsHeldToTheLimit() {
+        port.answer = new AgentLogPage(List.of(at(1, "a"), at(2, "b"), at(3, "c"), at(4, "d")), List.of(), Optional.empty());
+
+        LogPageView page = over(port, 4).read(ORGANIZATION, INSTANCE, PLACEMENT, 2, null, null);
+
+        assertEquals(List.of("c", "d"), page.lines().stream().map(LogLineView::message).toList(), "the NEWEST limit lines");
+    }
+
+    @Test
+    void anAgentThatReturnsLinesOutsideTheWindowIsHeldToTheExclusiveWindow() {
+        port.answer = new AgentLogPage(List.of(at(1, "edge-after"), at(2, "in"), at(3, "edge-before"), at(9, "out")),
+                List.of(), Optional.empty());
+
+        LogPageView page = over(port, 4).read(ORGANIZATION, INSTANCE, PLACEMENT, 10, T.plusSeconds(1), T.plusSeconds(3));
+
+        assertEquals(List.of("in"), page.lines().stream().map(LogLineView::message).toList());
+    }
+
+    @Test
+    void anAgentThatReturnsLinesOutOfOrderIsHeldToOldestFirstKeepingEqualStampsInArrivalOrder() {
+        port.answer = new AgentLogPage(List.of(at(3, "c"), at(1, "a"), at(2, "b1"), at(2, "b2")), List.of(), Optional.empty());
+
+        LogPageView page = over(port, 4).read(ORGANIZATION, INSTANCE, PLACEMENT, 10, null, null);
+
+        assertEquals(List.of("a", "b1", "b2", "c"), page.lines().stream().map(LogLineView::message).toList());
+    }
+
     @Test
     void gapsAreNotPartOfTheLogPageView() {
         port.answer = new AgentLogPage(List.of(new LogLineView(T, Optional.empty(), "x")),
@@ -175,7 +212,7 @@ class AgentLogServiceTest extends LogServiceContractTest {
     void timeoutReturnsFixedDegradedPageAndNamesNoHostOrContainer() {
         // the future never completes: the service bounds its own wait, and the text it gives is fixed
         port.pending = new CompletableFuture<>();
-        AgentLogService service = new AgentLogService(KNOWN, port, Duration.ofMillis(20), 4, Duration.ofMillis(50));
+        LogService service = wrap(new AgentLogService(KNOWN, port, Duration.ofMillis(20), 4, Duration.ZERO));
 
         LogPageView page = service.read(ORGANIZATION, INSTANCE, PLACEMENT, 5, null, null);
 

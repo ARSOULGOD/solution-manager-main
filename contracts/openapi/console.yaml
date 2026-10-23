@@ -3266,7 +3266,8 @@ paths:
       operationId: readLogs
       summary: Read logs for one component
       description: |
-        Returns a bounded page of the component's log lines, read from the host on demand.
+        Returns a bounded page of the component's log lines: read from the host on demand (SSH placements), or from the
+        log the host-local agent collected (agent placements).
 
         ⚠️ **SM does not redact log lines.** A line is the managed integration's own output (a stack trace
         can carry a connection string), unlike every other SM surface; `logs.read` is the only control, so
