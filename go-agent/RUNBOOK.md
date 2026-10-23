@@ -263,10 +263,11 @@ curl -s localhost:9464/metrics | grep sm_agent_telemetry_
 
 ## Logs
 
-**Status: agent side only.** The agent collects and stores a placement's container logs and answers log requests on the
-`Logs` stream (plan 016, Tasks 1-6; executed against `fake-gateway` scenarios). The gateway and DP side is **not
-implemented yet**, so nothing in production asks for these logs, and the DP cannot yet set a cap. The description below
-is what the agent does today.
+**Status: end to end in code, not yet run against a real gateway.** The agent collects and stores a placement's container
+logs and answers log requests on the `Logs` stream (plan 016 Tasks 1-6, run against `fake-gateway` scenarios). The gateway
+and DP side exist (Tasks 7-10: typed port, `readLogs`, bounded `exportLogs`, the DP-side cap store), but no real agent, gateway
+and container have been run together, and nothing yet sets a cap over REST (the DP default applies). The DP half is in
+[`docs/runbooks/backend/read-and-export-agent-logs.md`](../docs/runbooks/backend/read-and-export-agent-logs.md).
 
 **Enable it.** Add `logs` to the roles: `--roles control,telemetry,logs` (or `SM_AGENT_ROLES`). The agent advertises
 `CAPABILITY_LOGS` to the gateway, opens the `Logs` stream after the session is accepted, and follows the logs of every

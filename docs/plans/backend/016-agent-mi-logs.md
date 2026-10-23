@@ -236,7 +236,7 @@ public interface AgentLogPort {
 
 **Files:** Create `backend/dp-core/src/main/java/com/solace/sm/dp/logs/AgentLogService.java`, `RoutingLogService.java`, `backend/dp-core/src/main/resources/db/migration/sm_data/V053__placement_log_retention.sql`; modify `LogConfiguration.java`, `backend/console-gateway/.../http/LogsController.java` (line ~92) and `AgentPlacements.java`, `contracts/openapi/console.yaml` (`readLogs`, ~line 3260).
 
-**Interfaces — Consumes:** `AgentLogPort` (Task 7). **Produces:** `AgentLogService implements LogService` (same `read(UUID organizationId, UUID instanceId, UUID placementId, int limit, Instant after, Instant before)`); `RoutingLogService implements LogService` delegating to `LogServiceImpl` for SSH placements and `AgentLogService` for agent placements (decided from the placement's target transport on the DP's own view — the same discriminator `AgentPlacements.refuseIfAgent` reads); migration adds nullable `log_max_bytes bigint` to the placements table (find it via `PlacementRows`). Property: `sm.dp.logs.agent-request-deadline` (default `5s`).
+**Interfaces — Consumes:** `AgentLogPort` (Task 7). **Produces:** `AgentLogService implements LogService` (same `read(UUID organizationId, UUID instanceId, UUID placementId, int limit, Instant after, Instant before)`); `RoutingLogService implements LogService` delegating to `LogServiceImpl` for SSH placements and `AgentLogService` for agent placements (decided from the placement's target transport on the DP's own view — the same discriminator `AgentPlacements.refuseIfAgent` reads); migration creates the side table `sm_data.placement_log_retention` (ruling R8: the placement registry is immutable, `OR-29`, so the cap is not a column on `sm_data.placement`). Property: `sm.dp.logs.agent-request-deadline` (default `5s`).
 
 - [ ] **Step 1: Write failing tests:** `AgentLogServiceTest` — `ReadsPageThroughPort`; `NoSessionOrMissingCapabilityReturnsFixedDegradedPage`; `TimeoutReturnsFixedDegradedPageAndNamesNoHostOrContainer` (I6); `OtherOrganizationsPlacementIsUnresolvable` (I5); `ConcurrentReadsBeyondBoundAreBusyPages`; and the **existing `LogService` contract assertions run against `AgentLogService`** (reuse the `LogServiceImplTest` cases as a shared abstract contract test). `RoutingLogServiceTest` — `SshPlacementUsesSshImplementation`; `AgentPlacementUsesAgentImplementation`. In `console-gateway`: update `AgentPlacementsTest`/`AgentPlacementRefusalsEndpointIT` so `readLogs` on an agent placement is **200** while the log-level operations still answer `501 AGENT_OPERATION_UNSUPPORTED`. A schema test for V053 in the style of the existing `*SchemaIT`.
 - [ ] **Step 2: Run** `./mvnw -pl dp-core,console-gateway -am test` — expected FAIL.
@@ -295,7 +295,7 @@ public interface AgentLogPort {
 
 ## Results
 
-**Executed: Tasks 1-6 (contract, agent message types and codec, ring store, Docker collector, serving and the agent
+**Executed: Tasks 1-10 and the docs of Task 11. Go side, Tasks 1-6 (contract, agent message types and codec, ring store, Docker collector, serving and the agent
 role, fake-gateway scripting and agent end to end), each independently reviewed.** Commits on `feature/agent-mi-logs`:
 
 | Task | Commits |
@@ -308,12 +308,73 @@ role, fake-gateway scripting and agent end to end), each independently reviewed.
 | 6 `fakegw` scenarios and end to end | `b4a986e`, `51d5ba9` |
 | Final-review fixes | the `UnavailableReason` enum rename and codec hardening; spec, plan and runbook corrections |
 
-**Not executed.** Tasks 7-10 (Java gateway, DP `AgentLogService`, cap plumbing, export endpoint) and the Java-dependent
-steps of Task 11. There is no JDK or Maven on the machine that ran this, and the user chose to stop after the Go side.
-Not verified: the Java stub compile (Task 1 Step 5), and `contracts/run-checks.sh`, which fails identically before and
-after the change for environment reasons (missing git anchor commits, file-mesh-ui SQL, no `view-models` `node_modules`).
-`contracts/agent/v1/check_proto_append_only.py` (plain and `--superset`) passes. The Task 9 owner question (which existing
-verb authorizes setting the cap) is still open.
+**Tasks 7-10 (Java) were executed afterwards** (ruling R7 superseded R5: a JDK 17 was supplied as the Docker image
+`maven:3.9-eclipse-temurin-17`; Testcontainers ITs ran with the Docker socket mounted). Each task was independently reviewed.
+
+| Task | Commits |
+|---|---|
+| 7 Gateway: `AgentLogPort`, `Logs` RPC, request routing | `e3557f9`, `5699fe6`, `9c0e63d`, `60da1fc` |
+| 8 DP `AgentLogService`, `RoutingLogService`, API change | `268c822`, `0a45dc5`, `5008ebe` |
+| 9 Cap plumbing (internal only) | `404a6fc`, `845cbf5` |
+| 10 Export endpoint | `1d790c0`, `cb15bd0`, `e45b7e2`, `8620189`, `2e2e989` |
+| Final Java fix wave | `176d5e4` (I-1), `ef36225`, `e14f518` (I-2, I-3, I-4, minors), `c80ec73`, `bfbceb9` |
+
+**What was built, and where it differs from the plan text.**
+- **Task 8, cap storage (Ruling R8).** The plan said to add `log_max_bytes` to the placements table. The placement registry is
+  immutable (`OR-29`: a trigger rejects every UPDATE but retirement), so a column there could never change and would break
+  `setCap`. The cap lives in the side table `sm_data.placement_log_retention` (placement id primary key, composite
+  `(tenant_id, placement_id)` foreign key, `log_max_bytes bigint CHECK >= 0`, `updated_at`), migration `V053`. `sm_dp_runtime`
+  holds UPDATE on the cap column only, not table-wide. `OR-29` is not weakened.
+- **Task 8, service.** `AgentLogService` re-applies `limit`, window and order to what the agent returns; a retired
+  placement is refused on the agent path as on SSH; a full pool is an immediate `BUSY` page, never a queue. `LogsController`
+  and `AgentPlacements` route `readLogs` for agent placements (it is no longer `501` there; the existing log-level
+  operations still refuse). `SmDataBootstrapIT` pins were updated (tables, migrations).
+- **Task 9.** `PlacementLogRetention.setCap` stores first, then pushes, and returns an outcome
+  (`STORED_AND_PUSHED`, `STORED_AGENT_NOT_CONNECTED`, `STORED_PUSH_FAILED`); `STORED_AND_PUSHED` does not mean the agent applied
+  it. The repository is also the gateway's `AgentLogRetentionSource` (re-sends the stored cap on session open). A bean-name
+  collision found in review is fixed (`LogPersistenceConfiguration`, wiring tests). **No REST write exists**; the verb question
+  is open (below).
+- **Task 10.** Export is streamed with its own executor (`sm.gateway.logs.export-max-threads`), not the metrics export's.
+  Refusals before the first byte are real statuses (`429` `log-export-concurrency` with `Retry-After`, `503`, `404`, `400`,
+  `501`), because the Data Plane waits up to `export-start-timeout` for the agent's first answer. The size bound counts every
+  UTF-8 byte written. **Abort mechanism:** after the first byte an abnormal end writes the `# sm-export:` marker and then throws a
+  dedicated exception that a `HIGHEST_PRECEDENCE` advice rethrows, so the container aborts the chunked response without a
+  terminator (the earlier claim that a rethrown exception aborts was false: the catch-all advice turned it into a JSON 500
+  appended after the marker; proven with real-Tomcat tests).
+- **Final review, I-1 (Java).** A placement that leaves the lease no longer holds a request or an export slot until its
+  deadline: `AgentLogBroker.placementsLeft` completes pending pages `PLACEMENT_NOT_IN_LEASE` and ends exports `UNAVAILABLE`.
+- **Final review, I-2 (Ruling R9).** Optional `fromSeq` on `exportLogs` (default 0), so a cut-off export can resume; repeats are
+  bounded by one chunk, a line is never lost.
+- **Final review, I-3 (Ruling R9).** `readLogs` gains optional, additive `gaps[{from,to,reason}]` and `truncated`, agent
+  placements only and omitted when empty (SSH wire unchanged; `SchemaMirrorLockTest` mirrors them). The frontend is untouched.
+- **Final review, I-4.** `exportLogs` added to `ProductionAuthenticationIT`'s exact operation set (by reading only) and the
+  Postman collection regenerated (`check-postman.py` OK, 87 operations; this also added `editTarget`, which was already
+  missing at the base). `logs.read` is the verb; **no new verb**.
+- A final chunk whose last gap is `COLLECTION_PAUSED` ends `incomplete: the agent could not read the rest of the log`, not
+  `complete, with gaps`.
+
+**Verification run (Docker Maven, JDK 17).** `agent-gateway`, `dp-api`, `cp-api` `verify` clean. Full `console-gateway` run
+(1091 tests) and full `dp-core` unit run (1710): only the known reds below. arch-tests `*BoundaryTest` (114) and
+`ConsoleOperationsMirrorTest` green. `JdbcPlacementLogRetentionRepositoryIT`, `SmDataBootstrapIT`, `InventorySchemaIT` green.
+`validate-openapi.py` no FAIL; `check-postman.py` OK. Go: Tasks 1-6 were verified per task by their reviewers.
+No output tails are pasted here because the final-wave gates were run by selection and reported in the per-task review files.
+
+**Pre-existing reds and unrunnable gates (all present at the base, none caused by this branch).**
+- `SchemaMirrorLockTest.targetAndTargetList...` (1 error, `console-gateway`).
+- Three `dp-core` unit failures: `InventoryPlacementOperationsTest` x2, `PrivateKeyInspectorTest` x1.
+- `ConnectionOrchestratorTest` x2 (`console-gateway`).
+- `contracts/run-checks.sh` fails at its Python preflight here (and earlier for missing git anchors, file-mesh-ui SQL and
+  `view-models` `node_modules`); `check_proto_append_only.py` passes.
+- **The launcher context cannot load, so every launcher IT is unverified**, including this branch's edits to
+  `AgentPlacementRefusalsEndpointIT` and `ProductionAuthenticationIT`. Cause: `sm_control` migration `V028` re-adds the
+  `target_transport` CHECK as `('ssh-docker','ssh')`, dropping the `'agent'` that `V026` added, so the `V026` readiness query
+  can never pass on a fully migrated `sm_control`. A new control-plane migration restoring `'agent'` (or relaxing the readiness
+  query) is an owner decision, recorded in `DECISIONS.md`.
+- Task 11 Step 3 (manual walk-through with a real container) was not done.
+
+**Open owner questions.** (1) Which existing permission verb authorizes setting a placement's log cap (Task 9; no endpoint
+exists until named). (2) Whether `exportLogs` downloads write an audit row (spec open item 5). (3) The V028 baseline defect
+above. All three are in `DECISIONS.md` open items.
 
 **Post-final-review fix.** The `UnavailableReason` enum values broke the proto file's own rule that every enum value
 carries the enum-name prefix; they are now `UNAVAILABLE_REASON_*` with unchanged numbers (legal because the merge base has no
