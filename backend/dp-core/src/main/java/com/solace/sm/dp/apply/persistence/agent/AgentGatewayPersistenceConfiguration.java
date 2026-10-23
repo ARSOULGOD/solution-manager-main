@@ -142,15 +142,6 @@ public class AgentGatewayPersistenceConfiguration {
         return new JdbcAgentPlacementCatalog(smDataJdbc);
     }
 
-    /**
-     * Plan 016 T9: the stored per-placement log caps. The bean is both the persistence port of the cap service and the
-     * {@code AgentLogRetentionSource} the gateway reads when a session opens.
-     */
-    @Bean
-    com.solace.sm.dp.apply.persistence.JdbcPlacementLogRetentionRepository placementLogRetention(NamedParameterJdbcTemplate smDataJdbc) {
-        return new com.solace.sm.dp.apply.persistence.JdbcPlacementLogRetentionRepository(smDataJdbc);
-    }
-
     /** T4.1: the discovery tombstones and the reads beside them; the tombstones an instance's END causes are V031's trigger, not a call. */
     @Bean
     JdbcAgentDiscoveryRepository agentDiscoveryRepository(NamedParameterJdbcTemplate smDataJdbc) {

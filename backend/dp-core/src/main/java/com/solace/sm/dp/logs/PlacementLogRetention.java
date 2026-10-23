@@ -18,6 +18,10 @@ import org.slf4j.LoggerFactory;
  * gateway re-sends the stored value whenever the agent's session opens or its lease is renewed ({@code AgentLogRetentionSource}),
  * and the outcome tells the caller which of the three happened.
  *
+ * <p><b>Concurrency.</b> Two concurrent calls for one placement are not serialized between the store and the push, so the agent can
+ * briefly hold the older value while the database holds the newer; the gateway's diff against what it last sent heals this at the
+ * next lease renewal or re-issue.
+ *
  * <p><b>Tenant (I5).</b> The organization is the caller's authenticated one, but the placement is resolved here from the DP's
  * own tables ({@link PlacementLogRetentionRows#isLiveAgentPlacement}); another organization's, a retired and a non-agent
  * placement are all the same {@link UnresolvablePlacementException}, and nothing is stored or sent.
@@ -28,7 +32,7 @@ public final class PlacementLogRetention {
 
     /** What happened to a cap that was stored. */
     public enum Outcome {
-        /** Stored, and handed to the agent's session. */
+        /** Stored, and handed to the gateway's port. This is not an acknowledgement: the port drops it if the link or lease changed meanwhile, and the stored value is re-sent at the next session event. */
         STORED_AND_PUSHED,
         /** Stored; the placement's agent has no session now, so it receives the value when one opens. */
         STORED_AGENT_NOT_CONNECTED,

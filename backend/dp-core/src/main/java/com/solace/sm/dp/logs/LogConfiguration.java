@@ -41,7 +41,7 @@ import org.springframework.context.annotation.Import;
  * one read steps back).
  */
 @Configuration(proxyBeanMethods = false)
-@Import(TargetAddressConfiguration.class)
+@Import({TargetAddressConfiguration.class, com.solace.sm.dp.apply.persistence.LogPersistenceConfiguration.class})
 public class LogConfiguration {
 
     @Bean

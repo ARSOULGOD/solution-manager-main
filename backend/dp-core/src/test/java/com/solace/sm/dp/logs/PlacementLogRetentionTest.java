@@ -31,9 +31,13 @@ class PlacementLogRetentionTest {
     private static final long MAX = 1_000_000L;
     private static final Instant NOW = Instant.parse("2026-10-23T10:00:00Z");
 
+    /** Everything either fake did, in order. */
+    private static final List<String> EVENTS = new ArrayList<>();
+
     private static final class FakeRows implements PlacementLogRetentionRows {
         final Map<String, Long> stored = new HashMap<>();
         final List<Instant> writes = new ArrayList<>();
+        RuntimeException upsertFailure;
 
         @Override
         public boolean isLiveAgentPlacement(UUID tenantId, UUID placementId) {
@@ -42,6 +46,8 @@ class PlacementLogRetentionTest {
 
         @Override
         public void upsert(UUID tenantId, UUID placementId, long maxBytes, Instant at) {
+            EVENTS.add("upsert");
+            if (upsertFailure != null) throw upsertFailure;
             stored.put(tenantId + "/" + placementId, maxBytes);
             writes.add(at);
         }
@@ -64,6 +70,7 @@ class PlacementLogRetentionTest {
 
         @Override
         public void sendRetention(AgentSessionRef ref, UUID placementId, long maxBytes) {
+            EVENTS.add("push");
             if (failure != null) throw failure;
             sent.add(new Object[] {ref, placementId, maxBytes});
         }
@@ -78,6 +85,11 @@ class PlacementLogRetentionTest {
         public LogExportHandle openExport(AgentSessionRef ref, UUID placementId, long fromSeq, Duration deadline, long maxBytes) {
             throw new AssertionError();
         }
+    }
+
+    @org.junit.jupiter.api.BeforeEach
+    void clear() {
+        EVENTS.clear();
     }
 
     private final FakeRows rows = new FakeRows();
@@ -137,5 +149,19 @@ class PlacementLogRetentionTest {
         port.failure = new IllegalStateException("stream gone");
         assertEquals(PlacementLogRetention.Outcome.STORED_PUSH_FAILED, service.setCap(ORG, PLACEMENT, 88));
         assertEquals(Optional.of(88L), rows.find(ORG, PLACEMENT));
+    }
+
+    @Test
+    void theCapIsStoredBeforeItIsPushed() {
+        service.setCap(ORG, PLACEMENT, 10);
+        assertEquals(List.of("upsert", "push"), EVENTS);
+    }
+
+    @Test
+    void aFailingStoreSendsNothingAndPropagates() {
+        rows.upsertFailure = new IllegalStateException("database down");
+        assertThrows(IllegalStateException.class, () -> service.setCap(ORG, PLACEMENT, 10));
+        assertEquals(List.of("upsert"), EVENTS, "the agent is never told a value that was not stored");
+        assertTrue(port.sent.isEmpty());
     }
 }
