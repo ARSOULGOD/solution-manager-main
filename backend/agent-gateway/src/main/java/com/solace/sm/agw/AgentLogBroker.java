@@ -100,6 +100,8 @@ final class AgentLogBroker implements AgentLogPort {
     @Override
     public CompletableFuture<AgentLogPage> requestPage(AgentSessionRef ref, UUID placementId, int limit, Instant after,
             Instant before, Duration deadline) {
+        java.util.Objects.requireNonNull(deadline, "deadline");
+        if (limit < 0) throw new IllegalArgumentException("limit must not be negative");
         CompletableFuture<AgentLogPage> future = new CompletableFuture<>();
         Link link = links.apply(ref.agentId());
         String refusal = refusal(link, ref, placementId);
@@ -116,15 +118,20 @@ final class AgentLogBroker implements AgentLogPort {
         if (after != null) query.setAfter(timestamp(after));
         if (before != null) query.setBefore(timestamp(before));
         // Registered first, so a reply that beats this method's return still finds its request.
-        request.deadlineTask = arm(request, deadline);
+        // The deadline is armed only after the request is on the wire: sendMessage can wait on the session's monitor past the
+        // deadline, and a timeout's LogCancel must never reach the agent before the LogRequest it cancels (the agent ignores a
+        // cancel for an unknown id, then admits the request and holds its slot forever).
         if (!link.sendMessage(logRequest(request.id, placementId, body -> body.setPage(query)))) {
             if (release(request.id) != null) request.complete(AgentLogPage.unavailable("NO_SESSION"));
+            return future;
         }
+        armAfterSend(request, deadline);
         return future;
     }
 
     @Override
     public LogExportHandle openExport(AgentSessionRef ref, UUID placementId, long fromSeq, Duration deadline, long maxBytes) {
+        java.util.Objects.requireNonNull(deadline, "deadline");
         Link link = links.apply(ref.agentId());
         String refusal = refusal(link, ref, placementId);
         ExportPending export = new ExportPending(UUID.randomUUID().toString(), ref, placementId, Math.max(0, fromSeq),
@@ -137,11 +144,12 @@ final class AgentLogBroker implements AgentLogPort {
             export.end(LogExportHandle.State.UNAVAILABLE, "BUSY");
             return export;
         }
-        export.deadlineTask = arm(export, deadline);
         var query = AgentGatewayOuterClass.LogExportQuery.newBuilder().setFromSeq(export.fromSeq);
         if (!link.sendMessage(logRequest(export.id, placementId, body -> body.setExport(query)))) {
             if (release(export.id) != null) export.end(LogExportHandle.State.SESSION_LOST, null);
+            return export;
         }
+        armAfterSend(export, deadline);
         return export;
     }
 
@@ -164,9 +172,10 @@ final class AgentLogBroker implements AgentLogPort {
 
     /** The Logs stream ended (its peer closed or failed): everything waiting on that session's replies ends now. */
     void detach(LogStream stream) {
-        streams.remove(stream.ref.agentId(), stream);
+        boolean current = streams.remove(stream.ref.agentId(), stream);
         stream.finish();
-        endAllOf(stream.ref);
+        // A stream already replaced by a newer one must not end the requests issued over the newer one.
+        if (current) endAllOf(stream.ref);
     }
 
     /** The agent's session closed (a close, revoke or supersede): its Logs stream and every request waiting on it end now. */
@@ -249,6 +258,15 @@ final class AgentLogBroker implements AgentLogPort {
         ScheduledFuture<?> task = removed.deadlineTask;
         if (task != null) task.cancel(false);
         return removed;
+    }
+
+    /** Arms the deadline once the request has been sent; a reply that already released the entry leaves nothing to expire. */
+    private void armAfterSend(Pending request, Duration deadline) {
+        request.deadlineTask = arm(request, deadline);
+        if (!pending.containsKey(request.id)) {
+            ScheduledFuture<?> task = request.deadlineTask;
+            if (task != null) task.cancel(false);
+        }
     }
 
     private ScheduledFuture<?> arm(Pending request, Duration deadline) {
