@@ -76,8 +76,11 @@ public class LogConfiguration {
     /**
      * The bulk export of an agent placement's collected log (plan 016 T10), streamed as a download by the console gateway.
      * <ul>
-     *   <li>{@code sm.dp.logs.export-max-bytes} - total bytes of log line text one export carries before it stops with a
-     *       trailing marker; default 52428800 (50 MiB).</li>
+     *   <li>{@code sm.dp.logs.export-max-bytes} - the size of one download: every UTF-8 byte written (instants, text,
+     *       newlines, gap and closing markers) counts; the export stops with a trailing marker before it is exceeded. Default
+     *       52428800 (50 MiB); at least 1024.</li>
+     *   <li>{@code sm.dp.logs.export-start-timeout} - how long {@code open} waits for the agent's first answer, so that a
+     *       refusal is a real HTTP status and not a file; default 5s.</li>
      *   <li>{@code sm.dp.logs.export-deadline} - the longest one export runs; default 5m. An agent that goes away without a
      *       final chunk ends the export at this bound with a marker, it never hangs.</li>
      *   <li>{@code sm.dp.logs.export-max-concurrent} - exports in flight at once on this data plane; default 2. One more is
@@ -89,10 +92,11 @@ public class LogConfiguration {
             ObjectProvider<AgentLogPort> agentLogPort,
             @Value("${sm.dp.logs.export-max-bytes:52428800}") long exportMaxBytes,
             @Value("${sm.dp.logs.export-deadline:5m}") Duration exportDeadline,
-            @Value("${sm.dp.logs.export-max-concurrent:2}") int exportMaxConcurrent) {
+            @Value("${sm.dp.logs.export-max-concurrent:2}") int exportMaxConcurrent,
+            @Value("${sm.dp.logs.export-start-timeout:5s}") Duration exportStartTimeout) {
         return new AgentLogExportService(placementTransports.getIfAvailable(() -> PlacementTransports.NONE), placementRows,
                 agentLogPort.getIfAvailable(AgentLogService::absentPort), exportDeadline, exportMaxBytes,
-                exportMaxConcurrent);
+                exportMaxConcurrent, exportStartTimeout);
     }
 
     /**

@@ -2,6 +2,8 @@ package com.solace.sm.dp.logs;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.solace.sm.dp.api.agw.AgentLogChunk;
@@ -52,11 +54,15 @@ class AgentLogExportServiceTest {
         final AtomicInteger cancels = new AtomicInteger();
         volatile State state = State.OPEN;
         volatile String reason;
+        volatile long delayPerChunkMs;
 
         @Override
         public Optional<AgentLogChunk> next(Duration wait) throws InterruptedException {
             AgentLogChunk c = chunks.poll(Math.min(wait.toMillis(), 20), TimeUnit.MILLISECONDS);
             if (c != null) {
+                if (delayPerChunkMs > 0) {
+                    Thread.sleep(delayPerChunkMs);
+                }
                 consumed.incrementAndGet();
             }
             return Optional.ofNullable(c);
@@ -99,11 +105,17 @@ class AgentLogExportServiceTest {
 
     private AgentLogExportService service(long maxBytes, Duration deadline, int concurrent) {
         return new AgentLogExportService(AgentLogServiceTest.KNOWN, AgentLogServiceTest.LIVE, port, deadline, maxBytes,
-                concurrent);
+                concurrent, Duration.ofMillis(200));
     }
 
     private AgentLogExportService service() {
         return service(1_000_000, Duration.ofSeconds(5), 2);
+    }
+
+    private static void assertRefused(LogExportStream stream, LogExportStream.Refusal.Kind kind, String reason)
+            throws InterruptedException {
+        assertEquals(Optional.of(new LogExportStream.Refusal(kind, reason)), stream.refusal());
+        assertNull(stream.next(), "a refused export has no body");
     }
 
     /** Reads the stream to its end, ignoring keep-alives. */
@@ -120,11 +132,11 @@ class AgentLogExportServiceTest {
         port.handle.chunks.add(chunk(3, false, line(0, "first"), line(1, "second")));
         port.handle.chunks.add(chunk(5, true, line(2, "third")));
         try (LogExportStream stream = service().open(ORG, INSTANCE, PLACEMENT)) {
-            assertEquals(0, port.handle.consumed.get(), "opening consumes nothing: no credit before the reader pulls");
+            assertEquals(1, port.handle.consumed.get(), "opening takes only the first chunk (held, to learn about refusals)");
 
             String one = stream.next();
             assertEquals(T + " first\n" + T.plusSeconds(1) + " second\n", one);
-            assertEquals(1, port.handle.consumed.get(), "exactly one chunk taken for one pull");
+            assertEquals(1, port.handle.consumed.get(), "the held chunk is rendered; no second chunk is taken yet");
 
             String rest = drain(stream);
             assertEquals(T.plusSeconds(2) + " third\n", rest);
@@ -138,17 +150,47 @@ class AgentLogExportServiceTest {
 
     @Test
     void theExportStopsAtTheByteBoundWithTheFixedMarkerAndCancelsTheAgent() throws Exception {
-        String text = "x".repeat(40);
+        String text = "x".repeat(400);
         port.handle.chunks.add(chunk(2, false, line(0, text), line(1, text)));
         port.handle.chunks.add(chunk(4, false, line(2, text), line(3, text)));
-        // room for the first three lines of text (40 bytes each), not the fourth
-        try (LogExportStream stream = service(130, Duration.ofSeconds(5), 2).open(ORG, INSTANCE, PLACEMENT)) {
+        try (LogExportStream stream = service(1100, Duration.ofSeconds(5), 2).open(ORG, INSTANCE, PLACEMENT)) {
             String all = drain(stream);
 
-            assertEquals(3, all.lines().filter(l -> l.endsWith(text)).count(), all);
-            assertTrue(all.endsWith("# sm-export: truncated: the size limit was reached; resume from seq 2\n"), all);
+            assertTrue(all.contains("# sm-export: truncated: the size limit was reached; resume from seq 2\n"), all);
+            assertTrue(all.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= 1100, "bytes written, marker included");
             assertEquals(1, port.handle.cancels.get(), "the agent request is cancelled when the bound is hit");
         }
+    }
+
+    @Test
+    void theBoundCountsEveryByteWrittenNotJustLineTextEvenForOneHugeMultiByteChunk() throws Exception {
+        LogLineView[] lines = new LogLineView[500];
+        for (int i = 0; i < lines.length; i++) {
+            lines[i] = line(i, "\u00e9\u4e2d\ud83d\ude00");     // 2 + 3 + 4 bytes of text, plus an instant and a newline
+        }
+        port.handle.chunks.add(new AgentLogChunk(501, List.of(lines),
+                List.of(new AgentLogGap(T, T.plusSeconds(1), "DROPPED_OLDEST")), true));
+        port.handle.state = LogExportHandle.State.COMPLETE;
+        for (long bound : new long[] {1024, 1500, 4096}) {
+            port.handle.chunks.clear();
+            port.handle.chunks.add(new AgentLogChunk(501, List.of(lines),
+                    List.of(new AgentLogGap(T, T.plusSeconds(1), "DROPPED_OLDEST")), true));
+            try (LogExportStream stream = service(bound, Duration.ofSeconds(5), 2).open(ORG, INSTANCE, PLACEMENT)) {
+                String all = drain(stream);
+
+                int written = all.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+                assertTrue(written <= bound, "bound " + bound + " but " + written + " bytes were written");
+                assertTrue(all.endsWith("; resume from seq 0\n"), all.substring(Math.max(0, all.length() - 120)));
+                assertTrue(all.contains("size limit"), "the cut says why");
+            }
+        }
+    }
+
+    @Test
+    void aBoundTooSmallToHoldTheFixedMarkerIsRefusedAtConstruction() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new AgentLogExportService(AgentLogServiceTest.KNOWN, AgentLogServiceTest.LIVE, port,
+                        Duration.ofSeconds(5), 100, 2, Duration.ofSeconds(1)));
     }
 
     @Test
@@ -193,51 +235,71 @@ class AgentLogExportServiceTest {
     @Test
     void closingTheStreamCancelsTheAgentRequestAndFreesTheSlot() throws Exception {
         AgentLogExportService service = service(1_000_000, Duration.ofSeconds(5), 1);
+        port.handle.chunks.add(chunk(1, false, line(0, "a")));
         LogExportStream first = service.open(ORG, INSTANCE, PLACEMENT);
-        assertEquals("", first.next(), "nothing yet is a keep-alive");
+        assertEquals(T + " a\n", first.next());
+        assertEquals("", first.next(), "nothing more yet is a keep-alive");
 
         first.close();
         first.close();
 
         assertEquals(1, port.handle.cancels.get(), "closing twice cancels the agent once");
         port.handle.state = LogExportHandle.State.OPEN;
+        port.handle.chunks.add(chunk(1, false, line(0, "b")));
         try (LogExportStream second = service.open(ORG, INSTANCE, PLACEMENT)) {
-            assertEquals("", second.next(), "the slot was released by close(), not refused as busy");
+            assertTrue(second.refusal().isEmpty(), "the slot was released by close(), not refused as busy");
         }
     }
 
     @Test
-    void whenAllSlotsAreTakenTheExportIsADeclaredBusyMarkerAndTheGatewayIsNotAsked() throws Exception {
+    void whenAllSlotsAreTakenOpenIsARefusalAndTheGatewayIsNotAsked() throws Exception {
         AgentLogExportService service = service(1_000_000, Duration.ofSeconds(5), 1);
+        port.handle.chunks.add(chunk(1, false, line(0, "a")));
         try (LogExportStream held = service.open(ORG, INSTANCE, PLACEMENT);
                 LogExportStream refused = service.open(ORG, INSTANCE, PLACEMENT)) {
-            assertEquals("# sm-export: unavailable: log reads are at capacity; try again shortly\n", drain(refused));
+            assertRefused(refused, LogExportStream.Refusal.Kind.CAPACITY, AgentLogService.AT_CAPACITY);
             assertEquals(1, port.exports.size());
         }
     }
 
     @Test
-    void aSessionThatCannotBeFoundOrAnotherOrganizationsPlacementIsOneFixedMarker() throws Exception {
+    void aSessionThatCannotBeFoundOrAnotherOrganizationsPlacementIsARefusalKnownBeforeAnyByte() throws Exception {
         port.session = Optional.empty();
         try (LogExportStream stream = service().open(ORG, INSTANCE, PLACEMENT)) {
-            assertEquals("# sm-export: unavailable: the agent is not connected\n", drain(stream));
+            assertRefused(stream, LogExportStream.Refusal.Kind.UNAVAILABLE, AgentLogService.NO_SESSION);
         }
         port.session = Optional.of(SESSION);
         for (UUID[] key : List.of(new UUID[] {UUID.randomUUID(), INSTANCE, PLACEMENT},
                 new UUID[] {ORG, UUID.randomUUID(), PLACEMENT}, new UUID[] {ORG, INSTANCE, UUID.randomUUID()})) {
             try (LogExportStream stream = service().open(key[0], key[1], key[2])) {
-                assertEquals("# sm-export: unavailable: the placement's logs are not available\n", drain(stream));
+                assertRefused(stream, LogExportStream.Refusal.Kind.UNRESOLVABLE, AgentLogService.UNRESOLVABLE);
             }
         }
         assertTrue(port.exports.isEmpty(), "the gateway is never asked about a placement the DP cannot resolve (I5)");
     }
 
     @Test
-    void anAgentRefusalIsTheFixedTextOfItsReason() throws Exception {
+    void anAgentRefusalThatIsAlreadyKnownWhenTheExportOpensIsARefusalNotAFile() throws Exception {
         port.handle.state = LogExportHandle.State.UNAVAILABLE;
         port.handle.reason = "NOT_COLLECTING";
         try (LogExportStream stream = service().open(ORG, INSTANCE, PLACEMENT)) {
-            assertEquals("# sm-export: unavailable: log collection is not enabled for this placement\n", drain(stream));
+            assertRefused(stream, LogExportStream.Refusal.Kind.UNAVAILABLE, AgentLogService.NOT_COLLECTING);
+        }
+    }
+
+    @Test
+    void anAgentThatSaysNothingWithinTheStartWaitIsARefusalAndTheRequestIsCancelled() throws Exception {
+        try (LogExportStream stream = service().open(ORG, INSTANCE, PLACEMENT)) {
+            assertRefused(stream, LogExportStream.Refusal.Kind.UNAVAILABLE, AgentLogService.TIMEOUT);
+            assertEquals(1, port.handle.cancels.get());
+        }
+    }
+
+    @Test
+    void aSessionLostOrTimedOutBeforeAnythingWasSentIsStillARefusalButAfterAChunkItIsAMarker() throws Exception {
+        port.handle.state = LogExportHandle.State.SESSION_LOST;
+        try (LogExportStream stream = service().open(ORG, INSTANCE, PLACEMENT)) {
+            assertRefused(stream, LogExportStream.Refusal.Kind.UNAVAILABLE, AgentLogService.SESSION_LOST);
         }
     }
 
@@ -267,14 +329,46 @@ class AgentLogExportServiceTest {
     }
 
     @Test
-    void theHandlesOwnTimeoutAndSizeStatesGetTheSameMarkers() throws Exception {
-        port.handle.state = LogExportHandle.State.TIMED_OUT;
-        try (LogExportStream stream = service().open(ORG, INSTANCE, PLACEMENT)) {
-            assertEquals("# sm-export: truncated: the time limit was reached; resume from seq 0\n", drain(stream));
+    void theHandlesOwnTimeoutAndSizeStatesAfterAChunkGetTheSameMarkers() throws Exception {
+        for (LogExportHandle.State state : List.of(LogExportHandle.State.TIMED_OUT, LogExportHandle.State.SIZE_LIMIT)) {
+            port.handle.chunks.add(chunk(7, false, line(0, "one")));
+            port.handle.state = state;
+            try (LogExportStream stream = service().open(ORG, INSTANCE, PLACEMENT)) {
+                String all = drain(stream);
+                String text = state == LogExportHandle.State.TIMED_OUT ? "time" : "size";
+                assertTrue(all.endsWith("# sm-export: truncated: the " + text + " limit was reached; resume from seq 7\n"), all);
+            }
         }
-        port.handle.state = LogExportHandle.State.SIZE_LIMIT;
-        try (LogExportStream stream = service().open(ORG, INSTANCE, PLACEMENT)) {
-            assertEquals("# sm-export: truncated: the size limit was reached; resume from seq 0\n", drain(stream));
+    }
+
+    @Test
+    void abortGivesAFixedIncompleteMarkerWithTheResumePointAndReleasesTheExport() throws Exception {
+        port.handle.chunks.add(chunk(7, false, line(0, "one")));
+        AgentLogExportService service = service(1_000_000, Duration.ofSeconds(5), 1);
+        LogExportStream stream = service.open(ORG, INSTANCE, PLACEMENT);
+        stream.next();
+
+        assertEquals("# sm-export: incomplete: the export ended unexpectedly; resume from seq 7\n", stream.abort());
+
+        assertEquals(1, port.handle.cancels.get());
+        port.handle.state = LogExportHandle.State.OPEN;
+        port.handle.chunks.add(chunk(1, true, line(0, "x")));
+        try (LogExportStream next = service.open(ORG, INSTANCE, PLACEMENT)) {
+            assertTrue(next.refusal().isEmpty(), "the slot was released");
+        }
+    }
+
+    @Test
+    void theDeadlineIsCheckedOnEveryChunkNotOnlyWhileTheAgentIsIdle() throws Exception {
+        port.handle.delayPerChunkMs = 60;
+        for (int i = 0; i < 30; i++) {
+            port.handle.chunks.add(chunk(i + 1, false, line(i, "l" + i)));
+        }
+        try (LogExportStream stream = service(1_000_000, Duration.ofMillis(300), 2).open(ORG, INSTANCE, PLACEMENT)) {
+            String all = drain(stream);
+
+            assertTrue(all.contains("# sm-export: truncated: the time limit was reached; resume from seq "), all);
+            assertTrue(port.handle.consumed.get() < 30, "chunks kept flowing but the DP bound still ended it");
         }
     }
 }
