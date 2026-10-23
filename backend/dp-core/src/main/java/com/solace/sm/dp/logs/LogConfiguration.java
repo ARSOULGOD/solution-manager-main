@@ -65,7 +65,7 @@ public class LogConfiguration {
         // has only SSH placements, and one with no gateway port answers an agent placement "not connected"
         PlacementTransports transports = placementTransports.getIfAvailable(() -> PlacementTransports.NONE);
         AgentLogPort port = agentLogPort.getIfAvailable(AgentLogService::absentPort);
-        LogService agent = new AgentLogService(transports, port, agentRequestDeadline, agentMaxConcurrentReads,
+        LogService agent = new AgentLogService(transports, placementRows, port, agentRequestDeadline, agentMaxConcurrentReads,
                 Duration.ZERO);      // a full agent pool is an immediate busy page, never a queue
         return new RoutingLogService(transports, ssh, agent);
     }

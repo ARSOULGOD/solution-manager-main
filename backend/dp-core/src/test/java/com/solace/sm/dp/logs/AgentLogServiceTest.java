@@ -79,10 +79,45 @@ class AgentLogServiceTest extends LogServiceContractTest {
         }
     };
 
+    /** Whether the known placement is still live (not retired); the SSH catalog refuses a retired row the same way. */
+    static final java.util.concurrent.atomic.AtomicBoolean LIVE_FLAG = new java.util.concurrent.atomic.AtomicBoolean(true);
+    static final com.solace.sm.dp.inventory.PlacementRows LIVE = new com.solace.sm.dp.inventory.PlacementRows() {
+        @Override public void insert(com.solace.sm.dp.inventory.PlacementRecord row) { throw new AssertionError(); }
+        @Override public Optional<com.solace.sm.dp.inventory.PlacementRecord> findLive(UUID t, UUID i, UUID p) {
+            return LIVE_FLAG.get() && t.equals(ORGANIZATION) && i.equals(INSTANCE) && p.equals(PLACEMENT)
+                    ? Optional.of(new com.solace.sm.dp.inventory.PlacementRecord(t, p, i, UUID.randomUUID(), "c", "/d", "/c",
+                            "f", "ADDITIONAL_LOCATION", 1, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
+                            Instant.EPOCH))
+                    : Optional.empty();
+        }
+        @Override public Optional<com.solace.sm.dp.inventory.PlacementRecord> find(UUID t, UUID i, UUID p) { throw new AssertionError(); }
+        @Override public List<com.solace.sm.dp.inventory.PlacementRecord> live(UUID t, UUID i) { throw new AssertionError(); }
+        @Override public int retireAll(UUID t, UUID i, Instant at) { throw new AssertionError(); }
+        @Override public int retire(UUID t, UUID i, UUID p, Instant at, UUID by) { throw new AssertionError(); }
+        @Override public boolean lockApplyScope(UUID t, UUID i) { throw new AssertionError(); }
+        @Override public boolean inFlightOn(UUID t, UUID i, UUID p) { throw new AssertionError(); }
+        @Override public boolean instanceWideInFlight(UUID t, UUID i) { throw new AssertionError(); }
+    };
+
+    @org.junit.jupiter.api.AfterEach
+    void placementIsLiveAgain() {
+        LIVE_FLAG.set(true);
+    }
+
+    @Test
+    void aRetiredPlacementIsUnresolvableLikeOnTheSshPath() {
+        LIVE_FLAG.set(false);
+
+        LogPageView page = over(port, 4).read(ORGANIZATION, INSTANCE, PLACEMENT, 5, null, null);
+
+        assertEquals(Optional.of(AgentLogService.UNRESOLVABLE), page.unavailableReason());
+        assertTrue(port.requests.isEmpty() && port.sessionLookups.get() == 0, "the gateway is never asked about it");
+    }
+
     private FakePort port = new FakePort();
 
     private LogService over(FakePort p, int slots) {
-        return wrap(new AgentLogService(KNOWN, p, Duration.ofSeconds(5), slots, Duration.ZERO));
+        return wrap(new AgentLogService(KNOWN, LIVE, p, Duration.ofSeconds(5), slots, Duration.ZERO));
     }
 
     /** The service under test; the router contract run wraps the agent service in the wired {@link RoutingLogService}. */
@@ -212,7 +247,7 @@ class AgentLogServiceTest extends LogServiceContractTest {
     void timeoutReturnsFixedDegradedPageAndNamesNoHostOrContainer() {
         // the future never completes: the service bounds its own wait, and the text it gives is fixed
         port.pending = new CompletableFuture<>();
-        LogService service = wrap(new AgentLogService(KNOWN, port, Duration.ofMillis(20), 4, Duration.ZERO));
+        LogService service = wrap(new AgentLogService(KNOWN, LIVE, port, Duration.ofMillis(20), 4, Duration.ZERO));
 
         LogPageView page = service.read(ORGANIZATION, INSTANCE, PLACEMENT, 5, null, null);
 

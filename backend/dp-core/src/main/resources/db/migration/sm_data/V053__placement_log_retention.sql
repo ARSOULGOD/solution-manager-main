@@ -12,7 +12,9 @@ CREATE TABLE sm_data.placement_log_retention (
     CONSTRAINT placement_log_retention_placement_fkey FOREIGN KEY (tenant_id, placement_id)
         REFERENCES sm_data.placement (tenant_id, placement_id));
 
-GRANT SELECT, INSERT, UPDATE ON sm_data.placement_log_retention TO sm_dp_runtime;
+GRANT SELECT, INSERT ON sm_data.placement_log_retention TO sm_dp_runtime;
+-- column-level UPDATE (house style, V018/V047): the key can never be re-pointed at another placement
+GRANT UPDATE (log_max_bytes, updated_at) ON sm_data.placement_log_retention TO sm_dp_runtime;
 
 -- ROLLBACK: nothing does so automatically, and a published migration is never edited (OR-22). By hand, with the gateway
 -- stopped: DROP TABLE sm_data.placement_log_retention; (it holds only operator-set caps; the agent falls back to its default).

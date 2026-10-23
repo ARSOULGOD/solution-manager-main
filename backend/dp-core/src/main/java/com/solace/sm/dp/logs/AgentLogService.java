@@ -11,6 +11,7 @@ import com.solace.sm.dp.apply.model.PlacementId;
 import com.solace.sm.dp.apply.model.TenantId;
 import com.solace.sm.dp.apply.runtime.PlacementRef;
 import com.solace.sm.dp.apply.runtime.PlacementTransports;
+import com.solace.sm.dp.inventory.PlacementRows;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -65,14 +66,16 @@ public final class AgentLogService implements LogService {
     private static final Duration GRACE = Duration.ofSeconds(1);
 
     private final PlacementTransports transports;
+    private final PlacementRows placements;
     private final AgentLogPort port;
     private final Duration deadline;
     private final Semaphore slots;
     private final Duration acquireTimeout;
 
-    public AgentLogService(PlacementTransports transports, AgentLogPort port, Duration deadline, int maxConcurrentReads,
+    public AgentLogService(PlacementTransports transports, PlacementRows placements, AgentLogPort port, Duration deadline, int maxConcurrentReads,
             Duration acquireTimeout) {
         this.transports = Objects.requireNonNull(transports, "transports");
+        this.placements = Objects.requireNonNull(placements, "placements");
         this.port = Objects.requireNonNull(port, "port");
         if (Objects.requireNonNull(deadline, "deadline").isNegative() || deadline.isZero()) {
             throw new IllegalArgumentException("the agent request deadline must be positive");
@@ -104,6 +107,10 @@ public final class AgentLogService implements LogService {
             return unavailable(AT_CAPACITY);
         }
         try {
+            // a retired placement is refused exactly as the SSH catalog refuses it (findLive excludes it): same unresolvable outcome
+            if (placements.findLive(organizationId, instanceId, placementId).isEmpty()) {
+                return unavailable(UNRESOLVABLE);
+            }
             boolean agentPlacement = transports.transportOf(new PlacementRef(new TenantId(organizationId),
                     new InstanceId(instanceId), new PlacementId(placementId)))
                     .filter(PlacementTransports.AGENT::equals).isPresent();

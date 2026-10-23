@@ -208,11 +208,11 @@ class SmDataBootstrapIT {
     }
 
     @Test
-    void flywayAppliesExactlyThirtySevenMigrationsIntoSmDataAndRecordsThemThere() {
+    void flywayAppliesExactlyFortyFourMigrationsIntoSmDataAndRecordsThemThere() {
         MigrateResult result = SmDataPostgres.bootstrap();
 
-        assertEquals(37, result.migrationsExecuted,
-                "the Phase-1 split is six migrations, plan 015 T4.1's V046 (agent_discovery_release), plan 015 T2.1b's V045 (agent_session_features), plan 015 T1.1's V043 (agent_gateway) and V044 (agent_gateway_maintenance) (written V028-V031, renumbered by OR-147), plan 013's V037 (connection_credential_secret) and plan 014's V038-V042 (connection runtime projection, connection-backed placement, the two deferrals, instance_role), plus plan 010 T2.1's V007, T2.2's V008, T2.4's V009, "
+        assertEquals(44, result.migrationsExecuted,
+                "V047-V053 are counted here deliberately (the pin had drifted since V046): V053 is plan 016 task 8's placement_log_retention. the Phase-1 split is six migrations, plan 015 T4.1's V046 (agent_discovery_release), plan 015 T2.1b's V045 (agent_session_features), plan 015 T1.1's V043 (agent_gateway) and V044 (agent_gateway_maintenance) (written V028-V031, renumbered by OR-147), plan 013's V037 (connection_credential_secret) and plan 014's V038-V042 (connection runtime projection, connection-backed placement, the two deferrals, instance_role), plus plan 010 T2.1's V007, T2.2's V008, T2.4's V009, "
                         + "T5.2's V010, T6.8's V011, T7.1/T7.2's V012, OR-96's V013, T11.2's V014, OR-108's V015 and plan 011 "
                         + "P11-2.2's V016, and plan 011 P11-5.1's V017 (the integrator renumbered it from the lane's placeholder V018; no gap; T9.3 needed no "
                         + "migration), OR-112 (1)'s V018 (placement_start_observation) OR-112 (2)'s V019 (broker_connection_live_broker_once) and OR-112's second round V020 (apply_attempt_write_baseline) and plan 008 S2's V021 (intent_placement_identity, BE-D44) and plan 013 T1.3's V022 (target_connection_events, BE-D56) and plan 012 T3's V023 (instance_retirement, OPS-Q4) and plan 008 S4's V024 (apply_request_placement_guard, BE-D48) and plan 012 T7's V025 (apply_schedule, OPS-Q9) and OR-125 (1)'s V026 (placement_actor) and OR-125 (2)'s V027 (target_host_key_algorithm); "
@@ -220,7 +220,7 @@ class SmDataBootstrapIT {
                         + result.migrations.stream().map(m -> m.version + " " + m.description).toList());
         assertEquals(List.of("001", "002", "003", "004", "005", "006", "007", "008", "009", "010", "011", "012", "013", "014", "015", "016", "017", "018", "019", "020", "021", "022", "023", "024", "025", "026", "027",
                         // V028-V036 are absent: the old agent's, removed by the OR-147 reconciliation
-                        "037", "038", "039", "040", "041", "042", "043", "044", "045", "046"),
+                        "037", "038", "039", "040", "041", "042", "043", "044", "045", "046", "047", "048", "049", "050", "051", "052", "053"),
                 result.migrations.stream().map((MigrateOutput m) -> m.version).toList(),
                 "applied in version order");
         assertEquals(SmDataMigrator.SCHEMA, result.schemaName);
@@ -259,7 +259,7 @@ class SmDataBootstrapIT {
                 "SELECT count(*)::int FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace"
                         + " WHERE n.nspname = :s AND c.relkind = 'r'",
                 new MapSqlParameterSource("s", SmDataMigrator.SCHEMA), Integer.class);
-        assertEquals(35, tables, "five apply tables, V007's three inventory tables, V010's config_generation, V011's "
+        assertEquals(37, tables, "(37 = 36 CREATE TABLEs + flyway_schema_history; the pin had drifted before V053, which adds placement_log_retention) five apply tables, V007's three inventory tables, V010's config_generation, V011's "
                 + "apply_reconciliation, V012's target_host_key and placement_health, V013's designer_layout, V014's "
                 + "fleet_action and fleet_member, V016's five metric-definition tables, V017's broker_connection, V018's placement_start_observation, V022's target_connection_event, V023's instance_retirement, V025's apply_schedule, V038's connection_runtime (plan 014), V043's eight agent tables (agent_identity, agent_session, agent_lease, agent_command, agent_report_watermark, agent_telemetry_watermark, agent_discovery, agent_event; plan 015's V028, renumbered by OR-147), plus flyway_schema_history");
 

@@ -401,6 +401,12 @@ class InventorySchemaIT {
         Refusals.assertRefused(Refusals.FOREIGN_KEY_VIOLATION, "placement_log_retention_placement_fkey", () -> runtime.update(
                 "INSERT INTO sm_data.placement_log_retention (tenant_id, placement_id, log_max_bytes, updated_at)"
                         + " VALUES (gen_random_uuid(), :p, 1, now())", key));
+        // column-level UPDATE: the key cannot be re-pointed at another placement
+        assertEquals(List.of("log_max_bytes", "updated_at"), runtimeUpdatableColumns("placement_log_retention"));
+        Refusals.assertRefused(Refusals.INSUFFICIENT_PRIVILEGE, null, () -> runtime.update(
+                "UPDATE sm_data.placement_log_retention SET placement_id = gen_random_uuid() WHERE tenant_id = :t AND placement_id = :p", key));
+        Refusals.assertRefused(Refusals.INSUFFICIENT_PRIVILEGE, null, () -> runtime.update(
+                "UPDATE sm_data.placement_log_retention SET tenant_id = gen_random_uuid() WHERE tenant_id = :t AND placement_id = :p", key));
         // the registry row itself is still immutable: the cap did not widen its grant or its trigger
         assertEquals(List.of("retired_at", "retired_by"), runtimeUpdatableColumns("placement"));
         Refusals.assertRaised("a placement is immutable", () -> superuser.update(

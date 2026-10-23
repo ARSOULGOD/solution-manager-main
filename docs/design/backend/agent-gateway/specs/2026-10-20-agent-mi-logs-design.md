@@ -130,8 +130,9 @@ Verified against the Go agent (`go-agent/internal/logs/`, `go-agent/internal/age
   implementation changes for the other.
 - **Export.** A DP endpoint streams `LogChunk`s to the caller as a download, bounded by a maximum total size and a
   deadline.
-- **Cap.** A per-placement `log_max_bytes` is stored in the DP; changing it sends `LogRetention`, and it is re-sent on
-  agent reconnect.
+- **Cap.** A per-placement cap (`log_max_bytes`) is stored in the DP side table `sm_data.placement_log_retention` (not a column
+  on `placement`, which stays immutable per `OR-29`; a missing row means never set); changing it is an UPDATE of that row and
+  sends `LogRetention`, and it is re-sent on agent reconnect.
 - **Module rule (`AGW-D2`).** `agent-gateway` holds no datasource; requests and replies cross typed ports in `dp-api`,
   and every in-process port has a contract test a remote adapter must pass.
 

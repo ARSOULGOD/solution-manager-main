@@ -68,7 +68,7 @@ Inputs the spec implies that no happy-path test would exercise, most likely firs
 | `backend/agent-gateway/.../agw/AgentGatewayService.java` | modify — send `LogRetention`/`LogRequest`, host the `Logs` RPC |
 | `backend/dp-core/.../dp/logs/AgentLogService.java` | create — `LogService` for agent placements |
 | `backend/dp-core/.../dp/logs/RoutingLogService.java` | create — selects SSH vs agent per placement |
-| `backend/dp-core/src/main/resources/db/migration/sm_data/V053__placement_log_max_bytes.sql` | create — per-placement cap |
+| `backend/dp-core/src/main/resources/db/migration/sm_data/V053__placement_log_retention.sql` | create — side table `sm_data.placement_log_retention` holding the per-placement cap (the immutable `placement` row cannot carry it, OR-29/R8) |
 | `backend/console-gateway/.../http/{LogsController,AgentPlacements}.java` | modify — stop refusing `readLogs`; add export |
 | `contracts/openapi/console.yaml` | modify — `readLogs` agent text; export operation |
 | `go-agent/RUNBOOK.md` | modify — logs role, cap, how to read a page and export |
@@ -234,7 +234,7 @@ public interface AgentLogPort {
 
 ### Task 8: DP — `AgentLogService`, routing, cap column, API change
 
-**Files:** Create `backend/dp-core/src/main/java/com/solace/sm/dp/logs/AgentLogService.java`, `RoutingLogService.java`, `backend/dp-core/src/main/resources/db/migration/sm_data/V053__placement_log_max_bytes.sql`; modify `LogConfiguration.java`, `backend/console-gateway/.../http/LogsController.java` (line ~92) and `AgentPlacements.java`, `contracts/openapi/console.yaml` (`readLogs`, ~line 3260).
+**Files:** Create `backend/dp-core/src/main/java/com/solace/sm/dp/logs/AgentLogService.java`, `RoutingLogService.java`, `backend/dp-core/src/main/resources/db/migration/sm_data/V053__placement_log_retention.sql`; modify `LogConfiguration.java`, `backend/console-gateway/.../http/LogsController.java` (line ~92) and `AgentPlacements.java`, `contracts/openapi/console.yaml` (`readLogs`, ~line 3260).
 
 **Interfaces — Consumes:** `AgentLogPort` (Task 7). **Produces:** `AgentLogService implements LogService` (same `read(UUID organizationId, UUID instanceId, UUID placementId, int limit, Instant after, Instant before)`); `RoutingLogService implements LogService` delegating to `LogServiceImpl` for SSH placements and `AgentLogService` for agent placements (decided from the placement's target transport on the DP's own view — the same discriminator `AgentPlacements.refuseIfAgent` reads); migration adds nullable `log_max_bytes bigint` to the placements table (find it via `PlacementRows`). Property: `sm.dp.logs.agent-request-deadline` (default `5s`).
 
@@ -250,7 +250,7 @@ public interface AgentLogPort {
 
 **Files:** Modify `AgentLogService` / a small `PlacementLogRetention` service in `backend/dp-core/.../dp/logs/`; test beside it.
 
-**Interfaces — Produces:** `void setCap(UUID organizationId, UUID placementId, long maxBytes)` — validates (`0` allowed = off; upper bound from `sm.dp.logs.agent-max-cap-bytes`), persists `log_max_bytes`, calls `AgentLogPort.sendRetention`. **No REST write is added.** The gateway re-sends the stored value on session open (Task 7).
+**Interfaces — Produces:** `void setCap(UUID organizationId, UUID placementId, long maxBytes)` — validates (`0` allowed = off; upper bound from `sm.dp.logs.agent-max-cap-bytes`), persists `log_max_bytes` in `sm_data.placement_log_retention` (upsert; the placement row is immutable), calls `AgentLogPort.sendRetention`. **No REST write is added.** The gateway re-sends the stored value on session open (Task 7).
 
 - [ ] **Step 1: Write failing tests:** `SetCapPersistsAndPushes`; `ZeroTurnsCollectionOff`; `OverMaximumIsRejected`; `ReconnectResendsStoredCap`; `OtherOrganizationsPlacementIsUnresolvable`.
 - [ ] **Step 2: Run** `./mvnw -pl dp-core -am test` — expected FAIL.
@@ -291,7 +291,7 @@ public interface AgentLogPort {
 - **Spec coverage:** §3 agent → Tasks 3–5; §4 wire → Tasks 1–2, 5; §5 DP (service, routing, export, cap) → Tasks 7–10; §6 authorization → Prerequisites + Task 9; §7 errors → Tasks 4, 5, 7, 8 tests; §8 testing → each task plus Task 11; §9 open questions → Prerequisites, Task 9, Task 11.
 - **Gap noted:** console log view and cap control are out of scope per the spec (§1).
 - **Types:** `LogPage`/`LogChunk` names and `UnavailableReason` values are the same in Tasks 1, 2, 5, 7. `msg.LogsOutbound`/`LogsInbound` are introduced in Task 2 and used in Task 5.
-- **Known assumption to verify while executing:** the exact table name for `log_max_bytes` (Task 8) and the placement-transport discriminator are read from `PlacementRows` and `AgentPlacements`, not guessed here.
+- **Known assumption to verify while executing:** the cap's home is the side table `sm_data.placement_log_retention` (Task 8, ruling R8), and the placement-transport discriminator are read from `PlacementRows` and `AgentPlacements`, not guessed here.
 
 ## Results
 
