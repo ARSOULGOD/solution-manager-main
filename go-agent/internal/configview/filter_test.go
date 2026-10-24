@@ -94,8 +94,8 @@ func TestAliasBombRefused(t *testing.T) {
 
 func TestSelfReferentialAliasRefused(t *testing.T) {
 	_, err := Filter([]byte("a: &x [*x]\n"), defaultAllow, lim)
-	if err == nil {
-		t.Fatal("expected error")
+	if !errors.Is(err, ErrInvalidYAML) {
+		t.Fatalf("err=%v", err)
 	}
 }
 
@@ -150,5 +150,36 @@ func TestHiddenKeyNamesNeverAppear(t *testing.T) {
 	_, err = Filter([]byte(strings.Repeat("supersecretname: 1\n", 50)), defaultAllow, Limits{MaxBytes: 1 << 20, MaxDepth: 5, MaxNodes: 5, MaxKeys: 5})
 	if err == nil || strings.Contains(err.Error(), "supersecretname") {
 		t.Fatalf("err=%v", err)
+	}
+}
+
+func TestAliasedHugeKeyOutputBounded(t *testing.T) {
+	big := strings.Repeat("k", 900*1024)
+	var b strings.Builder
+	b.WriteString("base: &m\n  ? " + big + "\n  : v\nmanagement:\n")
+	for i := 0; i < 1000; i++ {
+		fmt.Fprintf(&b, "  a%d: *m\n", i)
+	}
+	l := Limits{MaxBytes: 2 << 20, MaxDepth: 32, MaxNodes: 10000, MaxKeys: 1000}
+	type out struct {
+		r   Result
+		err error
+	}
+	done := make(chan out, 1)
+	go func() { r, err := Filter([]byte(b.String()), defaultAllow, l); done <- out{r, err} }()
+	select {
+	case o := <-done:
+		total := 0
+		for _, e := range o.r.Entries {
+			total += len(e.Path) + len(e.Value)
+		}
+		if total > l.MaxBytes {
+			t.Fatalf("emitted %d bytes", total)
+		}
+		if o.err != nil && !errors.Is(o.err, ErrTooLarge) {
+			t.Fatalf("err=%v", o.err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("unbounded work")
 	}
 }

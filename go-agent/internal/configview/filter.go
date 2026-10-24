@@ -51,6 +51,13 @@ type walker struct {
 	cyclic  bool
 	tooMany bool
 	tooDeep bool
+	// Output budget (aliases can multiply path bytes far beyond the input
+	// size): emitted Path+Value bytes are capped at MaxBytes, and the bytes of
+	// every path string built, emitted or not, at 4*MaxBytes. Exceeding either
+	// aborts the walk early with ErrTooLarge; no content is put in the error.
+	err     error
+	emitted int
+	built   int
 }
 
 // Filter parses doc and returns allow-listed scalars. Allow entries match
@@ -80,6 +87,9 @@ func Filter(doc []byte, allow []string, lim Limits) (Result, error) {
 	}
 	// Pass 2: the expanded tree is now provably within MaxNodes.
 	w.walk(&root, "", false)
+	if w.err != nil {
+		return Result{}, w.err
+	}
 	return w.res, nil
 }
 
@@ -125,7 +135,22 @@ func (w *walker) measure(n *yaml.Node, depth int) measure {
 	return m
 }
 
+// join builds a child path, refusing before allocating if it would blow the
+// budget.
+func (w *walker) join(parent, sep, child string) (string, bool) {
+	n := len(parent) + len(sep) + len(child)
+	if n > w.lim.MaxBytes || w.built+n > 4*w.lim.MaxBytes {
+		w.err = ErrTooLarge
+		return "", false
+	}
+	w.built += n
+	return parent + sep + child, true
+}
+
 func (w *walker) walk(n *yaml.Node, path string, hideAll bool) {
+	if w.err != nil {
+		return
+	}
 	switch n.Kind {
 	case yaml.DocumentNode:
 		for _, c := range n.Content {
@@ -140,15 +165,23 @@ func (w *walker) walk(n *yaml.Node, path string, hideAll bool) {
 				w.walk(n.Content[i+1], path, true) // complex key: hide subtree
 				continue
 			}
-			p := k.Value
+			sep := ""
 			if path != "" {
-				p = path + "." + k.Value
+				sep = "."
+			}
+			p, ok := w.join(path, sep, k.Value)
+			if !ok {
+				return
 			}
 			w.walk(n.Content[i+1], p, hideAll)
 		}
 	case yaml.SequenceNode:
 		for i, c := range n.Content {
-			w.walk(c, path+"["+strconv.Itoa(i)+"]", hideAll)
+			p, ok := w.join(path, "", "["+strconv.Itoa(i)+"]")
+			if !ok {
+				return
+			}
+			w.walk(c, p, hideAll)
 		}
 	case yaml.ScalarNode:
 		if hideAll || !w.allowed(path) {
@@ -158,6 +191,11 @@ func (w *walker) walk(n *yaml.Node, path string, hideAll bool) {
 		if len(w.res.Entries) >= w.lim.MaxKeys {
 			w.res.Truncated = true
 			w.res.Hidden++
+			return
+		}
+		w.emitted += len(path) + len(n.Value)
+		if w.emitted > w.lim.MaxBytes {
+			w.err = ErrTooLarge
 			return
 		}
 		w.res.Entries = append(w.res.Entries, Entry{Path: path, Value: n.Value})
