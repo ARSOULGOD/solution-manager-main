@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -81,7 +82,7 @@ func wantRefused(t *testing.T, r msg.ConfigViewReply, reason msg.ConfigViewReaso
 	}
 }
 
-func TestViewReturnsAllowedKeysOnly(t *testing.T) {
+func tViewReturnsAllowedKeysOnly(t *testing.T) {
 	gw, _ := cvAgent(t, []byte(cvDoc), nil)
 	r := cvAsk(t, gw, cvReq("v1"))
 	if r.Status != msg.ConfigViewOK {
@@ -99,19 +100,19 @@ func TestViewReturnsAllowedKeysOnly(t *testing.T) {
 	}
 }
 
-func TestPlacementNotInLeaseRefused(t *testing.T) {
+func tPlacementNotInLeaseRefused(t *testing.T) {
 	gw, _ := cvAgent(t, []byte(cvDoc), nil)
 	req := cvReq("v2")
 	req.PlacementID = "binding-other"
 	wantRefused(t, cvAsk(t, gw, req), msg.ConfigViewPlacementNotInLease)
 }
 
-func TestMissingFile(t *testing.T) {
+func tMissingFile(t *testing.T) {
 	gw, _ := cvAgent(t, nil, nil)
 	wantRefused(t, cvAsk(t, gw, cvReq("v3")), msg.ConfigViewFileMissing)
 }
 
-func TestSymlinkRefusedAsNotPermitted(t *testing.T) {
+func tSymlinkRefusedAsNotPermitted(t *testing.T) {
 	gw, ad := cvAgent(t, nil, nil)
 	outside := filepath.Join(t.TempDir(), "other.yml")
 	if err := os.WriteFile(outside, []byte(cvDoc), 0o600); err != nil {
@@ -123,7 +124,7 @@ func TestSymlinkRefusedAsNotPermitted(t *testing.T) {
 	wantRefused(t, cvAsk(t, gw, cvReq("v4")), msg.ConfigViewNotPermitted)
 }
 
-func TestOversizedFileRefused(t *testing.T) {
+func tOversizedFileRefused(t *testing.T) {
 	big := []byte("a: " + strings.Repeat("x", configViewHardCap+10) + "\n")
 	gw, _ := cvAgent(t, big, nil)
 	req := cvReq("v5")
@@ -131,14 +132,14 @@ func TestOversizedFileRefused(t *testing.T) {
 	wantRefused(t, cvAsk(t, gw, req), msg.ConfigViewFileTooLarge)
 }
 
-func TestInvalidYamlRefused(t *testing.T) {
+func tInvalidYamlRefused(t *testing.T) {
 	gw, _ := cvAgent(t, []byte("a: [unclosed\n"), nil)
 	wantRefused(t, cvAsk(t, gw, cvReq("v6")), msg.ConfigViewInvalidYAML)
 }
 
 // A request max_bytes above the hard cap is clamped to it: a file between the
 // cap and the request is refused, one under the cap is served.
-func TestRequestLimitsAreClamped(t *testing.T) {
+func tRequestLimitsAreClamped(t *testing.T) {
 	over := []byte("server:\n  port: 1\npad: " + strings.Repeat("x", configViewHardCap+1) + "\n")
 	gw, ad := cvAgent(t, over, nil)
 	req := cvReq("v7")
@@ -188,7 +189,7 @@ func (a failingResolve) Resolve(ctx context.Context, b string) (runtime.Placemen
 	return a.fakeAdapter.Resolve(ctx, b)
 }
 
-func TestNoValueOrPathInLogs(t *testing.T) {
+func tNoValueOrPathInLogs(t *testing.T) {
 	var buf syncBuf
 	fail := false
 	gw, ad := cvAgent(t, []byte(cvDoc), func(bc *BuildConfig, a *fakeAdapter) {
@@ -225,5 +226,109 @@ func TestNoValueOrPathInLogs(t *testing.T) {
 		if strings.Contains(out, bad) {
 			t.Fatalf("log contains %q:\n%s", bad, out)
 		}
+	}
+}
+
+type blockingResolve struct {
+	*fakeAdapter
+	gate chan struct{}
+}
+
+func (a blockingResolve) Resolve(ctx context.Context, b string) (runtime.Placement, error) {
+	select {
+	case <-a.gate:
+	case <-ctx.Done():
+	}
+	return a.fakeAdapter.Resolve(ctx, b)
+}
+
+// A FIFO at the path is refused without hanging.
+func tFifoRefusedWithoutHanging(t *testing.T) {
+	gw, ad := cvAgent(t, nil, nil)
+	if err := syscall.Mkfifo(ad.target(), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan msg.ConfigViewReply, 1)
+	go func() { done <- cvAsk(t, gw, cvReq("f1")) }()
+	select {
+	case r := <-done:
+		wantRefused(t, r, msg.ConfigViewNotPermitted)
+	case <-time.After(5 * time.Second):
+		t.Fatal("a FIFO at the config path hung the handler")
+	}
+}
+
+// With no role (no adapter) a request still gets exactly one refusal.
+func tNoRoleStillReplies(t *testing.T) {
+	gw := startGateway(t, fakegw.DefaultScenario())
+	h := startAgent(t, gw, "", nil)
+	waitPhase(t, h.loop, PhaseActive, 15*time.Second)
+	wantRefused(t, cvAsk(t, gw, cvReq("n1")), msg.ConfigViewNotPermitted)
+}
+
+// Over the concurrency bound, further requests are refused at once rather than queued.
+func tBusyRefusedImmediately(t *testing.T) {
+	gate := make(chan struct{})
+	gw, _ := cvAgent(t, []byte(cvDoc), func(bc *BuildConfig, a *fakeAdapter) {
+		bc.Adapter = blockingResolve{fakeAdapter: a, gate: gate}
+	})
+	for i := 0; i < configViewConcurrency; i++ {
+		req := cvReq("b" + string(rune('0'+i)))
+		if err := gw.RequestConfigView(req); err != nil {
+			t.Fatal(err)
+		}
+	}
+	extra := cvReq("b-extra")
+	if err := gw.RequestConfigView(extra); err != nil {
+		t.Fatal(err)
+	}
+	if !gw.WaitFor("ConfigViewReply", 1, 5*time.Second) {
+		t.Fatal("the over-bound request was not refused at once")
+	}
+	r := gw.Received("ConfigViewReply")[0].(msg.ConfigViewReply)
+	if r.RequestID != "b-extra" {
+		t.Fatalf("first reply is %q, want the refused extra", r.RequestID)
+	}
+	wantRefused(t, r, msg.ConfigViewFileUnreadable)
+	close(gate)
+	if !gw.WaitFor("ConfigViewReply", configViewConcurrency+1, 10*time.Second) {
+		t.Fatal("held requests were not answered after release")
+	}
+}
+
+func tAllowListBounded(t *testing.T) {
+	gw, _ := cvAgent(t, []byte(cvDoc), nil)
+	many := cvReq("a1")
+	many.Allow = make([]string, configViewMaxAllow+1)
+	for i := range many.Allow {
+		many.Allow[i] = "a"
+	}
+	wantRefused(t, cvAsk(t, gw, many), msg.ConfigViewNotPermitted)
+	long := cvReq("a2")
+	long.Allow = []string{strings.Repeat("k", configViewMaxAllowBytes+1)}
+	wantRefused(t, cvAsk(t, gw, long), msg.ConfigViewNotPermitted)
+}
+
+// The plan's test names are kept as subtest names; the one top-level name lets
+// the Makefile's -run pattern (and -run ConfigView) select them all.
+func TestConfigView(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		f    func(*testing.T)
+	}{
+		{"TestViewReturnsAllowedKeysOnly", tViewReturnsAllowedKeysOnly},
+		{"TestPlacementNotInLeaseRefused", tPlacementNotInLeaseRefused},
+		{"TestMissingFile", tMissingFile},
+		{"TestSymlinkRefusedAsNotPermitted", tSymlinkRefusedAsNotPermitted},
+		{"TestOversizedFileRefused", tOversizedFileRefused},
+		{"TestInvalidYamlRefused", tInvalidYamlRefused},
+		{"TestRequestLimitsAreClamped", tRequestLimitsAreClamped},
+		{"TestNoValueOrPathInLogs", tNoValueOrPathInLogs},
+		{"TestFifoRefusedWithoutHanging", tFifoRefusedWithoutHanging},
+		{"TestNoRoleStillReplies", tNoRoleStillReplies},
+		{"TestBusyRefusedImmediately", tBusyRefusedImmediately},
+		{"TestAllowListBounded", tAllowListBounded},
+	} {
+		t.Run(c.name, c.f)
 	}
 }

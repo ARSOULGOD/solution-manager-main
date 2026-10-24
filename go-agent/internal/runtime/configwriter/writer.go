@@ -13,6 +13,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"syscall"
 
 	"github.com/solace/solution-manager/go-agent/internal/msg"
 	"github.com/solace/solution-manager/go-agent/internal/runtime"
@@ -97,18 +98,24 @@ func ReadChecked(hostPath string, limit int64) ([]byte, error) {
 		return nil, err
 	}
 	real := filepath.Join(dir, base)
-	fi, err := os.Lstat(real)
+	// O_NOFOLLOW refuses a symlink swapped in after checkPath; O_NONBLOCK keeps
+	// the open of a swapped-in FIFO from hanging. The type is then checked on
+	// the opened descriptor, not on the path.
+	f, err := os.OpenFile(real, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		if errors.Is(err, syscall.ELOOP) {
+			return nil, ErrSymlinkEscape
+		}
+		return nil, err
+	}
+	defer f.Close()
+	fi, err := f.Stat()
 	if err != nil {
 		return nil, err
 	}
 	if !fi.Mode().IsRegular() {
 		return nil, ErrNotRegular
 	}
-	f, err := os.Open(real)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
 	return io.ReadAll(io.LimitReader(f, limit+1))
 }
 

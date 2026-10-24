@@ -4,7 +4,9 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/solace/solution-manager/go-agent/internal/msg"
 )
@@ -97,5 +99,37 @@ func TestWriteProgressErrorAbortsBeforeTouchingTarget(t *testing.T) {
 	got, _ := os.ReadFile(target)
 	if string(got) != "old" {
 		t.Fatal("target must be untouched when the journal cannot record STAGED")
+	}
+}
+
+func TestReadCheckedRefusesFifoAndSymlink(t *testing.T) {
+	dir := t.TempDir()
+	fifo := filepath.Join(dir, "fifo.yml")
+	if err := syscall.Mkfifo(fifo, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { _, err := ReadChecked(fifo, 100); done <- err }()
+	select {
+	case err := <-done:
+		if !errors.Is(err, ErrNotRegular) {
+			t.Fatalf("fifo: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("ReadChecked hung on a FIFO")
+	}
+	target := filepath.Join(dir, "real.yml")
+	if err := os.WriteFile(target, []byte("a: 1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(dir, "link.yml")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadChecked(link, 100); !errors.Is(err, ErrSymlinkEscape) {
+		t.Fatalf("symlink: %v", err)
+	}
+	if b, err := ReadChecked(target, 100); err != nil || string(b) != "a: 1\n" {
+		t.Fatalf("regular: %q %v", b, err)
 	}
 }

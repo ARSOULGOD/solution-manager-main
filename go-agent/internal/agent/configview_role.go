@@ -35,11 +35,18 @@ const (
 
 	// configViewConcurrency bounds requests served at once.
 	configViewConcurrency = 4
+
+	// The request's allow-list is bounded: Filter does not bound it.
+	configViewMaxAllow      = 256
+	configViewMaxAllowBytes = 16 << 10
 )
 
 // ConfigViewRole answers config view requests. Handle may block on disk and
-// must not be called on the loop goroutine.
+// must not be called on the loop goroutine. A caller takes a slot with
+// TryAcquire before starting Handle and gives it back with Release.
 type ConfigViewRole interface {
+	TryAcquire() bool
+	Release()
 	Handle(ctx context.Context, m msg.ConfigViewRequest, inLease bool) msg.ConfigViewReply
 }
 
@@ -51,6 +58,25 @@ type configViewRole struct {
 
 func newConfigViewRole(resolver runtime.Adapter, log *slog.Logger) *configViewRole {
 	return &configViewRole{resolver: resolver, log: log, sem: make(chan struct{}, configViewConcurrency)}
+}
+
+func (r *configViewRole) TryAcquire() bool {
+	select {
+	case r.sem <- struct{}{}:
+		return true
+	default:
+		return false
+	}
+}
+
+func (r *configViewRole) Release() { <-r.sem }
+
+func allowBytes(a []string) int {
+	n := 0
+	for _, p := range a {
+		n += len(p)
+	}
+	return n
 }
 
 // refusedReply is the only constructor of a refusal: one reason, no entries.
@@ -78,11 +104,11 @@ func (r *configViewRole) Handle(ctx context.Context, m msg.ConfigViewRequest, in
 			r.log.Debug("config view refused", "request_id", m.RequestID, "reason", string(reply.Reason))
 		}
 	}()
-	select {
-	case r.sem <- struct{}{}:
-		defer func() { <-r.sem }()
-	case <-ctx.Done():
+	if ctx.Err() != nil {
 		return refusedReply(m.RequestID, msg.ConfigViewFileUnreadable)
+	}
+	if len(m.Allow) > configViewMaxAllow || allowBytes(m.Allow) > configViewMaxAllowBytes {
+		return refusedReply(m.RequestID, msg.ConfigViewNotPermitted)
 	}
 	if !inLease {
 		return refusedReply(m.RequestID, msg.ConfigViewPlacementNotInLease)
@@ -134,10 +160,20 @@ type configViewDone struct {
 
 func (e configViewDone) EventAt() time.Time { return e.at }
 
-// serveConfigView answers m off the loop goroutine. Exactly one reply is
-// pushed per request; one for a connection that has since gone is dropped by
-// translate.
+// serveConfigView answers m. It runs on the loop goroutine and always sends or
+// schedules exactly one reply: at once when there is no role or no free slot
+// (reason FILE_UNREADABLE for a busy agent: the wire has no busier reason),
+// otherwise from a goroutine whose slot was taken before it started.
 func (l *Loop) serveConfigView(ctx context.Context, m msg.ConfigViewRequest) {
+	role := l.d.ConfigView
+	if role == nil {
+		l.sendConfigViewReply(refusedReply(m.RequestID, msg.ConfigViewNotPermitted))
+		return
+	}
+	if !role.TryAcquire() {
+		l.sendConfigViewReply(refusedReply(m.RequestID, msg.ConfigViewFileUnreadable))
+		return
+	}
 	l.mu.Lock()
 	inLease := false
 	if g := l.state.Authority.Grant; g != nil {
@@ -151,7 +187,18 @@ func (l *Loop) serveConfigView(ctx context.Context, m msg.ConfigViewRequest) {
 	l.mu.Unlock()
 	gen := l.connGen
 	go func() {
-		rep := l.d.ConfigView.Handle(ctx, m, inLease)
-		l.Push(configViewDone{at: l.d.Now(), gen: gen, reply: rep})
+		defer role.Release()
+		ev := configViewDone{at: l.d.Now(), gen: gen, reply: role.Handle(ctx, m, inLease)}
+		select {
+		case l.inbox <- ev:
+		case <-ctx.Done(): // the loop has exited: nobody reads the inbox
+		}
 	}()
+}
+
+// sendConfigViewReply writes a reply on the current connection. Loop goroutine only.
+func (l *Loop) sendConfigViewReply(r msg.ConfigViewReply) {
+	if l.conn != nil {
+		l.sendCh <- r
+	}
 }
