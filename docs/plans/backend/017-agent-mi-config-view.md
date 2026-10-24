@@ -166,3 +166,79 @@
 - **Spec coverage:** §3 wire -> Task 1; §4 agent -> Tasks 2-3; §5 gateway -> Task 4; §6 DP and console -> Tasks 5-6; §7 limits -> Tasks 2, 3, 5; §8 tests -> in every task; §9 open items -> Task 7.
 - **Types:** `Entry`, `Result`, `Limits` (Task 2) are used by Task 3; `AgentConfigView`/`AgentConfigViewPort` (Task 4) by Task 5; `ConfigViewService`/`ConfigViewResult` (Task 5) by Task 6.
 - **Known unknown for Task 4:** the broker so far only replies to log requests on the `Logs` RPC; a request/reply on `Connect` is new, so the implementer reads `AgentGatewayService`'s `Connect` handling first and reports any structural surprise instead of improvising a new stream.
+
+## Results
+
+**Executed: Tasks 1-7.** Each of Tasks 1-6 was independently reviewed; Tasks 2, 3 and 4 each needed one fix round. Commits on
+`feature/agent-mi-config-view` (base `acd45b3`):
+
+| Task | Commit(s) |
+|---|---|
+| 1 wire contract and Go codec | `170b108` |
+| 2 allow-list filter | `835b869`, fix `ee35a6a` |
+| 3 agent config view handler | `185438d`, fix `afab3fa` |
+| 4 gateway port and broker | `c31a18f`, `faaec13` (agent advertises the capability), fix `22fb183` |
+| 5 data-plane service and re-check | `e1037f2` |
+| 6 console route, authorization, contract | `b58c824` |
+| 7 docs | this commit (`docs(config-view): runbook, open items, results`) |
+
+**What was built.** `GatewayToAgent.config_view_request = 17`, `AgentToGateway.config_view_reply = 12` and
+`CAPABILITY_CONFIG_VIEW = 8` (append-only; `check_proto_append_only.py` passes). Agent: a YAML filter (`internal/configview`),
+a handler with a 1 MiB hard cap, 256 KiB default, depth 64, 100000 nodes, 2000 keys, 4 concurrent reads, allow list bounded at
+256 patterns / 16 KiB. Gateway: `AgentConfigViewPort` and broker, one view in flight per agent, `sm.agent.gateway.config-view-deadline`.
+DP: `AgentConfigViewService` (`sm.dp.config-view.allow|timeout|max-bytes`, 8 concurrent) which owns the allow list and re-checks
+every returned path. Console: `GET /api/dp/instances/{instanceId}/placements/{placementId}/config` (`viewConfig`, verb
+`config.view` at instance scope; no new verb, no decision id, no migration). Runbook:
+[`docs/runbooks/backend/read-agent-config.md`](../../runbooks/backend/read-agent-config.md).
+
+**Differences from the plan text, and why.**
+- **`ConfigViewReason` enum** names the wire reason (the spec said `UnavailableReason`); it carries the proto prefix rule that
+  plan 016's final review established.
+- **HTTP `502` `AGENT_REPLY_REJECTED` added** for a DP re-check failure (spec: "502-class"; the plan's status list omitted it).
+- **`CAPABILITY_CONFIG_VIEW` gate added after the Task 4 review.** Task 3 had ruled that no capability was needed; the Task 4
+  implementer found the agent's `GatewayFromPB` errors on an unknown field 17 and the loop treated that as a closed
+  connection, so an old agent would reconnect on every request. The agent now advertises it only when the role exists and the
+  gateway sends nothing, returning unavailable, to an agent without it.
+- **`ConfigViewService.view(organizationId, instanceId, placementId)`** takes the instance id (the plan had two strings):
+  lookups are instance-keyed, and omitting it would let a grantee of instance A read instance B's placement in the same
+  organization.
+- **Agent lookup** uses `AgentPlacementCatalog.resolve` (the apply path), not `AgentLogPort.sessionFor`, which needs the logs capability.
+- **Subtests under `TestConfigView`**: the plan's test names are kept as subtests so the Makefile `-run ConfigView` pattern matches.
+- **`configwriter.ReadChecked` added** (symlink and escape refusal, FIFO refusal, `O_NOFOLLOW|O_NONBLOCK`, fstat on the fd).
+- **Three new `ErrorCode`s** in `console.yaml`: `CONFIG_TOO_LARGE` (413), `CONFIG_INVALID_YAML` (422), `AGENT_REPLY_REJECTED` (502).
+- **`BUSY` maps to `429 RATE_LIMITED`**, reason `config-view-concurrency`, `Retry-After: 5` (as `exportLogs`; the plan was silent).
+- Unknown reason enum on the wire becomes `REFUSED/UNKNOWN`; unknown status becomes `UNAVAILABLE/UNKNOWN`.
+
+**Verification run** (from the per-task reports; Java ran under Docker Maven `maven:3.9-eclipse-temurin-17`).
+- Go: `go build ./... && go vet ./... && go vet -tags integration ./... && go test ./... -race` clean at Task 3; integration-tag
+  `go test -tags integration -race ./internal/agent/ -run ConfigView` (`TestConfigView` and its 12 subtests) pass.
+  Task 7 re-ran `go build ./...`, `go vet ./...`, `go test ./...` (result in the Task 7 report).
+- Java: `dp-api,agent-gateway -am install` BUILD SUCCESS (agent-gateway 149 tests at Task 4 fix, including the new broker,
+  contract-kit and gateway tests; dp-api `AgentConfigViewTest` 5). dp-core `AgentConfigViewServiceTest` 19 and
+  `ConfigViewWiringTest` 6 pass. `cp-api verify` 57 tests, 0 failures. console-gateway full run 1102 tests with only the three
+  known reds; `ConfigViewControllerTest` 10/10, `SchemaMirrorLockTest` new test passes.
+- arch-tests `*BoundaryTest`: 141 tests, 0 failures (Tasks 4, 5 and 6).
+- `validate-openapi.py` exit 0; `generate-postman.py` then `check-postman.py` OK (88 operations).
+- RED-before-fix was recorded for the huge-aliased-key budget (Task 2) and the broker slot leak (Task 4); other fixes were verified GREEN only.
+
+**Pre-existing reds (all present at the base).** `SchemaMirrorLockTest.targetAndTargetList...` (1 error); `ConnectionOrchestratorTest` x2;
+dp-core `InventoryPlacementOperationsTest` x2 and `PrivateKeyInspectorTest`; `contracts/run-checks.sh` fails at its Python preflight;
+the launcher context cannot load (`sm_control` `V028` drops `'agent'`), so launcher ITs are unverifiable.
+
+**Not run.** `ProductionAuthenticationIT` (edited by reading only); `contracts/run-checks.sh` as a whole (its pieces were run
+directly); every launcher IT; the dp-core full suite; any manual walkthrough with a real container, agent and gateway.
+
+**Open owner questions** (all in `DECISIONS.md` open items 51-55): Viewer visibility of allow-listed values; audit row for reads;
+SSH placements later through the same port; the `V028` defect also blocking this feature's launcher edit; the three new error codes.
+
+**Tracked follow-ups (deferred minors).**
+- Task 5 (candidate for fix before merge): `AgentConfigViewService` releases its slot only in the submitted task's `finally`;
+  `call.cancel(true)` before the pool thread starts leaves it leaked (8 lost slots means permanent `BUSY`). Unproven, timing-dependent.
+- Task 5: `truncated` is not checked against the entry count; the `ExecutionException` path (port throws -> `BAD_GATEWAY`) is
+  untested; DP max timeout is 1m against a gateway deadline of up to 5m (safe via interrupt); an out-of-order import in `DataPlaneConfiguration`.
+- Task 1: no test for an empty-entries OK reply; `ConfigViewReply` has no cross-field validation (OK with a reason, REFUSED without one).
+- Task 2: `join` does not check `w.err` first; the huge-key test's byte-total assertion is vacuous on error; the 4 x `MaxBytes` path budget bounds legitimate documents to about 1 MiB of path bytes.
+- Task 3: `ReadChecked`/`ReadAll` ignore the context (slow NFS); a context cancel while waiting on the semaphore replies and is dropped; `cvAsk` calls `t.Fatal` from a goroutine in the FIFO test; the busy refusal reuses `FILE_UNREADABLE` (the DP cannot tell busy from unreadable); the reply send on `sendCh` blocks the loop goroutine (as other replies do).
+- Task 4: no bound on `allow.size()`/`maxBytes` at the gateway (the DP bounds them); `finishOpen` window gives a spurious `PLACEMENT_NOT_IN_LEASE`; `Thread.sleep(50)` in negative assertions; `buf` 1.74.0 used against the README's 1.73.0 (the pb diff is the enum value only); `fakegw` sends config view to any session by design.
+- Task 6: 501/429 bodies are checked for code and a leak list only; the Postman 501 hint text says `NOT_IMPLEMENTED` (generator template, as `exportLogs`).
+- YAML semantics to document, not bugs: merge keys appear as a literal segment, aliased/complex keys hide their subtree, dotted keys are indistinguishable from nested ones.

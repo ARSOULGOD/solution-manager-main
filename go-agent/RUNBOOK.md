@@ -305,6 +305,35 @@ from the other stream that completed later than the stored maximum can be skippe
 **Privacy.** Nothing is redacted: stored and served lines are the container's output as written. Log text never goes to
 the agent's own log (only binding ids and error text do).
 
+## Config view
+
+**Status: in code, not yet run against a real gateway.** The agent answers a `ConfigViewRequest` (wire `GatewayToAgent` 17,
+reply `AgentToGateway` 12) with the allow-listed entries of a placement's YAML config file (plan 017 Tasks 1-3, run against
+`fake-gateway` scenarios). The DP half is in
+[`docs/runbooks/backend/read-agent-config.md`](../docs/runbooks/backend/read-agent-config.md).
+
+**Enable it.** Nothing to set: the role is wired whenever the agent has an adapter, and it advertises
+`CAPABILITY_CONFIG_VIEW` (8) only then. A gateway sends nothing to an agent without that capability.
+
+**What it reads.** The file path comes from the lease's placement, never from the request. The read refuses a symlink, a FIFO
+or any path that escapes the placement directory (`NOT_PERMITTED`), and reads at most the limit plus one byte. The allow
+list comes with the request and the agent filters by it; the DP re-checks the reply.
+
+**Limits (fixed in the agent).**
+
+| Limit | Value |
+|---|---|
+| Hard cap on bytes read and emitted | 1 MiB (the request's `max_bytes` is clamped to it; `0` means 256 KiB) |
+| Nesting depth | 64 |
+| Expanded nodes (aliases counted) | 100000 |
+| Emitted keys | 2000 (more sets `truncated`) |
+| Path bytes built (hidden included) | 4 x `max_bytes` |
+| Concurrent reads | 4 (a fifth is refused at once with `FILE_UNREADABLE`; the wire has no busy reason) |
+| Allow list accepted | 256 patterns and 16 KiB total (more is `NOT_PERMITTED`) |
+
+**Privacy.** The agent never logs the file's content, path or keys; only the request id and the reason code. A secret under
+a key that is not on the allow list is hidden and only counted in `hidden_count`.
+
 ## Rollback
 
 - `preflight` — nothing to undo.
