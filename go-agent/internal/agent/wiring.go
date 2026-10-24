@@ -81,7 +81,8 @@ func Build(bc BuildConfig) (*Loop, *store.Store, error) {
 		BootstrapEndpoint: bc.Endpoint,
 		EnrollmentToken:   bc.Token,
 		AgentVersion:      bc.AgentVersion,
-		Capabilities:      bc.Roles.capabilities(),
+		// The config-view role is wired exactly when there is an adapter (below).
+		Capabilities: sessionCapabilities(bc.Roles, bc.Adapter != nil),
 	}
 	st, err := LoadState(cfg, s, id)
 	if err != nil {
@@ -134,7 +135,7 @@ func Build(bc BuildConfig) (*Loop, *store.Store, error) {
 		}
 		deps.Logs = newLogsRole(s, lc, src, newUUIDv7, bc.Log)
 	}
-	if adapter != nil {
+	if adapter != nil { // keep in step with sessionCapabilities' configView argument above
 		deps.ConfigView = newConfigViewRole(adapter, bc.Log)
 	}
 	l := New(deps, st)

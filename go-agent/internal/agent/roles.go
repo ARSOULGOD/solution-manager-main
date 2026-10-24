@@ -56,6 +56,19 @@ func (r Roles) capabilities() []msg.Capability {
 	return caps
 }
 
+// sessionCapabilities is what SessionOpen advertises: the roles' capabilities
+// plus CapConfigView when the config-view role is present (it is wired
+// whenever the agent has a runtime adapter, plan 017). An agent that cannot
+// answer a config view never names it, so the gateway never sends it one: an
+// older decoder would end the stream on the unknown message.
+func sessionCapabilities(r Roles, configView bool) []msg.Capability {
+	caps := r.capabilities()
+	if configView {
+		caps = append(caps, msg.CapConfigView)
+	}
+	return caps
+}
+
 // gate refuses an operation whose capability this agent did not advertise
 // before the lease is consulted: a lease that grants more than the agent
 // supports must not widen what it executes.

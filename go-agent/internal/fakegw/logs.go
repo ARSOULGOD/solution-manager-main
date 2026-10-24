@@ -247,8 +247,10 @@ func timeoutOr(d time.Duration) time.Duration {
 
 // ---- MI config view (plan 017) ----
 //
-// ConfigViewRequest rides Connect and needs no capability, so it is sent to
-// any live session; the agent's ConfigViewReply lands in the transcript.
+// ConfigViewRequest rides Connect. The real gateway sends it only to a session
+// that advertised CAPABILITY_CONFIG_VIEW; this scripted fake sends it to any
+// live session (so a test can drive the agent's own refusal). The agent's
+// ConfigViewReply lands in the transcript.
 
 // ConfigViewRequestStep sends a ConfigViewRequest. An empty RequestID becomes
 // "cv-<n>" for the session.

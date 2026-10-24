@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -330,5 +331,27 @@ func TestConfigView(t *testing.T) {
 		{"TestAllowListBounded", tAllowListBounded},
 	} {
 		t.Run(c.name, c.f)
+	}
+}
+
+// Plan 017 task 4 (capability gate): an agent with the config-view role names
+// CAPABILITY_CONFIG_VIEW in its SessionOpen; one without (no runtime adapter,
+// so no role) does not, and the real gateway then never sends it a request.
+func TestConfigViewCapabilityIsAdvertisedOnlyWithTheRole(t *testing.T) {
+	opens := func(gw *fakegw.Server) []msg.Capability {
+		t.Helper()
+		if !gw.WaitFor("SessionOpen", 1, 10*time.Second) {
+			t.Fatal("no SessionOpen")
+		}
+		return gw.Received("SessionOpen")[0].(msg.SessionOpen).CapabilitiesSupported
+	}
+	with, _ := cvAgent(t, []byte(cvDoc), nil)
+	if caps := opens(with); !slices.Contains(caps, msg.CapConfigView) {
+		t.Fatalf("an agent with the role advertised %v, want %s among them", caps, msg.CapConfigView)
+	}
+	without := startGateway(t, fakegw.DefaultScenario())
+	startAgent(t, without, "", nil)
+	if caps := opens(without); slices.Contains(caps, msg.CapConfigView) {
+		t.Fatalf("an agent without the role advertised %v", caps)
 	}
 }

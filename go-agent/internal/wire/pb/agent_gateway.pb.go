@@ -213,6 +213,7 @@ const (
 	Capability_CAPABILITY_REMATERIALIZE Capability = 5 // understands OPERATION_REMATERIALIZE + expected_current_sha256
 	Capability_CAPABILITY_DECLARATIONS  Capability = 6 // understands TelemetryDeclarations
 	Capability_CAPABILITY_LOGS          Capability = 7 // agent-collected MI logs: understands LogRetention/LogRequest, opens the Logs RPC (plan 016 T1)
+	Capability_CAPABILITY_CONFIG_VIEW   Capability = 8 // understands ConfigViewRequest on Connect and answers ConfigViewReply (plan 017 T4)
 )
 
 // Enum value maps for Capability.
@@ -226,6 +227,7 @@ var (
 		5: "CAPABILITY_REMATERIALIZE",
 		6: "CAPABILITY_DECLARATIONS",
 		7: "CAPABILITY_LOGS",
+		8: "CAPABILITY_CONFIG_VIEW",
 	}
 	Capability_value = map[string]int32{
 		"CAPABILITY_UNSPECIFIED":   0,
@@ -236,6 +238,7 @@ var (
 		"CAPABILITY_REMATERIALIZE": 5,
 		"CAPABILITY_DECLARATIONS":  6,
 		"CAPABILITY_LOGS":          7,
+		"CAPABILITY_CONFIG_VIEW":   8,
 	}
 )
 
@@ -7271,7 +7274,7 @@ const file_agent_gateway_proto_rawDesc = "" +
 	"\x13ERROR_CODE_DRAINING\x10$\x12#\n" +
 	"\x1fERROR_CODE_INTERNAL_UNAVAILABLE\x10%\x12\x1b\n" +
 	"\x17ERROR_CODE_TARGET_MOVED\x10&\x12\x1d\n" +
-	"\x19ERROR_CODE_RENDER_CHANGED\x10'*\xe5\x01\n" +
+	"\x19ERROR_CODE_RENDER_CHANGED\x10'*\x81\x02\n" +
 	"\n" +
 	"Capability\x12\x1a\n" +
 	"\x16CAPABILITY_UNSPECIFIED\x10\x00\x12\x1b\n" +
@@ -7281,7 +7284,8 @@ const file_agent_gateway_proto_rawDesc = "" +
 	"\x14CAPABILITY_DISCOVERY\x10\x04\x12\x1c\n" +
 	"\x18CAPABILITY_REMATERIALIZE\x10\x05\x12\x1b\n" +
 	"\x17CAPABILITY_DECLARATIONS\x10\x06\x12\x13\n" +
-	"\x0fCAPABILITY_LOGS\x10\a*\x9c\x01\n" +
+	"\x0fCAPABILITY_LOGS\x10\a\x12\x1a\n" +
+	"\x16CAPABILITY_CONFIG_VIEW\x10\b*\x9c\x01\n" +
 	"\tOperation\x12\x19\n" +
 	"\x15OPERATION_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13OPERATION_PREFLIGHT\x10\x01\x12\x13\n" +

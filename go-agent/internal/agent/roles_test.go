@@ -94,3 +94,16 @@ func TestGateRefusesWhatTheAgentDidNotAdvertise(t *testing.T) {
 		t.Fatal("an advertised capability must reach the lease checks")
 	}
 }
+
+// Plan 017: CapConfigView is advertised exactly when the config-view role is
+// present, on top of whatever the roles advertise, and never otherwise.
+func TestConfigViewCapabilityFollowsTheRole(t *testing.T) {
+	for _, r := range []Roles{{}, {Control: true}, {Telemetry: true}, {Logs: true}, {Control: true, Telemetry: true, Logs: true}} {
+		if got, want := sessionCapabilities(r, true), append(slices.Clone(r.capabilities()), msg.CapConfigView); !reflect.DeepEqual(got, want) {
+			t.Errorf("%+v with the role → %v, want %v", r, got, want)
+		}
+		if got := sessionCapabilities(r, false); slices.Contains(got, msg.CapConfigView) || !reflect.DeepEqual(got, r.capabilities()) {
+			t.Errorf("%+v without the role → %v, want %v", r, got, r.capabilities())
+		}
+	}
+}

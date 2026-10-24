@@ -94,6 +94,7 @@ enum Capability {
   CAPABILITY_REMATERIALIZE = 5;    // understands OPERATION_REMATERIALIZE + expected_current_sha256
   CAPABILITY_DECLARATIONS = 6;     // understands TelemetryDeclarations
   CAPABILITY_LOGS = 7;             // agent-collected MI logs: understands LogRetention/LogRequest, opens the Logs RPC (plan 016 T1)
+  CAPABILITY_CONFIG_VIEW = 8;      // understands ConfigViewRequest on Connect and answers ConfigViewReply (plan 017 T4)
 }
 
 enum Operation {

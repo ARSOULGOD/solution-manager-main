@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/solace/solution-manager/go-agent/internal/msg"
+	"github.com/solace/solution-manager/go-agent/internal/wire/pb"
 )
 
 func TestConfigViewRoundTrip(t *testing.T) {
@@ -81,5 +82,11 @@ func TestConfigViewReasonsAreClosed(t *testing.T) {
 	}
 	if _, err := configViewStatusFromPB(99); err == nil {
 		t.Fatal("unknown pb status must error")
+	}
+}
+
+func TestCapConfigViewMapsToWire(t *testing.T) {
+	if capToPB(msg.CapConfigView) != pb.Capability_CAPABILITY_CONFIG_VIEW || capFromPB(pb.Capability_CAPABILITY_CONFIG_VIEW) != msg.CapConfigView {
+		t.Fatalf("config-view must round-trip to CAPABILITY_CONFIG_VIEW: %v / %q", capToPB(msg.CapConfigView), capFromPB(pb.Capability_CAPABILITY_CONFIG_VIEW))
 	}
 }

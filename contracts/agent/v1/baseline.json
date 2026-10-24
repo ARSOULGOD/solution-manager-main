@@ -14,12 +14,28 @@
    "4": "CAPABILITY_DISCOVERY",
    "5": "CAPABILITY_REMATERIALIZE",
    "6": "CAPABILITY_DECLARATIONS",
-   "7": "CAPABILITY_LOGS"
+   "7": "CAPABILITY_LOGS",
+   "8": "CAPABILITY_CONFIG_VIEW"
   },
   "ClockState": {
    "0": "CLOCK_STATE_UNSPECIFIED",
    "1": "CLOCK_STATE_OK",
    "2": "CLOCK_STATE_SUSPECT"
+  },
+  "ConfigViewReason": {
+   "0": "CONFIG_VIEW_REASON_UNSPECIFIED",
+   "1": "CONFIG_VIEW_REASON_PLACEMENT_NOT_IN_LEASE",
+   "2": "CONFIG_VIEW_REASON_FILE_MISSING",
+   "3": "CONFIG_VIEW_REASON_FILE_UNREADABLE",
+   "4": "CONFIG_VIEW_REASON_FILE_TOO_LARGE",
+   "5": "CONFIG_VIEW_REASON_INVALID_YAML",
+   "6": "CONFIG_VIEW_REASON_NOT_PERMITTED",
+   "7": "CONFIG_VIEW_REASON_TOO_MANY_KEYS"
+  },
+  "ConfigViewStatus": {
+   "0": "CONFIG_VIEW_STATUS_UNSPECIFIED",
+   "1": "CONFIG_VIEW_STATUS_OK",
+   "2": "CONFIG_VIEW_STATUS_REFUSED"
   },
   "DiscoveryState": {
    "0": "DISCOVERY_STATE_UNSPECIFIED",
@@ -180,6 +196,7 @@
    "1": "oneof:msg SessionOpen session_open",
    "10": "oneof:msg DrainComplete drain_complete",
    "11": "oneof:msg DiscoveryReport discovery_report",
+   "12": "oneof:msg ConfigViewReply config_view_reply",
    "2": "oneof:msg LeaseRenew lease_renew",
    "3": "oneof:msg CommandPull command_pull",
    "4": "oneof:msg CommandReceived command_received",
@@ -227,6 +244,24 @@
    "1": "Envelope envelope",
    "2": "string command_id",
    "3": "uint64 generation"
+  },
+  "ConfigEntry": {
+   "1": "string path",
+   "2": "string value"
+  },
+  "ConfigViewReply": {
+   "1": "string request_id",
+   "2": "ConfigViewStatus status",
+   "3": "repeated ConfigEntry entries",
+   "4": "uint32 hidden_count",
+   "5": "bool truncated",
+   "6": "ConfigViewReason reason"
+  },
+  "ConfigViewRequest": {
+   "1": "string request_id",
+   "2": "string placement_id",
+   "3": "repeated string allow",
+   "4": "uint32 max_bytes"
   },
   "DiscoveredContainer": {
    "1": "string container_id",
@@ -307,6 +342,7 @@
    "14": "oneof:msg TelemetryDeclarations telemetry_declarations",
    "15": "oneof:msg LogRetention log_retention",
    "16": "oneof:msg LogRequest log_request",
+   "17": "oneof:msg ConfigViewRequest config_view_request",
    "2": "oneof:msg SessionReject session_reject",
    "3": "oneof:msg LeaseGrant lease_grant",
    "4": "oneof:msg Revoke revoke",

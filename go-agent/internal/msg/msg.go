@@ -37,6 +37,10 @@ const (
 	CapDeclarations  Capability = "declarations"
 	// CapLogs: the agent collects MI container logs (plan 016).
 	CapLogs Capability = "logs"
+	// CapConfigView: the agent answers ConfigViewRequest on Connect (plan 017).
+	// Advertised only when the config-view role is present; the gateway sends
+	// the request only to a session that names it.
+	CapConfigView Capability = "config-view"
 )
 
 // RequiredCapability mirrors gateway §4.6: apply-config for preflight/apply,
