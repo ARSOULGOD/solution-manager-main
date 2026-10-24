@@ -870,3 +870,50 @@ func (LogPage) logsOutbound()  {}
 func (LogChunk) logsOutbound() {}
 func (LogCredit) logsInbound() {}
 func (LogCancel) logsInbound() {}
+
+// ---- MI config view (plan 017) ----
+
+// ConfigViewStatus is OK or REFUSED; a refused reply carries a Reason.
+type ConfigViewStatus string
+
+const (
+	ConfigViewOK      ConfigViewStatus = "OK"
+	ConfigViewRefused ConfigViewStatus = "REFUSED"
+)
+
+// ConfigViewReason is the closed vocabulary of refusals.
+type ConfigViewReason string
+
+const (
+	ConfigViewPlacementNotInLease ConfigViewReason = "PLACEMENT_NOT_IN_LEASE"
+	ConfigViewFileMissing         ConfigViewReason = "FILE_MISSING"
+	ConfigViewFileUnreadable      ConfigViewReason = "FILE_UNREADABLE"
+	ConfigViewFileTooLarge        ConfigViewReason = "FILE_TOO_LARGE"
+	ConfigViewInvalidYAML         ConfigViewReason = "INVALID_YAML"
+	ConfigViewNotPermitted        ConfigViewReason = "NOT_PERMITTED"
+	ConfigViewTooManyKeys         ConfigViewReason = "TOO_MANY_KEYS"
+)
+
+// ConfigViewRequest asks for the allow-listed keys of a placement's config file.
+type ConfigViewRequest struct {
+	RequestID   string
+	PlacementID string
+	Allow       []string
+	MaxBytes    uint32
+}
+
+func (ConfigViewRequest) inbound() {}
+
+type ConfigEntry struct{ Path, Value string }
+
+// ConfigViewReply answers a ConfigViewRequest; Reason is empty when Status is OK.
+type ConfigViewReply struct {
+	RequestID   string
+	Status      ConfigViewStatus
+	Entries     []ConfigEntry
+	HiddenCount uint32
+	Truncated   bool
+	Reason      ConfigViewReason
+}
+
+func (ConfigViewReply) outbound() {}

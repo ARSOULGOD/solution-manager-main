@@ -286,6 +286,12 @@ func AgentToPB(m msg.Outbound) (*pb.AgentToGateway, error) {
 			Envelope: envToPB(v.Envelope), InReplyToMessageId: v.InReplyTo, AbandonedCommands: v.AbandonedCommands}}}, nil
 	case msg.DiscoveryReport:
 		return &pb.AgentToGateway{Msg: &pb.AgentToGateway_DiscoveryReport{DiscoveryReport: discoveryReportToPB(v)}}, nil
+	case msg.ConfigViewReply:
+		r, err := configViewReplyToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		return &pb.AgentToGateway{Msg: &pb.AgentToGateway_ConfigViewReply{ConfigViewReply: r}}, nil
 	}
 	return nil, fmt.Errorf("codec: unsupported outbound %T", m)
 }
@@ -350,6 +356,8 @@ func AgentFromPB(p *pb.AgentToGateway) (msg.Outbound, error) {
 			AbandonedCommands: v.DrainComplete.GetAbandonedCommands()}, nil
 	case *pb.AgentToGateway_DiscoveryReport:
 		return discoveryReportFromPB(v.DiscoveryReport), nil
+	case *pb.AgentToGateway_ConfigViewReply:
+		return configViewReplyFromPB(v.ConfigViewReply)
 	}
 	return nil, fmt.Errorf("codec: unsupported agent message %T", p.GetMsg())
 }
@@ -433,6 +441,8 @@ func GatewayToPB(m msg.Inbound) (*pb.GatewayToAgent, error) {
 		return &pb.GatewayToAgent{Msg: &pb.GatewayToAgent_LogRetention{LogRetention: &pb.LogRetention{Envelope: envToPB(v.Envelope), PlacementRef: v.PlacementRef, MaxBytes: v.MaxBytes}}}, nil
 	case msg.LogRequest:
 		return &pb.GatewayToAgent{Msg: &pb.GatewayToAgent_LogRequest{LogRequest: logRequestToPB(v)}}, nil
+	case msg.ConfigViewRequest:
+		return &pb.GatewayToAgent{Msg: &pb.GatewayToAgent_ConfigViewRequest{ConfigViewRequest: configViewRequestToPB(v)}}, nil
 	}
 	return nil, fmt.Errorf("codec: unsupported inbound %T", m)
 }
@@ -496,6 +506,8 @@ func GatewayFromPB(p *pb.GatewayToAgent) (msg.Inbound, error) {
 		return logRetentionFromPB(v.LogRetention), nil
 	case *pb.GatewayToAgent_LogRequest:
 		return logRequestFromPB(v.LogRequest), nil
+	case *pb.GatewayToAgent_ConfigViewRequest:
+		return configViewRequestFromPB(v.ConfigViewRequest), nil
 	}
 	return nil, fmt.Errorf("codec: unsupported gateway message %T", p.GetMsg())
 }

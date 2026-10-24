@@ -453,6 +453,7 @@ message AgentToGateway {
     Teardown teardown = 9;
     DrainComplete drain_complete = 10;
     DiscoveryReport discovery_report = 11;  // plan 015 T2.3 (d)
+    ConfigViewReply config_view_reply = 12;  // plan 017 T1
   }
 }
 
@@ -474,6 +475,7 @@ message GatewayToAgent {
     TelemetryDeclarations telemetry_declarations = 14;  // plan 015 T2.3 (e)
     LogRetention log_retention = 15;                    // plan 016 T1
     LogRequest log_request = 16;                        // plan 016 T1
+    ConfigViewRequest config_view_request = 17;         // plan 017 T1
   }
 }
 
@@ -773,4 +775,44 @@ message LogDown {
     LogCredit log_credit = 1;
     LogCancel log_cancel = 2;
   }
+}
+
+// ---- MI config view (plan 017 T1): read-only, allow-listed, request/reply on the Connect stream ----
+
+message ConfigViewRequest {
+  string request_id = 1;
+  string placement_id = 2;
+  repeated string allow = 3;
+  uint32 max_bytes = 4;
+}
+
+enum ConfigViewStatus {
+  CONFIG_VIEW_STATUS_UNSPECIFIED = 0;
+  CONFIG_VIEW_STATUS_OK = 1;
+  CONFIG_VIEW_STATUS_REFUSED = 2;
+}
+
+enum ConfigViewReason {
+  CONFIG_VIEW_REASON_UNSPECIFIED = 0;
+  CONFIG_VIEW_REASON_PLACEMENT_NOT_IN_LEASE = 1;
+  CONFIG_VIEW_REASON_FILE_MISSING = 2;
+  CONFIG_VIEW_REASON_FILE_UNREADABLE = 3;
+  CONFIG_VIEW_REASON_FILE_TOO_LARGE = 4;
+  CONFIG_VIEW_REASON_INVALID_YAML = 5;
+  CONFIG_VIEW_REASON_NOT_PERMITTED = 6;
+  CONFIG_VIEW_REASON_TOO_MANY_KEYS = 7;
+}
+
+message ConfigEntry {
+  string path = 1;
+  string value = 2;
+}
+
+message ConfigViewReply {
+  string request_id = 1;
+  ConfigViewStatus status = 2;
+  repeated ConfigEntry entries = 3;
+  uint32 hidden_count = 4;
+  bool truncated = 5;
+  ConfigViewReason reason = 6;
 }
