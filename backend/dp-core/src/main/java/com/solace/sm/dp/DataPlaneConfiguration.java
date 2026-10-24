@@ -29,6 +29,7 @@ import com.solace.sm.dp.health.HealthConfiguration;
 import com.solace.sm.dp.home.HomeConfiguration;
 import com.solace.sm.dp.inventory.InventoryConfiguration;
 import com.solace.sm.dp.inventory.TargetAddressConfiguration;
+import com.solace.sm.dp.configview.ConfigViewConfiguration;
 import com.solace.sm.dp.logs.LogConfiguration;
 import com.solace.sm.dp.logs.LogLevelConfiguration;
 import com.solace.sm.dp.meshbridge.MeshBridgeConfiguration;
@@ -87,6 +88,6 @@ import org.springframework.context.annotation.Import;
         QueryPersistenceConfiguration.class, MetricsQueryConfiguration.class,
         BrokerConnectionPersistenceConfiguration.class, MeshbridgeIngestConfiguration.class,
         MetricsPushConfiguration.class, TargetAddressConfiguration.class, RetirementConfiguration.class,
-        ApplyScheduleConfiguration.class, AgentGatewayPortsConfiguration.class})
+        ApplyScheduleConfiguration.class, AgentGatewayPortsConfiguration.class, ConfigViewConfiguration.class})
 public class DataPlaneConfiguration {
 }
