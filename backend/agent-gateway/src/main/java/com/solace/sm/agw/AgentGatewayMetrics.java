@@ -25,6 +25,9 @@ public final class AgentGatewayMetrics {
     private final Counter creditsRegranted;
     private final Counter logRepliesIgnored;
     private final Counter logRequestTimeouts;
+    private final Counter configViewRepliesIgnored;
+    private final Counter configViewRepliesMalformed;
+    private final Counter configViewTimeouts;
     private final MeterRegistry registry;
     private final AtomicInteger activeSessions = new AtomicInteger();
     private final AtomicInteger creditsOutstanding = new AtomicInteger();
@@ -47,6 +50,9 @@ public final class AgentGatewayMetrics {
         creditsRegranted = registry.counter("agw_credits_unsolicited_total");
         logRepliesIgnored = registry.counter("agw_log_replies_ignored_total");
         logRequestTimeouts = registry.counter("agw_log_request_timeouts_total");
+        configViewRepliesIgnored = registry.counter("agw_config_view_replies_ignored_total");
+        configViewRepliesMalformed = registry.counter("agw_config_view_replies_malformed_total");
+        configViewTimeouts = registry.counter("agw_config_view_timeouts_total");
         Gauge.builder("agw_sessions_active", activeSessions, AtomicInteger::get).register(registry);
         Gauge.builder("agw_credits_outstanding", creditsOutstanding, AtomicInteger::get).register(registry);
     }
@@ -83,6 +89,11 @@ public final class AgentGatewayMetrics {
     /** A log reply or chunk for a request id this gateway does not hold for that agent (late, duplicate, or another agent's). */
     public void logReplyIgnored() { logRepliesIgnored.increment(); }
     public void logRequestTimedOut() { logRequestTimeouts.increment(); }
+    /** Plan 017: a config view reply for no pending request of that session (unknown, finished, or another session's id). */
+    public void configViewReplyIgnored() { configViewRepliesIgnored.increment(); }
+    /** Plan 017: a config view reply outside the contract's shape; nothing of it is kept. */
+    public void configViewReplyMalformed() { configViewRepliesMalformed.increment(); }
+    public void configViewTimedOut() { configViewTimeouts.increment(); }
     public void creditsRegranted() { creditsRegranted.increment(); }
     public void creditsChanged(int delta) {
         creditsOutstanding.updateAndGet(value -> Math.max(0, value + delta));

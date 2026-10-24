@@ -82,6 +82,8 @@ public final class AgentGatewayService extends AgentGatewayGrpc.AgentGatewayImpl
     private final AdmissionLimiter admission;
     /** Plan 016 task 7: log requests, their replies and the Logs stream (in memory only). */
     private final AgentLogBroker logs;
+    /** Plan 017 task 4: config view requests and their replies on the Connect stream (in memory only, one per agent). */
+    private final AgentConfigViewBroker configViews;
 
     public AgentGatewayService(AgentGatewayPortSet ports, AgentGatewayProperties properties,
             ScheduledExecutorService scheduler) {
@@ -111,6 +113,7 @@ public final class AgentGatewayService extends AgentGatewayGrpc.AgentGatewayImpl
         this.admission = new AdmissionLimiter(properties);
         this.logs = new AgentLogBroker(agent -> activeSessions.get(agent), () -> new ArrayList<>(activeSessions.keySet()),
                 scheduler, properties, metrics);
+        this.configViews = new AgentConfigViewBroker(agent -> activeSessions.get(agent), properties::getConfigViewDeadline, metrics);
         this.pollers = Executors.newFixedThreadPool(Math.max(1, properties.getPollThreads()), task -> {
             Thread thread = new Thread(task, "agent-gateway-poll");
             thread.setDaemon(true);
@@ -313,6 +316,9 @@ public final class AgentGatewayService extends AgentGatewayGrpc.AgentGatewayImpl
 
     /** The log port the data plane's reads call (plan 016 task 7); the gateway implements it over its live sessions. */
     public com.solace.sm.dp.api.agw.AgentLogPort logPort() { return logs; }
+
+    /** What the data plane's config view calls (plan 017 task 4): the live sessions are this process's. */
+    public com.solace.sm.dp.api.agw.AgentConfigViewPort configViewPort() { return configViews; }
 
     /**
      * The {@code Logs} stream, opened by an agent after its {@code SessionAccept} when it advertised log capability. Refused unless the
@@ -529,7 +535,7 @@ public final class AgentGatewayService extends AgentGatewayGrpc.AgentGatewayImpl
     /** Number of live agent sessions on this gateway. */
     public int liveSessions() { return activeSessions.size(); }
 
-    private final class ConnectSession implements StreamObserver<AgentToGateway>, AgentLogBroker.Link {
+    private final class ConnectSession implements StreamObserver<AgentToGateway>, AgentLogBroker.Link, AgentConfigViewBroker.Link {
         private final StreamObserver<GatewayToAgent> response;
         private volatile AgentSessionRef session;
         private AgentIdentity identity;
@@ -621,6 +627,7 @@ public final class AgentGatewayService extends AgentGatewayGrpc.AgentGatewayImpl
                 else if (message.hasDiscoveryReport()) discover(message.getDiscoveryReport());
                 else if (message.hasHeartbeat()) heartbeat(message.getHeartbeat());
                 else if (message.hasDrainComplete()) drainComplete(message.getDrainComplete());
+                else if (message.hasConfigViewReply()) configViews.onReply(session, message.getConfigViewReply());
                 else if (message.hasTeardown()) onCompleted();
             } catch (AdmissionRefused limited) {
                 metrics.admissionRejected(limited.reason.name().toLowerCase(java.util.Locale.ROOT));
@@ -933,6 +940,7 @@ public final class AgentGatewayService extends AgentGatewayGrpc.AgentGatewayImpl
             }
             leasePlacements = Set.copyOf(grant.placementIds());
             logs.placementsLeft(session, leasePlacements);
+            configViews.placementsLeft(session, leasePlacements);
             response.onNext(GatewayToAgent.newBuilder().setLeaseGrant(lease(grant)).build());
             sendDeclarations();
         }
@@ -1094,6 +1102,7 @@ public final class AgentGatewayService extends AgentGatewayGrpc.AgentGatewayImpl
             metrics.leaseReissued();
             leasePlacements = Set.copyOf(grant.placementIds());
             logs.placementsLeft(session, leasePlacements);
+            configViews.placementsLeft(session, leasePlacements);
             send(GatewayToAgent.newBuilder().setLeaseGrant(lease(grant)).build());
             sendDeclarations();
         }
@@ -1176,6 +1185,7 @@ public final class AgentGatewayService extends AgentGatewayGrpc.AgentGatewayImpl
             }
             if (session != null && accepted) {
                 logs.sessionClosed(session);
+                configViews.sessionClosed(session);
                 activeSessions.remove(session.agentId(), this);
                 metrics.sessionReleased();
             }

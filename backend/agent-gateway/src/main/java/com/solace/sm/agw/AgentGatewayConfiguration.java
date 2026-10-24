@@ -86,6 +86,12 @@ public class AgentGatewayConfiguration {
         return service.logPort();
     }
 
+    /** What the data plane's config view calls (plan 017 task 4): the gateway implements the port over this process's live sessions. */
+    @Bean
+    com.solace.sm.dp.api.agw.AgentConfigViewPort agentConfigViewPort(AgentGatewayService service) {
+        return service.configViewPort();
+    }
+
     /** What the console's {@code drainAgent} calls (plan 015 T4.3): the live session map is this process's, so the seam is a port. */
     @Bean
     com.solace.sm.dp.api.agw.AgentDrainPort agentDrainRequester(AgentGatewayService service) {

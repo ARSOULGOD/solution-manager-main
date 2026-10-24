@@ -58,6 +58,14 @@ public class AgentGatewayProperties {
      * allows 4 by default and answers more with BUSY itself (plan 016 spec 4.2 note 5), so keep this at or below the agent's bound.
      */
     private int logMaxInFlightPerAgent = 4;
+    /**
+     * How long a config view request (plan 017) waits for the agent's reply, counted from the moment it is on the wire. An agent that
+     * predates the request never answers it, so this is also how long such an agent's view takes to come back UNAVAILABLE.
+     */
+    private Duration configViewDeadline = Duration.ofSeconds(10);
+
+    public Duration getConfigViewDeadline() { return configViewDeadline; }
+    public void setConfigViewDeadline(Duration configViewDeadline) { this.configViewDeadline = configViewDeadline; }
 
     public int getLogMaxInFlightPerAgent() { return logMaxInFlightPerAgent; }
     public void setLogMaxInFlightPerAgent(int logMaxInFlightPerAgent) { this.logMaxInFlightPerAgent = logMaxInFlightPerAgent; }
@@ -154,6 +162,10 @@ public class AgentGatewayProperties {
         if (pollBatchSize < 1 || pollBatchSize > 1000) throw new IllegalArgumentException("poll-batch-size is invalid");
         if (initialTelemetryCredits < 0) throw new IllegalArgumentException("initial-telemetry-credits is invalid");
         if (logMaxInFlightPerAgent < 1 || logMaxInFlightPerAgent > 64) throw new IllegalArgumentException("log-max-in-flight-per-agent is invalid");
+        if (configViewDeadline == null || configViewDeadline.compareTo(Duration.ofMillis(100)) < 0
+                || configViewDeadline.compareTo(Duration.ofMinutes(5)) > 0) {
+            throw new IllegalArgumentException("sm.agent.gateway.config-view-deadline must be between 100ms and 5m");
+        }
         if (maxMessageBytes < 1024) throw new IllegalArgumentException("max-message-bytes is invalid");
         if (certificateFile.isBlank() || privateKeyFile.isBlank() || trustBundleFile.isBlank()) {
             throw new IllegalArgumentException("TLS certificate, key and trust bundle are required when the gateway is enabled");
