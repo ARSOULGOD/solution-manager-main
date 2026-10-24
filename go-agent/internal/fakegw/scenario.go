@@ -194,6 +194,9 @@ type Step struct {
 	ExpectLogPage   *ExpectLogPageStep   `yaml:"expect_log_page"`
 	ExpectLogChunks *ExpectLogChunksStep `yaml:"expect_log_chunks"`
 
+	// Plan 017: MI config view; sent to any session (no capability).
+	ConfigViewRequest *ConfigViewRequestStep `yaml:"config_view_request"`
+
 	// Hold is a test-only barrier: the runner calls it and continues when it
 	// returns. It cannot be written in a scenario file.
 	Hold func() `yaml:"-"`

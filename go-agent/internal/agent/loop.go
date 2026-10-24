@@ -71,6 +71,9 @@ type Deps struct {
 	OnDropped    func(int)
 
 	Logs LogsRole // nil: no logs role
+
+	// ConfigView answers MI config view requests (plan 017); nil: none.
+	ConfigView ConfigViewRole
 }
 
 // LogsStream is the Logs RPC as the logs role uses it; *wire.LogsStream
@@ -279,6 +282,10 @@ func (l *Loop) Run(ctx context.Context) error {
 				if l.logsOn {
 					l.d.Logs.Request(m) // queued: the role serves it off the loop
 				}
+			case msg.ConfigViewRequest:
+				if l.d.ConfigView != nil {
+					l.serveConfigView(ctx, m) // answered off the loop; see configViewDone
+				}
 			}
 		}
 		// l.mu covers the Reduce call itself, not just the state swap: the
@@ -391,6 +398,13 @@ func (l *Loop) translate(raw reactor.Event) (reactor.Event, bool) {
 		}
 		l.closeConn(false) // the peer dropped us: stop the writer too, never just dereference
 		return reactor.Disconnected{At: e.at, Cause: e.err}, true
+	case configViewDone:
+		// The one reply per request, written here because only this goroutine
+		// may use sendCh. A reply for a connection that is gone cannot be sent.
+		if e.gen == l.connGen && l.conn != nil {
+			l.sendCh <- e.reply
+		}
+		return nil, false
 	default:
 		return raw, true
 	}

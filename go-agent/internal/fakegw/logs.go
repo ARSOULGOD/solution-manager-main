@@ -244,3 +244,40 @@ func timeoutOr(d time.Duration) time.Duration {
 	}
 	return d
 }
+
+// ---- MI config view (plan 017) ----
+//
+// ConfigViewRequest rides Connect and needs no capability, so it is sent to
+// any live session; the agent's ConfigViewReply lands in the transcript.
+
+// ConfigViewRequestStep sends a ConfigViewRequest. An empty RequestID becomes
+// "cv-<n>" for the session.
+type ConfigViewRequestStep struct {
+	Placement string   `yaml:"placement"`
+	RequestID string   `yaml:"request_id"`
+	Allow     []string `yaml:"allow"`
+	MaxBytes  uint32   `yaml:"max_bytes"`
+}
+
+func (ss *session) sendConfigView(st ConfigViewRequestStep) {
+	id := st.RequestID
+	if id == "" {
+		ss.logSeq++
+		id = fmt.Sprintf("cv-%d", ss.logSeq)
+	}
+	<-ss.accepted
+	ss.send(msg.ConfigViewRequest{RequestID: id, PlacementID: st.Placement, Allow: st.Allow, MaxBytes: st.MaxBytes})
+}
+
+// RequestConfigView sends a ConfigViewRequest to the live agent.
+func (s *Server) RequestConfigView(r msg.ConfigViewRequest) error {
+	s.mu.Lock()
+	ss := s.live
+	s.mu.Unlock()
+	if ss == nil {
+		return ErrNoAgent
+	}
+	<-ss.accepted
+	ss.send(r)
+	return nil
+}

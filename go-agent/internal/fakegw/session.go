@@ -483,6 +483,8 @@ func (ss *session) runStep(st Step) bool {
 		if ss.logs || st.LogRequest.Force {
 			ss.sendLogRequest(r)
 		}
+	case st.ConfigViewRequest != nil:
+		ss.sendConfigView(*st.ConfigViewRequest)
 	case st.ExpectLogPage != nil:
 		return ss.expectLogPage(*st.ExpectLogPage)
 	case st.ExpectLogChunks != nil:

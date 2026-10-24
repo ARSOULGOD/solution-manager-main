@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -80,6 +81,35 @@ func Current(hostPath string) (hash string, exists bool, err error) {
 		return "", false, err
 	}
 	return SHA256(b), true, nil
+}
+
+// ErrNotRegular: the target exists but is not a regular file.
+var ErrNotRegular = errors.New("configwriter: target is not a regular file")
+
+// ReadChecked reads at most limit+1 bytes of the file at hostPath after the
+// same symlink-escape refusal as Write (checkPath). A result longer than limit
+// means the file is oversized; the caller refuses it. A non-regular file
+// (FIFO, device, directory) is refused before it is opened. The content is
+// never logged.
+func ReadChecked(hostPath string, limit int64) ([]byte, error) {
+	dir, base, err := checkPath(hostPath)
+	if err != nil {
+		return nil, err
+	}
+	real := filepath.Join(dir, base)
+	fi, err := os.Lstat(real)
+	if err != nil {
+		return nil, err
+	}
+	if !fi.Mode().IsRegular() {
+		return nil, ErrNotRegular
+	}
+	f, err := os.Open(real)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return io.ReadAll(io.LimitReader(f, limit+1))
 }
 
 var ErrTargetMoved = errors.New("configwriter: the target is not the expected current file")

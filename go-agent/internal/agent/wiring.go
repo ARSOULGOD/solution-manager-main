@@ -134,6 +134,9 @@ func Build(bc BuildConfig) (*Loop, *store.Store, error) {
 		}
 		deps.Logs = newLogsRole(s, lc, src, newUUIDv7, bc.Log)
 	}
+	if adapter != nil {
+		deps.ConfigView = newConfigViewRole(adapter, bc.Log)
+	}
 	l := New(deps, st)
 	if adapter != nil {
 		l.d.Ops = &opRunner{adapter: adapter, store: s, push: l.Push, now: l.d.Now, offset: l.d.Offset, probe: decls.Probe}
