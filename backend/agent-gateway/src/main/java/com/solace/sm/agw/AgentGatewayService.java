@@ -555,6 +555,8 @@ public final class AgentGatewayService extends AgentGatewayGrpc.AgentGatewayImpl
         private final CompletableFuture<Boolean> drained = new CompletableFuture<>();
         /** Plan 016: the agent advertised CAPABILITY_LOGS at SessionOpen (accepting the session accepts it; there is no per-capability field). */
         private volatile boolean logsSupported;
+        /** Plan 017: the agent advertised CAPABILITY_CONFIG_VIEW at SessionOpen; only such a session is sent a config view request. */
+        private volatile boolean configViewSupported;
         /** The placements (binding ids) of the lease last sent: the only ones a log request or retention may name. */
         private volatile Set<UUID> leasePlacements = Set.of();
         /** The retention cap last sent for each placement, so a lease event re-sends only what changed. */
@@ -566,6 +568,7 @@ public final class AgentGatewayService extends AgentGatewayGrpc.AgentGatewayImpl
 
         @Override public AgentSessionRef ref() { return session; }
         @Override public boolean logsSupported() { return logsSupported; }
+        @Override public boolean configViewSupported() { return configViewSupported; }
         @Override public boolean inLease(UUID placementId) { return leasePlacements.contains(placementId); }
 
         @Override public synchronized boolean sendMessage(GatewayToAgent message) {
@@ -717,6 +720,7 @@ public final class AgentGatewayService extends AgentGatewayGrpc.AgentGatewayImpl
             this.claimed = true;
             this.features = sessionOpening(open).features();
             this.logsSupported = open.getCapabilitiesSupportedList().contains(AgentGatewayOuterClass.Capability.CAPABILITY_LOGS);
+            this.configViewSupported = open.getCapabilitiesSupportedList().contains(AgentGatewayOuterClass.Capability.CAPABILITY_CONFIG_VIEW);
             LeaseGrant lease;
             try {
                 // current() never returns a grant from the data plane's store (only the nonce digest is kept): any lease row means

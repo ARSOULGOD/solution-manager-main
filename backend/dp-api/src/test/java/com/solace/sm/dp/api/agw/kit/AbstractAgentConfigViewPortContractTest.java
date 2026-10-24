@@ -31,8 +31,14 @@ public abstract class AbstractAgentConfigViewPortContractTest {
 
     protected abstract AgentConfigViewPort port();
 
-    /** Opens a live accepted session for a new agent; its lease names {@link #leasedPlacement()}. */
+    /**
+     * Opens a live accepted session for a new agent that can answer config views (it advertised the capability); its lease names
+     * {@link #leasedPlacement()} and {@link #secondLeasedPlacement()}.
+     */
     protected abstract void connect(String label);
+
+    /** As {@link #connect}, but the agent did not say it can answer config views (an older agent, or one without the role). */
+    protected abstract void connectWithoutConfigView(String label);
 
     /** Ends the agent's session (its stream closes). */
     protected abstract void disconnect(String label);
@@ -42,6 +48,9 @@ public abstract class AbstractAgentConfigViewPortContractTest {
 
     /** A placement every connected agent holds in its lease. */
     protected abstract String leasedPlacement();
+
+    /** A second placement every connected agent holds, which {@link #placementLeavesLease} leaves in the lease. */
+    protected abstract String secondLeasedPlacement();
 
     /** A placement no agent holds. */
     protected abstract String unleasedPlacement();
@@ -55,7 +64,7 @@ public abstract class AbstractAgentConfigViewPortContractTest {
     /** The agent {@code label} answers {@code requestId} with a refusal over its own session. */
     protected abstract void agentRefuses(String label, String requestId, Reason reason);
 
-    /** A permission change takes {@link #leasedPlacement()} out of the agent's lease. */
+    /** A permission change takes {@link #leasedPlacement()} out of the agent's lease; {@link #secondLeasedPlacement()} stays. */
     protected abstract void placementLeavesLease(String label);
 
     /** How long the implementation waits for a reply. Short in a test (the timeout case waits it out). */
@@ -68,6 +77,15 @@ public abstract class AbstractAgentConfigViewPortContractTest {
     @AfterEach
     void stopCallers() {
         callers.shutdownNow();
+    }
+
+    /** Proves the agent's slot is free: a new request (for {@code placement}) is sent, not refused BUSY, then answered. */
+    private void assertSlotFree(String label, String placement) throws Exception {
+        int before = requestsReceivedBy(label).size();
+        CompletableFuture<AgentConfigView> probe = readAsync(label, placement);
+        String id = awaitRequest(label, before + 1);
+        agentRepliesOk(label, id, List.of(), 0, false);
+        assertEquals(Status.OK, await(probe).status(), "the agent's slot was released");
     }
 
     private CompletableFuture<AgentConfigView> readAsync(String label, String placement) {
@@ -93,13 +111,8 @@ public abstract class AbstractAgentConfigViewPortContractTest {
 
     private long waitBound() { return deadline().toMillis() + 5_000; }
 
-    /** Proves the agent's slot is free: a new request is sent (not refused BUSY), then answered so it holds nothing either. */
     private void assertSlotFree(String label) throws Exception {
-        int before = requestsReceivedBy(label).size();
-        CompletableFuture<AgentConfigView> probe = readAsync(label, leasedPlacement());
-        String id = awaitRequest(label, before + 1);
-        agentRepliesOk(label, id, List.of(), 0, false);
-        assertEquals(Status.OK, await(probe).status(), "the agent's slot was released");
+        assertSlotFree(label, leasedPlacement());
     }
 
     @Test
@@ -186,8 +199,15 @@ public abstract class AbstractAgentConfigViewPortContractTest {
         placementLeavesLease("a");
         AgentConfigView got = view.get(Math.max(1, deadline().toMillis() / 2), TimeUnit.MILLISECONDS);
         assertEquals(AgentConfigView.refused(Reason.PLACEMENT_NOT_IN_LEASE), got, "it does not wait out its deadline");
-        assertEquals(AgentConfigView.refused(Reason.PLACEMENT_NOT_IN_LEASE), readNow("a", leasedPlacement()),
-                "refused for the lease, not BUSY: the slot was released");
+        // The placement that stayed is asked at once: a slot leaked by the ended view would make this BUSY and send nothing.
+        assertSlotFree("a", secondLeasedPlacement());
+    }
+
+    @Test
+    void anAgentThatCannotAnswerConfigViewsIsUnavailableAndIsSentNothing() {
+        connectWithoutConfigView("old");
+        assertEquals(AgentConfigView.unavailable(), readNow("old", leasedPlacement()));
+        assertTrue(requestsReceivedBy("old").isEmpty(), "an agent that did not advertise the capability is never sent the request");
     }
 
     @Test

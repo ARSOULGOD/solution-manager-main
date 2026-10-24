@@ -30,6 +30,8 @@ import solace.sm.agentgateway.v1draft.AgentGatewayOuterClass.GatewayToAgent;
  *
  * <p>Rules it keeps:
  * <ul>
+ *   <li>A request goes only to a session that advertised {@code CAPABILITY_CONFIG_VIEW} and whose lease names the placement;
+ *       an older agent's decoder ends the Connect stream on a message it does not know.</li>
  *   <li>At most one view in flight per agent; a second is {@code BUSY} and is not sent.</li>
  *   <li>The deadline starts only once the request is on the wire (a send can wait on the session's monitor).</li>
  *   <li>Every exit (reply, deadline, refusal, malformed reply, send failure, the placement leaving the lease, the session ending,
@@ -47,6 +49,8 @@ final class AgentConfigViewBroker implements AgentConfigViewPort {
     interface Link {
         AgentSessionRef ref();
         boolean inLease(UUID placementId);
+        /** The agent advertised {@code CAPABILITY_CONFIG_VIEW}: an agent that did not would end its stream on the unknown message. */
+        boolean configViewSupported();
         /** Sends on the Connect stream; false when it cannot (closed). Serialised with the session's other sends. */
         boolean sendMessage(GatewayToAgent message);
     }
@@ -79,10 +83,25 @@ final class AgentConfigViewBroker implements AgentConfigViewPort {
         AgentSessionRef ref = link == null ? null : link.ref();
         if (ref == null) return AgentConfigView.unavailable();
         if (!link.inLease(placement)) return AgentConfigView.refused(Reason.PLACEMENT_NOT_IN_LEASE);
+        if (!link.configViewSupported()) return AgentConfigView.unavailable();
 
         Pending request = new Pending(UUID.randomUUID().toString(), ref, placement);
         if (byAgent.putIfAbsent(agent, request) != null) return AgentConfigView.busy();
         byId.put(request.id, request);
+        try {
+            return await(link, request, placement, patterns, maxBytes);
+        } finally {
+            release(request);      // a no-op after any normal exit; frees the slot on an unexpected one (an Error, say)
+        }
+    }
+
+    private AgentConfigView await(Link link, Pending request, UUID placement, List<String> patterns, int maxBytes) {
+        // The lease can narrow between the check above and the admit, and placementsLeft would have run before this request was
+        // in the table: look again now that it is.
+        if (!link.inLease(placement)) {
+            if (release(request)) return AgentConfigView.refused(Reason.PLACEMENT_NOT_IN_LEASE);
+            return request.future.join();
+        }
         // Registered before the send, so a reply that beats sendMessage's return still finds its request.
         GatewayToAgent message = GatewayToAgent.newBuilder().setConfigViewRequest(AgentGatewayOuterClass.ConfigViewRequest.newBuilder()
                 .setRequestId(request.id).setPlacementId(placement.toString()).addAllAllow(patterns).setMaxBytes(maxBytes)).build();

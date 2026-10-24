@@ -32,8 +32,15 @@ class AgentConfigViewBrokerTest {
         final List<GatewayToAgent> sent = new CopyOnWriteArrayList<>();
         volatile Set<UUID> lease = Set.of(PLACEMENT);
         volatile Predicate<GatewayToAgent> onSend = m -> true;
+        volatile boolean configView = true;
+        /** Runs on each lease check, before it is answered (a test narrows the lease from here). */
+        volatile Runnable onLeaseCheck = () -> { };
         @Override public AgentSessionRef ref() { return REF; }
-        @Override public boolean inLease(UUID placementId) { return lease.contains(placementId); }
+        @Override public boolean inLease(UUID placementId) {
+            onLeaseCheck.run();
+            return lease.contains(placementId);
+        }
+        @Override public boolean configViewSupported() { return configView; }
         @Override public boolean sendMessage(GatewayToAgent message) {
             sent.add(message);
             return onSend.test(message);
@@ -175,5 +182,43 @@ class AgentConfigViewBrokerTest {
         assertEquals(AgentConfigView.unavailable(), result.get());
         assertEquals(Boolean.TRUE, interrupted.get());
         assertEquals(0, broker.inFlight());
+    }
+
+    @Test
+    void anAgentThatDidNotAdvertiseTheCapabilityIsUnavailableAndIsSentNothing() {
+        FakeLink link = new FakeLink();
+        link.configView = false;
+        AgentConfigViewBroker broker = broker(link, Duration.ofSeconds(10));
+        assertEquals(AgentConfigView.unavailable(), broker.read(TENANT, AGENT.toString(), PLACEMENT.toString(), List.of(), 10));
+        assertTrue(link.sent.isEmpty());
+        assertEquals(0, broker.inFlight());
+    }
+
+    @Test
+    void aLeaseThatNarrowsBetweenTheCheckAndTheAdmitIsRefusedAndNothingIsSent() {
+        FakeLink link = new FakeLink();
+        java.util.concurrent.atomic.AtomicInteger checks = new java.util.concurrent.atomic.AtomicInteger();
+        // The first check sees the placement; the lease is narrowed right after it, as a re-issue racing the read would.
+        link.onLeaseCheck = () -> { if (checks.incrementAndGet() == 2) link.lease = Set.of(); };
+        AgentConfigViewBroker broker = broker(link, Duration.ofSeconds(10));
+        assertEquals(AgentConfigView.refused(Reason.PLACEMENT_NOT_IN_LEASE),
+                broker.read(TENANT, AGENT.toString(), PLACEMENT.toString(), List.of(), 10));
+        assertTrue(link.sent.isEmpty(), "the request is not sent for a placement that already left");
+        assertEquals(0, broker.inFlight());
+    }
+
+    /** An unexpected failure of the send. */
+    private static final class SendBroke extends Error {
+        SendBroke() { super("send broke"); }
+    }
+
+    @Test
+    void anUnexpectedErrorFromTheSendStillReleasesTheSlot() {
+        FakeLink link = new FakeLink();
+        link.onSend = m -> { throw new SendBroke(); };
+        AgentConfigViewBroker broker = broker(link, Duration.ofSeconds(10));
+        org.junit.jupiter.api.Assertions.assertThrows(SendBroke.class,
+                () -> broker.read(TENANT, AGENT.toString(), PLACEMENT.toString(), List.of(), 10));
+        assertEquals(0, broker.inFlight(), "an Error is rethrown, but the slot is not leaked");
     }
 }

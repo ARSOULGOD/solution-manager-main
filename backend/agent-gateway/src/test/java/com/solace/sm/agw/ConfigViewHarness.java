@@ -21,8 +21,19 @@ final class ConfigViewHarness implements AutoCloseable {
         });
     }
 
+    /** A second placement every connected agent's lease names besides {@link AgentGatewayServiceTest.Ports#PLACEMENT}. */
+    static final java.util.UUID SECOND = java.util.UUID.nameUUIDFromBytes("second-placement".getBytes());
+
+    /** Connects an agent that advertises CAPABILITY_CONFIG_VIEW, as one with the config-view role does; every lease names both placements. */
     void connect(String label) {
+        fleet.connect(label, "test", List.of(AgentGatewayOuterClass.Capability.CAPABILITY_CONFIG_VIEW), "198.51.100.7");
+        reissueLeases(List.of(AgentGatewayServiceTest.Ports.PLACEMENT, SECOND));
+    }
+
+    /** Connects an agent that did not advertise the capability (an older agent, or one without the role). */
+    void connectWithoutConfigView(String label) {
         fleet.connect(label, "test", List.of(), "198.51.100.7");
+        reissueLeases(List.of(AgentGatewayServiceTest.Ports.PLACEMENT, SECOND));
     }
 
     void disconnect(String label) {
@@ -53,13 +64,18 @@ final class ConfigViewHarness implements AutoCloseable {
                 .setReason(AgentGatewayOuterClass.ConfigViewReason.valueOf("CONFIG_VIEW_REASON_" + reason.name())).build());
     }
 
-    /** A permission change re-issues every session's lease with no placements. */
-    void emptyLeases() {
-        LeaseGrant narrower = new LeaseGrant(AgentGatewayServiceTest.Ports.id("agent-1"), "any", AgentGatewayServiceTest.Ports.TARGET,
-                List.of(), 1, 1, Instant.now(), Instant.now().plusSeconds(300), "dp", "nonce-2", List.of(AgentCapability.LIFECYCLE),
-                Map.of(), Duration.ZERO, Instant.now());
+    /** A permission change takes {@link AgentGatewayServiceTest.Ports#PLACEMENT} out of every session's lease; {@link #SECOND} stays. */
+    void dropFirstPlacement() {
+        reissueLeases(List.of(SECOND));
+    }
+
+    /** A permission change re-issues every live session's lease naming exactly {@code placements}. */
+    void reissueLeases(List<java.util.UUID> placements) {
+        LeaseGrant grant = new LeaseGrant(AgentGatewayServiceTest.Ports.id("agent-1"), "any", AgentGatewayServiceTest.Ports.TARGET,
+                placements, 1, 1, Instant.now(), Instant.now().plusSeconds(300), "dp", "nonce-" + java.util.UUID.randomUUID(),
+                List.of(AgentCapability.LIFECYCLE), Map.of(), Duration.ZERO, Instant.now());
         fleet.ports.reconciler = sessions -> sessions.stream().map(x -> new IdentityReconciliation(x,
-                IdentityReconciliation.Status.REISSUED, narrower, 1, 1)).toList();
+                IdentityReconciliation.Status.REISSUED, grant, 1, 1)).toList();
         fleet.service.reconcileSessions();
     }
 

@@ -27,9 +27,11 @@ class AgentConfigViewPortGatewayContractTest extends AbstractAgentConfigViewPort
 
     @Override protected AgentConfigViewPort port() { return harness.fleet.service.configViewPort(); }
     @Override protected void connect(String label) { harness.connect(label); }
+    @Override protected void connectWithoutConfigView(String label) { harness.connectWithoutConfigView(label); }
     @Override protected void disconnect(String label) { harness.disconnect(label); }
     @Override protected String agentId(String label) { return harness.agentId(label); }
     @Override protected String leasedPlacement() { return AgentGatewayServiceTest.Ports.PLACEMENT.toString(); }
+    @Override protected String secondLeasedPlacement() { return ConfigViewHarness.SECOND.toString(); }
     @Override protected String unleasedPlacement() { return UUID.nameUUIDFromBytes("not-leased".getBytes()).toString(); }
     @Override protected List<String> requestsReceivedBy(String label) {
         return harness.requests(label).stream().map(AgentGatewayOuterClass.ConfigViewRequest::getRequestId).toList();
@@ -41,6 +43,6 @@ class AgentConfigViewPortGatewayContractTest extends AbstractAgentConfigViewPort
     @Override protected void agentRefuses(String label, String requestId, AgentConfigView.Reason reason) {
         harness.refuse(label, requestId, reason);
     }
-    @Override protected void placementLeavesLease(String label) { harness.emptyLeases(); }
+    @Override protected void placementLeavesLease(String label) { harness.dropFirstPlacement(); }
     @Override protected Duration deadline() { return DEADLINE; }
 }
