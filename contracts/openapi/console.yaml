@@ -3407,14 +3407,17 @@ paths:
       summary: View the allow-listed keys of one agent placement's configuration file
       description: |
         Returns the keys of the managed integration's live `application.yml` on one **agent** (`host-local`) placement that
-        are on the data plane's allow-list (`sm.dp.config-view.allow`; default `server.port`, `management.*`, `logging.*`,
-        `info.*`, where a trailing `.*` matches a whole subtree), as dotted key paths (`a.b[0].c`) with their scalar values.
+        are on the data plane's allow-list (`sm.dp.config-view.allow`; default `server.port`, `management.server.port`,
+        `management.endpoints.*`, `management.endpoint.*`, `logging.*`, `info.*`, where a trailing `.*` matches a whole
+        subtree), as dotted key paths (`a.b[0].c`) with their scalar values.
         **Every other key is hidden on the host**, before anything crosses the wire: it is counted in `hiddenCount` and never
         named. The data plane re-checks the agent's answer against the list it sent and discards the whole answer if any key is
         off it. `truncated` is `true` when the agent cut the list at its key cap. Read-only: nothing on the host changes.
 
-        ⚠️ A value under a listed prefix is shown as it is; the allow-list is the control, and the default list holds no
-        prefix known to carry secrets. Requires `config.view` at the instance, the same verb as reading the Designer.
+        ⚠️ A value under a listed prefix is shown as it is; the allow-list is the control. The default deliberately does
+        not list `management.*`, whose vendor metrics-export subtrees hold credentials (`management.datadog.metrics.export.api-key`,
+        `management.influx.metrics.export.password`, `management.otlp.metrics.export.headers.*` and siblings); `info.*` is
+        free-form. Requires `config.view` at the instance, the same verb as reading the Designer.
 
         No response, error or log line names a file path, host, container, a key outside `entries`, or the allow-list.
         `404` is the same body for an unknown, foreign or retired placement, an instance that is not visible, and a
@@ -3436,7 +3439,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
         '413':
-          description: "`CONFIG_TOO_LARGE` — the file is larger than `sm.dp.config-view.max-bytes` (default 256 KiB) or has more keys than the agent returns. `detail` is fixed text. Nothing of it is returned."
+          description: "`CONFIG_TOO_LARGE` — the file, or its allow-listed output, is larger than the effective limit (the smaller of `sm.dp.config-view.max-bytes`, default 256 KiB, and the agent's 1 MiB hard cap), or has more keys than the agent's limits allow. `detail` is fixed text. Nothing of it is returned."
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
@@ -6567,7 +6570,7 @@ components:
             properties:
               path: { type: string, description: 'Dotted key path, list indexes in brackets (`a.b[0].c`).' }
               value: { type: string, description: The scalar value as text. }
-        hiddenCount: { type: integer, minimum: 0, description: Keys in the file that are not on the allow-list. }
+        hiddenCount: { type: integer, minimum: 0, description: "Scalar keys in the file that were not returned: not on the allow-list, or dropped at the agent's key cap." }
         truncated: { type: boolean, description: '`true` when the agent cut `entries` at its key cap.' }
 
     LogPage:

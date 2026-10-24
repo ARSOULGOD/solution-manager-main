@@ -26,9 +26,11 @@ import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,9 +69,9 @@ public final class AgentConfigViewService implements ConfigViewService, AutoClos
     static final int MAX_ALLOW_ENTRIES = 64;
     /** The longest allow-list entry. */
     static final int MAX_PATTERN_LENGTH = 256;
-    /** The bounds of {@code maxBytes}: at least 1 KiB, at most 4 MiB (well under the gateway's message limit). */
+    /** The bounds of {@code maxBytes}: at least 1 KiB, at most 1 MiB (the go-agent's hard cap on the file it reads). */
     static final int MIN_MAX_BYTES = 1024;
-    static final int MAX_MAX_BYTES = 4 * 1024 * 1024;
+    static final int MAX_MAX_BYTES = 1024 * 1024;
     /** The longest the caller may be told to wait. */
     static final Duration MAX_TIMEOUT = Duration.ofMinutes(1);
     /** The most views in flight that may be configured. */
@@ -89,6 +91,13 @@ public final class AgentConfigViewService implements ConfigViewService, AutoClos
 
     public AgentConfigViewService(PlacementRows placements, PlacementTransports transports, AgentPlacementCatalog agents,
             AgentConfigViewPort port, List<String> allow, Duration timeout, int maxBytes, int maxConcurrent) {
+        this(placements, transports, agents, port, allow, timeout, maxBytes, maxConcurrent, null);
+    }
+
+    /** As above; {@code threads} replaces the pool's thread factory (tests only: it lets a test hold a task before it starts). */
+    AgentConfigViewService(PlacementRows placements, PlacementTransports transports, AgentPlacementCatalog agents,
+            AgentConfigViewPort port, List<String> allow, Duration timeout, int maxBytes, int maxConcurrent,
+            ThreadFactory threads) {
         this.placements = Objects.requireNonNull(placements, "placements");
         this.transports = Objects.requireNonNull(transports, "transports");
         this.agents = Objects.requireNonNull(agents, "agents");
@@ -108,14 +117,15 @@ public final class AgentConfigViewService implements ConfigViewService, AutoClos
             throw new IllegalArgumentException("concurrent config views must be between 1 and " + MAX_CONCURRENT);
         }
         this.slots = new Semaphore(maxConcurrent);
-        AtomicInteger threads = new AtomicInteger();
-        // Admission is the semaphore, released only when the port call returns, so the pool never holds more than maxConcurrent
-        // tasks: the queue is a hand-off for the instant between a task's release and its thread becoming idle, never a backlog.
-        this.pool = new ThreadPoolExecutor(maxConcurrent, maxConcurrent, 30, TimeUnit.SECONDS, new LinkedBlockingQueue<>(), r -> {
-            Thread t = new Thread(r, "sm-config-view-" + threads.incrementAndGet());
+        AtomicInteger count = new AtomicInteger();
+        ThreadFactory factory = threads != null ? threads : r -> {
+            Thread t = new Thread(r, "sm-config-view-" + count.incrementAndGet());
             t.setDaemon(true);
             return t;
-        });
+        };
+        // Admission is the semaphore, released exactly once per admitted view (by the task, or by the caller that cancelled it
+        // before it started), so the pool never holds more than maxConcurrent tasks: the queue is a hand-off, never a backlog.
+        this.pool = new ThreadPoolExecutor(maxConcurrent, maxConcurrent, 30, TimeUnit.SECONDS, new LinkedBlockingQueue<>(), factory);
         this.pool.allowCoreThreadTimeOut(true);
     }
 
@@ -210,9 +220,15 @@ public final class AgentConfigViewService implements ConfigViewService, AutoClos
         if (!slots.tryAcquire()) {
             return ConfigViewResult.refused(Reason.BUSY);
         }
+        // Exactly one side owns the permit: the task if it starts, else the caller that cancelled it while it was still queued
+        // (a cancelled FutureTask never runs its callable, so a release only in the task would leak the permit).
+        AtomicBoolean started = new AtomicBoolean();
         Future<AgentConfigView> call;
         try {
             call = pool.submit(() -> {
+                if (!started.compareAndSet(false, true)) {
+                    return null;                                           // the caller gave up first and owns the permit
+                }
                 try {
                     return port.read(organizationId.toString(), agentId, placementId.toString(), allow, maxBytes);
                 } finally {
@@ -227,10 +243,10 @@ public final class AgentConfigViewService implements ConfigViewService, AutoClos
         try {
             reply = call.get(timeout.plus(GRACE).toMillis(), TimeUnit.MILLISECONDS);
         } catch (TimeoutException e) {
-            call.cancel(true);
+            abandon(call, started);
             return ConfigViewResult.refused(Reason.AGENT_UNAVAILABLE);
         } catch (InterruptedException e) {
-            call.cancel(true);
+            abandon(call, started);
             Thread.currentThread().interrupt();
             return ConfigViewResult.refused(Reason.AGENT_UNAVAILABLE);
         } catch (ExecutionException e) {
@@ -240,6 +256,19 @@ public final class AgentConfigViewService implements ConfigViewService, AutoClos
             return ConfigViewResult.refused(Reason.BAD_GATEWAY);
         }
         return map(reply, placementId);
+    }
+
+    /** Cancels a view the caller no longer waits for; frees its permit if the task never started (it would never free it). */
+    private void abandon(Future<AgentConfigView> call, AtomicBoolean started) {
+        call.cancel(true);
+        if (started.compareAndSet(false, true)) {
+            slots.release();
+        }
+    }
+
+    /** Free admission slots (tests). */
+    int availableSlots() {
+        return slots.availablePermits();
     }
 
     private ConfigViewResult map(AgentConfigView reply, UUID placementId) {

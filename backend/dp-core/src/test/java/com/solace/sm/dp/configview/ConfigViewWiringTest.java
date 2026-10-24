@@ -74,7 +74,8 @@ class ConfigViewWiringTest {
             assertInstanceOf(ConfigViewResult.Ok.class, ctx.getBean(ConfigViewService.class)
                     .view(AgentConfigViewServiceTest.ORGANIZATION, AgentConfigViewServiceTest.INSTANCE, AgentConfigViewServiceTest.PLACEMENT));
         });
-        assertEquals(List.of(List.of("server.port", "management.*", "logging.*", "info.*")), port.allows);
+        assertEquals(List.of(List.of("server.port", "management.server.port", "management.endpoints.*", "management.endpoint.*",
+                "logging.*", "info.*")), port.allows);
         assertEquals(List.of(262_144), port.maxBytes);
     }
 

@@ -29,9 +29,9 @@ Data Plane (`sm.dp.config-view.*`, `ConfigViewConfiguration`):
 
 | Property | Default | Meaning |
 |---|---|---|
-| `allow` | `server.port,management.*,logging.*,info.*` | The allow list: comma-separated, 1 to 64 entries. |
+| `allow` | `server.port,management.server.port,management.endpoints.*,management.endpoint.*,logging.*,info.*` | The allow list: comma-separated, 1 to 64 entries. **Never `management.*`** (see [The allow list](#the-allow-list)). |
 | `timeout` | `10s` (must be > 0 and at most `1m`) | How long the DP waits for the agent. |
-| `max-bytes` | `262144` (1024 to 4194304) | The most the agent may read and return. |
+| `max-bytes` | `262144` (1024 to 1048576) | The most the agent may read and return. The ceiling is the agent's 1 MiB hard cap. |
 
 The DP's concurrency limit is a constant, `MAX_CONCURRENT_VIEWS = 8` (not a property): a ninth view in flight is `429`.
 
@@ -45,14 +45,24 @@ An invalid property fails startup. The message names the entry's position, never
 - **Owned by the DP and sent with every request.** The agent filters by it and the DP re-checks the reply; if one returned path
   is off the list the DP discards the **whole** reply (`502`). The agent bounds the list it accepts (256 patterns, 16 KiB
   total) and refuses a larger one.
-- **Entry forms.** An exact path (`server.port`) or a prefix wildcard ending in `.*` (`management.*`, which matches strictly
-  below `management.`, not `management` itself).
+- **Entry forms.** An exact path (`server.port`) or a prefix wildcard ending in `.*` (`management.endpoints.*`, which matches
+  strictly below `management.endpoints.`, not `management.endpoints` itself).
+- **Do not list `management.*`.** It holds Spring Boot's Micrometer export credentials:
+  `management.datadog.metrics.export.api-key`, `management.newrelic.metrics.export.api-key`,
+  `management.dynatrace.metrics.export.api-token`, `management.appoptics.metrics.export.api-token`,
+  `management.humio.metrics.export.api-token`, `management.influx.metrics.export.password`,
+  `management.elastic.metrics.export.password` and `.api-key-credentials`, `management.kairos.metrics.export.password`, and
+  the `Authorization`-bearing `management.otlp.metrics.export.headers.*` and
+  `management.opentelemetry.tracing.export.otlp.headers.*`. That is why the default lists only `management.server.port`,
+  `management.endpoints.*` and `management.endpoint.*` under it (revised in the plan 017 final review). `info.*` is
+  free-form, so whatever an MI puts there is shown; the owner is asked to confirm keeping it (`DECISIONS.md` open item 51).
 - **Rejected at startup:** an empty list, more than 64 entries, a blank or duplicate entry, an entry over 256 characters,
   any character other than ASCII letters, digits, `-`, `_` and `.` (so list-index brackets are refused), a `*` anywhere but a
   final `.*`, and an empty segment (`.a`, `a.`, `a..b`).
 - **Changing it:** set `sm.dp.config-view.allow` and restart the Data Plane. Nothing is stored; the agent is not touched.
 - **Lists.** A list value flattens to indexed paths (`a.b[0]`). An exact entry `a.b` does not match `a.b[0]`; use `a.b.*`
-  through the parent's prefix, for example `management.*` also matches `management.x[0]`.
+  through the parent's prefix, for example `management.endpoints.*` also matches
+  `management.endpoints.web.exposure.include[0]`.
 
 ## Response
 
@@ -64,7 +74,7 @@ An invalid property fails startup. The message names the entry's position, never
 | `400` | `BAD_REQUEST` | A path id is not a UUID. | Fix the request. |
 | `403` | `FORBIDDEN` | No `config.view` at the instance. | Grant it. |
 | `404` | `NOT_FOUND` | **One shared body** for an unknown, other-organization, other-instance or retired placement, and for a missing config file. | Fix the id; if it is right, check the file on the host. The caller cannot tell the cases apart on purpose. |
-| `413` | `CONFIG_TOO_LARGE` | The file, its nesting, its expanded size or the filtered output exceeds the limits (the agent's `FILE_TOO_LARGE` or `TOO_MANY_KEYS`). | Shrink the file or raise `max-bytes` (agent hard cap is 1 MiB). |
+| `413` | `CONFIG_TOO_LARGE` | The file, its nesting, its expanded size or the filtered output exceeds the limits (the agent's `FILE_TOO_LARGE` or `TOO_MANY_KEYS`). | Shrink the file or raise `max-bytes` (at most 1048576, the agent's hard cap; the effective limit is the smaller of the two). |
 | `422` | `CONFIG_INVALID_YAML` | The file does not parse, or has a cyclic alias. | Fix the file. |
 | `429` | `RATE_LIMITED`, `reason: config-view-concurrency`, `Retry-After: 5` | The DP's 8 views, or the gateway's one per agent, are in flight. | Wait and retry. |
 | `501` | `AGENT_OPERATION_UNSUPPORTED` | The placement is on an SSH target. The title reads inverted; it means the *agent* operation does not apply. | None; not supported yet. |

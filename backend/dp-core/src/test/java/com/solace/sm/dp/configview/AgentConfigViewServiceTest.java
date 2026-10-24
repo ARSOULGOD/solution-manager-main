@@ -54,7 +54,7 @@ class AgentConfigViewServiceTest {
     static final UUID PLACEMENT = UUID.randomUUID();
     static final UUID AGENT = UUID.randomUUID();
 
-    static final List<String> ALLOW = List.of("server.port", "management.*", "logging.*", "info.*");
+    static final List<String> ALLOW = ConfigViewConfiguration.allowList(ConfigViewConfiguration.DEFAULT_ALLOW);
     static final int MAX_BYTES = 262_144;
 
     /** The port the DP consumes: records each request and answers what the test sets. */
@@ -163,9 +163,31 @@ class AgentConfigViewServiceTest {
 
     @Test
     void recheckPrefixMatchesTheSubtreeOnly() {
-        for (String stray : List.of("management", "managementx.a", "server.port.x", "server", "xserver.port", "info")) {
+        for (String stray : List.of("management", "management.endpoints", "management.endpointsx.a", "managementx.a",
+                "server.port.x", "server", "xserver.port", "info")) {
             assertEquals(refused(ConfigViewResult.Reason.BAD_GATEWAY), viewWith(AgentConfigView.ok(List.of(new Entry(stray, "v")), 0,
-                    false)), "'management.*' matches the subtree only; an exact entry matches itself only");
+                    false)), "'management.endpoints.*' matches the subtree only; an exact entry matches itself only");
+        }
+    }
+
+    @Test
+    void theDefaultAllowListLeavesVendorCredentialSubtreesOut() {
+        assertEquals(List.of("server.port", "management.server.port", "management.endpoints.*", "management.endpoint.*",
+                "logging.*", "info.*"), ALLOW, "the default allow list (final review I-1)");
+        for (String credential : List.of("management.datadog.metrics.export.api-key",
+                "management.newrelic.metrics.export.api-key", "management.dynatrace.metrics.export.api-token",
+                "management.appoptics.metrics.export.api-token", "management.humio.metrics.export.api-token",
+                "management.influx.metrics.export.password", "management.elastic.metrics.export.password",
+                "management.elastic.metrics.export.api-key-credentials", "management.kairos.metrics.export.password",
+                "management.otlp.metrics.export.headers.Authorization",
+                "management.opentelemetry.tracing.export.otlp.headers.Authorization")) {
+            assertFalse(AgentConfigViewService.allowed(ALLOW, credential), "not matched by the default list: " + credential);
+            assertEquals(refused(ConfigViewResult.Reason.BAD_GATEWAY),
+                    viewWith(AgentConfigView.ok(List.of(new Entry(credential, "v")), 0, false)));
+        }
+        for (String shown : List.of("server.port", "management.server.port", "management.endpoints.web.exposure.include[0]",
+                "management.endpoint.health.show-details", "logging.level.root", "info.app.name")) {
+            assertTrue(AgentConfigViewService.allowed(ALLOW, shown), shown);
         }
     }
 
@@ -332,6 +354,45 @@ class AgentConfigViewServiceTest {
         assertTrue(interrupted.await(5, TimeUnit.SECONDS), "the abandoned call is interrupted, which frees the gateway's slot");
     }
 
+    @Test
+    void aViewAbandonedBeforeItsTaskStartsStillFreesItsSlot() throws Exception {
+        CountDownLatch hold = new CountDownLatch(1);
+        // every pool thread waits on the latch before running its task, so the task is still queued (not started) when the
+        // caller gives up
+        java.util.concurrent.ThreadFactory held = r -> {
+            Thread t = new Thread(() -> {
+                try {
+                    hold.await(5, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                r.run();
+            });
+            t.setDaemon(true);
+            return t;
+        };
+        AgentConfigViewService s = new AgentConfigViewService(placements, transports, agents, port, ALLOW, Duration.ofSeconds(10),
+                MAX_BYTES, 2, held);
+        opened.add(s);
+
+        Thread.currentThread().interrupt();                     // an already-interrupted caller: get() throws at once
+        ConfigViewResult result;
+        try {
+            result = s.view(ORGANIZATION, INSTANCE, PLACEMENT);
+        } finally {
+            assertTrue(Thread.interrupted(), "the interrupt is kept for the caller (and cleared here)");
+        }
+        hold.countDown();                                       // the held thread now takes the (cancelled) task
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+        while (s.availableSlots() != 2 && System.nanoTime() < deadline) {
+            Thread.sleep(20);
+        }
+
+        assertEquals(refused(ConfigViewResult.Reason.AGENT_UNAVAILABLE), result);
+        assertTrue(port.requests.isEmpty(), "the cancelled task never asked the agent");
+        assertEquals(2, s.availableSlots(), "the abandoned view's slot is free again");
+    }
+
     // ---- nothing of a key or value is logged or printed (I6) ---------------------------------------------------------------
 
     @Test
@@ -391,6 +452,8 @@ class AgentConfigViewServiceTest {
 
     @Test
     void outOfRangeLimitsAreRejectedAtConstruction() {
+        assertEquals(1_048_576, AgentConfigViewService.MAX_MAX_BYTES, "the go-agent's hard cap (final review M-2)");
+        service(ALLOW, Duration.ofSeconds(10), 1_048_576, 1);
         assertThrows(IllegalArgumentException.class, () -> service(ALLOW, Duration.ofSeconds(10), 1023, 1));
         assertThrows(IllegalArgumentException.class,
                 () -> service(ALLOW, Duration.ofSeconds(10), AgentConfigViewService.MAX_MAX_BYTES + 1, 1));

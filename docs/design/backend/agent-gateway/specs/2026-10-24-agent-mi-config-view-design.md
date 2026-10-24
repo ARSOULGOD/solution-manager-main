@@ -16,7 +16,7 @@ Settled with the requester (2026-10-24):
 |---|---|
 | Whose file | The MI's own `application.yml` (the one the agent's `configwriter` writes) |
 | Purpose | Show it. Drift detection and import are later features |
-| Secrets | Allow-list: show listed keys only. Default `server.port`, `management.*`, `logging.*`, `info.*` |
+| Secrets | Allow-list: show listed keys only. Default `server.port`, `management.server.port`, `management.endpoints.*`, `management.endpoint.*`, `logging.*`, `info.*` (revised in the final review from `management.*`; see §4) |
 | Placements | Agent (`host-local`) only. SSH (`dp-remote`) is later, through the same port |
 | Where it filters | In the go-agent. The DP re-checks and rejects a reply that carries anything off the list. The DP owns the default list and sends it with each request |
 | Scope | Agent + wire + DP REST read. The console UI is out of scope |
@@ -67,7 +67,16 @@ same way the apply path does, then:
 5. Never logs file content, paths or values.
 
 The allow-list match is deliberately dumb: exact path, or prefix with `.*`. A secret under a listed prefix is the
-operator's list to own; the default list contains no prefix known to hold secrets.
+operator's list to own. ⚠️ **Do not list `management.*`:** that subtree holds Spring Boot's Micrometer export credentials
+(`management.datadog.metrics.export.api-key`, `management.newrelic.metrics.export.api-key`,
+`management.dynatrace.metrics.export.api-token`, `management.appoptics.metrics.export.api-token`,
+`management.humio.metrics.export.api-token`, `management.influx.metrics.export.password`,
+`management.elastic.metrics.export.password` and `.api-key-credentials`, `management.kairos.metrics.export.password`,
+`management.otlp.metrics.export.headers.*` and `management.opentelemetry.tracing.export.otlp.headers.*`, which carry
+`Authorization`; verified against the Spring Boot application-properties appendix, 2026-10-24). The default therefore
+lists only `management.server.port`, `management.endpoints.*` and `management.endpoint.*` under it. `logging.*` holds
+levels and file settings. `info.*` is free-form: an MI can put anything there, so the owner is asked to confirm keeping it
+(`DECISIONS.md` open item 51).
 
 ## 5. Gateway
 
@@ -90,9 +99,10 @@ per agent, so a slow host cannot stack requests. A contract kit covers the port.
 
 ## 7. Errors and limits
 
-Properties: `sm.dp.config-view.allow`, `sm.dp.config-view.timeout` (default 10s), `sm.dp.config-view.max-bytes`
-(default 256 KiB, also the agent's request limit). Agent hard caps: file size, YAML depth, node count, keys
-returned. A reply cut at the key cap sets `truncated`.
+Properties: `sm.dp.config-view.allow` (default in §1; the vendor-export subtrees under `management.*` named in §4 must not
+be listed), `sm.dp.config-view.timeout` (default 10s), `sm.dp.config-view.max-bytes` (default 256 KiB, at most 1 MiB,
+also the agent's request limit). Agent hard caps: file size (1 MiB), YAML depth, node count, keys returned. A reply cut
+at the key cap sets `truncated`.
 
 ## 8. Testing (red first)
 
