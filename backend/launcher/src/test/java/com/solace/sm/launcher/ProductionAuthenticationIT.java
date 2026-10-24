@@ -702,6 +702,8 @@ class ProductionAuthenticationIT {
                 "deleteConnection", "getSolutionPackage",
                 "getDesigner", "stageConfig", "getConfigHistory", "getConfigLadder", "setConfigSecret",
                 "submitApply", "observeApply", "stopInstance", "readLogs", "exportLogs", "getLogLevel", "setLogLevel",
+                // plan 017 task 6: an agent placement's allow-listed config view (config.view, no new verb)
+                "viewConfig",
                 // plan 012 T7 (OPS-Q9 Sch-2): the schedule list and cancel (creating one is submitApply/rollbackApply)
                 "listApplySchedules", "cancelApplySchedule",
                 // plan 013 T2.3: the five hierarchy writes and the two entitlement operations

@@ -59,7 +59,11 @@ public record ProblemBody(String type, String title, int status, ErrorCode code,
             Map.entry(ErrorCode.TARGET_TRANSPORT_UNSUPPORTED, "Target transport unsupported"),
             Map.entry(ErrorCode.AGENT_STILL_ENROLLED, "Agent still enrolled"),
             Map.entry(ErrorCode.TARGET_IS_AGENT_MANAGED, "Target is agent managed"),
-            Map.entry(ErrorCode.AGENT_NOT_CONNECTED, "Agent not connected"));
+            Map.entry(ErrorCode.AGENT_NOT_CONNECTED, "Agent not connected"),
+            // Plan 017 task 6: the config view's refusals.
+            Map.entry(ErrorCode.CONFIG_TOO_LARGE, "Configuration too large"),
+            Map.entry(ErrorCode.CONFIG_INVALID_YAML, "Configuration is not valid YAML"),
+            Map.entry(ErrorCode.AGENT_REPLY_REJECTED, "Agent reply rejected"));
 
     public ProblemBody {
         Objects.requireNonNull(type, "type");

@@ -3397,6 +3397,78 @@ paths:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
 
+  /dp/instances/{instanceId}/placements/{placementId}/config:
+    parameters:
+      - { $ref: '#/components/parameters/InstanceId' }
+      - { $ref: '#/components/parameters/PlacementId' }
+    get:
+      tags: [governance]
+      operationId: viewConfig
+      summary: View the allow-listed keys of one agent placement's configuration file
+      description: |
+        Returns the keys of the managed integration's live `application.yml` on one **agent** (`host-local`) placement that
+        are on the data plane's allow-list (`sm.dp.config-view.allow`; default `server.port`, `management.*`, `logging.*`,
+        `info.*`, where a trailing `.*` matches a whole subtree), as dotted key paths (`a.b[0].c`) with their scalar values.
+        **Every other key is hidden on the host**, before anything crosses the wire: it is counted in `hiddenCount` and never
+        named. The data plane re-checks the agent's answer against the list it sent and discards the whole answer if any key is
+        off it. `truncated` is `true` when the agent cut the list at its key cap. Read-only: nothing on the host changes.
+
+        ⚠️ A value under a listed prefix is shown as it is; the allow-list is the control, and the default list holds no
+        prefix known to carry secrets. Requires `config.view` at the instance, the same verb as reading the Designer.
+
+        No response, error or log line names a file path, host, container, a key outside `entries`, or the allow-list.
+        `404` is the same body for an unknown, foreign or retired placement, an instance that is not visible, and a
+        configuration file that does not exist, so a caller cannot tell them apart.
+      x-sm-permission: config.view
+      x-sm-scope: instance
+      responses:
+        '200':
+          description: The allow-listed keys.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConfigView' }
+        '400':
+          description: "`BAD_REQUEST` — `{instanceId}` or `{placementId}` is not a UUID."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFoundOrUnauthorized' }
+        '413':
+          description: "`CONFIG_TOO_LARGE` — the file is larger than `sm.dp.config-view.max-bytes` (default 256 KiB) or has more keys than the agent returns. `detail` is fixed text. Nothing of it is returned."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '422':
+          description: "`CONFIG_INVALID_YAML` — the file is not valid YAML (or exceeds the agent's depth, node or alias limits). `detail` is fixed text. Nothing of it is returned."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '429':
+          description: "`RATE_LIMITED`, `reason: config-view-concurrency` — too many config views are running (the data plane's bound, or the agent is already answering one). Nothing was sent. Carries `Retry-After`."
+          headers:
+            Retry-After:
+              schema: { type: integer, minimum: 1 }
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ReasonedProblem' }
+        '501':
+          description: "`AGENT_OPERATION_UNSUPPORTED` — the placement is on an SSH target: only agent placements can be viewed in this release. Nothing was read and no SSH connection was made."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '502':
+          description: "`AGENT_REPLY_REJECTED` — the agent's answer could not be used (it failed the data plane's allow-list re-check, or the agent could not read the file). The whole answer was discarded; `detail` is fixed text."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '503':
+          description: "`SERVICE_UNAVAILABLE` — the agent serving the placement is not connected, did not answer in time, or no longer holds the placement. `detail` is fixed text that names no host or container."
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
   /dp/instances/{instanceId}/log-levels/{component}:
     parameters:
       - { $ref: '#/components/parameters/InstanceId' }
@@ -4557,7 +4629,7 @@ components:
           request echo (`I6`).
         - `AGENT_OPERATION_UNSUPPORTED` (501) — the operation is not available on this placement's transport in v1:
           on an agent placement the log level, read-config / accept-runtime, restore and rollback; on an SSH placement
-          `exportLogs` (`readLogs` is served on both). Nothing was read or written and no SSH
+          `exportLogs` and `viewConfig` (`readLogs` is served on both). Nothing was read or written and no SSH
           connection was made. Distinct from `NOT_IMPLEMENTED`, which says no approved verb exists or the build lacks
           it (plan 015 T3.3).
         - `TARGET_TRANSPORT_UNSUPPORTED` (409) — the operation addresses an SSH connection record
@@ -4568,6 +4640,12 @@ components:
           target come only from `OR-27` discovery in v1 (T3.5).
         - `AGENT_NOT_CONNECTED` (409) — `drainAgent`: the agent has no live session (plan 015 T4.3; declared with the
           other agent codes so the enum moves once).
+        - `CONFIG_TOO_LARGE` (413) — `viewConfig`: the placement's configuration file is larger than the bound or has
+          more keys than the agent returns (plan 017). Nothing of it is returned.
+        - `CONFIG_INVALID_YAML` (422) — `viewConfig`: the placement's configuration file is not valid YAML (plan 017).
+          Nothing of it is returned.
+        - `AGENT_REPLY_REJECTED` (502) — `viewConfig`: the agent's answer could not be used (it failed the data plane's
+          allow-list re-check, or the agent could not read the file), so the whole answer was discarded (plan 017).
       enum: [UNAUTHENTICATED, AUTHENTICATION_FAILED, MUST_ROTATE, CSRF_REJECTED,
              ORIGIN_REJECTED, FORBIDDEN, NOT_FOUND, BAD_REQUEST,
              CREDENTIAL_ROTATION_REFUSED, METHOD_NOT_ALLOWED, RATE_LIMITED,
@@ -4579,7 +4657,8 @@ components:
              HOST_KEY_NOT_OFFERED, TARGET_ADDRESS_REFUSED, INSECURE_TRANSPORT,
              CONNECTION_TEST_FAILED,
              AGENT_OPERATION_UNSUPPORTED, TARGET_TRANSPORT_UNSUPPORTED, AGENT_STILL_ENROLLED,
-             TARGET_IS_AGENT_MANAGED, AGENT_NOT_CONNECTED]
+             TARGET_IS_AGENT_MANAGED, AGENT_NOT_CONNECTED,
+             CONFIG_TOO_LARGE, CONFIG_INVALID_YAML, AGENT_REPLY_REJECTED]
 
     Availability:
       type: object
@@ -6472,6 +6551,25 @@ components:
               type: boolean
               description: True when `liveLevel` was set live and has not been reconciled into config.
 
+    ConfigView:
+      type: object
+      description: |
+        `viewConfig`: the allow-listed keys of one agent placement's configuration file. No file path, host or container.
+        A key that is not on the allow-list is never named, only counted in `hiddenCount`.
+      required: [entries, hiddenCount, truncated]
+      properties:
+        entries:
+          type: array
+          description: The allow-listed scalar leaves, in the agent's order.
+          items:
+            type: object
+            required: [path, value]
+            properties:
+              path: { type: string, description: 'Dotted key path, list indexes in brackets (`a.b[0].c`).' }
+              value: { type: string, description: The scalar value as text. }
+        hiddenCount: { type: integer, minimum: 0, description: Keys in the file that are not on the allow-list. }
+        truncated: { type: boolean, description: '`true` when the agent cut `entries` at its key cap.' }
+
     LogPage:
       allOf:
         - $ref: '#/components/schemas/AvailabilityOnly'
@@ -6682,7 +6780,8 @@ components:
           description: |
             A `Problem` that also says **why**, for the refusals whose `code` alone does not (RFC 9457 extension
             member). Known reasons: `metric-declare-deferred` (`NOT_IMPLEMENTED`, M-Q6), `query-rate` and
-            `export-concurrency` (`RATE_LIMITED`, M-Q22), `log-export-concurrency` (`RATE_LIMITED`, `exportLogs`, plan 016).
+            `export-concurrency` (`RATE_LIMITED`, M-Q22), `log-export-concurrency` (`RATE_LIMITED`, `exportLogs`, plan 016),
+            `config-view-concurrency` (`RATE_LIMITED`, `viewConfig`, plan 017).
           required: [reason]
           properties:
             reason: { type: string, pattern: '^[a-z][a-z-]{0,63}$' }

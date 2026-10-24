@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "7bfec13e-42e1-55d1-9e68-49a1c3bc3281",
     "name": "Solution Manager — console API",
-    "description": "Solution Manager — console API\n\nGenerated from `contracts/openapi/console.yaml` (contract version 0.1.0) by `contracts/openapi/postman/generate-postman.py` — do not edit by hand; regenerate. 87 operations: 86 SERVED by the production launcher today, 1 WIRED but NOT COUNTED SERVED (plan 011 P11-8.1), 0 CONTRACTED, NOT YET SERVED (answer 501). Start with folder `0. Start here`; see `contracts/openapi/postman/README.md`.",
+    "description": "Solution Manager — console API\n\nGenerated from `contracts/openapi/console.yaml` (contract version 0.1.0) by `contracts/openapi/postman/generate-postman.py` — do not edit by hand; regenerate. 88 operations: 87 SERVED by the production launcher today, 1 WIRED but NOT COUNTED SERVED (plan 011 P11-8.1), 0 CONTRACTED, NOT YET SERVED (answer 501). Start with folder `0. Start here`; see `contracts/openapi/postman/README.md`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -5866,6 +5866,63 @@
                   "});",
                   "if (pm.response.code === 428) { console.warn('MUST_ROTATE: run rotateOwnCredential in \"0. Start here\" first.'); }",
                   "if (pm.response.code === 501) { console.warn('exportLogs answered 501 NOT_IMPLEMENTED: a refusal the contract declares.'); }",
+                  "if (pm.response.code >= 400) { try { const p = pm.response.json(); console.warn(p.code + ' correlationId=' + p.correlationId + ' ' + (p.detail || '')); } catch (e) {} }"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "viewConfig · View the allow-listed keys of one agent placement's configuration file",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/dp/instances/:instanceId/placements/:placementId/config",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "dp",
+                "instances",
+                ":instanceId",
+                "placements",
+                ":placementId",
+                "config"
+              ],
+              "variable": [
+                {
+                  "key": "instanceId",
+                  "value": "{{instanceId}}",
+                  "description": ""
+                },
+                {
+                  "key": "placementId",
+                  "value": "{{placementId}}",
+                  "description": "A placement of the instance named in the same path (`OR-2`); never a grant level (`OR-16`)."
+                }
+              ]
+            },
+            "description": {
+              "content": "operationId: `viewConfig`\n\n**SERVED — implemented by the production launcher today.**\n\n`GET /api/dp/instances/{instanceId}/placements/{placementId}/config`\n\n**View the allow-listed keys of one agent placement's configuration file**\n\nReturns the keys of the managed integration's live `application.yml` on one **agent** (`host-local`) placement that\nare on the data plane's allow-list (`sm.dp.config-view.allow`; default `server.port`, `management.*`, `logging.*`,\n`info.*`, where a trailing `.*` matches a whole subtree), as dotted key paths (`a.b[0].c`) with their scalar values.\n**Every other key is hidden on the host**, before anything crosses the wire: it is counted in `hiddenCount` and never\nnamed. The data plane re-checks the agent's answer against the list it sent and discards the whole answer if any key is\noff it. `truncated` is `true` when the agent cut the list at its key cap. Read-only: nothing on the host changes.\n\n⚠️ A value under a listed prefix is shown as it is; the allow-list is the control, and the default list holds no\nprefix known to carry secrets. Requires `config.view` at the instance, the same verb as reading the Designer.\n\nNo response, error or log line names a file path, host, container, a key outside `entries`, or the allow-list.\n`404` is the same body for an unknown, foreign or retired placement, an instance that is not visible, and a\nconfiguration file that does not exist, so a caller cannot tell them apart.\n\n**Permission:** `config.view`\n**Scope:** `instance`\n\n**Responses:**\n\n- `200` — The allow-listed keys.\n- `400` — `BAD_REQUEST` — `{instanceId}` or `{placementId}` is not a UUID.\n- `401` — No session, or the session is expired or revoked.\n- `403` — `FORBIDDEN`, `CSRF_REJECTED` or `ORIGIN_REJECTED` — switch on `code`. `FORBIDDEN` means the verb is not held at the resource's scope.\n- `404` — ⚠️ **Deliberately indistinguishable from \"exists but out of your scope\".** Discriminating the two leaks existence across a scope boundary.\n- `413` — `CONFIG_TOO_LARGE` — the file is larger than `sm.dp.config-view.max-bytes` (default 256 KiB) or has more keys than the agent returns. `detail` is fixed text. Nothing of it is returned.\n- `422` — `CONFIG_INVALID_YAML` — the file is not valid YAML (or exceeds the agent's depth, node or alias limits). `detail` is fixed text. Nothing of it is returned.\n- `429` — `RATE_LIMITED`, `reason: config-view-concurrency` — too many config views are running (the data plane's bound, or the agent is already answering one). Nothing was sent. Carries `Retry-After`.\n- `501` — `AGENT_OPERATION_UNSUPPORTED` — the placement is on an SSH target: only agent placements can be viewed in this release. Nothing was read and no SSH connection was made.\n- `502` — `AGENT_REPLY_REJECTED` — the agent's answer could not be used (it failed the data plane's allow-list re-check, or the agent could not read the file). The whole answer was discarded; `detail` is fixed text.\n- `503` — `SERVICE_UNAVAILABLE` — the agent serving the placement is not connected, did not answer in time, or no longer holds the placement. `detail` is fixed text that names no host or container.\n\nAuth: session cookie (`__Host-SM_SESSION`) from the login call.",
+              "type": "text/markdown"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const set = (k, v) => { if (v === undefined || v === null || v === '') return; if (pm.environment.name) { pm.environment.set(k, String(v)); } else { pm.collectionVariables.set(k, String(v)); } };",
+                  "const clear = (k) => { if (pm.environment.name) { pm.environment.set(k, ''); } else { pm.collectionVariables.set(k, ''); } };",
+                  "const get = (k) => pm.variables.get(k);",
+                  "pm.test('status is one this operation declares (200, 400, 401, 403, 404, 413, 422, 429, 501, 502, 503), or 428', function () {",
+                  "  pm.expect([200, 400, 401, 403, 404, 413, 422, 429, 501, 502, 503, 428]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code === 428) { console.warn('MUST_ROTATE: run rotateOwnCredential in \"0. Start here\" first.'); }",
+                  "if (pm.response.code === 501) { console.warn('viewConfig answered 501 NOT_IMPLEMENTED: a refusal the contract declares.'); }",
                   "if (pm.response.code >= 400) { try { const p = pm.response.json(); console.warn(p.code + ' correlationId=' + p.correlationId + ' ' + (p.detail || '')); } catch (e) {} }"
                 ]
               }

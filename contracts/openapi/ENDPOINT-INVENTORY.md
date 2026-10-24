@@ -1,5 +1,11 @@
 # Endpoint inventory — for the frontend team
 
+**Updated 2026-10-24 (plan 017 task 6): `viewConfig` is served.** `GET /api/dp/instances/{instanceId}/placements/{placementId}/config`
+returns the allow-listed keys of one agent placement's `application.yml`, under the existing `config.view` at the instance (no verb
+is added). It brings `console.yaml` to **88 operations** (87 before it, counting plan 016's `exportLogs`; the 85 in the paragraph
+below is as of that revision). Three `ErrorCode`s are added for it: `CONFIG_TOO_LARGE` (413), `CONFIG_INVALID_YAML` (422) and
+`AGENT_REPLY_REJECTED` (502), and `RATE_LIMITED` gains the `config-view-concurrency` reason.
+
 **Updated 2026-10-12 (`OR-147`, the reconciliation of plan 015 into `UAT`): `console.yaml` holds 85 operations** — plan 015's 78
 plus the seven `UAT` added (`listConnections`, `getConnectionTypes`, `createConnection`, `updateConnection`, `deactivateConnection`,
 `deleteConnection` and `getSolutionPackage`); 84 are counted served and `exportRange` stays wired-not-counted (`check-postman`). The
@@ -201,6 +207,7 @@ Plan 010 and plan 011 (corrected 2026-10-06 against the `@ConsoleOperation` hand
 | GET | `/api/dp/instances/{instanceId}/config-ladder` | `getConfigLadder` | `config.view` (instance) |  | DesignerEndpointsIT |
 | GET | `/api/dp/instances/{instanceId}/logs/{component}` | `readLogs` | `logs.read` (instance) | Bounded pages; **NOT redacted** - a log line is the MI's own output and `logs.read` is the only control (`console.yaml`, check 16). An agent placement's page may also carry `gaps` (holes in the collected log) and `truncated`, both omitted when empty. | LogsEndpointsIT |
 | GET | `/api/dp/instances/{instanceId}/logs/{component}/export` | `exportLogs` | `logs.read` (instance) | Plan 016: text/plain download of an AGENT placement's collected log, bounded by bytes written and time; optional `fromSeq` (the `resume from seq N` of a marker) resumes it; refusals known before the first byte are `429 log-export-concurrency` / `503` / `404` / `501`; gaps and truncation after it are fixed `# sm-export:` marker lines, and a clean end with no marker means complete (an abnormal end writes the `incomplete` marker, then the connection is aborted without a chunked terminator). **NOT redacted.** | LogExportControllerTest |
+| GET | `/api/dp/instances/{instanceId}/placements/{placementId}/config` | `viewConfig` | `config.view` (instance) | Plan 017: `{entries:[{path,value}], hiddenCount, truncated}` - the AGENT placement's `application.yml` keys on the data plane's allow-list (`sm.dp.config-view.allow`); every other key is hidden on the host and only counted, and the data plane discards an answer carrying any key off the list. `404` (one body for an unknown, foreign or retired placement and a missing file), `413 CONFIG_TOO_LARGE`, `422 CONFIG_INVALID_YAML`, `429 config-view-concurrency` (`Retry-After`), `501` (SSH placement), `502 AGENT_REPLY_REJECTED`, `503` (agent not connected or silent). No path, host or container in any body. | ConfigViewControllerTest |
 | GET | `/api/dp/instances/{instanceId}/log-levels/{component}` | `getLogLevel` | `logs.read` (instance) |  | LogLevelEndpointsIT |
 | POST | `/api/dp/instances/{instanceId}/log-levels/{component}` | `setLogLevel` | `logs.setLevel` (instance) | `202 ApplyAccepted`; `mode: live` answers `501` (`OR-103`). | LogLevelEndpointsIT, LogLevelConfigEndpointIT |
 | GET | `/api/console/v1/capabilities` | `getCapabilities` | `none.authenticationOnly` (install) | Authentication only, install scope. No byte figure anywhere (`OQ-16`); `collector.reasons` are the caller's organization's. | MetricsEndpointsIT |

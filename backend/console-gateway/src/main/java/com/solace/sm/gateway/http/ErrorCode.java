@@ -88,7 +88,16 @@ public enum ErrorCode {
      */
     TARGET_IS_AGENT_MANAGED(409),
     /** {@code drainAgent}: the agent has no live session (plan 015 T4.3; declared with the other agent codes). */
-    AGENT_NOT_CONNECTED(409);
+    AGENT_NOT_CONNECTED(409),
+    /** {@code viewConfig}: the placement's configuration file is larger than the bound, or has too many keys (plan 017). */
+    CONFIG_TOO_LARGE(413),
+    /** {@code viewConfig}: the placement's configuration file is not valid YAML (plan 017). Nothing of it is returned. */
+    CONFIG_INVALID_YAML(422),
+    /**
+     * {@code viewConfig}: the agent's answer could not be used - it failed the data plane's re-check against the allow-list it
+     * sent, or the agent could not read the file - so the whole answer was discarded (plan 017).
+     */
+    AGENT_REPLY_REJECTED(502);
 
     private final int status;
 

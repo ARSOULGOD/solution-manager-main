@@ -153,6 +153,13 @@ class ConsoleOperationsMirrorTest {
     }
 
     @Test
+    void theConfigViewOperationIsRegisteredAgainstConfigViewWithNoNewVerb() {
+        assertThat(ConsoleOperations.permissionFor("viewConfig"))
+                .as("plan 017 task 6: an agent placement's config view is the existing config.view read, no new verb")
+                .contains(Permission.CONFIG_VIEW);
+    }
+
+    @Test
     void theStopOperationIsRegisteredAndHighConsequence() {
         assertThat(ConsoleOperations.permissionFor("stopInstance"))
                 .as("ruling OR-18 assigns the stop endpoint to plan 007; it must be enforceable")

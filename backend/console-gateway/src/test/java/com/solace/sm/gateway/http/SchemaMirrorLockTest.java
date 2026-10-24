@@ -659,6 +659,34 @@ class SchemaMirrorLockTest {
     }
 
     @Test
+    void viewConfigHasAHandWrittenHandlerSignatureAndItsResponseMirrorsTheContractExactly() {
+        Class<?> handler = requireClass("com.solace.sm.gateway.http.ConfigViewController");
+        String path = "/dp/instances/{instanceId}/placements/{placementId}/config";
+        assertEquals("viewConfig", operationIdAt(path, "get"));
+        assertMethod(handler, "viewConfig", "UUID", "UUID", "Session", "ConfigView");
+        JsonNode operation = SPEC.at("/paths/" + pointer(path) + "/get");
+        assertEquals("config.view", operation.path("x-sm-permission").asText());
+        assertEquals("instance", operation.path("x-sm-scope").asText());
+        assertEquals(new TreeSet<>(List.of("200", "400", "401", "403", "404", "413", "422", "429", "501", "502", "503")),
+                fieldNames(operation.path("responses")), "every status the handler answers, and no other");
+
+        JsonNode view = schema("ConfigView");
+        Class<?> viewType = requireClass("com.solace.sm.gateway.http.ConfigView");
+        assertEquals(flattenedRequired(view), new TreeSet<>(requiredRecordComponents(viewType)), "ConfigView required");
+        assertEquals(flattenedProperties(view), new TreeSet<>(recordComponents(viewType)), "ConfigView properties");
+        JsonNode entry = flattenedSchema(view, "entries").at("/items");
+        Class<?> entryType = requireClass("com.solace.sm.gateway.http.ConfigView$Entry");
+        assertEquals(textSet(entry.get("required")), new TreeSet<>(requiredRecordComponents(entryType)), "entry required");
+        assertEquals(fieldNames(entry.get("properties")), new TreeSet<>(recordComponents(entryType)), "entry properties");
+
+        Set<String> codes = textSet(schema("ErrorCode").get("enum"));
+        for (ErrorCode code : new ErrorCode[] {ErrorCode.CONFIG_TOO_LARGE, ErrorCode.CONFIG_INVALID_YAML,
+                ErrorCode.AGENT_REPLY_REJECTED}) {
+            assertTrue(codes.contains(code.name()), code + " is the contract's");
+        }
+    }
+
+    @Test
     void theHomeOperationsHaveHandWrittenHandlerSignaturesAndTheirResponsesMirrorTheContractExactly() {
         Class<?> handler = requireClass("com.solace.sm.gateway.http.HomeController");
         assertEquals("getHomeSummary", operationIdAt("/cp/home/summary", "get"));
