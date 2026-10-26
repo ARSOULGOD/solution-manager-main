@@ -87,7 +87,7 @@ Open two terminals, both in `go-agent/`.
   --enroll-token demo-token --ca-out bin/ca.pem
 ```
 
-It prints `type: preflight | apply <file> | restart | stop | pause | resume | disconnect` and `fake gateway listening`. No `--scenario` is needed:
+It prints `type: preflight | apply <file> | restart | stop | view <placement> <allow,comma,list> | pause | resume | disconnect` and `fake gateway listening`. No `--scenario` is needed:
 the built-in one grants a one-hour lease for `binding-1` with both capabilities, and sends nothing on its own.
 
 ### 2. Terminal 2 — start the agent from an empty data dir
@@ -333,6 +333,43 @@ list comes with the request and the agent filters by it; the DP re-checks the re
 
 **Privacy.** The agent never logs the file's content, path or keys; only the request id and the reason code. A secret under
 a key that is not on the allow list is hidden and only counted in `hidden_count`.
+
+### Try it against the fake gateway
+
+**Status: executed 2026-10-26** (agent and fake gateway only; no DP, console or REST layer). The `view` console command
+sends a `ConfigViewRequest` to the live agent and prints the reply's status, reason, `hidden`, `truncated` and entries.
+
+1. Make a container the agent can resolve (the binding label must be unique across all containers, stopped ones included;
+   `docker ps -a --filter label=com.solace.sm.binding-id=cfgview-1` must print nothing), with a config file under `$HOME`:
+
+   ```bash
+   mkdir -p ~/sm-cfgview-demo
+   cat > ~/sm-cfgview-demo/application.yml <<'EOF'
+   server: {port: 8080}
+   management: {server: {port: 8081}, endpoints: {web: {exposure: {include: [health, info]}}}, datadog: {metrics: {export: {api-key: SUPER-SECRET-KEY}}}}
+   info: {app: cache-engine}
+   spring: {datasource: {password: hunter2}}
+   EOF
+   docker run -d --name cfgview-demo --label com.solace.sm.binding-id=cfgview-1 \
+     -e SPRING_CONFIG_ADDITIONAL_LOCATION=file:/etc/app/ -v ~/sm-cfgview-demo:/etc/app alpine:3 sleep infinity
+   ```
+
+2. A scenario file granting that binding (`lease.yaml`): `lease: {target_id: target-1, binding_ids: [cfgview-1], capabilities: [apply-config, lifecycle], duration: 1h}`.
+3. Start the gateway with `--interactive --scenario lease.yaml` and the agent exactly as in [Drive java1](#1-terminal-1--start-the-gateway)
+   (the agent needs no extra flag). Wait for `agent connected`, then type in the gateway terminal:
+
+   | Type | Prints |
+   |---|---|
+   | `view cfgview-1 server.port,management.server.port,management.endpoints.*,info.*` | `OK`, five entries, `hidden=2` (the API key and the password are counted, not shown) |
+   | `view cfgview-1 management.*` | `OK` and the Datadog `api-key` **is shown**: the documented limit for a listed prefix |
+   | `view nope server.port` | `REFUSED PLACEMENT_NOT_IN_LEASE` |
+   | after `rm` of the file | `REFUSED FILE_MISSING` |
+   | after `ln -s /etc/hostname` in its place | `REFUSED NOT_PERMITTED` |
+   | after writing `a: [unclosed` | `REFUSED INVALID_YAML` |
+
+4. Clean up: `docker rm -f cfgview-demo; rm -rf ~/sm-cfgview-demo`.
+
+The fake gateway's transcript (printed on exit) records only message names, never the reply content; read the `view` output.
 
 ## Rollback
 

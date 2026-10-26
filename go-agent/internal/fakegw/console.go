@@ -12,7 +12,7 @@ import (
 	"github.com/solace/solution-manager/go-agent/internal/msg"
 )
 
-const consoleUsage = "type: preflight | apply <file> | restart | stop | pause | resume | disconnect"
+const consoleUsage = "type: preflight | apply <file> | restart | stop | view <placement> <allow,comma,list> | pause | resume | disconnect"
 
 // Console turns lines typed at the gateway's terminal into commands for the
 // connected agent, one operation per line, and prints each outcome when the
@@ -52,6 +52,9 @@ func (c *console) line(text string) {
 		n := max(c.s.cfg.Scenario.Limits.InitialCredits, 1)
 		c.s.ResumeTelemetry(n)
 		c.println("telemetry resumed: %d credits granted", n)
+		return
+	case "view":
+		c.view(f)
 		return
 	case "disconnect":
 		if err := c.s.Disconnect(); err != nil {
@@ -105,4 +108,32 @@ func describe(a msg.CommandAck) string {
 		out += ": " + a.Detail.Message
 	}
 	return out
+}
+
+// view asks the agent for a placement's config view and prints the reply:
+// view <placement> <allow,comma,list> (patterns as in sm.dp.config-view.allow).
+func (c *console) view(f []string) {
+	if len(f) < 3 {
+		c.println("view needs a placement and an allow list: view binding-1 server.port,info.*")
+		return
+	}
+	before := len(c.s.Received("ConfigViewReply"))
+	id := fmt.Sprintf("view-%d", before+1)
+	err := c.s.RequestConfigView(msg.ConfigViewRequest{RequestID: id, PlacementID: f[1], Allow: strings.Split(f[2], ","), MaxBytes: 256 << 10})
+	if err != nil {
+		c.println("%v", err)
+		return
+	}
+	c.println("%s: offered", id)
+	go func() {
+		if !c.s.WaitFor("ConfigViewReply", before+1, 30*time.Second) {
+			c.println("%s: no reply within 30s", id)
+			return
+		}
+		r := c.s.Received("ConfigViewReply")[before].(msg.ConfigViewReply)
+		c.println("%s -> %v %v hidden=%d truncated=%v", id, r.Status, r.Reason, r.HiddenCount, r.Truncated)
+		for _, e := range r.Entries {
+			c.println("    %s = %s", e.Path, e.Value)
+		}
+	}()
 }
