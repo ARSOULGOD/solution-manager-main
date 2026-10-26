@@ -88,7 +88,7 @@ Open two terminals, both in `go-agent/`.
   --enroll-token demo-token --ca-out bin/ca.pem
 ```
 
-It prints `type: preflight | apply <file> | restart | stop  [@<binding>|@all] | view <placement> <allow,comma,list> | pause | resume | disconnect | set push <duration>|unset` and `fake gateway listening`. No `--scenario` is needed:
+It prints `type: preflight | apply <file> | restart | stop  [@<binding>|@all] | view <placement> <allow,comma,list> | logs <placement> [limit] | export <placement> [from-seq] | cap <placement> <bytes> | pause | resume | disconnect | set push <duration>|unset` and `fake gateway listening`. No `--scenario` is needed:
 the built-in one grants a one-hour lease for `binding-1` with both capabilities, and sends nothing on its own.
 
 ### 2. Terminal 2 — start the agent from an empty data dir
@@ -369,6 +369,52 @@ from the other stream that completed later than the stored maximum can be skippe
 
 **Privacy.** Nothing is redacted: stored and served lines are the container's output as written. Log text never goes to
 the agent's own log (only binding ids and error text do).
+
+### Try it against the fake gateway
+
+**Status: not yet executed against a real agent and container.** The console commands are unit-tested against a scripted
+agent (`internal/fakegw/console_logs_test.go`); the rows below are read from the code. Agent and fake gateway only; no DP,
+console or REST layer.
+
+| Type | Sends | Prints |
+|---|---|---|
+| `logs <placement> [limit]` | a page of the newest `limit` lines (default 20) | the lines oldest first (`time stream text`, `[truncated]` where cut), then any gaps |
+| `export <placement> [from-seq]` | an export from `from-seq` (default 0) | each chunk as it arrives, then `complete, N lines in M chunks`; credits come from the scenario's `logs.credits_per_chunk` (1 by default) |
+| `cap <placement> <bytes>` | `LogRetention` | `cap <placement> = <bytes> bytes: sent`. ⚠️ `0` turns collection off and **deletes the stored logs** |
+
+A chunk's `seq` is its resume point: if an export stops early, `export <placement> <seq>` continues after the last chunk printed.
+The gateway also prints its own one-line summary of every page and chunk (`logs page …`, `logs chunk …`).
+
+1. Make a container the agent can resolve and that writes a line a second to stdout and every fifth to stderr. It needs
+   the binding label (unique across all containers, stopped ones included:
+   `docker ps -a --filter label=com.solace.sm.binding-id=logs-1` must print nothing), the declared config location and its
+   bind mount under `$HOME`, as in [Preconditions](#preconditions) step 3:
+
+   ```bash
+   mkdir -p ~/sm-logs-demo
+   docker run -d --name logs-demo --label com.solace.sm.binding-id=logs-1 \
+     -e SPRING_CONFIG_ADDITIONAL_LOCATION=file:/etc/app/ -v ~/sm-logs-demo:/etc/app \
+     alpine:3 sh -c 'i=0; while :; do i=$((i+1)); echo "INFO request $i served"; [ $((i % 5)) -eq 0 ] && echo "WARN slow downstream on request $i" >&2; sleep 1; done'
+   ```
+
+2. A scenario file granting that binding, `bin/logs-lease.yaml`:
+   `lease: {target_id: target-1, binding_ids: [logs-1], capabilities: [apply-config, lifecycle], duration: 1h}`.
+3. Terminal 1: `./bin/fake-gateway --interactive --scenario bin/logs-lease.yaml --listen 127.0.0.1:8443 --enroll-token demo-token --ca-out bin/ca.pem`.
+4. Terminal 2: the agent exactly as in [step 2](#2-terminal-2--start-the-agent-from-an-empty-data-dir), plus `--roles control,logs`.
+   Wait for `agent connected` in terminal 1, give the collector a few seconds, then type in terminal 1:
+
+   | Type | Expect |
+   |---|---|
+   | `logs logs-1 5` | the five newest lines, `INFO` on `stdout` and any `WARN` on `stderr` |
+   | `export logs-1` | every stored line, in chunks, then `complete` |
+   | `logs nope` | `unavailable: PLACEMENT_NOT_IN_LEASE` |
+   | `docker stop logs-demo`, wait 10 s, `docker start logs-demo`, wait a few seconds, then `logs logs-1 5` | a `gap CONTAINER_UNREADABLE` covering the stop |
+   | `cap logs-1 2048`, then `logs logs-1` | fewer lines, and a `gap CAP_REDUCED` |
+   | `cap logs-1 0`, then `logs logs-1` | `unavailable: NOT_COLLECTING`; `bin/agent-data/logs/logs-1/` holds no segments |
+
+   The ring itself is at `bin/agent-data/logs/logs-1/`: JSON records with the text base64-encoded.
+
+5. Clean up: `Ctrl-C` both, then `docker rm -f logs-demo; rm -rf ~/sm-logs-demo bin/logs-lease.yaml`.
 
 ## Config view
 

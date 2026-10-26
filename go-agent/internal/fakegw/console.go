@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -14,7 +15,14 @@ import (
 	"github.com/solace/solution-manager/go-agent/internal/msg"
 )
 
-const consoleUsage = "type: preflight | apply <file> | restart | stop  [@<binding>|@all] | view <placement> <allow,comma,list> | pause | resume | disconnect | set push <duration>|unset"
+const consoleUsage = "type: preflight | apply <file> | restart | stop  [@<binding>|@all] | view <placement> <allow,comma,list> | logs <placement> [limit] | export <placement> [from-seq] | cap <placement> <bytes> | pause | resume | disconnect | set push <duration>|unset"
+
+// logsPageLimit is how many of the newest lines "logs" asks for when no limit
+// is typed; a limit of 0 on the wire would ask for every line one message fits.
+const logsPageLimit = 20
+
+// logsReplyDeadline bounds the wait for a page, or for an export's next chunk.
+const logsReplyDeadline = 30 * time.Second
 
 // Console turns lines typed at the gateway's terminal into commands for the
 // connected agent, one operation per line, and prints each outcome when the
@@ -31,9 +39,10 @@ func (s *Server) Console(r io.Reader, w io.Writer) {
 }
 
 type console struct {
-	s  *Server
-	mu sync.Mutex // acks print from their own goroutines
-	w  io.Writer
+	s   *Server
+	mu  sync.Mutex // acks print from their own goroutines
+	w   io.Writer
+	seq int // numbers the log request ids this console mints
 }
 
 func (c *console) println(format string, a ...any) {
@@ -59,6 +68,15 @@ func (c *console) line(text string) {
 		return
 	case "view":
 		c.view(f)
+		return
+	case "logs":
+		c.logs(f)
+		return
+	case "export":
+		c.export(f)
+		return
+	case "cap":
+		c.capLogs(f)
 		return
 	case "disconnect":
 		if err := c.s.Disconnect(); err != nil {
@@ -191,4 +209,143 @@ func (c *console) view(f []string) {
 			c.println("    %s = %s", e.Path, e.Value)
 		}
 	}()
+}
+
+// logs asks the agent for a page of a placement's newest stored lines and
+// prints them oldest first, with any gaps: logs <placement> [limit].
+func (c *console) logs(f []string) {
+	if len(f) < 2 {
+		c.println("logs needs a placement: logs binding-1 [limit]")
+		return
+	}
+	limit := uint64(logsPageLimit)
+	if len(f) > 2 {
+		n, err := strconv.ParseUint(f[2], 10, 32)
+		if err != nil {
+			c.println("logs: the limit must be a whole number of lines, got %q", f[2])
+			return
+		}
+		limit = n
+	}
+	id := c.nextID("logs")
+	from := c.s.tr.length()
+	if err := c.s.RequestLogs(msg.LogRequest{RequestID: id, PlacementRef: f[1], Page: &msg.LogPageQuery{Limit: uint32(limit)}}); err != nil {
+		c.println("%v", err)
+		return
+	}
+	c.println("%s: requested the newest %d lines of %s", id, limit, f[1])
+	go func() {
+		m, _, ok := c.await(from, func(m any) bool { p, is := m.(msg.LogPage); return is && p.RequestID == id })
+		if !ok {
+			c.println("%s: no page within %s", id, logsReplyDeadline)
+			return
+		}
+		p := m.(msg.LogPage)
+		if p.Unavailable != msg.UnavailableNone {
+			c.println("%s -> unavailable: %s", id, p.Unavailable)
+			return
+		}
+		c.println("%s -> %d lines, %d gaps%s", id, len(p.Lines), len(p.Gaps), formatLog(p.Lines, p.Gaps))
+	}()
+}
+
+// export asks the agent for every stored line from a seq on and prints each
+// chunk as it arrives, until the final one: export <placement> [from-seq]. A
+// chunk's seq is its resume point, the from-seq that continues right after it.
+// Credits are granted by the scenario's logs.credits_per_chunk.
+func (c *console) export(f []string) {
+	if len(f) < 2 {
+		c.println("export needs a placement: export binding-1 [from-seq]")
+		return
+	}
+	var fromSeq uint64
+	if len(f) > 2 {
+		n, err := strconv.ParseUint(f[2], 10, 64)
+		if err != nil {
+			c.println("export: the from-seq must be a whole number, got %q", f[2])
+			return
+		}
+		fromSeq = n
+	}
+	id := c.nextID("export")
+	cursor := c.s.tr.length()
+	if err := c.s.RequestLogs(msg.LogRequest{RequestID: id, PlacementRef: f[1], Export: &msg.LogExportQuery{FromSeq: fromSeq}}); err != nil {
+		c.println("%v", err)
+		return
+	}
+	c.println("%s: requested %s from seq %d", id, f[1], fromSeq)
+	go func() {
+		lines, chunks, resume := 0, 0, fromSeq
+		for {
+			m, end, ok := c.await(cursor, func(m any) bool { ch, is := m.(msg.LogChunk); return is && ch.RequestID == id })
+			if !ok {
+				c.println("%s: no chunk within %s; resume with: export %s %d", id, logsReplyDeadline, f[1], resume)
+				return
+			}
+			cursor = end
+			ch := m.(msg.LogChunk)
+			lines, chunks, resume = lines+len(ch.Lines), chunks+1, ch.Seq
+			c.println("%s seq=%d: %d lines, %d gaps%s", id, ch.Seq, len(ch.Lines), len(ch.Gaps), formatLog(ch.Lines, ch.Gaps))
+			if ch.Final {
+				c.println("%s: complete, %d lines in %d chunks", id, lines, chunks)
+				return
+			}
+		}
+	}()
+}
+
+// capLogs sets a placement's log ring cap on the agent: cap <placement> <bytes>.
+// A cap of 0 turns collection off and the agent deletes the stored logs.
+func (c *console) capLogs(f []string) {
+	if len(f) < 3 {
+		c.println("cap needs a placement and a size: cap binding-1 512000 (bytes; 0 stops collection and deletes the stored logs)")
+		return
+	}
+	n, err := strconv.ParseUint(f[2], 10, 64)
+	if err != nil {
+		c.println("cap: the size must be a whole number of bytes, got %q", f[2])
+		return
+	}
+	if err := c.s.SetLogRetention(f[1], n); err != nil {
+		c.println("%v", err)
+		return
+	}
+	c.println("cap %s = %d bytes: sent", f[1], n)
+}
+
+func (c *console) nextID(kind string) string {
+	c.seq++
+	return fmt.Sprintf("%s-%d", kind, c.seq)
+}
+
+// await waits for the first inbound transcript entry at or after index from
+// that match accepts, returning it and the index after it.
+func (c *console) await(from int, match func(any) bool) (any, int, bool) {
+	var got any
+	end, ok := c.s.tr.waitScan(from, func(es []Entry) (int, bool) {
+		for i, e := range es {
+			if e.Dir == "in" && match(e.Msg) {
+				got = e.Msg
+				return i + 1, true
+			}
+		}
+		return 0, false
+	}, logsReplyDeadline)
+	return got, end, ok
+}
+
+// formatLog renders lines oldest first as "time stream text", then the gaps,
+// one per indented line, so a page prints as one block.
+func formatLog(lines []msg.LogLine, gaps []msg.LogGap) string {
+	var b strings.Builder
+	for _, l := range lines {
+		fmt.Fprintf(&b, "\n    %s %-6s %s", l.TS.Local().Format("15:04:05.000"), l.Stream, strings.TrimRight(string(l.Text), "\r\n"))
+		if l.Truncated {
+			b.WriteString(" [truncated]")
+		}
+	}
+	for _, g := range gaps {
+		fmt.Fprintf(&b, "\n    gap %s from %s to %s", g.Reason, g.From.Local().Format("15:04:05"), g.To.Local().Format("15:04:05"))
+	}
+	return b.String()
 }
