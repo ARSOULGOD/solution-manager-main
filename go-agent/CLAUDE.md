@@ -39,6 +39,15 @@ decisions it rests on are in the baseline family.
 | Agent decisions | `AG-D21`–`AG-D25` (reconstructed 2026-10-08) in [`../docs/design/go-agent/decisions.md`](../docs/design/go-agent/decisions.md), all PROPOSED; metric declarations now arrive on the wire (`AG-D28`, supersedes `AG-D22` for production) |
 | Open items | `AG-12` and `AG-13` in design [§13.2](../docs/design/go-agent/design.md); `AG-14` has no definition (`AG-D22` says so), and `AG-15`–`AG-21` are not defined anywhere |
 
+**The telemetry push interval (`AG-D30`) is built on branch `go-agent/push-interval`** (go-agent plan 008): stored batches
+go at each push tick, `OR-73`'s 1 min unless the DP sets `Limits.telemetry_push_interval` (`0` = at once).
+
+| Artifact | Where |
+|---|---|
+| Design | [`../docs/design/go-agent/specs/2026-10-13-go-agent-telemetry-push-interval-design.md`](../docs/design/go-agent/specs/2026-10-13-go-agent-telemetry-push-interval-design.md) |
+| Implementation plan | [`../docs/plans/go-agent/008-telemetry-push-interval.md`](../docs/plans/go-agent/008-telemetry-push-interval.md) |
+| Open item | central item 48 in [`../docs/design/DECISIONS.md`](../docs/design/DECISIONS.md): the Java gateway does not send the field yet |
+
 The plan is now the historical record of what was built, not forward guidance — read it to
 understand why the code is shaped the way it is, not as a task list to execute.
 

@@ -197,3 +197,39 @@ func TestEmptyTelemetryEnvelopesAreErrors(t *testing.T) {
 		t.Error("a down message with nothing in it must be an error")
 	}
 }
+
+// AG-D30: telemetry_push_interval has three states on the wire — unset, 0 and a
+// value — and each must survive both directions, presence included.
+func TestTelemetryPushIntervalKeepsItsThreeStates(t *testing.T) {
+	zero, minute := time.Duration(0), time.Minute
+	for name, in := range map[string]*time.Duration{"unset": nil, "zero": &zero, "one minute": &minute} {
+		p, err := GatewayToPB(msg.SessionAccept{Limits: msg.Limits{ReportInterval: time.Minute, TelemetryPushInterval: in}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if onWire := p.GetSessionAccept().GetLimits().GetTelemetryPushInterval() != nil; onWire != (in != nil) {
+			t.Fatalf("%s: field present on the wire = %v", name, onWire)
+		}
+		out, err := GatewayFromPB(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := out.(msg.SessionAccept).Limits.TelemetryPushInterval
+		if (got == nil) != (in == nil) || (got != nil && *got != *in) {
+			t.Fatalf("%s: round trip gave %v", name, got)
+		}
+	}
+}
+
+// Today's Java gateway sends no field: the agent must read unset (nil), never 0,
+// because 0 means "send at once" and unset means OR-73's 1 min.
+func TestAnAbsentPushIntervalDecodesToUnset(t *testing.T) {
+	out, err := GatewayFromPB(&pb.GatewayToAgent{Msg: &pb.GatewayToAgent_SessionAccept{SessionAccept: &pb.SessionAccept{
+		Limits: &pb.Limits{ReportInterval: dur(time.Minute)}}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if l := out.(msg.SessionAccept).Limits; l.TelemetryPushInterval != nil || l.ReportInterval != time.Minute {
+		t.Fatalf("limits %+v", l)
+	}
+}

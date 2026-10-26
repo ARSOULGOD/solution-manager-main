@@ -55,7 +55,7 @@ An invalid property fails startup. The message names the entry's position, never
   the `Authorization`-bearing `management.otlp.metrics.export.headers.*` and
   `management.opentelemetry.tracing.export.otlp.headers.*`. That is why the default lists only `management.server.port`,
   `management.endpoints.*` and `management.endpoint.*` under it (revised in the plan 017 final review). `info.*` is
-  free-form, so whatever an MI puts there is shown; the owner is asked to confirm keeping it (`DECISIONS.md` open item 51).
+  free-form, so whatever an MI puts there is shown; the owner is asked to confirm keeping it (`DECISIONS.md` open item 52).
 - **Rejected at startup:** an empty list, more than 64 entries, a blank or duplicate entry, an entry over 256 characters,
   any character other than ASCII letters, digits, `-`, `_` and `.` (so list-index brackets are refused), a `*` anywhere but a
   final `.*`, and an empty segment (`.a`, `a.`, `a..b`).

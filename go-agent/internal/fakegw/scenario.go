@@ -28,6 +28,55 @@ type LimitsSpec struct {
 	KeepaliveInterval time.Duration `yaml:"keepalive_interval"`
 	SkewTolerance     time.Duration `yaml:"skew_tolerance"`
 	ReportInterval    time.Duration `yaml:"report_interval"`
+	// TelemetryPushInterval is what SessionAccept carries in
+	// telemetry_push_interval (AG-D30). The zero value sends an explicit 0, so
+	// every scenario written before AG-D30 keeps sending at once.
+	TelemetryPushInterval PushSpec `yaml:"telemetry_push_interval"`
+}
+
+// PushSpec is the telemetry_push_interval fake-gateway sends: a duration (0
+// included, the zero value) or Unset — no field, which is what today's Java
+// gateway sends and the agent reads as OR-73's 1 min (AG-D30).
+type PushSpec struct {
+	Unset bool
+	Every time.Duration
+}
+
+// ParsePushSpec reads "unset" or a Go duration ("1m", "0").
+func ParsePushSpec(s string) (PushSpec, error) {
+	if s == "unset" {
+		return PushSpec{Unset: true}, nil
+	}
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return PushSpec{}, err
+	}
+	return PushSpec{Every: d}, nil
+}
+
+func (p *PushSpec) UnmarshalYAML(n *yaml.Node) error {
+	v, err := ParsePushSpec(n.Value)
+	if err != nil {
+		return fmt.Errorf("telemetry_push_interval: %w", err)
+	}
+	*p = v
+	return nil
+}
+
+// Wire is the field as msg.Limits carries it: nil when Unset.
+func (p PushSpec) Wire() *time.Duration {
+	if p.Unset {
+		return nil
+	}
+	d := p.Every
+	return &d
+}
+
+func (p PushSpec) String() string {
+	if p.Unset {
+		return "unset"
+	}
+	return p.Every.String()
 }
 
 type HeartbeatPolicy struct {

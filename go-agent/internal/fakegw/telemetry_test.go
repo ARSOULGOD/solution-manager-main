@@ -5,9 +5,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/solace/solution-manager/go-agent/internal/identity"
 	"github.com/solace/solution-manager/go-agent/internal/msg"
@@ -209,5 +213,85 @@ func TestTelemetryRejectNextRejectsOnceWithoutCommitting(t *testing.T) {
 	}
 	if strings.Contains(out.String(), "duplicate") {
 		t.Fatalf("a rejected batch must not advance the watermark:\n%s", out.String())
+	}
+}
+
+func TestScenarioPushIntervalParses(t *testing.T) {
+	for _, tc := range []struct {
+		yaml string
+		want PushSpec
+		err  string
+	}{
+		{"{}\n", PushSpec{}, ""}, // omitted: fake-gateway's default, an explicit 0
+		{"limits: {telemetry_push_interval: 1m}\n", PushSpec{Every: time.Minute}, ""},
+		{"limits: {telemetry_push_interval: 0}\n", PushSpec{}, ""},
+		{"limits: {telemetry_push_interval: unset}\n", PushSpec{Unset: true}, ""},
+		// Review Focus 5: a bare number has no unit
+		{"limits: {telemetry_push_interval: 60}\n", PushSpec{}, `telemetry_push_interval: time: missing unit in duration "60"`},
+	} {
+		path := filepath.Join(t.TempDir(), "sc.yaml")
+		if err := os.WriteFile(path, []byte(tc.yaml), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		sc, err := LoadScenario(path)
+		if tc.err != "" {
+			if err == nil || !strings.Contains(err.Error(), tc.err) {
+				t.Errorf("%q: error %v, want one containing %q", tc.yaml, err, tc.err)
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatalf("%q: %v", tc.yaml, err)
+		}
+		if sc.Limits.TelemetryPushInterval != tc.want || sc.Limits.ReportInterval != time.Minute {
+			t.Errorf("%q: limits %+v", tc.yaml, sc.Limits)
+		}
+	}
+}
+
+func TestTheNextSessionAcceptCarriesThePushInterval(t *testing.T) {
+	zero, minute := time.Duration(0), time.Minute
+	for _, tc := range []struct {
+		name          string
+		scenario, set *PushSpec
+		want          *time.Duration
+	}{
+		{"the default: an explicit 0", nil, nil, &zero},
+		{"unset in the scenario: no field", &PushSpec{Unset: true}, nil, nil},
+		{"set from the console", nil, &PushSpec{Every: time.Minute}, &minute},
+	} {
+		s, _ := telemetryServer(t, func(sc *Scenario) {
+			if tc.scenario != nil {
+				sc.Limits.TelemetryPushInterval = *tc.scenario
+			}
+		})
+		if tc.set != nil {
+			s.SetPushInterval(*tc.set)
+		}
+		conn := agentConn(t, s, false)
+		if err := conn.Send(msg.SessionOpen{Envelope: msg.Envelope{MessageID: "open"}, ProtocolVersion: 1}); err != nil {
+			t.Fatal(err)
+		}
+		m, err := conn.Recv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		a, ok := m.(msg.SessionAccept)
+		if !ok {
+			t.Fatalf("%s: got %T", tc.name, m)
+		}
+		if got := a.Limits.TelemetryPushInterval; (got == nil) != (tc.want == nil) || (got != nil && *got != *tc.want) {
+			t.Fatalf("%s: push %v", tc.name, got)
+		}
+	}
+}
+
+func TestTelemetryLinesCarryTheTime(t *testing.T) {
+	s, out := telemetryServer(t, nil)
+	ts := openTelemetry(t, agentConn(t, s, true))
+	sendBatch(t, ts, 1)
+	recvAck(t, ts)
+	if !regexp.MustCompile(`(?m)^\[\d{2}:\d{2}:\d{2}\] telemetry binding-1 seq=1 `).MatchString(out.String()) {
+		t.Fatalf("no time prefix:\n%s", out.String())
 	}
 }

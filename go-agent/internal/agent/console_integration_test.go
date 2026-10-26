@@ -59,10 +59,10 @@ func TestIntegrationConsoleCommandsBackToBack(t *testing.T) {
 	out := &syncBuffer{}
 	go gw.Console(strings.NewReader("preflight\napply "+file+"\nrestart\nstop\n"), out)
 	for _, want := range []string{
-		"preflight-1 gen=1 -> PREFLIGHT_OK",
-		"apply-2 gen=2 -> APPLIED",
-		"restart-3 gen=3 -> APPLIED",
-		"stop-4 gen=4 -> APPLIED",
+		"preflight-binding-1-1 gen=1 -> PREFLIGHT_OK",
+		"apply-binding-1-2 gen=2 -> APPLIED",
+		"restart-binding-1-3 gen=3 -> APPLIED",
+		"stop-binding-1-4 gen=4 -> APPLIED",
 	} {
 		waitOutput(t, out, want, 20*time.Second)
 	}
@@ -88,7 +88,7 @@ func TestIntegrationConsoleGenerationFollowsScriptedOffers(t *testing.T) {
 
 	out := &syncBuffer{}
 	go gw.Console(strings.NewReader("restart\n"), out)
-	waitOutput(t, out, "restart-6 gen=6 -> APPLIED", 20*time.Second)
+	waitOutput(t, out, "restart-binding-1-6 gen=6 -> APPLIED", 20*time.Second)
 }
 
 // An agent restarted with its data dir intact reconnects to the same
@@ -100,13 +100,13 @@ func TestIntegrationConsoleReachesAgentAfterItRestarts(t *testing.T) {
 	waitPhase(t, h.loop, PhaseActive, 10*time.Second)
 	out := &syncBuffer{}
 	gw.Console(strings.NewReader("restart\n"), out)
-	waitOutput(t, out, "restart-1 gen=1 -> APPLIED", 20*time.Second)
+	waitOutput(t, out, "restart-binding-1-1 gen=1 -> APPLIED", 20*time.Second)
 
 	h.stop()
 	h2 := startAgentWith(t, gw, h.dir, ad)
 	waitPhase(t, h2.loop, PhaseActive, 10*time.Second)
 	gw.Console(strings.NewReader("stop\n"), out)
-	waitOutput(t, out, "stop-2 gen=2 -> APPLIED", 20*time.Second)
+	waitOutput(t, out, "stop-binding-1-2 gen=2 -> APPLIED", 20*time.Second)
 }
 
 // disconnect drops the session while the gateway keeps its CA and enrolment,

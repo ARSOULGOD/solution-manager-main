@@ -22,7 +22,7 @@ import org.springframework.context.annotation.Configuration;
  *       subtree holds Micrometer export credentials ({@code management.datadog.metrics.export.api-key},
  *       {@code management.dynatrace.metrics.export.api-token}, {@code management.influx.metrics.export.password},
  *       {@code management.otlp.metrics.export.headers.*} and their siblings). {@code info.*} is free-form text an MI may fill
- *       with anything; the owner is asked to confirm keeping it (DECISIONS.md open item 51).</li>
+ *       with anything; the owner is asked to confirm keeping it (DECISIONS.md open item 52).</li>
  *   <li>{@code sm.dp.config-view.timeout} - how long a view waits for the agent before it is abandoned
  *       ({@code AGENT_UNAVAILABLE}); default 10s, at most 1m. Set the gateway's {@code config-view-deadline} no longer than it.</li>
  *   <li>{@code sm.dp.config-view.max-bytes} - the output bound sent to the agent and re-checked here (UTF-8 bytes of path plus

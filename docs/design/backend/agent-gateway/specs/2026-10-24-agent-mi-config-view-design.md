@@ -76,7 +76,7 @@ operator's list to own. ⚠️ **Do not list `management.*`:** that subtree hold
 `Authorization`; verified against the Spring Boot application-properties appendix, 2026-10-24). The default therefore
 lists only `management.server.port`, `management.endpoints.*` and `management.endpoint.*` under it. `logging.*` holds
 levels and file settings. `info.*` is free-form: an MI can put anything there, so the owner is asked to confirm keeping it
-(`DECISIONS.md` open item 51).
+(`DECISIONS.md` open item 52).
 
 ## 5. Gateway
 

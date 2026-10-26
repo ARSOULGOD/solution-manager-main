@@ -229,7 +229,7 @@ the launcher context cannot load (`sm_control` `V028` drops `'agent'`), so launc
 **Not run.** `ProductionAuthenticationIT` (edited by reading only); `contracts/run-checks.sh` as a whole (its pieces were run
 directly); every launcher IT; the dp-core full suite; any manual walkthrough with a real container, agent and gateway.
 
-**Open owner questions** (all in `DECISIONS.md` open items 51-55): Viewer visibility of allow-listed values; audit row for reads;
+**Open owner questions** (all in `DECISIONS.md` open items 52-56): Viewer visibility of allow-listed values; audit row for reads;
 SSH placements later through the same port; the `V028` defect also blocking this feature's launcher edit; the three new error codes.
 
 **Final review fix wave.**
@@ -238,7 +238,7 @@ SSH placements later through the same port; the `V028` defect also blocking this
   (`management.datadog.metrics.export.api-key`, `management.dynatrace.metrics.export.api-token`,
   `management.influx.metrics.export.password`, `management.otlp.metrics.export.headers.*` and siblings; checked against the
   Spring Boot application-properties appendix). Pinned by `AgentConfigViewServiceTest.theDefaultAllowListLeavesVendorCredentialSubtreesOut`
-  and `ConfigViewWiringTest.theDefaultAllowListAndLimitAreSent`. Spec, `console.yaml`, runbook and open item 51 updated.
+  and `ConfigViewWiringTest.theDefaultAllowListAndLimitAreSent`. Spec, `console.yaml`, runbook and open item 52 updated.
 - **M-1, DP slot leak fixed:** exactly one of the task and the abandoning caller releases the permit (`AtomicBoolean started`);
   `aViewAbandonedBeforeItsTaskStartsStillFreesItsSlot` failed (`expected: <2> but was: <1>`) against the old release logic.
 - **M-2:** `sm.dp.config-view.max-bytes` ceiling lowered from 4 MiB to 1 MiB (1048576), the agent's hard cap.

@@ -11,6 +11,7 @@ import (
 
 	"github.com/solace/solution-manager/go-agent/internal/msg"
 	"github.com/solace/solution-manager/go-agent/internal/telemetry/buffer"
+	"github.com/solace/solution-manager/go-agent/internal/telemetry/cadence"
 )
 
 // Head is a buffered stream's oldest unsent batch, as the runner read it.
@@ -40,6 +41,9 @@ type State struct {
 	InFlight       map[string]uint64
 	Acked          map[string]uint64 // highest watermark seen per stream: filters stale heads
 	RetryAt        map[string]time.Time
+	PushInterval   time.Duration // AG-D30: 0 sends each batch at once; otherwise batches wait for a push tick
+	DueBy          time.Time     // a batch produced at or before it is due
+	BufferAge      time.Duration // the age cap a push interval must stay below; set once by the runner
 }
 
 func NewState() State {
@@ -69,6 +73,7 @@ type (
 	}
 	Unsendable struct{ Stream string } // the runner could not send what was selected
 	Wake       struct{}                // the buffer, the view or a timer changed
+	PushDue    struct{}                // the push ticker fired (AG-D30)
 )
 
 func (SessionUp) event()    {}
@@ -80,6 +85,7 @@ func (Credit) event()       {}
 func (Reject) event()       {}
 func (Unsendable) event()   {}
 func (Wake) event()         {}
+func (PushDue) event()      {}
 
 type Effect interface{ effect() }
 
@@ -101,6 +107,7 @@ type (
 	}
 	Requeue  struct{ Stream string }
 	ArmRetry struct{ At time.Time }
+	ArmPush  struct{ Every time.Duration } // reset the push ticker; 0 stops it
 )
 
 func (OpenStream) effect()  {}
@@ -110,6 +117,7 @@ func (Trim) effect()        {}
 func (DropAsGap) effect()   {}
 func (Requeue) effect()     {}
 func (ArmRetry) effect()    {}
+func (ArmPush) effect()     {}
 
 // terminal rejects: the same bytes can never be accepted, so retrying is
 // pointless and the batch becomes a gap (spec §5.2).
@@ -175,6 +183,15 @@ func Reduce(in State, ev Event, env Env) (State, []Effect) {
 		s.Credits = e.Limits.InitialCredits // the old session's credits are void
 		s.MaxBatchBytes, s.ReportInterval = e.Limits.MaxBatchBytes, e.Limits.ReportInterval
 		effs = append(effs, OpenStream{})
+		// Resolved here, from the limits this event carries, not delivered by a
+		// separate event that would race it (spec §4.1).
+		if push, _ := cadence.Resolve(e.Limits, s.BufferAge); push != s.PushInterval {
+			if s.PushInterval == 0 {
+				s.DueBy = env.Now // stored under immediate push: all of it is already due
+			}
+			s.PushInterval = push
+			effs = append(effs, ArmPush{Every: push})
+		}
 	case SessionDown:
 		if s.SessionID == "" {
 			break
@@ -235,6 +252,8 @@ func Reduce(in State, ev Event, env Env) (State, []Effect) {
 			s.Credits++
 			s.RetryAt[e.Stream] = env.Now.Add(retryDefault)
 		}
+	case PushDue:
+		s.DueBy = env.Now
 	case Wake:
 	}
 	return s, append(effs, s.selectSends(env)...)
@@ -275,6 +294,8 @@ func (s *State) selectSends(env Env) []Effect {
 				effs = append(effs, DropAsGap{Stream: h.Stream, Seq: h.Seq, Reason: buffer.ReasonUnregistered})
 			}
 			continue
+		case s.PushInterval > 0 && h.ProducedAt.After(s.DueBy):
+			continue // stored, not yet due (AG-D30)
 		case s.Credits == 0:
 			continue
 		}

@@ -1643,8 +1643,12 @@ type Limits struct {
 	KeepaliveInterval *durationpb.Duration   `protobuf:"bytes,5,opt,name=keepalive_interval,json=keepaliveInterval,proto3" json:"keepalive_interval,omitempty"`
 	SkewTolerance     *durationpb.Duration   `protobuf:"bytes,6,opt,name=skew_tolerance,json=skewTolerance,proto3" json:"skew_tolerance,omitempty"`
 	ReportInterval    *durationpb.Duration   `protobuf:"bytes,7,opt,name=report_interval,json=reportInterval,proto3" json:"report_interval,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// AG-D30 (go-agent plan 008). The telemetry push interval for this session: stored batches are sent at each tick.
+	// Unset: the agent's default, OR-73's 1 min (AGW-D27 item 4). Set to 0: each batch is sent as soon as it is written.
+	// Valid: 0, or at least 1 s and below the agent's --telemetry-buffer-age; any other value is refused and the default applies.
+	TelemetryPushInterval *durationpb.Duration `protobuf:"bytes,8,opt,name=telemetry_push_interval,json=telemetryPushInterval,proto3" json:"telemetry_push_interval,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *Limits) Reset() {
@@ -1722,6 +1726,13 @@ func (x *Limits) GetSkewTolerance() *durationpb.Duration {
 func (x *Limits) GetReportInterval() *durationpb.Duration {
 	if x != nil {
 		return x.ReportInterval
+	}
+	return nil
+}
+
+func (x *Limits) GetTelemetryPushInterval() *durationpb.Duration {
+	if x != nil {
+		return x.TelemetryPushInterval
 	}
 	return nil
 }
@@ -6770,7 +6781,7 @@ const file_agent_gateway_proto_rawDesc = "" +
 	"\x16capabilities_supported\x18\x04 \x03(\x0e2*.solace.sm.agentgateway.v1draft.CapabilityR\x15capabilitiesSupported\x12>\n" +
 	"\x06resume\x18\x05 \x01(\v2&.solace.sm.agentgateway.v1draft.ResumeR\x06resume\x12;\n" +
 	"\vagent_clock\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"agentClock\"\x9f\x03\n" +
+	"agentClock\"\xf2\x03\n" +
 	"\x06Limits\x12*\n" +
 	"\x11max_message_bytes\x18\x01 \x01(\x04R\x0fmaxMessageBytes\x12&\n" +
 	"\x0fmax_batch_bytes\x18\x02 \x01(\x04R\rmaxBatchBytes\x12'\n" +
@@ -6778,7 +6789,8 @@ const file_agent_gateway_proto_rawDesc = "" +
 	"\x12heartbeat_interval\x18\x04 \x01(\v2\x19.google.protobuf.DurationR\x11heartbeatInterval\x12H\n" +
 	"\x12keepalive_interval\x18\x05 \x01(\v2\x19.google.protobuf.DurationR\x11keepaliveInterval\x12@\n" +
 	"\x0eskew_tolerance\x18\x06 \x01(\v2\x19.google.protobuf.DurationR\rskewTolerance\x12B\n" +
-	"\x0freport_interval\x18\a \x01(\v2\x19.google.protobuf.DurationR\x0ereportInterval\"\xf8\x06\n" +
+	"\x0freport_interval\x18\a \x01(\v2\x19.google.protobuf.DurationR\x0ereportInterval\x12Q\n" +
+	"\x17telemetry_push_interval\x18\b \x01(\v2\x19.google.protobuf.DurationR\x15telemetryPushInterval\"\xf8\x06\n" +
 	"\n" +
 	"LeaseGrant\x12D\n" +
 	"\benvelope\x18\x01 \x01(\v2(.solace.sm.agentgateway.v1draft.EnvelopeR\benvelope\x12\x19\n" +
@@ -7518,178 +7530,179 @@ var file_agent_gateway_proto_depIdxs = []int32{
 	95,  // 12: solace.sm.agentgateway.v1draft.Limits.keepalive_interval:type_name -> google.protobuf.Duration
 	95,  // 13: solace.sm.agentgateway.v1draft.Limits.skew_tolerance:type_name -> google.protobuf.Duration
 	95,  // 14: solace.sm.agentgateway.v1draft.Limits.report_interval:type_name -> google.protobuf.Duration
-	19,  // 15: solace.sm.agentgateway.v1draft.LeaseGrant.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	94,  // 16: solace.sm.agentgateway.v1draft.LeaseGrant.issued_at:type_name -> google.protobuf.Timestamp
-	94,  // 17: solace.sm.agentgateway.v1draft.LeaseGrant.expires_at:type_name -> google.protobuf.Timestamp
-	1,   // 18: solace.sm.agentgateway.v1draft.LeaseGrant.capabilities:type_name -> solace.sm.agentgateway.v1draft.Capability
-	91,  // 19: solace.sm.agentgateway.v1draft.LeaseGrant.verb_ceilings:type_name -> solace.sm.agentgateway.v1draft.LeaseGrant.VerbCeilingsEntry
-	95,  // 20: solace.sm.agentgateway.v1draft.LeaseGrant.admission_margin:type_name -> google.protobuf.Duration
-	94,  // 21: solace.sm.agentgateway.v1draft.LeaseGrant.server_clock:type_name -> google.protobuf.Timestamp
-	19,  // 22: solace.sm.agentgateway.v1draft.SessionAccept.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	1,   // 23: solace.sm.agentgateway.v1draft.SessionAccept.required_capabilities:type_name -> solace.sm.agentgateway.v1draft.Capability
-	27,  // 24: solace.sm.agentgateway.v1draft.SessionAccept.lease:type_name -> solace.sm.agentgateway.v1draft.LeaseGrant
-	26,  // 25: solace.sm.agentgateway.v1draft.SessionAccept.limits:type_name -> solace.sm.agentgateway.v1draft.Limits
-	94,  // 26: solace.sm.agentgateway.v1draft.SessionAccept.server_clock:type_name -> google.protobuf.Timestamp
-	19,  // 27: solace.sm.agentgateway.v1draft.SessionReject.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	0,   // 28: solace.sm.agentgateway.v1draft.SessionReject.code:type_name -> solace.sm.agentgateway.v1draft.ErrorCode
-	95,  // 29: solace.sm.agentgateway.v1draft.SessionReject.retry_after:type_name -> google.protobuf.Duration
-	19,  // 30: solace.sm.agentgateway.v1draft.LeaseRenew.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	94,  // 31: solace.sm.agentgateway.v1draft.LeaseRenew.agent_clock:type_name -> google.protobuf.Timestamp
-	19,  // 32: solace.sm.agentgateway.v1draft.Revoke.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	19,  // 33: solace.sm.agentgateway.v1draft.GenerationAvailable.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	2,   // 34: solace.sm.agentgateway.v1draft.GenerationAvailable.operation:type_name -> solace.sm.agentgateway.v1draft.Operation
-	94,  // 35: solace.sm.agentgateway.v1draft.GenerationAvailable.deadline:type_name -> google.protobuf.Timestamp
-	33,  // 36: solace.sm.agentgateway.v1draft.GenerationAvailable.correlation:type_name -> solace.sm.agentgateway.v1draft.OperationCorrelation
-	19,  // 37: solace.sm.agentgateway.v1draft.CommandPull.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	19,  // 38: solace.sm.agentgateway.v1draft.CommandOffer.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	2,   // 39: solace.sm.agentgateway.v1draft.CommandOffer.operation:type_name -> solace.sm.agentgateway.v1draft.Operation
-	94,  // 40: solace.sm.agentgateway.v1draft.CommandOffer.deadline:type_name -> google.protobuf.Timestamp
-	33,  // 41: solace.sm.agentgateway.v1draft.CommandOffer.correlation:type_name -> solace.sm.agentgateway.v1draft.OperationCorrelation
-	19,  // 42: solace.sm.agentgateway.v1draft.CommandReceived.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	8,   // 43: solace.sm.agentgateway.v1draft.AckDetail.code:type_name -> solace.sm.agentgateway.v1draft.AckDetailCode
-	0,   // 44: solace.sm.agentgateway.v1draft.AckDetail.error_code:type_name -> solace.sm.agentgateway.v1draft.ErrorCode
-	37,  // 45: solace.sm.agentgateway.v1draft.AckDetail.preflight_result:type_name -> solace.sm.agentgateway.v1draft.PreflightResult
-	19,  // 46: solace.sm.agentgateway.v1draft.CommandAck.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	3,   // 47: solace.sm.agentgateway.v1draft.CommandAck.outcome:type_name -> solace.sm.agentgateway.v1draft.Outcome
-	38,  // 48: solace.sm.agentgateway.v1draft.CommandAck.detail:type_name -> solace.sm.agentgateway.v1draft.AckDetail
-	94,  // 49: solace.sm.agentgateway.v1draft.CommandAck.agent_clock:type_name -> google.protobuf.Timestamp
-	94,  // 50: solace.sm.agentgateway.v1draft.CommandAck.container_started_at:type_name -> google.protobuf.Timestamp
-	19,  // 51: solace.sm.agentgateway.v1draft.ApplyProgress.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	4,   // 52: solace.sm.agentgateway.v1draft.ApplyProgress.step:type_name -> solace.sm.agentgateway.v1draft.ProgressStep
-	94,  // 53: solace.sm.agentgateway.v1draft.ApplyProgress.at:type_name -> google.protobuf.Timestamp
-	94,  // 54: solace.sm.agentgateway.v1draft.ActualStateReport.restart_observed_at:type_name -> google.protobuf.Timestamp
-	41,  // 55: solace.sm.agentgateway.v1draft.ActualStateReport.version_observation:type_name -> solace.sm.agentgateway.v1draft.VersionObservation
-	33,  // 56: solace.sm.agentgateway.v1draft.ActualStateReport.correlation:type_name -> solace.sm.agentgateway.v1draft.OperationCorrelation
-	63,  // 57: solace.sm.agentgateway.v1draft.ActualStateReport.health:type_name -> solace.sm.agentgateway.v1draft.HealthObservation
-	94,  // 58: solace.sm.agentgateway.v1draft.ActualStateReport.container_started_at:type_name -> google.protobuf.Timestamp
-	19,  // 59: solace.sm.agentgateway.v1draft.ActualStateReportBatch.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	42,  // 60: solace.sm.agentgateway.v1draft.ActualStateReportBatch.items:type_name -> solace.sm.agentgateway.v1draft.ActualStateReport
-	5,   // 61: solace.sm.agentgateway.v1draft.ReportResult.trust:type_name -> solace.sm.agentgateway.v1draft.Trust
-	6,   // 62: solace.sm.agentgateway.v1draft.ReportResult.disposition:type_name -> solace.sm.agentgateway.v1draft.Disposition
-	0,   // 63: solace.sm.agentgateway.v1draft.ReportResult.refused_reason:type_name -> solace.sm.agentgateway.v1draft.ErrorCode
-	19,  // 64: solace.sm.agentgateway.v1draft.ReportAck.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	44,  // 65: solace.sm.agentgateway.v1draft.ReportAck.results:type_name -> solace.sm.agentgateway.v1draft.ReportResult
-	19,  // 66: solace.sm.agentgateway.v1draft.Heartbeat.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	94,  // 67: solace.sm.agentgateway.v1draft.Heartbeat.agent_clock:type_name -> google.protobuf.Timestamp
-	95,  // 68: solace.sm.agentgateway.v1draft.Heartbeat.lease_remaining_at_send:type_name -> google.protobuf.Duration
-	19,  // 69: solace.sm.agentgateway.v1draft.HeartbeatAck.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	94,  // 70: solace.sm.agentgateway.v1draft.HeartbeatAck.server_clock:type_name -> google.protobuf.Timestamp
-	7,   // 71: solace.sm.agentgateway.v1draft.HeartbeatAck.clock_state:type_name -> solace.sm.agentgateway.v1draft.ClockState
-	19,  // 72: solace.sm.agentgateway.v1draft.TrustBundleUpdate.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	22,  // 73: solace.sm.agentgateway.v1draft.TrustBundleUpdate.trust_bundle:type_name -> solace.sm.agentgateway.v1draft.TrustBundle
-	19,  // 74: solace.sm.agentgateway.v1draft.Drain.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	95,  // 75: solace.sm.agentgateway.v1draft.Drain.reconnect_after:type_name -> google.protobuf.Duration
-	95,  // 76: solace.sm.agentgateway.v1draft.Drain.deadline:type_name -> google.protobuf.Duration
-	19,  // 77: solace.sm.agentgateway.v1draft.DrainComplete.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	19,  // 78: solace.sm.agentgateway.v1draft.Teardown.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	19,  // 79: solace.sm.agentgateway.v1draft.Error.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	0,   // 80: solace.sm.agentgateway.v1draft.Error.code:type_name -> solace.sm.agentgateway.v1draft.ErrorCode
-	95,  // 81: solace.sm.agentgateway.v1draft.Error.retry_after:type_name -> google.protobuf.Duration
-	25,  // 82: solace.sm.agentgateway.v1draft.AgentToGateway.session_open:type_name -> solace.sm.agentgateway.v1draft.SessionOpen
-	30,  // 83: solace.sm.agentgateway.v1draft.AgentToGateway.lease_renew:type_name -> solace.sm.agentgateway.v1draft.LeaseRenew
-	34,  // 84: solace.sm.agentgateway.v1draft.AgentToGateway.command_pull:type_name -> solace.sm.agentgateway.v1draft.CommandPull
-	36,  // 85: solace.sm.agentgateway.v1draft.AgentToGateway.command_received:type_name -> solace.sm.agentgateway.v1draft.CommandReceived
-	39,  // 86: solace.sm.agentgateway.v1draft.AgentToGateway.command_ack:type_name -> solace.sm.agentgateway.v1draft.CommandAck
-	40,  // 87: solace.sm.agentgateway.v1draft.AgentToGateway.apply_progress:type_name -> solace.sm.agentgateway.v1draft.ApplyProgress
-	43,  // 88: solace.sm.agentgateway.v1draft.AgentToGateway.actual_state_report_batch:type_name -> solace.sm.agentgateway.v1draft.ActualStateReportBatch
-	46,  // 89: solace.sm.agentgateway.v1draft.AgentToGateway.heartbeat:type_name -> solace.sm.agentgateway.v1draft.Heartbeat
-	51,  // 90: solace.sm.agentgateway.v1draft.AgentToGateway.teardown:type_name -> solace.sm.agentgateway.v1draft.Teardown
-	50,  // 91: solace.sm.agentgateway.v1draft.AgentToGateway.drain_complete:type_name -> solace.sm.agentgateway.v1draft.DrainComplete
-	67,  // 92: solace.sm.agentgateway.v1draft.AgentToGateway.discovery_report:type_name -> solace.sm.agentgateway.v1draft.DiscoveryReport
-	88,  // 93: solace.sm.agentgateway.v1draft.AgentToGateway.config_view_reply:type_name -> solace.sm.agentgateway.v1draft.ConfigViewReply
-	28,  // 94: solace.sm.agentgateway.v1draft.GatewayToAgent.session_accept:type_name -> solace.sm.agentgateway.v1draft.SessionAccept
-	29,  // 95: solace.sm.agentgateway.v1draft.GatewayToAgent.session_reject:type_name -> solace.sm.agentgateway.v1draft.SessionReject
-	27,  // 96: solace.sm.agentgateway.v1draft.GatewayToAgent.lease_grant:type_name -> solace.sm.agentgateway.v1draft.LeaseGrant
-	31,  // 97: solace.sm.agentgateway.v1draft.GatewayToAgent.revoke:type_name -> solace.sm.agentgateway.v1draft.Revoke
-	32,  // 98: solace.sm.agentgateway.v1draft.GatewayToAgent.generation_available:type_name -> solace.sm.agentgateway.v1draft.GenerationAvailable
-	35,  // 99: solace.sm.agentgateway.v1draft.GatewayToAgent.command_offer:type_name -> solace.sm.agentgateway.v1draft.CommandOffer
-	45,  // 100: solace.sm.agentgateway.v1draft.GatewayToAgent.report_ack:type_name -> solace.sm.agentgateway.v1draft.ReportAck
-	47,  // 101: solace.sm.agentgateway.v1draft.GatewayToAgent.heartbeat_ack:type_name -> solace.sm.agentgateway.v1draft.HeartbeatAck
-	48,  // 102: solace.sm.agentgateway.v1draft.GatewayToAgent.trust_bundle_update:type_name -> solace.sm.agentgateway.v1draft.TrustBundleUpdate
-	49,  // 103: solace.sm.agentgateway.v1draft.GatewayToAgent.drain:type_name -> solace.sm.agentgateway.v1draft.Drain
-	51,  // 104: solace.sm.agentgateway.v1draft.GatewayToAgent.teardown:type_name -> solace.sm.agentgateway.v1draft.Teardown
-	52,  // 105: solace.sm.agentgateway.v1draft.GatewayToAgent.error:type_name -> solace.sm.agentgateway.v1draft.Error
-	69,  // 106: solace.sm.agentgateway.v1draft.GatewayToAgent.discovery_ack:type_name -> solace.sm.agentgateway.v1draft.DiscoveryAck
-	73,  // 107: solace.sm.agentgateway.v1draft.GatewayToAgent.telemetry_declarations:type_name -> solace.sm.agentgateway.v1draft.TelemetryDeclarations
-	74,  // 108: solace.sm.agentgateway.v1draft.GatewayToAgent.log_retention:type_name -> solace.sm.agentgateway.v1draft.LogRetention
-	77,  // 109: solace.sm.agentgateway.v1draft.GatewayToAgent.log_request:type_name -> solace.sm.agentgateway.v1draft.LogRequest
-	86,  // 110: solace.sm.agentgateway.v1draft.GatewayToAgent.config_view_request:type_name -> solace.sm.agentgateway.v1draft.ConfigViewRequest
-	9,   // 111: solace.sm.agentgateway.v1draft.Sample.type:type_name -> solace.sm.agentgateway.v1draft.MetricType
-	94,  // 112: solace.sm.agentgateway.v1draft.Sample.ts:type_name -> google.protobuf.Timestamp
-	92,  // 113: solace.sm.agentgateway.v1draft.Sample.labels:type_name -> solace.sm.agentgateway.v1draft.Sample.LabelsEntry
-	19,  // 114: solace.sm.agentgateway.v1draft.TelemetryBatch.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	55,  // 115: solace.sm.agentgateway.v1draft.TelemetryBatch.samples:type_name -> solace.sm.agentgateway.v1draft.Sample
-	56,  // 116: solace.sm.agentgateway.v1draft.TelemetryBatch.gap_markers:type_name -> solace.sm.agentgateway.v1draft.GapMarker
-	94,  // 117: solace.sm.agentgateway.v1draft.TelemetryBatch.produced_at:type_name -> google.protobuf.Timestamp
-	19,  // 118: solace.sm.agentgateway.v1draft.TelemetryAck.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	19,  // 119: solace.sm.agentgateway.v1draft.TelemetryCredit.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	19,  // 120: solace.sm.agentgateway.v1draft.TelemetryReject.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	0,   // 121: solace.sm.agentgateway.v1draft.TelemetryReject.code:type_name -> solace.sm.agentgateway.v1draft.ErrorCode
-	95,  // 122: solace.sm.agentgateway.v1draft.TelemetryReject.retry_after:type_name -> google.protobuf.Duration
-	19,  // 123: solace.sm.agentgateway.v1draft.TelemetryUp.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	57,  // 124: solace.sm.agentgateway.v1draft.TelemetryUp.telemetry_batch:type_name -> solace.sm.agentgateway.v1draft.TelemetryBatch
-	19,  // 125: solace.sm.agentgateway.v1draft.TelemetryDown.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	58,  // 126: solace.sm.agentgateway.v1draft.TelemetryDown.telemetry_ack:type_name -> solace.sm.agentgateway.v1draft.TelemetryAck
-	59,  // 127: solace.sm.agentgateway.v1draft.TelemetryDown.telemetry_credit:type_name -> solace.sm.agentgateway.v1draft.TelemetryCredit
-	60,  // 128: solace.sm.agentgateway.v1draft.TelemetryDown.telemetry_reject:type_name -> solace.sm.agentgateway.v1draft.TelemetryReject
-	10,  // 129: solace.sm.agentgateway.v1draft.HealthObservation.state:type_name -> solace.sm.agentgateway.v1draft.HealthState
-	94,  // 130: solace.sm.agentgateway.v1draft.HealthObservation.observed_at:type_name -> google.protobuf.Timestamp
-	11,  // 131: solace.sm.agentgateway.v1draft.HealthObservation.probe_strength:type_name -> solace.sm.agentgateway.v1draft.ProbeStrength
-	12,  // 132: solace.sm.agentgateway.v1draft.HealthObservation.failure:type_name -> solace.sm.agentgateway.v1draft.ProbeFailure
-	93,  // 133: solace.sm.agentgateway.v1draft.DiscoveredContainer.labels:type_name -> solace.sm.agentgateway.v1draft.DiscoveredContainer.LabelsEntry
-	64,  // 134: solace.sm.agentgateway.v1draft.DiscoveredContainer.mounts:type_name -> solace.sm.agentgateway.v1draft.DiscoveredMount
-	65,  // 135: solace.sm.agentgateway.v1draft.DiscoveredContainer.published_ports:type_name -> solace.sm.agentgateway.v1draft.DiscoveredPort
-	19,  // 136: solace.sm.agentgateway.v1draft.DiscoveryReport.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	66,  // 137: solace.sm.agentgateway.v1draft.DiscoveryReport.items:type_name -> solace.sm.agentgateway.v1draft.DiscoveredContainer
-	13,  // 138: solace.sm.agentgateway.v1draft.DiscoveryResult.state:type_name -> solace.sm.agentgateway.v1draft.DiscoveryState
-	19,  // 139: solace.sm.agentgateway.v1draft.DiscoveryAck.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	68,  // 140: solace.sm.agentgateway.v1draft.DiscoveryAck.results:type_name -> solace.sm.agentgateway.v1draft.DiscoveryResult
-	14,  // 141: solace.sm.agentgateway.v1draft.HttpJsonSource.on_unavailable:type_name -> solace.sm.agentgateway.v1draft.OnUnavailable
-	9,   // 142: solace.sm.agentgateway.v1draft.TelemetryMetric.metric_type:type_name -> solace.sm.agentgateway.v1draft.MetricType
-	70,  // 143: solace.sm.agentgateway.v1draft.TelemetryMetric.http_json:type_name -> solace.sm.agentgateway.v1draft.HttpJsonSource
-	15,  // 144: solace.sm.agentgateway.v1draft.HealthProbe.kind:type_name -> solace.sm.agentgateway.v1draft.ProbeKind
-	11,  // 145: solace.sm.agentgateway.v1draft.HealthProbe.strength:type_name -> solace.sm.agentgateway.v1draft.ProbeStrength
-	19,  // 146: solace.sm.agentgateway.v1draft.TelemetryDeclarations.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	95,  // 147: solace.sm.agentgateway.v1draft.TelemetryDeclarations.interval:type_name -> google.protobuf.Duration
-	71,  // 148: solace.sm.agentgateway.v1draft.TelemetryDeclarations.metrics:type_name -> solace.sm.agentgateway.v1draft.TelemetryMetric
-	72,  // 149: solace.sm.agentgateway.v1draft.TelemetryDeclarations.health_probe:type_name -> solace.sm.agentgateway.v1draft.HealthProbe
-	19,  // 150: solace.sm.agentgateway.v1draft.LogRetention.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	94,  // 151: solace.sm.agentgateway.v1draft.LogPageQuery.after:type_name -> google.protobuf.Timestamp
-	94,  // 152: solace.sm.agentgateway.v1draft.LogPageQuery.before:type_name -> google.protobuf.Timestamp
-	19,  // 153: solace.sm.agentgateway.v1draft.LogRequest.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	75,  // 154: solace.sm.agentgateway.v1draft.LogRequest.page:type_name -> solace.sm.agentgateway.v1draft.LogPageQuery
-	76,  // 155: solace.sm.agentgateway.v1draft.LogRequest.export:type_name -> solace.sm.agentgateway.v1draft.LogExportQuery
-	94,  // 156: solace.sm.agentgateway.v1draft.LogLine.ts:type_name -> google.protobuf.Timestamp
-	94,  // 157: solace.sm.agentgateway.v1draft.LogGap.from:type_name -> google.protobuf.Timestamp
-	94,  // 158: solace.sm.agentgateway.v1draft.LogGap.to:type_name -> google.protobuf.Timestamp
-	19,  // 159: solace.sm.agentgateway.v1draft.LogPage.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	78,  // 160: solace.sm.agentgateway.v1draft.LogPage.lines:type_name -> solace.sm.agentgateway.v1draft.LogLine
-	79,  // 161: solace.sm.agentgateway.v1draft.LogPage.gaps:type_name -> solace.sm.agentgateway.v1draft.LogGap
-	16,  // 162: solace.sm.agentgateway.v1draft.LogPage.unavailable:type_name -> solace.sm.agentgateway.v1draft.UnavailableReason
-	19,  // 163: solace.sm.agentgateway.v1draft.LogChunk.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
-	78,  // 164: solace.sm.agentgateway.v1draft.LogChunk.lines:type_name -> solace.sm.agentgateway.v1draft.LogLine
-	79,  // 165: solace.sm.agentgateway.v1draft.LogChunk.gaps:type_name -> solace.sm.agentgateway.v1draft.LogGap
-	80,  // 166: solace.sm.agentgateway.v1draft.LogUp.log_page:type_name -> solace.sm.agentgateway.v1draft.LogPage
-	81,  // 167: solace.sm.agentgateway.v1draft.LogUp.log_chunk:type_name -> solace.sm.agentgateway.v1draft.LogChunk
-	82,  // 168: solace.sm.agentgateway.v1draft.LogDown.log_credit:type_name -> solace.sm.agentgateway.v1draft.LogCredit
-	83,  // 169: solace.sm.agentgateway.v1draft.LogDown.log_cancel:type_name -> solace.sm.agentgateway.v1draft.LogCancel
-	17,  // 170: solace.sm.agentgateway.v1draft.ConfigViewReply.status:type_name -> solace.sm.agentgateway.v1draft.ConfigViewStatus
-	87,  // 171: solace.sm.agentgateway.v1draft.ConfigViewReply.entries:type_name -> solace.sm.agentgateway.v1draft.ConfigEntry
-	18,  // 172: solace.sm.agentgateway.v1draft.ConfigViewReply.reason:type_name -> solace.sm.agentgateway.v1draft.ConfigViewReason
-	95,  // 173: solace.sm.agentgateway.v1draft.LeaseGrant.VerbCeilingsEntry.value:type_name -> google.protobuf.Duration
-	21,  // 174: solace.sm.agentgateway.v1draft.AgentGateway.Enroll:input_type -> solace.sm.agentgateway.v1draft.EnrollRequest
-	53,  // 175: solace.sm.agentgateway.v1draft.AgentGateway.Connect:input_type -> solace.sm.agentgateway.v1draft.AgentToGateway
-	61,  // 176: solace.sm.agentgateway.v1draft.AgentGateway.Telemetry:input_type -> solace.sm.agentgateway.v1draft.TelemetryUp
-	84,  // 177: solace.sm.agentgateway.v1draft.AgentGateway.Logs:input_type -> solace.sm.agentgateway.v1draft.LogUp
-	23,  // 178: solace.sm.agentgateway.v1draft.AgentGateway.Enroll:output_type -> solace.sm.agentgateway.v1draft.EnrollResponse
-	54,  // 179: solace.sm.agentgateway.v1draft.AgentGateway.Connect:output_type -> solace.sm.agentgateway.v1draft.GatewayToAgent
-	62,  // 180: solace.sm.agentgateway.v1draft.AgentGateway.Telemetry:output_type -> solace.sm.agentgateway.v1draft.TelemetryDown
-	85,  // 181: solace.sm.agentgateway.v1draft.AgentGateway.Logs:output_type -> solace.sm.agentgateway.v1draft.LogDown
-	178, // [178:182] is the sub-list for method output_type
-	174, // [174:178] is the sub-list for method input_type
-	174, // [174:174] is the sub-list for extension type_name
-	174, // [174:174] is the sub-list for extension extendee
-	0,   // [0:174] is the sub-list for field type_name
+	95,  // 15: solace.sm.agentgateway.v1draft.Limits.telemetry_push_interval:type_name -> google.protobuf.Duration
+	19,  // 16: solace.sm.agentgateway.v1draft.LeaseGrant.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	94,  // 17: solace.sm.agentgateway.v1draft.LeaseGrant.issued_at:type_name -> google.protobuf.Timestamp
+	94,  // 18: solace.sm.agentgateway.v1draft.LeaseGrant.expires_at:type_name -> google.protobuf.Timestamp
+	1,   // 19: solace.sm.agentgateway.v1draft.LeaseGrant.capabilities:type_name -> solace.sm.agentgateway.v1draft.Capability
+	91,  // 20: solace.sm.agentgateway.v1draft.LeaseGrant.verb_ceilings:type_name -> solace.sm.agentgateway.v1draft.LeaseGrant.VerbCeilingsEntry
+	95,  // 21: solace.sm.agentgateway.v1draft.LeaseGrant.admission_margin:type_name -> google.protobuf.Duration
+	94,  // 22: solace.sm.agentgateway.v1draft.LeaseGrant.server_clock:type_name -> google.protobuf.Timestamp
+	19,  // 23: solace.sm.agentgateway.v1draft.SessionAccept.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	1,   // 24: solace.sm.agentgateway.v1draft.SessionAccept.required_capabilities:type_name -> solace.sm.agentgateway.v1draft.Capability
+	27,  // 25: solace.sm.agentgateway.v1draft.SessionAccept.lease:type_name -> solace.sm.agentgateway.v1draft.LeaseGrant
+	26,  // 26: solace.sm.agentgateway.v1draft.SessionAccept.limits:type_name -> solace.sm.agentgateway.v1draft.Limits
+	94,  // 27: solace.sm.agentgateway.v1draft.SessionAccept.server_clock:type_name -> google.protobuf.Timestamp
+	19,  // 28: solace.sm.agentgateway.v1draft.SessionReject.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	0,   // 29: solace.sm.agentgateway.v1draft.SessionReject.code:type_name -> solace.sm.agentgateway.v1draft.ErrorCode
+	95,  // 30: solace.sm.agentgateway.v1draft.SessionReject.retry_after:type_name -> google.protobuf.Duration
+	19,  // 31: solace.sm.agentgateway.v1draft.LeaseRenew.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	94,  // 32: solace.sm.agentgateway.v1draft.LeaseRenew.agent_clock:type_name -> google.protobuf.Timestamp
+	19,  // 33: solace.sm.agentgateway.v1draft.Revoke.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	19,  // 34: solace.sm.agentgateway.v1draft.GenerationAvailable.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	2,   // 35: solace.sm.agentgateway.v1draft.GenerationAvailable.operation:type_name -> solace.sm.agentgateway.v1draft.Operation
+	94,  // 36: solace.sm.agentgateway.v1draft.GenerationAvailable.deadline:type_name -> google.protobuf.Timestamp
+	33,  // 37: solace.sm.agentgateway.v1draft.GenerationAvailable.correlation:type_name -> solace.sm.agentgateway.v1draft.OperationCorrelation
+	19,  // 38: solace.sm.agentgateway.v1draft.CommandPull.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	19,  // 39: solace.sm.agentgateway.v1draft.CommandOffer.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	2,   // 40: solace.sm.agentgateway.v1draft.CommandOffer.operation:type_name -> solace.sm.agentgateway.v1draft.Operation
+	94,  // 41: solace.sm.agentgateway.v1draft.CommandOffer.deadline:type_name -> google.protobuf.Timestamp
+	33,  // 42: solace.sm.agentgateway.v1draft.CommandOffer.correlation:type_name -> solace.sm.agentgateway.v1draft.OperationCorrelation
+	19,  // 43: solace.sm.agentgateway.v1draft.CommandReceived.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	8,   // 44: solace.sm.agentgateway.v1draft.AckDetail.code:type_name -> solace.sm.agentgateway.v1draft.AckDetailCode
+	0,   // 45: solace.sm.agentgateway.v1draft.AckDetail.error_code:type_name -> solace.sm.agentgateway.v1draft.ErrorCode
+	37,  // 46: solace.sm.agentgateway.v1draft.AckDetail.preflight_result:type_name -> solace.sm.agentgateway.v1draft.PreflightResult
+	19,  // 47: solace.sm.agentgateway.v1draft.CommandAck.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	3,   // 48: solace.sm.agentgateway.v1draft.CommandAck.outcome:type_name -> solace.sm.agentgateway.v1draft.Outcome
+	38,  // 49: solace.sm.agentgateway.v1draft.CommandAck.detail:type_name -> solace.sm.agentgateway.v1draft.AckDetail
+	94,  // 50: solace.sm.agentgateway.v1draft.CommandAck.agent_clock:type_name -> google.protobuf.Timestamp
+	94,  // 51: solace.sm.agentgateway.v1draft.CommandAck.container_started_at:type_name -> google.protobuf.Timestamp
+	19,  // 52: solace.sm.agentgateway.v1draft.ApplyProgress.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	4,   // 53: solace.sm.agentgateway.v1draft.ApplyProgress.step:type_name -> solace.sm.agentgateway.v1draft.ProgressStep
+	94,  // 54: solace.sm.agentgateway.v1draft.ApplyProgress.at:type_name -> google.protobuf.Timestamp
+	94,  // 55: solace.sm.agentgateway.v1draft.ActualStateReport.restart_observed_at:type_name -> google.protobuf.Timestamp
+	41,  // 56: solace.sm.agentgateway.v1draft.ActualStateReport.version_observation:type_name -> solace.sm.agentgateway.v1draft.VersionObservation
+	33,  // 57: solace.sm.agentgateway.v1draft.ActualStateReport.correlation:type_name -> solace.sm.agentgateway.v1draft.OperationCorrelation
+	63,  // 58: solace.sm.agentgateway.v1draft.ActualStateReport.health:type_name -> solace.sm.agentgateway.v1draft.HealthObservation
+	94,  // 59: solace.sm.agentgateway.v1draft.ActualStateReport.container_started_at:type_name -> google.protobuf.Timestamp
+	19,  // 60: solace.sm.agentgateway.v1draft.ActualStateReportBatch.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	42,  // 61: solace.sm.agentgateway.v1draft.ActualStateReportBatch.items:type_name -> solace.sm.agentgateway.v1draft.ActualStateReport
+	5,   // 62: solace.sm.agentgateway.v1draft.ReportResult.trust:type_name -> solace.sm.agentgateway.v1draft.Trust
+	6,   // 63: solace.sm.agentgateway.v1draft.ReportResult.disposition:type_name -> solace.sm.agentgateway.v1draft.Disposition
+	0,   // 64: solace.sm.agentgateway.v1draft.ReportResult.refused_reason:type_name -> solace.sm.agentgateway.v1draft.ErrorCode
+	19,  // 65: solace.sm.agentgateway.v1draft.ReportAck.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	44,  // 66: solace.sm.agentgateway.v1draft.ReportAck.results:type_name -> solace.sm.agentgateway.v1draft.ReportResult
+	19,  // 67: solace.sm.agentgateway.v1draft.Heartbeat.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	94,  // 68: solace.sm.agentgateway.v1draft.Heartbeat.agent_clock:type_name -> google.protobuf.Timestamp
+	95,  // 69: solace.sm.agentgateway.v1draft.Heartbeat.lease_remaining_at_send:type_name -> google.protobuf.Duration
+	19,  // 70: solace.sm.agentgateway.v1draft.HeartbeatAck.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	94,  // 71: solace.sm.agentgateway.v1draft.HeartbeatAck.server_clock:type_name -> google.protobuf.Timestamp
+	7,   // 72: solace.sm.agentgateway.v1draft.HeartbeatAck.clock_state:type_name -> solace.sm.agentgateway.v1draft.ClockState
+	19,  // 73: solace.sm.agentgateway.v1draft.TrustBundleUpdate.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	22,  // 74: solace.sm.agentgateway.v1draft.TrustBundleUpdate.trust_bundle:type_name -> solace.sm.agentgateway.v1draft.TrustBundle
+	19,  // 75: solace.sm.agentgateway.v1draft.Drain.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	95,  // 76: solace.sm.agentgateway.v1draft.Drain.reconnect_after:type_name -> google.protobuf.Duration
+	95,  // 77: solace.sm.agentgateway.v1draft.Drain.deadline:type_name -> google.protobuf.Duration
+	19,  // 78: solace.sm.agentgateway.v1draft.DrainComplete.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	19,  // 79: solace.sm.agentgateway.v1draft.Teardown.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	19,  // 80: solace.sm.agentgateway.v1draft.Error.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	0,   // 81: solace.sm.agentgateway.v1draft.Error.code:type_name -> solace.sm.agentgateway.v1draft.ErrorCode
+	95,  // 82: solace.sm.agentgateway.v1draft.Error.retry_after:type_name -> google.protobuf.Duration
+	25,  // 83: solace.sm.agentgateway.v1draft.AgentToGateway.session_open:type_name -> solace.sm.agentgateway.v1draft.SessionOpen
+	30,  // 84: solace.sm.agentgateway.v1draft.AgentToGateway.lease_renew:type_name -> solace.sm.agentgateway.v1draft.LeaseRenew
+	34,  // 85: solace.sm.agentgateway.v1draft.AgentToGateway.command_pull:type_name -> solace.sm.agentgateway.v1draft.CommandPull
+	36,  // 86: solace.sm.agentgateway.v1draft.AgentToGateway.command_received:type_name -> solace.sm.agentgateway.v1draft.CommandReceived
+	39,  // 87: solace.sm.agentgateway.v1draft.AgentToGateway.command_ack:type_name -> solace.sm.agentgateway.v1draft.CommandAck
+	40,  // 88: solace.sm.agentgateway.v1draft.AgentToGateway.apply_progress:type_name -> solace.sm.agentgateway.v1draft.ApplyProgress
+	43,  // 89: solace.sm.agentgateway.v1draft.AgentToGateway.actual_state_report_batch:type_name -> solace.sm.agentgateway.v1draft.ActualStateReportBatch
+	46,  // 90: solace.sm.agentgateway.v1draft.AgentToGateway.heartbeat:type_name -> solace.sm.agentgateway.v1draft.Heartbeat
+	51,  // 91: solace.sm.agentgateway.v1draft.AgentToGateway.teardown:type_name -> solace.sm.agentgateway.v1draft.Teardown
+	50,  // 92: solace.sm.agentgateway.v1draft.AgentToGateway.drain_complete:type_name -> solace.sm.agentgateway.v1draft.DrainComplete
+	67,  // 93: solace.sm.agentgateway.v1draft.AgentToGateway.discovery_report:type_name -> solace.sm.agentgateway.v1draft.DiscoveryReport
+	88,  // 94: solace.sm.agentgateway.v1draft.AgentToGateway.config_view_reply:type_name -> solace.sm.agentgateway.v1draft.ConfigViewReply
+	28,  // 95: solace.sm.agentgateway.v1draft.GatewayToAgent.session_accept:type_name -> solace.sm.agentgateway.v1draft.SessionAccept
+	29,  // 96: solace.sm.agentgateway.v1draft.GatewayToAgent.session_reject:type_name -> solace.sm.agentgateway.v1draft.SessionReject
+	27,  // 97: solace.sm.agentgateway.v1draft.GatewayToAgent.lease_grant:type_name -> solace.sm.agentgateway.v1draft.LeaseGrant
+	31,  // 98: solace.sm.agentgateway.v1draft.GatewayToAgent.revoke:type_name -> solace.sm.agentgateway.v1draft.Revoke
+	32,  // 99: solace.sm.agentgateway.v1draft.GatewayToAgent.generation_available:type_name -> solace.sm.agentgateway.v1draft.GenerationAvailable
+	35,  // 100: solace.sm.agentgateway.v1draft.GatewayToAgent.command_offer:type_name -> solace.sm.agentgateway.v1draft.CommandOffer
+	45,  // 101: solace.sm.agentgateway.v1draft.GatewayToAgent.report_ack:type_name -> solace.sm.agentgateway.v1draft.ReportAck
+	47,  // 102: solace.sm.agentgateway.v1draft.GatewayToAgent.heartbeat_ack:type_name -> solace.sm.agentgateway.v1draft.HeartbeatAck
+	48,  // 103: solace.sm.agentgateway.v1draft.GatewayToAgent.trust_bundle_update:type_name -> solace.sm.agentgateway.v1draft.TrustBundleUpdate
+	49,  // 104: solace.sm.agentgateway.v1draft.GatewayToAgent.drain:type_name -> solace.sm.agentgateway.v1draft.Drain
+	51,  // 105: solace.sm.agentgateway.v1draft.GatewayToAgent.teardown:type_name -> solace.sm.agentgateway.v1draft.Teardown
+	52,  // 106: solace.sm.agentgateway.v1draft.GatewayToAgent.error:type_name -> solace.sm.agentgateway.v1draft.Error
+	69,  // 107: solace.sm.agentgateway.v1draft.GatewayToAgent.discovery_ack:type_name -> solace.sm.agentgateway.v1draft.DiscoveryAck
+	73,  // 108: solace.sm.agentgateway.v1draft.GatewayToAgent.telemetry_declarations:type_name -> solace.sm.agentgateway.v1draft.TelemetryDeclarations
+	74,  // 109: solace.sm.agentgateway.v1draft.GatewayToAgent.log_retention:type_name -> solace.sm.agentgateway.v1draft.LogRetention
+	77,  // 110: solace.sm.agentgateway.v1draft.GatewayToAgent.log_request:type_name -> solace.sm.agentgateway.v1draft.LogRequest
+	86,  // 111: solace.sm.agentgateway.v1draft.GatewayToAgent.config_view_request:type_name -> solace.sm.agentgateway.v1draft.ConfigViewRequest
+	9,   // 112: solace.sm.agentgateway.v1draft.Sample.type:type_name -> solace.sm.agentgateway.v1draft.MetricType
+	94,  // 113: solace.sm.agentgateway.v1draft.Sample.ts:type_name -> google.protobuf.Timestamp
+	92,  // 114: solace.sm.agentgateway.v1draft.Sample.labels:type_name -> solace.sm.agentgateway.v1draft.Sample.LabelsEntry
+	19,  // 115: solace.sm.agentgateway.v1draft.TelemetryBatch.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	55,  // 116: solace.sm.agentgateway.v1draft.TelemetryBatch.samples:type_name -> solace.sm.agentgateway.v1draft.Sample
+	56,  // 117: solace.sm.agentgateway.v1draft.TelemetryBatch.gap_markers:type_name -> solace.sm.agentgateway.v1draft.GapMarker
+	94,  // 118: solace.sm.agentgateway.v1draft.TelemetryBatch.produced_at:type_name -> google.protobuf.Timestamp
+	19,  // 119: solace.sm.agentgateway.v1draft.TelemetryAck.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	19,  // 120: solace.sm.agentgateway.v1draft.TelemetryCredit.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	19,  // 121: solace.sm.agentgateway.v1draft.TelemetryReject.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	0,   // 122: solace.sm.agentgateway.v1draft.TelemetryReject.code:type_name -> solace.sm.agentgateway.v1draft.ErrorCode
+	95,  // 123: solace.sm.agentgateway.v1draft.TelemetryReject.retry_after:type_name -> google.protobuf.Duration
+	19,  // 124: solace.sm.agentgateway.v1draft.TelemetryUp.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	57,  // 125: solace.sm.agentgateway.v1draft.TelemetryUp.telemetry_batch:type_name -> solace.sm.agentgateway.v1draft.TelemetryBatch
+	19,  // 126: solace.sm.agentgateway.v1draft.TelemetryDown.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	58,  // 127: solace.sm.agentgateway.v1draft.TelemetryDown.telemetry_ack:type_name -> solace.sm.agentgateway.v1draft.TelemetryAck
+	59,  // 128: solace.sm.agentgateway.v1draft.TelemetryDown.telemetry_credit:type_name -> solace.sm.agentgateway.v1draft.TelemetryCredit
+	60,  // 129: solace.sm.agentgateway.v1draft.TelemetryDown.telemetry_reject:type_name -> solace.sm.agentgateway.v1draft.TelemetryReject
+	10,  // 130: solace.sm.agentgateway.v1draft.HealthObservation.state:type_name -> solace.sm.agentgateway.v1draft.HealthState
+	94,  // 131: solace.sm.agentgateway.v1draft.HealthObservation.observed_at:type_name -> google.protobuf.Timestamp
+	11,  // 132: solace.sm.agentgateway.v1draft.HealthObservation.probe_strength:type_name -> solace.sm.agentgateway.v1draft.ProbeStrength
+	12,  // 133: solace.sm.agentgateway.v1draft.HealthObservation.failure:type_name -> solace.sm.agentgateway.v1draft.ProbeFailure
+	93,  // 134: solace.sm.agentgateway.v1draft.DiscoveredContainer.labels:type_name -> solace.sm.agentgateway.v1draft.DiscoveredContainer.LabelsEntry
+	64,  // 135: solace.sm.agentgateway.v1draft.DiscoveredContainer.mounts:type_name -> solace.sm.agentgateway.v1draft.DiscoveredMount
+	65,  // 136: solace.sm.agentgateway.v1draft.DiscoveredContainer.published_ports:type_name -> solace.sm.agentgateway.v1draft.DiscoveredPort
+	19,  // 137: solace.sm.agentgateway.v1draft.DiscoveryReport.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	66,  // 138: solace.sm.agentgateway.v1draft.DiscoveryReport.items:type_name -> solace.sm.agentgateway.v1draft.DiscoveredContainer
+	13,  // 139: solace.sm.agentgateway.v1draft.DiscoveryResult.state:type_name -> solace.sm.agentgateway.v1draft.DiscoveryState
+	19,  // 140: solace.sm.agentgateway.v1draft.DiscoveryAck.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	68,  // 141: solace.sm.agentgateway.v1draft.DiscoveryAck.results:type_name -> solace.sm.agentgateway.v1draft.DiscoveryResult
+	14,  // 142: solace.sm.agentgateway.v1draft.HttpJsonSource.on_unavailable:type_name -> solace.sm.agentgateway.v1draft.OnUnavailable
+	9,   // 143: solace.sm.agentgateway.v1draft.TelemetryMetric.metric_type:type_name -> solace.sm.agentgateway.v1draft.MetricType
+	70,  // 144: solace.sm.agentgateway.v1draft.TelemetryMetric.http_json:type_name -> solace.sm.agentgateway.v1draft.HttpJsonSource
+	15,  // 145: solace.sm.agentgateway.v1draft.HealthProbe.kind:type_name -> solace.sm.agentgateway.v1draft.ProbeKind
+	11,  // 146: solace.sm.agentgateway.v1draft.HealthProbe.strength:type_name -> solace.sm.agentgateway.v1draft.ProbeStrength
+	19,  // 147: solace.sm.agentgateway.v1draft.TelemetryDeclarations.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	95,  // 148: solace.sm.agentgateway.v1draft.TelemetryDeclarations.interval:type_name -> google.protobuf.Duration
+	71,  // 149: solace.sm.agentgateway.v1draft.TelemetryDeclarations.metrics:type_name -> solace.sm.agentgateway.v1draft.TelemetryMetric
+	72,  // 150: solace.sm.agentgateway.v1draft.TelemetryDeclarations.health_probe:type_name -> solace.sm.agentgateway.v1draft.HealthProbe
+	19,  // 151: solace.sm.agentgateway.v1draft.LogRetention.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	94,  // 152: solace.sm.agentgateway.v1draft.LogPageQuery.after:type_name -> google.protobuf.Timestamp
+	94,  // 153: solace.sm.agentgateway.v1draft.LogPageQuery.before:type_name -> google.protobuf.Timestamp
+	19,  // 154: solace.sm.agentgateway.v1draft.LogRequest.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	75,  // 155: solace.sm.agentgateway.v1draft.LogRequest.page:type_name -> solace.sm.agentgateway.v1draft.LogPageQuery
+	76,  // 156: solace.sm.agentgateway.v1draft.LogRequest.export:type_name -> solace.sm.agentgateway.v1draft.LogExportQuery
+	94,  // 157: solace.sm.agentgateway.v1draft.LogLine.ts:type_name -> google.protobuf.Timestamp
+	94,  // 158: solace.sm.agentgateway.v1draft.LogGap.from:type_name -> google.protobuf.Timestamp
+	94,  // 159: solace.sm.agentgateway.v1draft.LogGap.to:type_name -> google.protobuf.Timestamp
+	19,  // 160: solace.sm.agentgateway.v1draft.LogPage.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	78,  // 161: solace.sm.agentgateway.v1draft.LogPage.lines:type_name -> solace.sm.agentgateway.v1draft.LogLine
+	79,  // 162: solace.sm.agentgateway.v1draft.LogPage.gaps:type_name -> solace.sm.agentgateway.v1draft.LogGap
+	16,  // 163: solace.sm.agentgateway.v1draft.LogPage.unavailable:type_name -> solace.sm.agentgateway.v1draft.UnavailableReason
+	19,  // 164: solace.sm.agentgateway.v1draft.LogChunk.envelope:type_name -> solace.sm.agentgateway.v1draft.Envelope
+	78,  // 165: solace.sm.agentgateway.v1draft.LogChunk.lines:type_name -> solace.sm.agentgateway.v1draft.LogLine
+	79,  // 166: solace.sm.agentgateway.v1draft.LogChunk.gaps:type_name -> solace.sm.agentgateway.v1draft.LogGap
+	80,  // 167: solace.sm.agentgateway.v1draft.LogUp.log_page:type_name -> solace.sm.agentgateway.v1draft.LogPage
+	81,  // 168: solace.sm.agentgateway.v1draft.LogUp.log_chunk:type_name -> solace.sm.agentgateway.v1draft.LogChunk
+	82,  // 169: solace.sm.agentgateway.v1draft.LogDown.log_credit:type_name -> solace.sm.agentgateway.v1draft.LogCredit
+	83,  // 170: solace.sm.agentgateway.v1draft.LogDown.log_cancel:type_name -> solace.sm.agentgateway.v1draft.LogCancel
+	17,  // 171: solace.sm.agentgateway.v1draft.ConfigViewReply.status:type_name -> solace.sm.agentgateway.v1draft.ConfigViewStatus
+	87,  // 172: solace.sm.agentgateway.v1draft.ConfigViewReply.entries:type_name -> solace.sm.agentgateway.v1draft.ConfigEntry
+	18,  // 173: solace.sm.agentgateway.v1draft.ConfigViewReply.reason:type_name -> solace.sm.agentgateway.v1draft.ConfigViewReason
+	95,  // 174: solace.sm.agentgateway.v1draft.LeaseGrant.VerbCeilingsEntry.value:type_name -> google.protobuf.Duration
+	21,  // 175: solace.sm.agentgateway.v1draft.AgentGateway.Enroll:input_type -> solace.sm.agentgateway.v1draft.EnrollRequest
+	53,  // 176: solace.sm.agentgateway.v1draft.AgentGateway.Connect:input_type -> solace.sm.agentgateway.v1draft.AgentToGateway
+	61,  // 177: solace.sm.agentgateway.v1draft.AgentGateway.Telemetry:input_type -> solace.sm.agentgateway.v1draft.TelemetryUp
+	84,  // 178: solace.sm.agentgateway.v1draft.AgentGateway.Logs:input_type -> solace.sm.agentgateway.v1draft.LogUp
+	23,  // 179: solace.sm.agentgateway.v1draft.AgentGateway.Enroll:output_type -> solace.sm.agentgateway.v1draft.EnrollResponse
+	54,  // 180: solace.sm.agentgateway.v1draft.AgentGateway.Connect:output_type -> solace.sm.agentgateway.v1draft.GatewayToAgent
+	62,  // 181: solace.sm.agentgateway.v1draft.AgentGateway.Telemetry:output_type -> solace.sm.agentgateway.v1draft.TelemetryDown
+	85,  // 182: solace.sm.agentgateway.v1draft.AgentGateway.Logs:output_type -> solace.sm.agentgateway.v1draft.LogDown
+	179, // [179:183] is the sub-list for method output_type
+	175, // [175:179] is the sub-list for method input_type
+	175, // [175:175] is the sub-list for extension type_name
+	175, // [175:175] is the sub-list for extension extendee
+	0,   // [0:175] is the sub-list for field type_name
 }
 
 func init() { file_agent_gateway_proto_init() }
