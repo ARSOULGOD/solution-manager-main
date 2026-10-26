@@ -372,9 +372,9 @@ the agent's own log (only binding ids and error text do).
 
 ### Try it against the fake gateway
 
-**Status: not yet executed against a real agent and container.** The console commands are unit-tested against a scripted
-agent (`internal/fakegw/console_logs_test.go`); the rows below are read from the code. Agent and fake gateway only; no DP,
-console or REST layer.
+**Status: executed 2026-10-26**, by piping the step 4 commands into the gateway (ports `18443`/`19464`), against `logs-demo`
+built as in step 1. Agent and fake gateway only; no DP, console or REST layer. The commands are also unit-tested against a
+scripted agent (`internal/fakegw/console_logs_test.go`).
 
 | Type | Sends | Prints |
 |---|---|---|
@@ -408,9 +408,12 @@ The gateway also prints its own one-line summary of every page and chunk (`logs 
    | `logs logs-1 5` | the five newest lines, `INFO` on `stdout` and any `WARN` on `stderr` |
    | `export logs-1` | every stored line, in chunks, then `complete` |
    | `logs nope` | `unavailable: PLACEMENT_NOT_IN_LEASE` |
-   | `docker stop logs-demo`, wait 10 s, `docker start logs-demo`, wait a few seconds, then `logs logs-1 5` | a `gap CONTAINER_UNREADABLE` covering the stop |
+   | `docker rm -f logs-demo`, wait a few seconds, re-run step 1's `docker run`, wait 10 s, then `logs logs-1 40` | a `gap CONTAINER_UNREADABLE` covering the outage, then the new container's lines from `request 1` (the page shows a gap only when it overlaps the lines returned, so ask for enough lines to reach back past it) |
    | `cap logs-1 2048`, then `logs logs-1` | fewer lines, and a `gap CAP_REDUCED` |
    | `cap logs-1 0`, then `logs logs-1` | `unavailable: NOT_COLLECTING`; `bin/agent-data/logs/logs-1/` holds no segments |
+
+   **A `docker stop` and `docker start` is not a gap.** Docker keeps a stopped container's log, so the agent resumes where
+   it left off and nothing is lost; only a container that is missing or recreated is `CONTAINER_UNREADABLE` (observed).
 
    The ring itself is at `bin/agent-data/logs/logs-1/`: JSON records with the text base64-encoded.
 
