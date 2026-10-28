@@ -240,11 +240,36 @@ func TestReadStopsAtUntil(t *testing.T) {
 	if got := texts(ch); len(got) != 1 || ch.Next != all.Ends[0] {
 		t.Fatalf("until mid-line: %q next %d", got, ch.Next)
 	}
-	// Nothing to read, so nothing is asked.
-	n := len(rec.all())
-	ch = read(t, f, until, until, 1<<20, time.Time{})
-	if len(ch.Lines) != 0 || ch.Next != until || len(rec.all()) != n {
-		t.Fatalf("from == until: %+v, %d requests", ch, len(rec.all())-n)
+	// Nothing to read, but the size is still reported: one byte below until is asked for, never more.
+	fileLen := uint64(len(e1) + len(e2) + len(e3) + 3)
+	for _, from := range []uint64{until, until + 7, fileLen} {
+		n := len(rec.all())
+		ch = read(t, f, from, until, 1<<20, time.Time{})
+		if len(ch.Lines) != 0 || len(ch.Ends) != 0 || ch.Next != from || ch.Size != fileLen {
+			t.Fatalf("from %d, until %d: %+v", from, until, ch)
+		}
+		got := rec.all()[n:]
+		if len(got) != 1 || got[0] != [2]uint64{until - 1, until - 1} {
+			t.Fatalf("from %d, until %d: requests %v, want one byte at %d", from, until, got, until-1)
+		}
+	}
+	// The file shrank below until since the snapshot: Size says so, as 416 and as an empty file.
+	short, _ := fileServer(t, "A\nB\n")
+	for _, from := range []uint64{until, until + 7} {
+		ch = read(t, short, from, until, 1<<20, time.Time{})
+		if len(ch.Lines) != 0 || ch.Next != from || ch.Size != 4 || ch.Size >= until {
+			t.Fatalf("shrunk, from %d: %+v", from, ch)
+		}
+	}
+	empty, _ := fileServer(t, "")
+	ch = read(t, empty, until, until, 1<<20, time.Time{})
+	if len(ch.Lines) != 0 || ch.Next != until || ch.Size != 0 {
+		t.Fatalf("emptied: %+v", ch)
+	}
+	// And a server that cannot be asked is an error, not a made-up size.
+	down := handlerFile(t, func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNotFound) })
+	if _, err := down.Read(context.Background(), until, until, 1000, time.Time{}); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("from == until, 404: %v", err)
 	}
 }
 
@@ -475,6 +500,7 @@ func TestReadRangesStayWithinTheBudget(t *testing.T) {
 	for _, from := range []uint64{0, 1, 77, 5000} {
 		read(t, f, from, 0, budget, time.Time{})
 		read(t, f, from, from+500, budget, time.Time{})
+		read(t, f, from+500, from+500, budget, time.Time{})
 	}
 	if len(rec.all()) < 10 {
 		t.Fatalf("only %d requests recorded", len(rec.all()))

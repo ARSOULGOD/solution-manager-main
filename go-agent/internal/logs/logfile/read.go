@@ -13,7 +13,7 @@ type Chunk struct {
 	Lines []msg.LogLine
 	Ends  []uint64 // Ends[i]: the offset just past Lines[i]'s '\n'
 	Next  uint64   // where the next read starts
-	Size  uint64   // the file size this read reported; 0 when no request was made
+	Size  uint64   // the file size the server reported in this read's last reply (0 is a real size: an empty file)
 }
 
 // Read returns the whole lines from byte offset from, never reading at or past until (0 = no bound), with at most
@@ -27,10 +27,20 @@ type Chunk struct {
 // unless the file has nothing more to give.
 //
 // An error is ErrUnavailable (see there). A file that is shorter than from, or empty, is not an error: Size says so.
+// Every call that returns no error makes at least one request, so Size is always a size the server reported. That
+// includes from >= until, where there is nothing to read: one byte below until is asked for, to learn the size.
 func (f *File) Read(ctx context.Context, from, until uint64, textBudget int, prev time.Time) (Chunk, error) {
 	ch := Chunk{Next: from}
 	if until != 0 && from >= until {
-		return ch, nil
+		// Nothing to read, but the caller (an export that has reached its snapshot) still needs the file's size to
+		// tell "done" from "the file shrank". One byte below until is within the bound.
+		rp, err := f.get(ctx, until-1, until-1)
+		if err != nil {
+			return ch, err
+		}
+		ch.Size = rp.size
+		_, err = rp.bytes()
+		return ch, err
 	}
 	textBudget = max(textBudget, 1)
 	budget := uint64(textBudget)
