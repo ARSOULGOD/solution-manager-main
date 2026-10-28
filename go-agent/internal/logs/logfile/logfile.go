@@ -23,6 +23,12 @@ const (
 	Stream = "file"
 	// DefaultStep is how far a page reads at a time.
 	DefaultStep = 64 << 10
+	// LineOverhead is a conservative upper bound of the protobuf framing around one line's text in a reply (its
+	// timestamp, stream, text and truncated tags). internal/logs/serve sizes replies with it.
+	LineOverhead = 40
+	// LineCost is what one line read here costs a reply beside its text: its framing and its Stream. Read charges each
+	// line its text plus LineCost, so that a read holds no more lines than the reply it is for can carry.
+	LineCost = LineOverhead + len(Stream)
 )
 
 // ErrUnavailable means the file cannot be read now: nothing answered, the answer was a status or a body this package

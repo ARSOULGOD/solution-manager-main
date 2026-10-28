@@ -143,8 +143,9 @@ func text(i, size int) string {
 }
 
 // memFile is a log file in memory, read the way logfile.File reads one: whole lines from `from` up to until (0 = no
-// bound), skipping to the next line start when from is inside a line, at most budget bytes of text but always the
-// first line, or every line when greedy (so that only the server's trim bounds a chunk). Line i is stamped t0 + i ms.
+// bound), skipping to the next line start when from is inside a line, each line charged its text plus
+// logfile.LineCost within budget but always the first line, or every line when greedy (so that only the server's trim
+// bounds a chunk). Line i is stamped t0 + i ms.
 type memFile struct {
 	mu     sync.Mutex
 	lines  []string
@@ -191,7 +192,7 @@ func (f *memFile) read(_ context.Context, _ int, c readCall) (logfile.Chunk, err
 		end = min(end, c.until)
 	}
 	var off uint64
-	text := 0
+	charge := 0
 	for i, l := range f.lines {
 		start := off
 		off += uint64(len(l)) + 1
@@ -201,12 +202,12 @@ func (f *memFile) read(_ context.Context, _ int, c readCall) (logfile.Chunk, err
 				ch.Next = off // from is inside this line: its tail is skipped
 			}
 			continue
-		case off > end, len(ch.Lines) > 0 && !f.greedy && text+len(l) > c.budget:
+		case off > end, len(ch.Lines) > 0 && !f.greedy && charge+len(l)+logfile.LineCost > c.budget:
 			return ch, nil
 		}
 		ch.Lines = append(ch.Lines, msg.LogLine{TS: t0.Add(time.Duration(i) * time.Millisecond), Stream: logfile.Stream, Text: []byte(l)})
 		ch.Ends = append(ch.Ends, off)
-		ch.Next, text = off, text+len(l)
+		ch.Next, charge = off, charge+len(l)+logfile.LineCost
 	}
 	return ch, nil
 }
@@ -330,8 +331,10 @@ func TestPageRequestAnswersOneLogPageWithinMaxMessageBytes(t *testing.T) {
 	if got := lineNo(t, p.Lines[len(p.Lines)-1]); got != 199 {
 		t.Fatalf("the page must hold the newest lines, last is line %d", got)
 	}
-	if calls := src.pageCalls(); len(calls) != 1 || calls[0].q.Limit != q.Limit || calls[0].q.After != q.After || calls[0].q.Before != q.Before {
-		t.Fatalf("the query must reach the source as asked: %+v", calls)
+	// As asked, but for a Limit no larger than the lines the page has room to carry framed.
+	most := uint32((4096 - (headerOverhead + len("r1") + len(p.MessageID))) / logfile.LineCost)
+	if calls := src.pageCalls(); len(calls) != 1 || calls[0].q.Limit != min(q.Limit, most) || calls[0].q.After != q.After || calls[0].q.Before != q.Before {
+		t.Fatalf("the query must reach the source as asked, its Limit at most %d: %+v", most, calls)
 	}
 	out.none(t) // exactly one page
 }
@@ -376,6 +379,34 @@ func TestPageTrimsTheOldestToFitMaxMessageBytes(t *testing.T) {
 		if want := len(all) - len(p.Lines) + i; lineNo(t, l) != want {
 			t.Fatalf("line %d is %d, want %d", i, lineNo(t, l), want)
 		}
+	}
+}
+
+func TestPageOfEmptyLinesAsksTheSourceForNoMoreLinesThanTheRoomCarries(t *testing.T) {
+	// An empty line costs a Source's page budget one byte but a reply logfile.LineCost: with Limit 0 passed on, the
+	// Source would build about one LogLine per byte of its budget for trim to drop all but a few.
+	empty := make([]msg.LogLine, 1<<16)
+	for i := range empty {
+		empty[i] = msg.LogLine{TS: t0, Stream: logfile.Stream}
+	}
+	src := &fakeSource{pageFn: func(_ context.Context, q msg.LogPageQuery, budget int) ([]msg.LogLine, error) {
+		n := min(len(empty), budget) // max(len, 1) a line, as logfile.File charges a page
+		if q.Limit > 0 {
+			n = min(n, int(q.Limit))
+		}
+		return slices.Clone(empty[len(empty)-n:]), nil
+	}}
+	const maxMsg = 64 << 10
+	srv := newServer(t, src, maxMsg, 1<<20, WithNewID(func() string { return "m1" }))
+	out := newSink()
+	srv.Handle(context.Background(), pageReq("r1", 0), out)
+	p := page(t, out)
+	most := (maxMsg - (headerOverhead + len("r1") + len("m1"))) / logfile.LineCost
+	if calls := src.pageCalls(); len(calls) != 1 || calls[0].q.Limit == 0 || int(calls[0].q.Limit) > most {
+		t.Fatalf("the source was asked for %+v; want a Limit of 1 to %d", calls, most)
+	}
+	if n := wireSize(t, p); len(p.Lines) == 0 || len(p.Lines) > most || n > maxMsg {
+		t.Fatalf("%d lines in %d bytes", len(p.Lines), n)
 	}
 }
 
@@ -597,7 +628,7 @@ func TestExportSnapshotEndsAtTheFirstReportedSize(t *testing.T) {
 		}
 		return ch, err
 	}}
-	srv := newServer(t, src, 1<<20, 400) // room for one line a chunk
+	srv := newServer(t, src, 1<<20, 300) // room for one line a chunk: 99 bytes of text and its framing
 	out := newSink()
 	srv.Handle(context.Background(), exportReq("e1", 0), out)
 	cs := drain(t, srv, out, "e1")
@@ -713,8 +744,8 @@ func TestExportOfAnEmptyFileIsOneEmptyFinal(t *testing.T) {
 }
 
 func TestExportEndsCollectionPausedWhenTheFileShrinks(t *testing.T) {
-	f := newMemFile(3, 99) // 300 bytes
-	srv := newServer(t, &fakeSource{readFn: f.read}, 1<<20, 400)
+	f := newMemFile(3, 99) // 300 bytes; a max_batch_bytes of 300 is one line a chunk
+	srv := newServer(t, &fakeSource{readFn: f.read}, 1<<20, 300)
 	out := newSink()
 	srv.Handle(context.Background(), exportReq("e1", 0), out)
 	srv.Credit("e1", 1)

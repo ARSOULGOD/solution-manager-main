@@ -31,11 +31,13 @@ func entryTime(line []byte) (time.Time, bool) {
 	return t.UTC(), true
 }
 
-// split cuts b, whose first byte is at file offset base, into its '\n'-terminated lines (a trailing '\r' dropped),
-// the offset just past each '\n', and the unterminated tail. The lines alias b; each has its capacity cut to its
-// length so that appending to one cannot overwrite the next.
-func split(b []byte, base uint64) (lines [][]byte, ends []uint64, tail []byte) {
-	off := base
+// split cuts b, whose first byte is at file offset base, into its '\n'-terminated lines (a trailing '\r' dropped) and
+// the offset just past each '\n'. Each line is charged its length plus LineCost, and split stops before a line that
+// would take the charge over budget, the first line excepted; rest is the bytes after the last line taken (the
+// unterminated tail, when every line was taken). The lines alias b; each has its capacity cut to its length so that
+// appending to one cannot overwrite the next.
+func split(b []byte, base uint64, budget int) (lines [][]byte, ends []uint64, rest []byte) {
+	off, charge := base, 0
 	for {
 		i := bytes.IndexByte(b, '\n')
 		if i < 0 {
@@ -44,6 +46,9 @@ func split(b []byte, base uint64) (lines [][]byte, ends []uint64, tail []byte) {
 		n := i
 		if n > 0 && b[n-1] == '\r' {
 			n--
+		}
+		if charge += n + LineCost; charge > budget && len(lines) > 0 {
+			return lines, ends, b
 		}
 		off += uint64(i) + 1
 		lines = append(lines, b[:n:n])
@@ -54,8 +59,8 @@ func split(b []byte, base uint64) (lines [][]byte, ends []uint64, tail []byte) {
 
 // stamp turns lines into LogLines. An entry start carries its own time and every continuation line the time of the
 // entry above it. Continuation lines before the first entry start in the read take prev (the caller's previous
-// chunk), else the first entry's time further down, else now.
-func stamp(lines [][]byte, prev, now time.Time) []msg.LogLine {
+// chunk), else the first entry's time further down: in lines, else in rest (the read's bytes after them), else now.
+func stamp(lines [][]byte, rest []byte, prev, now time.Time) []msg.LogLine {
 	out := make([]msg.LogLine, len(lines))
 	cur, first := prev, -1
 	for i, l := range lines {
@@ -71,12 +76,28 @@ func stamp(lines [][]byte, prev, now time.Time) []msg.LogLine {
 		lead, n := now.UTC(), len(out)
 		if first >= 0 {
 			lead, n = out[first].TS, first
+		} else if t, ok := firstEntry(rest); ok {
+			lead = t
 		}
 		for i := range n {
 			out[i].TS = lead
 		}
 	}
 	return out
+}
+
+// firstEntry is the time of the first entry start among b's '\n'-terminated lines.
+func firstEntry(b []byte) (time.Time, bool) {
+	for {
+		i := bytes.IndexByte(b, '\n')
+		if i < 0 {
+			return time.Time{}, false
+		}
+		if t, ok := entryTime(bytes.TrimSuffix(b[:i], []byte{'\r'})); ok {
+			return t, true
+		}
+		b = b[i+1:]
+	}
 }
 
 // cutRunes is the text of a line that was cut after len(kept) bytes, next being the first byte dropped: kept itself

@@ -40,7 +40,7 @@ func TestEntryTimeIgnoresALongTokenWithoutParsingIt(t *testing.T) {
 }
 
 func TestSplitReturnsLinesEndsAndTheUnterminatedTail(t *testing.T) {
-	lines, ends, tail := split([]byte("a\r\nbb\n\ntail"), 100)
+	lines, ends, tail := split([]byte("a\r\nbb\n\ntail"), 100, 1<<20)
 	if len(lines) != 3 || string(lines[0]) != "a" || string(lines[1]) != "bb" || string(lines[2]) != "" {
 		t.Fatalf("lines %q", lines)
 	}
@@ -77,15 +77,20 @@ func TestStampGivesContinuationLinesTheirEntryTime(t *testing.T) {
 		{"prev zero: the next entry", time.Time{}, []time.Time{t1, t1, t1, t2, t2}},
 	}
 	for _, c := range cases {
-		got := stamp(in, c.prev, now)
+		got := stamp(in, nil, c.prev, now)
 		for i, l := range got {
 			if !l.TS.Equal(c.want[i]) || l.Stream != Stream {
 				t.Errorf("%s: line %d: %v %q", c.name, i, l.TS, l.Stream)
 			}
 		}
 	}
-	got := stamp(in[:1], time.Time{}, now)
+	got := stamp(in[:1], nil, time.Time{}, now)
 	if !got[0].TS.Equal(now) {
 		t.Errorf("no entry at all: %v, want the fetch time", got[0].TS)
+	}
+	// No entry in the lines, but one in the read's bytes after them.
+	got = stamp(in[:1], []byte("\tat one\n2026-10-20T04:46:07Z  WARN b\r\n"), time.Time{}, now)
+	if !got[0].TS.Equal(t2) {
+		t.Errorf("an entry later in the read: %v, want %v", got[0].TS, t2)
 	}
 }

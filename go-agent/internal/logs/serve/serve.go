@@ -34,8 +34,8 @@ type Source interface {
 	// textBudget bytes of text.
 	Page(ctx context.Context, q msg.LogPageQuery, textBudget int) ([]msg.LogLine, error)
 	// Read returns the whole lines from byte offset from, never reading at or past until (0 = no bound),
-	// with at most textBudget bytes of text; prev is the time for continuation lines before the first
-	// entry start.
+	// charging each line its text plus logfile.LineCost within textBudget (the first line always taken);
+	// prev is the time for continuation lines before the first entry start.
 	Read(ctx context.Context, from, until uint64, textBudget int, prev time.Time) (logfile.Chunk, error)
 }
 
@@ -57,12 +57,12 @@ const defaultBudget = 1 << 20
 // of a LogUp (outer oneof, envelope, request id, seq/final or unavailable; per
 // line its timestamp, stream, text and truncated tags; per gap its two
 // timestamps and reason). They only ever overestimate, so a reply sized by
-// them fits the limit it was sized for.
+// them fits the limit it was sized for. The per-line bound is logfile's, which
+// charges each line it reads the same cost, so the two cannot drift.
 const (
 	headerOverhead = 64
-	lineOverhead   = 40
+	lineOverhead   = logfile.LineOverhead
 	gapOverhead    = 48
-	streamGuess    = 8 // at least len(logfile.Stream); only steers the text budget asked of a Source
 )
 
 type Option func(*Server)
@@ -316,24 +316,31 @@ func budget(v uint64) int {
 	return int(v)
 }
 
-// textBudget is the text to ask a source for when a reply has room bytes for its lines: room less a line's
-// framing for each line it can hold, a line counted as at least as long as its framing (a default-pattern entry
-// is longer), or as maxLines lines when that is fewer (0 = no line limit). trim stays the guarantee for a reply
+// textBudget is the text to ask a source's Page for when a reply has room bytes for at most maxLines lines: room
+// less a line's framing for each line it can hold, a line counted as at least as long as its framing (a
+// default-pattern entry is longer), or as maxLines lines when that is fewer. trim stays the guarantee for a reply
 // of shorter lines.
 func textBudget(room int, maxLines uint32) int {
 	room = max(room, 0)
-	perLine := lineOverhead + streamGuess
-	n := room / (2 * perLine)
-	if maxLines > 0 {
-		n = min(n, int(maxLines))
+	n := min(room/(2*logfile.LineCost), int(maxLines))
+	return max(room-n*logfile.LineCost, 1)
+}
+
+// pageLimit is the Limit a page asks its source for: no more lines than room can carry framed, Limit 0 included,
+// so that a page of short lines never builds a line it cannot send.
+func pageLimit(room int, limit uint32) uint32 {
+	most := uint32(max(room/logfile.LineCost, 1))
+	if limit == 0 || limit > most {
+		return most
 	}
-	return max(room-n*perLine, 1)
+	return limit
 }
 
 func (s *Server) page(ctx context.Context, src Source, id string, q msg.LogPageQuery, out LogsSender) {
 	limit, _ := s.budgets()
 	e := s.env()
 	room := limit - (headerOverhead + len(id) + len(e.MessageID))
+	q.Limit = pageLimit(room, q.Limit)
 	rctx, cancel := context.WithTimeout(ctx, s.timeout)
 	lines, err := src.Page(rctx, q, textBudget(room, q.Limit))
 	cancel()
@@ -375,7 +382,8 @@ func (s *Server) export(ctx context.Context, rq *request, src Source, id string,
 		}
 		e := s.env()
 		room := limit - (headerOverhead + len(id) + len(e.MessageID))
-		ch, shrunk, err := s.advance(ctx, src, &pos, textBudget(room, 0), lastTS)
+		// Read charges each line its text plus the framing lineSize counts, so its lines fit room as they are.
+		ch, shrunk, err := s.advance(ctx, src, &pos, max(room, 1), lastTS)
 		if ctx.Err() != nil {
 			return
 		}
@@ -416,10 +424,10 @@ func (s *Server) export(ctx context.Context, rq *request, src Source, id string,
 	}
 }
 
-// advance reads the next chunk's lines for an export at p, tb bytes of text at most, each read within the read
-// timeout. The first read is unbounded and sets the snapshot; when it finds p.seq beyond the file, the file was
-// replaced and reading starts again at 0. A read that only skipped bytes (the tail of a line begun before p.seq)
-// is followed by the next on the same credit. It returns no lines once the snapshot is read, or when nothing
+// advance reads the next chunk's lines for an export at p, within a charge of tb (see Source.Read), each read
+// within the read timeout. The first read is unbounded and sets the snapshot; when it finds p.seq beyond the file,
+// the file was replaced and reading starts again at 0. A read that only skipped bytes (the tail of a line begun
+// before p.seq) is followed by the next on the same credit. It returns no lines once the snapshot is read, or when nothing
 // complete is left in it (an unterminated last line); shrunk reports a file now smaller than the snapshot. The
 // snapshot of an empty file is never read again, since until 0 means no bound.
 func (s *Server) advance(ctx context.Context, src Source, p *exportPos, tb int, prev time.Time) (ch logfile.Chunk, shrunk bool, err error) {

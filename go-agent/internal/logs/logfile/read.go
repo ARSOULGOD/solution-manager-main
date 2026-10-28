@@ -16,8 +16,11 @@ type Chunk struct {
 	Size  uint64   // the file size the server reported in this read's last reply (0 is a real size: an empty file)
 }
 
-// Read returns the whole lines from byte offset from, never reading at or past until (0 = no bound), with at most
-// textBudget bytes of text. prev is the time for continuation lines before the read's first entry start.
+// Read returns the whole lines from byte offset from, never reading at or past until (0 = no bound). It charges each
+// line its text plus LineCost and takes lines while the charge stays within textBudget, so at most
+// textBudget/LineCost of them; the first line is always taken, so that every read moves on. The range it asks for is
+// textBudget bytes from from, and the byte before from. prev is the time for continuation lines before the read's
+// first entry start.
 //
 // Only '\n'-terminated lines are returned: an unterminated tail is the MI mid-write and is left for the next read, so
 // Next never moves past it. When from is not a line start (the byte before it is not '\n') the bytes up to the next
@@ -83,20 +86,20 @@ func (f *File) Read(ctx context.Context, from, until uint64, textBudget int, pre
 		}
 	}
 	lineStart := from + uint64(pos)
-	lines, ends, tail := split(text[pos:], lineStart)
+	lines, ends, rest := split(text[pos:], lineStart, textBudget)
 	switch {
 	case len(lines) > 0:
-		ch.Lines, ch.Ends = stamp(lines, prev, f.now()), ends
+		ch.Lines, ch.Ends = stamp(lines, rest, prev, f.now()), ends
 		ch.Next = ends[len(ends)-1]
 		return ch, nil
-	case len(tail) == 0 || exhausted || pos > 0:
+	case len(rest) == 0 || exhausted || pos > 0:
 		// Nothing complete here: an unterminated tail, or (pos > 0) a line that may fit a budget of its own and is
 		// read whole from its start next time.
 		ch.Next = lineStart
 		return ch, nil
 	}
 	// One line fills the whole budget without ending.
-	return f.longLine(ctx, ch, tail, until, budget, prev)
+	return f.longLine(ctx, ch, rest, until, budget, prev)
 }
 
 // longLine finishes a line that began at ch.Next and is at least kept long with no '\n' yet: it keeps the first
@@ -148,7 +151,7 @@ func (f *File) longLine(ctx context.Context, ch Chunk, kept []byte, until, budge
 	default:
 		text = cutRunes(kept, next)
 	}
-	ln := stamp([][]byte{text[:len(text):len(text)]}, prev, f.now())
+	ln := stamp([][]byte{text[:len(text):len(text)]}, nil, prev, f.now())
 	ln[0].Truncated = truncated
 	ch.Lines, ch.Ends, ch.Next = ln, []uint64{cur}, cur
 	return ch, nil

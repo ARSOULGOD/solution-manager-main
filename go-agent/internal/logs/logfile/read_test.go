@@ -480,6 +480,57 @@ func TestReadErrorsNeverCarryLogText(t *testing.T) {
 	}
 }
 
+func TestReadChargesEachLineAFixedCost(t *testing.T) {
+	const budget = 1000
+	// Empty lines: a range of budget+1 bytes holds about a thousand, but each costs LineCost, so a read takes 22.
+	const n = 5000
+	f, rec := fileServer(t, strings.Repeat("\n", n))
+	ch := read(t, f, 0, 0, budget, time.Time{})
+	if k := len(ch.Lines); k != budget/LineCost || len(ch.Ends) != k || ch.Next != ch.Ends[k-1] {
+		t.Fatalf("%d lines, %d ends, next %d; want %d lines, next the last end", k, len(ch.Ends), ch.Next, budget/LineCost)
+	}
+	// Read on from each Next: every line once, in order, and no range wider than the budget.
+	var from uint64
+	total := 0
+	for i := 0; from < n; i++ {
+		if i > n {
+			t.Fatal("the reads do not end")
+		}
+		ch := read(t, f, from, 0, budget, time.Time{})
+		if len(ch.Lines) == 0 || len(ch.Lines) > budget/LineCost || ch.Ends[0] != from+1 || ch.Next != ch.Ends[len(ch.Ends)-1] {
+			t.Fatalf("from %d: %d lines, ends %v, next %d", from, len(ch.Lines), ch.Ends, ch.Next)
+		}
+		total, from = total+len(ch.Lines), ch.Next
+	}
+	if total != n {
+		t.Fatalf("%d lines read, want %d", total, n)
+	}
+	for _, r := range rec.all() {
+		if r[1]-r[0]+1 > budget+1 {
+			t.Errorf("range %v is wider than the budget", r)
+		}
+	}
+
+	// Lines with text: 56 bytes and LineCost is 100 a line, so 10 lines.
+	g, _ := fileServer(t, strings.Repeat(strings.Repeat("x", 100-LineCost)+"\n", 50))
+	if ch := read(t, g, 0, 0, budget, time.Time{}); len(ch.Lines) != budget/100 || ch.Next != uint64(budget/100*(101-LineCost)) {
+		t.Fatalf("56-byte lines: %d lines, next %d", len(ch.Lines), ch.Next)
+	}
+
+	// The charge cuts a read inside the continuation lines above the file's first entry: they still take the time of
+	// that entry, later in the same read (plan Decision 3), not the fetch time.
+	h, _ := fileServer(t, strings.Repeat("\tat x\n", 30)+e1+"\n")
+	ch = read(t, h, 0, 0, budget, time.Time{})
+	if want := budget / (len("\tat x") + LineCost); len(ch.Lines) != want {
+		t.Fatalf("lead lines: %d, want %d", len(ch.Lines), want)
+	}
+	for i, l := range ch.Lines {
+		if !l.TS.Equal(ts1) {
+			t.Fatalf("lead line %d at %v, want the entry's %v", i, l.TS, ts1)
+		}
+	}
+}
+
 func TestReadRangesStayWithinTheBudget(t *testing.T) {
 	var sb strings.Builder
 	for i := range 40 {
