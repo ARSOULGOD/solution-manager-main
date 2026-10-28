@@ -372,9 +372,10 @@ the agent's own log (only binding ids and error text do).
 
 ### Try it against the fake gateway
 
-**Status: executed 2026-10-26**, by piping the step 4 commands into the gateway (ports `18443`/`19464`), against `logs-demo`
-built as in step 1. Agent and fake gateway only; no DP, console or REST layer. The commands are also unit-tested against a
-scripted agent (`internal/fakegw/console_logs_test.go`).
+**Status: executed 2026-10-26**, by piping the step 6 commands into the gateway (ports `18443`/`19464`), against `logs-demo`
+built as in step 2. **On 2026-10-27** steps 2, 4 and 5 ran as written and step 7's `jq` decode printed the stored lines.
+Agent and fake gateway only; no DP, console or REST layer. The commands are also unit-tested against a scripted agent
+(`internal/fakegw/console_logs_test.go`).
 
 | Type | Sends | Prints |
 |---|---|---|
@@ -385,39 +386,105 @@ scripted agent (`internal/fakegw/console_logs_test.go`).
 A chunk's `seq` is its resume point: if an export stops early, `export <placement> <seq>` continues after the last chunk printed.
 The gateway also prints its own one-line summary of every page and chunk (`logs page …`, `logs chunk …`).
 
-1. Make a container the agent can resolve and that writes a line a second to stdout and every fifth to stderr. It needs
-   the binding label (unique across all containers, stopped ones included:
-   `docker ps -a --filter label=com.solace.sm.binding-id=logs-1` must print nothing), the declared config location and its
-   bind mount under `$HOME`, as in [Preconditions](#preconditions) step 3:
+Every command below runs from `go-agent/`, in three terminals: **T1** the gateway (you type commands here), **T2** the agent,
+**T3** Docker and checks.
+
+1. **T3: build, and check nothing is in the way.**
+
+   ```bash
+   export DOCKER_HOST=unix://$HOME/.docker/desktop/docker.sock                       # Docker Desktop only
+   make build                                                                         # bin/sm-agent, bin/fake-gateway
+   pgrep -af 'bin/(sm-agent|fake-gateway)'                                            # must print nothing
+   docker ps -a --filter label=com.solace.sm.binding-id=logs-1 --format '{{.Names}}'  # must print nothing
+   ```
+
+   If `pgrep` prints a process, `Ctrl-C` it in its terminal. If `docker ps` prints `logs-demo`, it is left from an earlier
+   run: `docker rm -f logs-demo`. The label must be unique across all containers, stopped ones included.
+
+2. **T3: the container.** It writes `INFO request N served` to stdout every second and a `WARN` to stderr every fifth. The
+   label, the declared config location and the bind mount under `$HOME` are what the agent resolves it by (`AG-D20`).
 
    ```bash
    mkdir -p ~/sm-logs-demo
    docker run -d --name logs-demo --label com.solace.sm.binding-id=logs-1 \
      -e SPRING_CONFIG_ADDITIONAL_LOCATION=file:/etc/app/ -v ~/sm-logs-demo:/etc/app \
      alpine:3 sh -c 'i=0; while :; do i=$((i+1)); echo "INFO request $i served"; [ $((i % 5)) -eq 0 ] && echo "WARN slow downstream on request $i" >&2; sleep 1; done'
+   docker logs --tail 3 logs-demo                                                     # INFO request … served
    ```
 
-2. A scenario file granting that binding, `bin/logs-lease.yaml`:
-   `lease: {target_id: target-1, binding_ids: [logs-1], capabilities: [apply-config, lifecycle], duration: 1h}`.
-3. Terminal 1: `./bin/fake-gateway --interactive --scenario bin/logs-lease.yaml --listen 127.0.0.1:8443 --enroll-token demo-token --ca-out bin/ca.pem`.
-4. Terminal 2: the agent exactly as in [step 2](#2-terminal-2--start-the-agent-from-an-empty-data-dir), plus `--roles control,logs`.
-   Wait for `agent connected` in terminal 1, give the collector a few seconds, then type in terminal 1:
+3. **T3: the lease.** The gateway's built-in lease grants only `binding-1`; this one grants `logs-1`.
+
+   ```bash
+   cat > bin/logs-lease.yaml <<'EOF'
+   lease: {target_id: target-1, binding_ids: [logs-1], capabilities: [apply-config, lifecycle], duration: 1h}
+   EOF
+   ```
+
+4. **T1: the gateway.** Wait for `fake gateway listening`.
+
+   ```bash
+   ./bin/fake-gateway --interactive --scenario bin/logs-lease.yaml --listen 127.0.0.1:8443 \
+     --enroll-token demo-token --ca-out bin/ca.pem
+   ```
+
+5. **T2: the agent, from an empty data dir, with the logs role.** Both matter: a new gateway forgets every agent (fact 3),
+   and without `logs` in `--roles` every `logs`, `export` and `cap` prints `the session did not advertise logs`.
+
+   ```bash
+   export DOCKER_HOST=unix://$HOME/.docker/desktop/docker.sock
+   rm -rf bin/agent-data
+   ./bin/sm-agent --data-dir bin/agent-data --connect-endpoint 127.0.0.1:8443 \
+     --enrollment-token demo-token --trust-bundle bin/ca.pem --roles control,logs
+   ```
+
+   T1 logs `fakegw: agent connected`. Give the collector a few seconds to store lines.
+
+6. **T1: type.**
 
    | Type | Expect |
    |---|---|
    | `logs logs-1 5` | the five newest lines, `INFO` on `stdout` and any `WARN` on `stderr` |
    | `export logs-1` | every stored line, in chunks, then `complete` |
    | `logs nope` | `unavailable: PLACEMENT_NOT_IN_LEASE` |
-   | `docker rm -f logs-demo`, wait a few seconds, re-run step 1's `docker run`, wait 10 s, then `logs logs-1 40` | a `gap CONTAINER_UNREADABLE` covering the outage, then the new container's lines from `request 1` (the page shows a gap only when it overlaps the lines returned, so ask for enough lines to reach back past it) |
+   | recreate the container in T3 (below), wait 10 s, then `logs logs-1 40` | a `gap CONTAINER_UNREADABLE` covering the outage, then the new container's lines from `request 1` (the page shows a gap only when it overlaps the lines returned, so ask for enough lines to reach back past it) |
    | `cap logs-1 2048`, then `logs logs-1` | fewer lines, and a `gap CAP_REDUCED` |
-   | `cap logs-1 0`, then `logs logs-1` | `unavailable: NOT_COLLECTING`; `bin/agent-data/logs/logs-1/` holds no segments |
+   | `cap logs-1 0`, then `logs logs-1` | `unavailable: NOT_COLLECTING`; `bin/agent-data/logs/logs-1/` holds no segments. ⚠️ This **deletes the stored logs**: do it last |
+
+   To recreate the container, in T3:
+
+   ```bash
+   docker rm -f logs-demo; sleep 5
+   docker run -d --name logs-demo --label com.solace.sm.binding-id=logs-1 \
+     -e SPRING_CONFIG_ADDITIONAL_LOCATION=file:/etc/app/ -v ~/sm-logs-demo:/etc/app \
+     alpine:3 sh -c 'i=0; while :; do i=$((i+1)); echo "INFO request $i served"; [ $((i % 5)) -eq 0 ] && echo "WARN slow downstream on request $i" >&2; sleep 1; done'
+   ```
 
    **A `docker stop` and `docker start` is not a gap.** Docker keeps a stopped container's log, so the agent resumes where
    it left off and nothing is lost; only a container that is missing or recreated is `CONTAINER_UNREADABLE` (observed).
 
-   The ring itself is at `bin/agent-data/logs/logs-1/`: JSON records with the text base64-encoded.
+7. **T3: look at the ring.** One directory per placement, holding segment files of JSON records (`t` time, `s` stream, `x`
+   the text base64-encoded) and a `state.json`. Before step 6's `cap logs-1 0`:
 
-5. Clean up: `Ctrl-C` both, then `docker rm -f logs-demo; rm -rf ~/sm-logs-demo bin/logs-lease.yaml`.
+   ```bash
+   ls -l bin/agent-data/logs/logs-1/                                                  # 00000000000000000001.seg  state.json
+   cat bin/agent-data/logs/logs-1/*.seg | tail -n 3 | jq -r '"\(.t) \(.s) \(.x | @base64d)"'   # needs jq
+   ```
+
+8. **Stop and clean up.** `Ctrl-C` T2, then T1. Then in T3:
+
+   ```bash
+   docker rm -f logs-demo
+   rm -rf ~/sm-logs-demo bin/logs-lease.yaml
+   ```
+
+### Logs: if it goes wrong
+
+Both rows were reproduced on 2026-10-27 (ports `18443`/`19464`, against `logs-demo`), including the fix.
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `logs`, `export` or `cap` prints `fakegw: the session did not advertise logs`. | The agent was started without `logs` in `--roles`, so its session never advertised `CAPABILITY_LOGS`. | `Ctrl-C` the agent and start it again with `--roles control,logs`, **without** the `rm -rf`: the gateway is still the same one (fact 3). The next `logs` returns lines. |
+| `logs logs-1` prints `unavailable: PLACEMENT_NOT_IN_LEASE`. | The gateway was started without `--scenario bin/logs-lease.yaml`; the built-in lease grants only `binding-1`. | `Ctrl-C` both and redo steps 3 to 5: the gateway with the scenario, then the agent from an empty data dir, `rm -rf` included (fact 3). |
 
 ## Config view
 
@@ -429,9 +496,22 @@ reply `AgentToGateway` 12) with the allow-listed entries of a placement's YAML c
 **Enable it.** Nothing to set: the role is wired whenever the agent has an adapter, and it advertises
 `CAPABILITY_CONFIG_VIEW` (8) only then. A gateway sends nothing to an agent without that capability.
 
-**What it reads.** The file path comes from the lease's placement, never from the request. The read refuses a symlink, a FIFO
+**What it reads.** The request names only a placement and an allow list; the file path comes from the lease's placement,
+never from the request. On Docker the agent resolves it as `apply` does (`AG-D20`, `internal/runtime/docker`):
+
+1. the one container labelled `com.solace.sm.binding-id=<placement>`;
+2. the config directory that container declares: a `--spring.config.additional-location=` or `--spring.config.location=`
+   launch argument first, else the env `SPRING_CONFIG_ADDITIONAL_LOCATION` or `SPRING_CONFIG_LOCATION` (only the first
+   location of a comma list);
+3. that directory mapped to the host through its bind mount;
+4. `application.yml` in it. The file name is fixed.
+
+A placement that does not resolve (no such container, two of them, no declared directory, no bind mount) is
+`FILE_UNREADABLE` (read from the code, not reproduced). The agent reads the **host** file, not through the container, and
+reads it again on every request: an edit shows in the next view with no restart. The read refuses a symlink, a FIFO
 or any path that escapes the placement directory (`NOT_PERMITTED`), and reads at most the limit plus one byte. The allow
-list comes with the request and the agent filters by it; the DP re-checks the reply.
+list comes with the request and the agent filters by it; the DP re-checks the reply. `hidden` counts every scalar the
+allow list leaves out, not only secrets.
 
 **Limits (fixed in the agent).**
 
@@ -450,11 +530,30 @@ a key that is not on the allow list is hidden and only counted in `hidden_count`
 
 ### Try it against the fake gateway
 
-**Status: executed 2026-10-26** (agent and fake gateway only; no DP, console or REST layer). The `view` console command
-sends a `ConfigViewRequest` to the live agent and prints the reply's status, reason, `hidden`, `truncated` and entries.
+**Status: executed 2026-10-26** (agent and fake gateway only; no DP, console or REST layer). **Re-run 2026-10-27** by piping
+the commands into the gateway (ports `18443`/`19464`, binding `cfgview-verify`): every row of step 7's table except
+`management.*` printed as written, and step 3's `docker inspect` lines printed the label, the env and the mount. The `view`
+console command sends a `ConfigViewRequest` to the live agent and prints `view-<n> -> <status> <reason> hidden=<n>
+truncated=<bool>`, then one `    <path> = <value>` line per entry.
 
-1. Make a container the agent can resolve (the binding label must be unique across all containers, stopped ones included;
-   `docker ps -a --filter label=com.solace.sm.binding-id=cfgview-1` must print nothing), with a config file under `$HOME`:
+Every command below runs from `go-agent/`, in three terminals: **T1** the gateway (you type commands here), **T2** the agent,
+**T3** Docker, the config file and checks.
+
+1. **T3: build, and check nothing is in the way.**
+
+   ```bash
+   export DOCKER_HOST=unix://$HOME/.docker/desktop/docker.sock                          # Docker Desktop only
+   make build                                                                            # bin/sm-agent, bin/fake-gateway
+   pgrep -af 'bin/(sm-agent|fake-gateway)'                                               # must print nothing
+   docker ps -a --filter label=com.solace.sm.binding-id=cfgview-1 --format '{{.Names}}'  # must print nothing
+   ```
+
+   If `pgrep` prints a process, `Ctrl-C` it in its terminal: a gateway left from the Logs demo does not grant `cfgview-1`.
+   If `docker ps` prints `cfgview-demo`, it is left from an earlier run: `docker rm -f cfgview-demo`. The label must be
+   unique across all containers, stopped ones included.
+
+2. **T3: the config file and the container.** The file holds two secrets, a Datadog `api-key` and a datasource password.
+   Back it up: step 7 replaces it.
 
    ```bash
    mkdir -p ~/sm-cfgview-demo
@@ -466,24 +565,113 @@ sends a `ConfigViewRequest` to the live agent and prints the reply's status, rea
    EOF
    docker run -d --name cfgview-demo --label com.solace.sm.binding-id=cfgview-1 \
      -e SPRING_CONFIG_ADDITIONAL_LOCATION=file:/etc/app/ -v ~/sm-cfgview-demo:/etc/app alpine:3 sleep infinity
+   cp ~/sm-cfgview-demo/application.yml ~/sm-cfgview-demo-application.yml.bak
    ```
 
-2. A scenario file granting that binding (`lease.yaml`): `lease: {target_id: target-1, binding_ids: [cfgview-1], capabilities: [apply-config, lifecycle], duration: 1h}`.
-3. Start the gateway with `--interactive --scenario lease.yaml` and the agent exactly as in [Drive java1](#1-terminal-1--start-the-gateway)
-   (the agent needs no extra flag). Wait for `agent connected`, then type in the gateway terminal:
+3. **T3: show where the agent will read from.** This follows [What it reads](#config-view) by hand:
 
-   | Type | Prints |
-   |---|---|
-   | `view cfgview-1 server.port,management.server.port,management.endpoints.*,info.*` | `OK`, five entries, `hidden=2` (the API key and the password are counted, not shown) |
-   | `view cfgview-1 management.*` | `OK` and the Datadog `api-key` **is shown**: the documented limit for a listed prefix |
-   | `view nope server.port` | `REFUSED PLACEMENT_NOT_IN_LEASE` |
-   | after `rm` of the file | `REFUSED FILE_MISSING` |
-   | after `ln -s /etc/hostname` in its place | `REFUSED NOT_PERMITTED` |
-   | after writing `a: [unclosed` | `REFUSED INVALID_YAML` |
+   ```bash
+   docker inspect cfgview-demo --format '{{index .Config.Labels "com.solace.sm.binding-id"}}'    # cfgview-1
+   docker inspect cfgview-demo --format '{{json .Config.Env}}'                                     # SPRING_CONFIG_ADDITIONAL_LOCATION=file:/etc/app/
+   docker inspect cfgview-demo --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{end}}'  # <your $HOME>/sm-cfgview-demo -> /etc/app
+   cat ~/sm-cfgview-demo/application.yml                                                           # the file the agent reads
+   ```
 
-4. Clean up: `docker rm -f cfgview-demo; rm -rf ~/sm-cfgview-demo`.
+4. **T3: the lease.** The gateway's built-in lease grants only `binding-1`; this one grants `cfgview-1`.
+
+   ```bash
+   cat > bin/cfgview-lease.yaml <<'EOF'
+   lease: {target_id: target-1, binding_ids: [cfgview-1], capabilities: [apply-config, lifecycle], duration: 1h}
+   EOF
+   ```
+
+5. **T1: the gateway.** Wait for `fake gateway listening`.
+
+   ```bash
+   ./bin/fake-gateway --interactive --scenario bin/cfgview-lease.yaml --listen 127.0.0.1:8443 \
+     --enroll-token demo-token --ca-out bin/ca.pem
+   ```
+
+6. **T2: the agent, from an empty data dir.** A new gateway forgets every agent (fact 3). Config view needs no `--roles`
+   flag: it is on whenever the agent has an adapter.
+
+   ```bash
+   export DOCKER_HOST=unix://$HOME/.docker/desktop/docker.sock
+   rm -rf bin/agent-data
+   ./bin/sm-agent --data-dir bin/agent-data --connect-endpoint 127.0.0.1:8443 \
+     --enrollment-token demo-token --trust-bundle bin/ca.pem
+   ```
+
+   T1 logs `fakegw: agent connected`.
+
+7. **T1: type, in this order**, changing the file in T3 first where the first column says so:
+
+   | Change the file (T3) | Type (T1) | Prints |
+   |---|---|---|
+   | | `view cfgview-1 server.port,management.server.port,management.endpoints.*,info.*` | `OK hidden=2` and five entries (the API key and the password are counted, not shown) |
+   | | `view cfgview-1 management.*` | `OK` and the Datadog `api-key` **is shown**: the documented limit for a listed prefix |
+   | `sed -i 's/port: 8080/port: 9090/' ~/sm-cfgview-demo/application.yml` | `view cfgview-1 server.port` | `OK hidden=6` and `server.port = 9090`: the edit shows with no restart, and `hidden` counts the five values not asked for |
+   | `echo 'server: [' > ~/sm-cfgview-demo/application.yml` | `view cfgview-1 server.port` | `REFUSED INVALID_YAML` |
+   | `ln -sf /etc/passwd ~/sm-cfgview-demo/application.yml` | `view cfgview-1 server.port` | `REFUSED NOT_PERMITTED` |
+   | `rm ~/sm-cfgview-demo/application.yml` | `view cfgview-1 server.port` | `REFUSED FILE_MISSING` |
+   | | `view nope server.port` | `REFUSED PLACEMENT_NOT_IN_LEASE` |
+
+8. **T3: restore the file.**
+
+   ```bash
+   cp ~/sm-cfgview-demo-application.yml.bak ~/sm-cfgview-demo/application.yml
+   ```
+
+9. **Stop and clean up.** `Ctrl-C` T2, then T1. Then in T3:
+
+   ```bash
+   docker rm -f cfgview-demo
+   rm -rf ~/sm-cfgview-demo ~/sm-cfgview-demo-application.yml.bak bin/cfgview-lease.yaml
+   ```
 
 The fake gateway's transcript (printed on exit) records only message names, never the reply content; read the `view` output.
+
+### Logs and config view on one gateway
+
+**Status: executed 2026-10-27** on ports `18443`/`19464`, with a stand-in binding `cfgview-verify` for `cfgview-1`:
+`logs logs-1 3`, `view cfgview-verify server.port` and `preflight @all` all answered in one session.
+
+To show both without restarting anything between them, grant both bindings in one lease and give the agent the logs role.
+
+1. **T3:** [Logs](#logs) steps 1 and 2 (the `logs-demo` container), then [Config view](#config-view) steps 2 and 3 (the
+   `cfgview-demo` container and its file).
+2. **T3: one lease for both.**
+
+   ```bash
+   cat > bin/both-lease.yaml <<'EOF'
+   lease: {target_id: target-1, binding_ids: [logs-1, cfgview-1], capabilities: [apply-config, lifecycle], duration: 1h}
+   EOF
+   ```
+
+3. **T1: the gateway.**
+
+   ```bash
+   ./bin/fake-gateway --interactive --scenario bin/both-lease.yaml --listen 127.0.0.1:8443 \
+     --enroll-token demo-token --ca-out bin/ca.pem
+   ```
+
+4. **T2: the agent, from an empty data dir, with the logs role.**
+
+   ```bash
+   export DOCKER_HOST=unix://$HOME/.docker/desktop/docker.sock
+   rm -rf bin/agent-data
+   ./bin/sm-agent --data-dir bin/agent-data --connect-endpoint 127.0.0.1:8443 \
+     --enrollment-token demo-token --trust-bundle bin/ca.pem --roles control,logs
+   ```
+
+5. **T1:** type either table: Logs step 6, Config view step 7. With two bindings in the lease, `preflight`, `apply`,
+   `restart` and `stop` need a target (`@logs-1`, `@cfgview-1` or `@all`); `logs` and `view` already name one.
+6. **Clean up.** `Ctrl-C` T2, then T1. Then in T3:
+
+   ```bash
+   docker rm -f logs-demo cfgview-demo
+   rm -rf ~/sm-logs-demo ~/sm-cfgview-demo ~/sm-cfgview-demo-application.yml.bak bin/both-lease.yaml
+   ```
 
 ## Rollback
 

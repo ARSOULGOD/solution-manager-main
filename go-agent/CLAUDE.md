@@ -48,6 +48,21 @@ go at each push tick, `OR-73`'s 1 min unless the DP sets `Limits.telemetry_push_
 | Implementation plan | [`../docs/plans/go-agent/008-telemetry-push-interval.md`](../docs/plans/go-agent/008-telemetry-push-interval.md) |
 | Open item | central item 48 in [`../docs/design/DECISIONS.md`](../docs/design/DECISIONS.md): the Java gateway does not send the field yet |
 
+**The logs role and the config view (plans 016 and 017) are built on `feature/agent-mi-config-view`**, which also carries
+`feature/agent-mi-logs` and `go-agent/push-interval`; none of the three is in `main`. **Logs** (`--roles …,logs`): the agent
+follows each leased placement's container logs into a DP-capped ring under `<data-dir>/logs/<placement>/` and serves pages
+and exports on the `Logs` stream. **Config view** (no role flag; on whenever the agent has an adapter): the agent answers a
+`ConfigViewRequest` with the allow-listed values of the placement's `application.yml`, resolved from the lease as `apply`
+resolves it (`AG-D20`), never from the request. Both have run only against `fake-gateway`: no real gateway, DP and agent
+together yet.
+
+| Artifact | Where |
+|---|---|
+| Designs | [`../docs/design/backend/agent-gateway/specs/2026-10-20-agent-mi-logs-design.md`](../docs/design/backend/agent-gateway/specs/2026-10-20-agent-mi-logs-design.md) · [`../docs/design/backend/agent-gateway/specs/2026-10-24-agent-mi-config-view-design.md`](../docs/design/backend/agent-gateway/specs/2026-10-24-agent-mi-config-view-design.md) |
+| Implementation plans | [`../docs/plans/backend/016-agent-mi-logs.md`](../docs/plans/backend/016-agent-mi-logs.md) · [`../docs/plans/backend/017-agent-mi-config-view.md`](../docs/plans/backend/017-agent-mi-config-view.md) (filed under `backend/`: each spans the agent, gateway and DP) |
+| Demos | [`RUNBOOK.md`](RUNBOOK.md) "Logs" and "Config view": agent and `fake-gateway`, typed `logs`, `export`, `cap` and `view` commands |
+| DP side | [`../docs/runbooks/backend/read-and-export-agent-logs.md`](../docs/runbooks/backend/read-and-export-agent-logs.md) · [`../docs/runbooks/backend/read-agent-config.md`](../docs/runbooks/backend/read-agent-config.md), both `UNTESTED` end to end |
+
 The plan is now the historical record of what was built, not forward guidance — read it to
 understand why the code is shaped the way it is, not as a task list to execute.
 
@@ -93,7 +108,7 @@ make test               # go vet + unit tests
 make test-integration   # scenarios against an in-process fake gateway
 make test-docker        # Docker adapter against a real container (needs a socket)
 
-bin/sm-agent --roles control,telemetry --telemetry-config telemetry.yaml ...   # roles: control (default) | control,telemetry | telemetry
+bin/sm-agent --roles control,telemetry --telemetry-config telemetry.yaml ...   # roles: any comma list of control (default), telemetry, logs; config view needs none
 ```
 
 **On Docker Desktop:** export `DOCKER_HOST=unix://$HOME/.docker/desktop/docker.sock`. Bind-mount only directories
@@ -125,6 +140,9 @@ internal/runtime/      Adapter seam; docker/ implementation; configwriter (atomi
 internal/store/        durable records; one write primitive with parent-dir fsync
 internal/clock/        DP clock offset → CLOCK_SUSPECT input
 internal/telemetry/    pipeline wiring (AG-D21); view/ declare/ jsonptr/ collect/ buffer/ send/ tmetrics/
+internal/logs/         logs role (plan 016): collect/ follows a container's logs, ring/ the per-placement on-disk ring, serve/ pages and exports
+internal/configview/   config view filter (plan 017): YAML → allow-listed scalars; pure, no I/O, no logging (I6)
+internal/discovery/    auto-registration facts for containers labelled com.solace.sm.instance (plan 015 T2.3, AG-D26)
 internal/fakegw/       fake gateway server, shared by the binary and integration tests
 oldGo-Agent/           the archived scaffold — reference only, not built, not maintained
 ```
