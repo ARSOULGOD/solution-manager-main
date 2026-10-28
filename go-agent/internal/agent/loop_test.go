@@ -321,7 +321,6 @@ type fakeLogsRole struct {
 	mu       sync.Mutex
 	sessions []*LogsSession
 	requests []msg.LogRequest
-	retains  []msg.LogRetention
 }
 
 func (f *fakeLogsRole) Run(ctx context.Context) { <-ctx.Done() }
@@ -330,20 +329,15 @@ func (f *fakeLogsRole) Session(s *LogsSession) {
 	defer f.mu.Unlock()
 	f.sessions = append(f.sessions, s)
 }
-func (f *fakeLogsRole) Retention(m msg.LogRetention) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.retains = append(f.retains, m)
-}
 func (f *fakeLogsRole) Request(m msg.LogRequest) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.requests = append(f.requests, m)
 }
-func (f *fakeLogsRole) counts() (int, int, int) {
+func (f *fakeLogsRole) counts() (int, int) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return len(f.sessions), len(f.requests), len(f.retains)
+	return len(f.sessions), len(f.requests)
 }
 
 func runLogsLoop(t *testing.T, caps []msg.Capability) (*fakeLogsRole, *fakeConn, *Loop) {
@@ -365,14 +359,13 @@ func runLogsLoop(t *testing.T, caps []msg.Capability) (*fakeLogsRole, *fakeConn,
 
 func TestLogsSessionStartsOnlyAfterSessionAcceptWithCapLogs(t *testing.T) {
 	role, c, l := runLogsLoop(t, []msg.Capability{msg.CapReportOnly, msg.CapLogs})
-	if n, _, _ := role.counts(); n != 0 {
+	if n, _ := role.counts(); n != 0 {
 		t.Fatal("no logs session before SessionAccept")
 	}
 	c.inject <- msg.SessionAccept{SessionID: "s1", Limits: msg.Limits{HeartbeatInterval: time.Hour, MaxMessageBytes: 4096},
 		Lease: msg.LeaseGrant{BindingIDs: []string{"b1"}, ExpiresAt: time.Now().Add(time.Hour)}}
-	c.inject <- msg.LogRetention{PlacementRef: "b1", MaxBytes: 1 << 20}
 	c.inject <- msg.LogRequest{RequestID: "r1", PlacementRef: "b1", Page: &msg.LogPageQuery{Limit: 1}}
-	waitFor(t, func() bool { _, r, k := role.counts(); return r == 1 && k == 1 })
+	waitFor(t, func() bool { _, r := role.counts(); return r == 1 })
 	role.mu.Lock()
 	s := role.sessions[0]
 	role.mu.Unlock()
@@ -387,12 +380,11 @@ func TestLogsSessionStartsOnlyAfterSessionAcceptWithCapLogs(t *testing.T) {
 func TestAgentWithoutCapLogsNeverHandsTheRoleLogMessages(t *testing.T) {
 	role, c, _ := runLogsLoop(t, []msg.Capability{msg.CapReportOnly})
 	c.inject <- msg.SessionAccept{SessionID: "s1", Limits: msg.Limits{HeartbeatInterval: time.Hour}}
-	c.inject <- msg.LogRetention{PlacementRef: "b1", MaxBytes: 1 << 20}
 	c.inject <- msg.LogRequest{RequestID: "r1", PlacementRef: "b1", Page: &msg.LogPageQuery{Limit: 1}}
 	c.inject <- msg.HeartbeatAck{}
 	time.Sleep(100 * time.Millisecond)
-	if s, r, k := role.counts(); s != 0 || r != 0 || k != 0 {
-		t.Fatalf("sessions=%d requests=%d retentions=%d; a session without CapLogs must carry no logs", s, r, k)
+	if s, r := role.counts(); s != 0 || r != 0 {
+		t.Fatalf("sessions=%d requests=%d; a session without CapLogs must carry no logs", s, r)
 	}
 }
 

@@ -8,7 +8,6 @@ package docker
 import (
 	"context"
 	"fmt"
-	"io"
 	"maps"
 	"net"
 	"net/http"
@@ -63,7 +62,6 @@ type engineAPI interface {
 	ContainerInspect(ctx context.Context, id string) (types.ContainerJSON, error)
 	ContainerRestart(ctx context.Context, id string, opts container.StopOptions) error
 	ContainerStop(ctx context.Context, id string, opts container.StopOptions) error
-	ContainerLogs(ctx context.Context, id string, opts container.LogsOptions) (io.ReadCloser, error)
 	Close() error
 }
 

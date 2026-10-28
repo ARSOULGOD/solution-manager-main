@@ -3,7 +3,6 @@ package docker
 import (
 	"context"
 	"errors"
-	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -25,7 +24,6 @@ type fakeEngine struct {
 	restarted []string
 	stopped   []string
 	failOp    error
-	logs      func(id string, opts container.LogsOptions) (io.ReadCloser, error)
 }
 
 func (f *fakeEngine) ContainerList(_ context.Context, opts container.ListOptions) ([]types.Container, error) {
@@ -70,12 +68,6 @@ func (f *fakeEngine) ContainerStop(_ context.Context, id string, _ container.Sto
 	c.State.Running = false
 	f.inspect[id] = c
 	return nil
-}
-func (f *fakeEngine) ContainerLogs(_ context.Context, id string, opts container.LogsOptions) (io.ReadCloser, error) {
-	if f.logs == nil {
-		return nil, errors.New("no logs in this fake")
-	}
-	return f.logs(id, opts)
 }
 func (f *fakeEngine) Close() error { return nil }
 

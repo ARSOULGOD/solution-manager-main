@@ -165,15 +165,6 @@ type OfferStep struct {
 	Deadline time.Duration `yaml:"deadline"`
 }
 
-// LogRetentionStep sends LogRetention for a placement (a binding id).
-type LogRetentionStep struct {
-	Placement string `yaml:"placement"`
-	MaxBytes  uint64 `yaml:"max_bytes"`
-	// Force sends even to a session that did not advertise CAPABILITY_LOGS, to
-	// prove the agent ignores what it never asked for. Test-only.
-	Force bool `yaml:"-"`
-}
-
 type LogPageStep struct {
 	Limit  uint32     `yaml:"limit"`
 	After  *time.Time `yaml:"after"`
@@ -191,7 +182,8 @@ type LogRequestStep struct {
 	RequestID string         `yaml:"request_id"`
 	Page      *LogPageStep   `yaml:"page"`
 	Export    *LogExportStep `yaml:"export"`
-	// Force: see LogRetentionStep.Force.
+	// Force sends even to a session that did not advertise CAPABILITY_LOGS, to
+	// prove the agent ignores what it never asked for. Test-only.
 	Force bool `yaml:"-"`
 }
 
@@ -238,7 +230,6 @@ type Step struct {
 
 	// Plan 016: MI logs. The sends are skipped for a session that did not
 	// advertise CAPABILITY_LOGS, as the real gateway skips them.
-	LogRetention    *LogRetentionStep    `yaml:"log_retention"`
 	LogRequest      *LogRequestStep      `yaml:"log_request"`
 	ExpectLogPage   *ExpectLogPageStep   `yaml:"expect_log_page"`
 	ExpectLogChunks *ExpectLogChunksStep `yaml:"expect_log_chunks"`

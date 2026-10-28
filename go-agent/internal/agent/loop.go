@@ -101,7 +101,6 @@ type LogsSession struct {
 type LogsRole interface {
 	Run(ctx context.Context)
 	Session(*LogsSession)
-	Retention(msg.LogRetention)
 	Request(msg.LogRequest)
 }
 
@@ -274,10 +273,6 @@ func (l *Loop) Run(ctx context.Context) error {
 				}
 			case msg.TelemetryDeclarations:
 				l.declare(m)
-			case msg.LogRetention:
-				if l.logsOn { // only a session that advertised CapLogs
-					l.d.Logs.Retention(m)
-				}
 			case msg.LogRequest:
 				if l.logsOn {
 					l.d.Logs.Request(m) // queued: the role serves it off the loop

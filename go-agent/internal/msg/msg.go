@@ -778,16 +778,7 @@ type TelemetryDeclarations struct {
 
 func (TelemetryDeclarations) inbound() {}
 
-// ---- MI logs (plan 016): agent-collected container logs ----
-
-// LogRetention sets a placement's local log byte cap.
-type LogRetention struct {
-	Envelope
-	PlacementRef string
-	MaxBytes     uint64
-}
-
-func (LogRetention) inbound() {}
+// ---- MI logs (plan 016; read from the MI's log file by plan 018) ----
 
 // LogPageQuery asks for the newest Limit lines in (After, Before).
 type LogPageQuery struct {
@@ -819,7 +810,10 @@ type LogLine struct {
 
 // LogGap reason: DROPPED_OLDEST | COLLECTION_PAUSED | OVERSIZE |
 // CONTAINER_UNREADABLE | CAP_REDUCED. Use the Gap* constants; they are the
-// single source of the vocabulary.
+// single source of the vocabulary, mirroring the wire enum. The agent emits
+// only DROPPED_OLDEST (an export whose position was past a replaced, smaller
+// log file, so it started again at 0) and COLLECTION_PAUSED (an export that
+// could not read on); nothing sets the others.
 const (
 	GapDroppedOldest       = "DROPPED_OLDEST"
 	GapCollectionPaused    = "COLLECTION_PAUSED"

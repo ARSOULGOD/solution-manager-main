@@ -78,10 +78,6 @@ func logGapsFromPB(ps []*pb.LogGap) []msg.LogGap {
 	return out
 }
 
-func logRetentionFromPB(p *pb.LogRetention) msg.LogRetention {
-	return msg.LogRetention{Envelope: envFromPB(p.GetEnvelope()), PlacementRef: p.GetPlacementRef(), MaxBytes: p.GetMaxBytes()}
-}
-
 func logRequestToPB(r msg.LogRequest) *pb.LogRequest {
 	out := &pb.LogRequest{Envelope: envToPB(r.Envelope), RequestId: r.RequestID, PlacementRef: r.PlacementRef}
 	switch {

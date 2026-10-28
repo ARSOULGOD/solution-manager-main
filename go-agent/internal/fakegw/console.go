@@ -15,7 +15,7 @@ import (
 	"github.com/solace/solution-manager/go-agent/internal/msg"
 )
 
-const consoleUsage = "type: preflight | apply <file> | restart | stop  [@<binding>|@all] | view <placement> <allow,comma,list> | logs <placement> [limit] | export <placement> [from-seq] | cap <placement> <bytes> | pause | resume | disconnect | set push <duration>|unset"
+const consoleUsage = "type: preflight | apply <file> | restart | stop  [@<binding>|@all] | view <placement> <allow,comma,list> | logs <placement> [limit] | export <placement> [from-seq] | pause | resume | disconnect | set push <duration>|unset"
 
 // logsPageLimit is how many of the newest lines "logs" asks for when no limit
 // is typed; a limit of 0 on the wire would ask for every line one message fits.
@@ -74,9 +74,6 @@ func (c *console) line(text string) {
 		return
 	case "export":
 		c.export(f)
-		return
-	case "cap":
-		c.capLogs(f)
 		return
 	case "disconnect":
 		if err := c.s.Disconnect(); err != nil {
@@ -292,25 +289,6 @@ func (c *console) export(f []string) {
 			}
 		}
 	}()
-}
-
-// capLogs sets a placement's log ring cap on the agent: cap <placement> <bytes>.
-// A cap of 0 turns collection off and the agent deletes the stored logs.
-func (c *console) capLogs(f []string) {
-	if len(f) < 3 {
-		c.println("cap needs a placement and a size: cap binding-1 512000 (bytes; 0 stops collection and deletes the stored logs)")
-		return
-	}
-	n, err := strconv.ParseUint(f[2], 10, 64)
-	if err != nil {
-		c.println("cap: the size must be a whole number of bytes, got %q", f[2])
-		return
-	}
-	if err := c.s.SetLogRetention(f[1], n); err != nil {
-		c.println("%v", err)
-		return
-	}
-	c.println("cap %s = %d bytes: sent", f[1], n)
 }
 
 func (c *console) nextID(kind string) string {

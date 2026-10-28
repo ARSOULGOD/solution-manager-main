@@ -29,10 +29,6 @@ type TelemetryConfig struct {
 
 // LogsConfig configures the logs role (plan 016).
 type LogsConfig struct {
-	// DefaultMaxBytes is no longer read: nothing is collected or stored, so
-	// there is no cap (agent-mi-logs-from-actuator design §4.6). It goes with
-	// SM_AGENT_LOGS_DEFAULT_MAX_BYTES.
-	DefaultMaxBytes uint64
 	// MaxConcurrent bounds log requests in flight; zero is serve's default.
 	MaxConcurrent int
 }

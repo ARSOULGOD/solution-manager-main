@@ -75,9 +75,7 @@ func waitContains(t *testing.T, out *lockedBuffer, want string) {
 	}
 }
 
-// A line that cannot be sent prints why, and nothing is sent. The case that
-// matters most is a cap that does not parse: sending it as 0 would turn
-// collection off and delete the stored logs.
+// A line that cannot be sent prints why, and nothing is sent.
 func TestConsoleRejectsLogLinesItCannotSend(t *testing.T) {
 	s, err := Start(Config{Listen: "127.0.0.1:0"})
 	if err != nil {
@@ -89,13 +87,9 @@ func TestConsoleRejectsLogLinesItCannotSend(t *testing.T) {
 		{"logs binding-1 many", "limit"},
 		{"export", "export needs a placement"},
 		{"export binding-1 -3", "seq"},
-		{"cap", "cap needs a placement and a size"},
-		{"cap binding-1", "cap needs a placement and a size"},
-		{"cap binding-1 lots", "bytes"},
 		// these get as far as a send, so they print "no agent connected"
 		{"logs binding-1", "no agent connected"},
 		{"export binding-1", "no agent connected"},
-		{"cap binding-1 1024", "no agent connected"},
 	} {
 		var out bytes.Buffer
 		s.Console(strings.NewReader(tc.line+"\n"), &out)
@@ -183,16 +177,5 @@ func TestConsoleExportPrintsEveryChunkUntilTheFinalOne(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Errorf("want %q in output, got %q", want, got)
 		}
-	}
-}
-
-func TestConsoleCapSendsTheRetention(t *testing.T) {
-	s, _ := telemetryServer(t, nil)
-	conn, _ := logsAgent(t, s)
-	s.Console(strings.NewReader("cap binding-1 512000\n"), &lockedBuffer{})
-
-	r := nextInbound[msg.LogRetention](t, conn)
-	if r.PlacementRef != "binding-1" || r.MaxBytes != 512000 {
-		t.Fatalf("want binding-1 capped at 512000 bytes, got %+v", r)
 	}
 }

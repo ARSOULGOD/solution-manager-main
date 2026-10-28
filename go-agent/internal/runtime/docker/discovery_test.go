@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -63,10 +62,7 @@ func (e *engine) ContainerInspect(_ context.Context, id string) (types.Container
 }
 func (e *engine) ContainerRestart(context.Context, string, container.StopOptions) error { return nil }
 func (e *engine) ContainerStop(context.Context, string, container.StopOptions) error    { return nil }
-func (e *engine) ContainerLogs(context.Context, string, container.LogsOptions) (io.ReadCloser, error) {
-	return nil, errors.New("no logs in this fake")
-}
-func (e *engine) Close() error { return nil }
+func (e *engine) Close() error                                                          { return nil }
 
 func ctr(id, name string, running bool, labels map[string]string, mounts []types.MountPoint, ports nat.PortMap, health *types.Health) types.ContainerJSON {
 	return types.ContainerJSON{

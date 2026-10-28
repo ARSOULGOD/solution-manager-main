@@ -11,8 +11,8 @@ import (
 	"github.com/solace/solution-manager/go-agent/internal/wire/pb"
 )
 
-// The MI-logs half of the fake (plan 016; design §4, §4.1). LogRetention and
-// LogRequest ride Connect; all log data rides the Logs RPC, served like
+// The MI-logs half of the fake (plan 016; design §4, §4.1). LogRequest
+// rides Connect; all log data rides the Logs RPC, served like
 // Telemetry: only after a session is accepted, and only for a session that
 // advertised CAPABILITY_LOGS. Like the rest of the fake it is a scripted
 // double, not a statement about the real gateway's correctness (AG-D16).
@@ -128,16 +128,6 @@ func (s *Server) RequestLogs(r msg.LogRequest) error {
 	return nil
 }
 
-// SetLogRetention sends LogRetention to the live agent, if it advertised logs.
-func (s *Server) SetLogRetention(placement string, maxBytes uint64) error {
-	ss, err := s.liveLogs()
-	if err != nil {
-		return err
-	}
-	ss.sendLogRetention(placement, maxBytes)
-	return nil
-}
-
 func (s *Server) liveLogs() (*session, error) {
 	s.mu.Lock()
 	ss := s.live
@@ -156,11 +146,6 @@ func (s *Server) liveLogs() (*session, error) {
 // advertisesLogs reports whether the agent's SessionOpen named CAPABILITY_LOGS.
 func advertisesLogs(o msg.SessionOpen) bool {
 	return slices.Contains(o.CapabilitiesSupported, msg.CapLogs)
-}
-
-func (ss *session) sendLogRetention(placement string, maxBytes uint64) {
-	<-ss.accepted
-	ss.send(msg.LogRetention{Envelope: ss.env(), PlacementRef: placement, MaxBytes: maxBytes})
 }
 
 func (ss *session) sendLogRequest(r msg.LogRequest) {

@@ -33,7 +33,7 @@ func logsStreamBackoff(attempt int) time.Duration {
 // requests. The placements are the lease's binding_ids — the same set
 // telemetry treats as in-lease — and a placement ref is a binding id.
 //
-// Session, Retention and Request only queue work; Run does it in order, so a
+// Session and Request only queue work; Run does it in order, so a
 // request is never handled before the session it arrived on.
 type logsRole struct {
 	adapter runtime.Adapter // the discovery-wrapped adapter; nil: every request is NOT_COLLECTING
@@ -75,10 +75,6 @@ func newLogsRole(cfg LogsConfig, adapter runtime.Adapter, newID func() string, l
 func (r *logsRole) Session(ls *LogsSession) {
 	r.enqueue(func(ctx context.Context) { r.setSession(ctx, ls) })
 }
-
-// Retention does nothing: the DP-set cap is gone with the store it capped
-// (design §4.6), and the message goes next.
-func (r *logsRole) Retention(msg.LogRetention) {}
 
 func (r *logsRole) Request(m msg.LogRequest) {
 	r.enqueue(func(context.Context) {

@@ -37,8 +37,7 @@ func ParseRoles(s string) (Roles, error) {
 // samples carry — but executes nothing (AG-11 stays open on its lease). A
 // logs-only agent is treated exactly like a telemetry-only one: report-only,
 // executing nothing on its lease. CapLogs is appended whenever the logs role
-// is on; the gateway sends LogRetention and LogRequest only to a session that
-// names it.
+// is on; the gateway sends LogRequest only to a session that names it.
 func (r Roles) capabilities() []msg.Capability {
 	// The last three of a control agent are plan 015 T2.3's feature
 	// capabilities: the gateway sends DiscoveryAck, TelemetryDeclarations and

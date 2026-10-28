@@ -357,26 +357,24 @@ func TestAgentWithoutLogsRoleNeverReceivesLogMessages(t *testing.T) {
 	mi := newLogfileServer(t, miLine(0, "never read"))
 	sc := fakegw.DefaultScenario()
 	sc.Limits.HeartbeatInterval = 100 * time.Millisecond
-	// Forced: the fake sends these although the session did not advertise
+	// Forced: the fake sends this although the session did not advertise
 	// logs, so the agent's own behaviour is under test, not the fake's gating.
 	sc.Steps = []fakegw.Step{
-		{LogRetention: &fakegw.LogRetentionStep{Placement: "binding-1", MaxBytes: 4096, Force: true}},
 		{LogRequest: &fakegw.LogRequestStep{Placement: "binding-1", RequestID: "req-none", Page: &fakegw.LogPageStep{Limit: 10}, Force: true}},
 	}
 	gw := startGateway(t, sc)
 	h, _ := startLogsAgent(t, gw, mi, Roles{Control: true})
 	waitPhase(t, h.loop, PhaseActive, 10*time.Second)
 
-	// The steps have run once both forced messages are in the transcript.
-	waitOut(t, gw, "LogRetention")
+	// The step has run once the forced message is in the transcript.
 	waitOut(t, gw, "LogRequest")
-	// The control session stays healthy: heartbeats keep being answered after them.
+	// The control session stays healthy: heartbeats keep being answered after it.
 	hb := gw.Count("Heartbeat")
 	if !gw.WaitFor("Heartbeat", hb+2, 10*time.Second) {
-		t.Fatal("no heartbeat after the forced log messages")
+		t.Fatal("no heartbeat after the forced log message")
 	}
 	if h.loop.Snapshot().Session.Phase != PhaseActive {
-		t.Fatalf("phase %s after log messages", h.loop.Snapshot().Session.Phase)
+		t.Fatalf("phase %s after the log message", h.loop.Snapshot().Session.Phase)
 	}
 
 	if n := gw.LogsStreams(); n != 0 {
@@ -391,9 +389,6 @@ func TestAgentWithoutLogsRoleNeverReceivesLogMessages(t *testing.T) {
 	// And the fake's own gating, directly.
 	if err := gw.RequestLogs(msg.LogRequest{RequestID: "r", PlacementRef: "binding-1", Page: &msg.LogPageQuery{Limit: 1}}); err == nil {
 		t.Fatal("RequestLogs to a session that did not advertise logs must fail")
-	}
-	if err := gw.SetLogRetention("binding-1", 1); err == nil {
-		t.Fatal("SetLogRetention to a session that did not advertise logs must fail")
 	}
 }
 

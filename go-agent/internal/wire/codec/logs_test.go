@@ -42,24 +42,6 @@ func TestLogRequestExportRoundTrip(t *testing.T) {
 	}
 }
 
-func TestLogRetentionDecode(t *testing.T) {
-	in := msg.LogRetention{Envelope: msg.Envelope{MessageID: "m", SentAt: now}, PlacementRef: "p1", MaxBytes: 1 << 20}
-	p, err := GatewayToPB(in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if p.GetLogRetention().GetMaxBytes() != 1<<20 {
-		t.Fatalf("wire: %+v", p)
-	}
-	out, err := GatewayFromPB(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(out, in) {
-		t.Fatalf("got %+v want %+v", out, in)
-	}
-}
-
 func TestCapLogsMapsToWire(t *testing.T) {
 	if capToPB(msg.CapLogs) != pb.Capability_CAPABILITY_LOGS || capFromPB(pb.Capability_CAPABILITY_LOGS) != msg.CapLogs {
 		t.Fatal("logs capability does not round-trip")
