@@ -39,6 +39,14 @@ const (
 	envAdditionalLocation = "SPRING_CONFIG_ADDITIONAL_LOCATION"
 	envConfigLocation     = "SPRING_CONFIG_LOCATION"
 	envApplicationJSON    = "SPRING_APPLICATION_JSON"
+
+	argManagementPort = "--management.server.port="
+	argServerPort     = "--server.port="
+	envManagementPort = "MANAGEMENT_SERVER_PORT"
+	envServerPort     = "SERVER_PORT"
+
+	// defaultActuatorPort is Spring Boot's server.port when the container declares none.
+	defaultActuatorPort = 8080
 )
 
 var (
@@ -47,6 +55,7 @@ var (
 	ErrNoDeclaredPath  = runtime.ErrNoDeclaredPath
 	ErrNoBindMount     = runtime.ErrNoBindMount
 	ErrPortUnreachable = runtime.ErrPortUnreachable
+	ErrNoActuatorPort  = runtime.ErrNoActuatorPort
 )
 
 type engineAPI interface {

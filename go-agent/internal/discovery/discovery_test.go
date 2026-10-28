@@ -2,6 +2,7 @@ package discovery
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -170,6 +171,29 @@ func TestAdapterResolvesRegisteredBindingsByName(t *testing.T) {
 	}
 	if h := a.(*Adapter).ObserveHealth(context.Background(), runtime.Placement{}, nil); h.State != msg.HealthUnspecified {
 		t.Fatal("an inner adapter that cannot observe health yields 'nothing observed'")
+	}
+}
+
+// locatingAdapter is an inner adapter that can find the MI's actuator.
+type locatingAdapter struct{ innerAdapter }
+
+func (*locatingAdapter) ActuatorAddr(_ context.Context, p runtime.Placement) (string, error) {
+	return "127.0.0.1:18080", nil
+}
+
+// The wrapper forwards ActuatorAddr to an inner adapter that has it, and says ErrUnsupported when it has not.
+func TestWrapForwardsActuatorAddr(t *testing.T) {
+	names := NewNames()
+	l, ok := Wrap(&locatingAdapter{}, names).(runtime.ActuatorLocator)
+	if !ok {
+		t.Fatal("the wrapper must be an ActuatorLocator")
+	}
+	if got, err := l.ActuatorAddr(context.Background(), runtime.Placement{Name: "cache-a"}); err != nil || got != "127.0.0.1:18080" {
+		t.Fatalf("got %q %v", got, err)
+	}
+	l = Wrap(&innerAdapter{}, names).(runtime.ActuatorLocator)
+	if _, err := l.ActuatorAddr(context.Background(), runtime.Placement{Name: "cache-a"}); !errors.Is(err, ErrUnsupported) {
+		t.Fatalf("want ErrUnsupported, got %v", err)
 	}
 }
 

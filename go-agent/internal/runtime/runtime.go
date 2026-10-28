@@ -18,6 +18,7 @@ var (
 	ErrNoDeclaredPath     = errors.New("docker: the container declares no external config location")
 	ErrNoBindMount        = errors.New("docker: the declared config directory is not a bind mount")
 	ErrPortUnreachable    = errors.New("docker: port is neither published nor reachable on a container network")
+	ErrNoActuatorPort     = errors.New("docker: the container's actuator port is not a usable port number")
 )
 
 type Placement struct {
@@ -103,4 +104,12 @@ type Discoverer interface {
 // container keeps its placement by name).
 type NameResolver interface {
 	ResolveByName(ctx context.Context, containerName, bindingID string) (Placement, error)
+}
+
+// ActuatorLocator is implemented by an adapter that can say where a placement's Spring Boot actuator answers
+// (the logs feature reads /actuator/logfile there). The port comes from the container's own launch args and
+// env; when it is declared but unusable the error wraps ErrNoActuatorPort.
+type ActuatorLocator interface {
+	// ActuatorAddr is the host:port the placement's Spring Boot actuator answers on.
+	ActuatorAddr(ctx context.Context, p Placement) (string, error)
 }

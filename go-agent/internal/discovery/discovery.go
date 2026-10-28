@@ -20,7 +20,7 @@ import (
 	"github.com/solace/solution-manager/go-agent/internal/store"
 )
 
-// ErrUnsupported: the runtime adapter cannot discover (nothing is reported).
+// ErrUnsupported: the runtime adapter cannot discover (nothing is reported) or locate an actuator.
 var ErrUnsupported = errors.New("discovery: the runtime adapter cannot discover")
 
 const relBindings = "discovery/bindings.json"
@@ -221,4 +221,11 @@ func (a *Adapter) Discover(ctx context.Context) ([]msg.DiscoveredContainer, int,
 		return d.Discover(ctx)
 	}
 	return nil, 0, ErrUnsupported
+}
+
+func (a *Adapter) ActuatorAddr(ctx context.Context, p runtime.Placement) (string, error) {
+	if l, ok := a.Adapter.(runtime.ActuatorLocator); ok {
+		return l.ActuatorAddr(ctx, p)
+	}
+	return "", ErrUnsupported
 }
