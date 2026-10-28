@@ -32,7 +32,6 @@ class AgentLogBrokerOrderingTest {
                 wire.add("request");      // the session monitor was finally obtained: the request goes out now
                 return true;
             }
-            @Override public void pushRetention(UUID p, long max) { }
         };
     }
 

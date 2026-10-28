@@ -62,11 +62,6 @@ final class LogsHarness implements AutoCloseable {
                 .map(AgentGatewayOuterClass.GatewayToAgent::getLogRequest).toList();
     }
 
-    List<AgentGatewayOuterClass.LogRetention> retentions(String label) {
-        return sent(label).stream().filter(AgentGatewayOuterClass.GatewayToAgent::hasLogRetention)
-                .map(AgentGatewayOuterClass.GatewayToAgent::getLogRetention).toList();
-    }
-
     int creditsTo(String label, String requestId) {
         return logs.get(label).messages.stream().filter(AgentGatewayOuterClass.LogDown::hasLogCredit)
                 .map(AgentGatewayOuterClass.LogDown::getLogCredit).filter(c -> c.getRequestId().equals(requestId))

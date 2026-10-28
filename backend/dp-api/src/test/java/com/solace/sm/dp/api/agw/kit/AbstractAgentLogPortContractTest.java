@@ -58,9 +58,6 @@ public abstract class AbstractAgentLogPortContractTest {
 
     protected abstract boolean cancelReceivedBy(String label, String requestId);
 
-    /** The caps the agent has been sent for one placement, in order. */
-    protected abstract List<Long> retentionsReceivedBy(String label, UUID placement);
-
     /** The most log requests one agent may have in flight before the next is answered BUSY. */
     protected abstract int perAgentBound();
 
@@ -242,18 +239,6 @@ public abstract class AbstractAgentLogPortContractTest {
         awaitState(export, LogExportHandle.State.SIZE_LIMIT);
         assertTrue(cancelReceivedBy("capable", id));
         assertTrue(export.next(Duration.ofSeconds(1)).isPresent(), "what arrived is still readable");
-    }
-
-    @Test
-    void retentionIsSentOnlyToACapableSessionForAPlacementInItsLease() {
-        connect("plain", false);
-        connect("capable", true);
-        port().sendRetention(session("plain"), leasedPlacement(), 1000);
-        port().sendRetention(session("capable"), unleasedPlacement(), 1000);
-        port().sendRetention(session("capable"), leasedPlacement(), 2048);
-        assertTrue(retentionsReceivedBy("plain", leasedPlacement()).isEmpty());
-        assertTrue(retentionsReceivedBy("capable", unleasedPlacement()).isEmpty());
-        assertEquals(List.of(2048L), retentionsReceivedBy("capable", leasedPlacement()));
     }
 
     private static void awaitState(LogExportHandle export, LogExportHandle.State expected) throws Exception {

@@ -14,10 +14,8 @@ import com.solace.sm.dp.inventory.TargetAddressConfiguration;
 import com.solace.sm.dp.inventory.TargetAddressPolicy;
 import com.solace.sm.dp.inventory.TargetConnectionRows;
 import com.solace.sm.dp.secret.SecretResolver;
-import java.time.Clock;
 import java.time.Duration;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -42,7 +40,7 @@ import org.springframework.context.annotation.Import;
  * one read steps back).
  */
 @Configuration(proxyBeanMethods = false)
-@Import({TargetAddressConfiguration.class, com.solace.sm.dp.apply.persistence.LogPersistenceConfiguration.class})
+@Import(TargetAddressConfiguration.class)
 public class LogConfiguration {
 
     @Bean
@@ -104,18 +102,5 @@ public class LogConfiguration {
         return new AgentLogExportService(placementTransports.getIfAvailable(() -> PlacementTransports.NONE), placementRows,
                 agentLogPort.getIfAvailable(AgentLogService::absentPort), exportDeadline, exportMaxBytes,
                 exportMaxConcurrent, exportStartTimeout);
-    }
-
-    /**
-     * The per-placement agent log cap (plan 016 T9): internal, no REST write. {@code sm.dp.logs.agent-max-cap-bytes} is the
-     * largest cap accepted, default 1 GiB (1073741824): well above the agent's own default so an operator can raise it, and
-     * bounded so one placement cannot be told to claim a host's disk. 0 (collection off) is always allowed.
-     */
-    @Bean
-    PlacementLogRetention placementLogRetention(PlacementLogRetentionRows rows, ObjectProvider<AgentLogPort> agentLogPort,
-            @Qualifier("smDataClock") Clock smDataClock,
-            @Value("${sm.dp.logs.agent-max-cap-bytes:1073741824}") long agentMaxCapBytes) {
-        return new PlacementLogRetention(rows, agentLogPort.getIfAvailable(AgentLogService::absentPort), smDataClock,
-                agentMaxCapBytes);
     }
 }

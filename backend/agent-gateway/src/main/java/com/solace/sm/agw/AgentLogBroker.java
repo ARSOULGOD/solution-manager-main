@@ -62,8 +62,6 @@ final class AgentLogBroker implements AgentLogPort {
         boolean inLease(UUID placementId);
         /** Sends on the Connect stream; false when it cannot (closed). Serialised with the session's other sends. */
         boolean sendMessage(GatewayToAgent message);
-        /** Sends a retention cap for a placement in the lease, remembering it so the next lease event does not repeat it. */
-        void pushRetention(UUID placementId, long maxBytes);
     }
 
     private final Function<UUID, Link> links;
@@ -151,13 +149,6 @@ final class AgentLogBroker implements AgentLogPort {
         }
         armAfterSend(export, deadline);
         return export;
-    }
-
-    @Override
-    public void sendRetention(AgentSessionRef ref, UUID placementId, long maxBytes) {
-        Link link = links.apply(ref.agentId());
-        if (link == null || !link.ref().equals(ref) || !link.logsSupported() || !link.inLease(placementId)) return;
-        link.pushRetention(placementId, Math.max(0, maxBytes));
     }
 
     // ---- the Logs stream ----

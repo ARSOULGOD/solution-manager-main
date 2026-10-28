@@ -557,10 +557,8 @@ public final class AgentGatewayService extends AgentGatewayGrpc.AgentGatewayImpl
         private volatile boolean logsSupported;
         /** Plan 017: the agent advertised CAPABILITY_CONFIG_VIEW at SessionOpen; only such a session is sent a config view request. */
         private volatile boolean configViewSupported;
-        /** The placements (binding ids) of the lease last sent: the only ones a log request or retention may name. */
+        /** The placements (binding ids) of the lease last sent: the only ones a log request may name. */
         private volatile Set<UUID> leasePlacements = Set.of();
-        /** The retention cap last sent for each placement, so a lease event re-sends only what changed. */
-        private final Map<UUID, Long> retentionSent = new java.util.HashMap<>();
 
         private final AgentRequestOrigin origin = origin();
 
@@ -575,37 +573,6 @@ public final class AgentGatewayService extends AgentGatewayGrpc.AgentGatewayImpl
             if (streamClosed || !accepted) return false;
             send(message);
             return !streamClosed;
-        }
-
-        @Override public synchronized void pushRetention(UUID placementId, long maxBytes) {
-            if (!accepted || !logsSupported || !leasePlacements.contains(placementId)) return;
-            sendRetention(placementId, maxBytes);
-        }
-
-        private void sendRetention(UUID placementId, long maxBytes) {
-            send(GatewayToAgent.newBuilder().setLogRetention(AgentGatewayOuterClass.LogRetention.newBuilder()
-                    .setEnvelope(envelope()).setPlacementRef(placementId.toString()).setMaxBytes(maxBytes)).build());
-            retentionSent.put(placementId, maxBytes);
-        }
-
-        /**
-         * Sends each stored retention cap that differs from what this session was last sent, for the placements of its lease only (the
-         * agent does not check the lease, M-3). Runs with the declarations push: at open, on each renewal or re-issue, and on the data
-         * plane's change signal. A read failure never fails the session; the next lease event tries again.
-         */
-        private void sendLogRetentions() {
-            if (!logsSupported) return;
-            try {
-                Map<UUID, Long> stored = ports.logRetention().capsFor(session);
-                for (UUID placement : leasePlacements) {
-                    Long cap = stored.get(placement);
-                    if (cap == null || cap.equals(retentionSent.get(placement))) continue;
-                    sendRetention(placement, cap);
-                }
-            } catch (RuntimeException failure) {
-                LOG.warn("agent-gateway could not read log retention caps (will retry at the next lease event): {}",
-                        failure.getClass().getName());
-            }
         }
 
         @Override public synchronized void onNext(AgentToGateway message) {
@@ -1120,7 +1087,6 @@ public final class AgentGatewayService extends AgentGatewayGrpc.AgentGatewayImpl
          */
         private void sendDeclarations() {
             sendTelemetryDeclarations();
-            sendLogRetentions();
         }
 
         private void sendTelemetryDeclarations() {

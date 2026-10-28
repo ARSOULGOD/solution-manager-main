@@ -8,7 +8,6 @@ import com.solace.sm.dp.api.agw.AgentEnrollmentPort;
 import com.solace.sm.dp.api.agw.AgentIdentityPort;
 import com.solace.sm.dp.api.agw.AgentLeasePort;
 import com.solace.sm.dp.api.agw.AgentLogPort;
-import com.solace.sm.dp.api.agw.AgentLogRetentionSource;
 import com.solace.sm.dp.api.agw.AgentSessionPort;
 import com.solace.sm.dp.api.agw.AgentTelemetryDeclarationsPort;
 import com.solace.sm.dp.api.agw.AgentTelemetryPort;
@@ -53,13 +52,9 @@ public class AgentGatewayConfiguration {
     AgentGatewayPortSet agentGatewayPortSet(AgentEnrollmentPort enrollment, AgentIdentityPort identity,
             AgentSessionPort sessions, AgentLeasePort leases, AgentCommandPort commands,
             ActualStatePort reports, AgentTelemetryPort telemetry, AgentAuditPort audit,
-            AgentDiscoveryPort discovery, AgentTelemetryDeclarationsPort declarations,
-            ObjectProvider<AgentLogRetentionSource> logRetention) {
-        // The data plane supplies the bean (JdbcPlacementLogRetentionRepository); a context without one has no stored cap, so nothing is
-        // pushed at session open. This is the one port that is not required, because it carries no safety property: a missing push
-        // leaves the agent's default.
+            AgentDiscoveryPort discovery, AgentTelemetryDeclarationsPort declarations) {
         return new AgentGatewayPortSet(enrollment, identity, sessions, leases, commands, reports, telemetry, audit, discovery,
-                declarations, logRetention.getIfAvailable(() -> AgentLogRetentionSource.NONE));
+                declarations);
     }
 
     @Bean

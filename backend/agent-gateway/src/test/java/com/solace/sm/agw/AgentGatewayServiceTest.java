@@ -1266,7 +1266,7 @@ class AgentGatewayServiceTest {
 
     static final class Ports implements AgentEnrollmentPort, AgentIdentityPort, AgentSessionPort, AgentLeasePort,
             AgentCommandPort, ActualStatePort, AgentTelemetryPort, AgentAuditPort, AgentDiscoveryPort,
-            AgentTelemetryDeclarationsPort, com.solace.sm.dp.api.agw.AgentLogRetentionSource {
+            AgentTelemetryDeclarationsPort {
         /** The ports carry UUID ids; the tests name agents by string, so the fake maps both ways. */
         private static final java.util.Map<UUID, String> NAMES = new java.util.concurrent.ConcurrentHashMap<>();
         static final UUID TENANT = UUID.nameUUIDFromBytes("tenant-1".getBytes());
@@ -1287,7 +1287,7 @@ class AgentGatewayServiceTest {
         static String name(UUID id) { return NAMES.getOrDefault(id, id.toString()); }
 
         AgentGatewayPortSet set() {
-            return new AgentGatewayPortSet(this, this, this, this, this, this, this, this, this, this, this);
+            return new AgentGatewayPortSet(this, this, this, this, this, this, this, this, this, this);
         }
 
         final AgentIdentity identity = new AgentIdentity(id("agent-1"), "thumb", TENANT, ENVIRONMENT, TARGET,
@@ -1404,9 +1404,6 @@ class AgentGatewayServiceTest {
             declarationReads.incrementAndGet();
             return declarations;
         }
-        /** Plan 016: the stored retention caps the gateway pushes at open and on lease events. */
-        volatile Map<UUID, Long> storedCaps = Map.of();
-        @Override public Map<UUID, Long> capsFor(AgentSessionRef ref) { return storedCaps; }
         final List<java.util.function.Consumer<UUID>> declarationSubscribers = new java.util.concurrent.CopyOnWriteArrayList<>();
         @Override public void onDeclarationsChanged(java.util.function.Consumer<UUID> affectedAgents) {
             if (!declarationSubscribers.contains(affectedAgents)) declarationSubscribers.add(affectedAgents);

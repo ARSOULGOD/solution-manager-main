@@ -25,7 +25,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import solace.sm.agentgateway.v1draft.AgentGatewayOuterClass;
 
-/** Plan 016 task 7: what is specific to the gateway side (message shape and order, the Logs RPC, retention); the port's own behaviour is in the kit. */
+/** Plan 016 task 7: what is specific to the gateway side (message shape and order, the Logs RPC); the port's own behaviour is in the kit. */
 class AgentGatewayLogsTest {
     private static final UUID PLACEMENT = AgentGatewayServiceTest.Ports.PLACEMENT;
     private static final UUID ORG = UUID.nameUUIDFromBytes("org".getBytes());
@@ -49,7 +49,7 @@ class AgentGatewayLogsTest {
             h.fleet.service.logPort().requestPage(ref("capable"), PLACEMENT, 5, null, null, LONG);
             assertEquals(0, h.requests("plain").size());
             assertEquals(1, h.requests("capable").size());
-            assertTrue(h.sent("plain").stream().noneMatch(m -> m.hasLogRequest() || m.hasLogRetention()),
+            assertTrue(h.sent("plain").stream().noneMatch(AgentGatewayOuterClass.GatewayToAgent::hasLogRequest),
                     "an agent without log capability is never sent an unknown variant (its decoder rejects it)");
         }
     }
@@ -149,40 +149,10 @@ class AgentGatewayLogsTest {
         }
     }
 
-    @Test
-    void retentionPushedOnSessionOpenAndOnChange() throws Exception {
-        try (LogsHarness h = new LogsHarness()) {
-            h.fleet.ports.storedCaps = Map.of(PLACEMENT, 1000L, UUID.nameUUIDFromBytes("other".getBytes()), 5L);
-            h.connect("capable", true);
-            h.connect("plain", false);
-            assertEquals(List.of(1000L), h.retentions("capable").stream().map(AgentGatewayOuterClass.LogRetention::getMaxBytes).toList(),
-                    "only the leased placement's stored cap, at open");
-            assertEquals(PLACEMENT.toString(), h.retentions("capable").get(0).getPlacementRef());
-            assertTrue(h.retentions("plain").isEmpty());
-            int accept = indexOf(h.sent("capable"), AgentGatewayOuterClass.GatewayToAgent::hasSessionAccept);
-            int retention = indexOf(h.sent("capable"), AgentGatewayOuterClass.GatewayToAgent::hasLogRetention);
-            assertTrue(accept >= 0 && retention > accept, "after the session is accepted");
-
-            renew(h, "capable");
-            assertEquals(1, h.retentions("capable").size(), "an unchanged cap is not re-sent at a lease event");
-            h.fleet.ports.storedCaps = Map.of(PLACEMENT, 2000L);
-            renew(h, "capable");
-            assertEquals(List.of(1000L, 2000L), h.retentions("capable").stream().map(AgentGatewayOuterClass.LogRetention::getMaxBytes).toList());
-
-            h.fleet.service.logPort().sendRetention(ref("capable"), PLACEMENT, 0);
-            assertEquals(0L, h.retentions("capable").get(2).getMaxBytes(), "0 is a valid cap: collection off");
-        }
-    }
-
     private static void renew(LogsHarness h, String label) {
         h.fleet.inputs.get(label).onNext(AgentGatewayOuterClass.AgentToGateway.newBuilder().setLeaseRenew(
                 AgentGatewayOuterClass.LeaseRenew.newBuilder().setEnvelope(AgentGatewayServiceTest.envelope("renew-" + UUID.randomUUID()))
                         .setNonceConsumed("nonce")).build());
-    }
-
-    private static <T> int indexOf(List<T> list, java.util.function.Predicate<T> p) {
-        for (int i = 0; i < list.size(); i++) if (p.test(list.get(i))) return i;
-        return -1;
     }
 
     @Test
@@ -201,8 +171,6 @@ class AgentGatewayLogsTest {
                     IdentityReconciliation.Status.REISSUED, narrower, 1, 1)).toList();
             h.fleet.service.reconcileSessions();
             assertEquals(Optional.empty(), h.fleet.service.logPort().sessionFor(ORG, PLACEMENT));
-            h.fleet.service.logPort().sendRetention(ref("capable"), PLACEMENT, 99);
-            assertTrue(h.retentions("capable").isEmpty(), "retention is never sent for a placement outside the lease");
         }
     }
 

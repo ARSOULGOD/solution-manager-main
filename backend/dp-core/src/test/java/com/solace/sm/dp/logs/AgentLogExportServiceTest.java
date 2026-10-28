@@ -97,8 +97,6 @@ class AgentLogExportServiceTest {
             exports.add(new Object[] {ref, placementId, fromSeq, deadline, maxBytes});
             return handle;
         }
-
-        @Override public void sendRetention(AgentSessionRef r, UUID p, long m) { throw new AssertionError(); }
     }
 
     private final FakePort port = new FakePort();
@@ -422,7 +420,6 @@ class AgentLogExportServiceTest {
 
         @Override public Optional<AgentSessionRef> sessionFor(UUID o, UUID p) { return Optional.of(SESSION); }
         @Override public CompletableFuture<AgentLogPage> requestPage(AgentSessionRef r, UUID p, int l, Instant a, Instant b, Duration d) { throw new AssertionError(); }
-        @Override public void sendRetention(AgentSessionRef r, UUID p, long m) { throw new AssertionError(); }
 
         @Override
         public LogExportHandle openExport(AgentSessionRef ref, UUID placementId, long fromSeq, Duration deadline, long maxBytes) {

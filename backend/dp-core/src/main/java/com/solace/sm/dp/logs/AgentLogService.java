@@ -202,11 +202,6 @@ public final class AgentLogService implements LogService {
                     Duration deadline, long maxBytes) {
                 throw new UnsupportedOperationException("no agent gateway in this context");
             }
-
-            @Override
-            public void sendRetention(AgentSessionRef ref, UUID placementId, long maxBytes) {
-                // no session, nothing to send
-            }
         };
     }
 

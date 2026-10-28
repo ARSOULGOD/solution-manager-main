@@ -7,10 +7,11 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Reads of a {@code host-local} agent's collected managed-integration logs, and the retention cap it keeps (plan 016,
- * spec 4 and 5). The gateway implements it; the data plane calls it and never sees a gRPC type (AGW-D2). The tenant is
- * resolved by the caller from its own view of the placement (I5): the {@code organizationId} here only scopes the lookup and
- * is never echoed to the agent.
+ * Reads of a {@code host-local} agent's managed-integration logs. The agent keeps no copy: it reads the MI's own
+ * {@code /actuator/logfile} on demand (plan 016, spec 4; plan 018, which removed the agent's log store and the per-placement
+ * retention cap with it). The gateway implements it; the data plane calls it and never sees a gRPC type (AGW-D2). The tenant
+ * is resolved by the caller from its own view of the placement (I5): the {@code organizationId} here only scopes the lookup
+ * and is never echoed to the agent.
  *
  * <p>A request travels only to a session that advertised {@code CAPABILITY_LOGS} and whose lease names the placement, so an
  * agent that cannot answer is never sent one. Requests are held in memory only; they are not commands and are not journalled.
@@ -34,7 +35,4 @@ public interface AgentLogPort {
      * until it catches up. A refusal shows as the handle's state, not as an exception.
      */
     LogExportHandle openExport(AgentSessionRef ref, UUID placementId, long fromSeq, Duration deadline, long maxBytes);
-
-    /** Sets the on-disk cap for one placement (0 turns collection off). A session without the capability, or without the placement in its lease, is sent nothing. */
-    void sendRetention(AgentSessionRef ref, UUID placementId, long maxBytes);
 }

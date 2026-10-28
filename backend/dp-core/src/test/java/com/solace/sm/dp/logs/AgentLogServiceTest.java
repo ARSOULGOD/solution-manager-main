@@ -57,11 +57,6 @@ class AgentLogServiceTest extends LogServiceContractTest {
         public LogExportHandle openExport(AgentSessionRef ref, UUID placementId, long fromSeq, Duration deadline, long maxBytes) {
             throw new AssertionError();
         }
-
-        @Override
-        public void sendRetention(AgentSessionRef ref, UUID placementId, long maxBytes) {
-            throw new AssertionError();
-        }
     }
 
     /** Transport answers for exactly the known (organization, instance, placement) key: agent. */

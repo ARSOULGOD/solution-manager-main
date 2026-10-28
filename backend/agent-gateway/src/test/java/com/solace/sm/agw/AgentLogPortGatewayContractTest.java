@@ -45,9 +45,5 @@ class AgentLogPortGatewayContractTest extends AbstractAgentLogPortContractTest {
     }
     @Override protected int creditsGrantedTo(String label, String requestId) { return harness.creditsTo(label, requestId); }
     @Override protected boolean cancelReceivedBy(String label, String requestId) { return harness.cancelled(label, requestId); }
-    @Override protected List<Long> retentionsReceivedBy(String label, UUID placement) {
-        return harness.retentions(label).stream().filter(r -> r.getPlacementRef().equals(placement.toString()))
-                .map(AgentGatewayOuterClass.LogRetention::getMaxBytes).toList();
-    }
     @Override protected int perAgentBound() { return harness.fleet.properties.getLogMaxInFlightPerAgent(); }
 }

@@ -32,7 +32,6 @@ Data Plane (`sm.dp.logs.*`, `LogConfiguration`):
 | `export-deadline` | `5m` | The longest one export runs. |
 | `export-max-concurrent` | `2` | Exports in flight on this Data Plane; one more is `429`, never a queue. |
 | `export-start-timeout` | `5s` | How long `open` waits for the agent's first answer, so a refusal is a status and not a file. |
-| `agent-max-cap-bytes` | `1073741824` (1 GiB) | Largest per-placement cap `PlacementLogRetention.setCap` accepts; `0` is always allowed. |
 
 Gateway (`sm.gateway.logs.*`): `export-max-threads` (default `4`), the console gateway's own export threads, separate from the
 metrics export's. The async backstop is `sm.dp.logs.export-deadline` plus one minute, so the Data Plane's marker always comes
@@ -93,8 +92,6 @@ heap for it, or lower `export-max-concurrent` / `agent-max-concurrent-reads`.
 - **Agent restart (M-2):** resume is by timestamp, so a line from the other stream that completed later than the stored maximum can
   be skipped (millisecond window).
 - **Downloads are not audited** (spec open item 5; owner call, see `DECISIONS.md`).
-- **The cap cannot be set over REST.** `PlacementLogRetention.setCap` is internal; the agent applies its own default until a cap
-  is pushed. Which existing verb authorizes a REST write is an open owner question.
 
 ## Verification
 
