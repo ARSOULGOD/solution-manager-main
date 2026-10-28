@@ -151,7 +151,8 @@ func (r *reply) skipLine() (n int, first byte, found bool, err error) {
 
 // get asks for bytes first..last (inclusive) and applies the status rules:
 //
-//	206  accepted when its Content-Range is exactly the range asked for, clamped to the file's end;
+//	206  accepted when its Content-Range is exactly the range asked for, clamped to the file's end; a 206 with no
+//	     body and a total of 0 is an empty file (http.ServeContent's `bytes 0--1/0` to a suffix range);
 //	416  the range starts past the end; Content-Range `bytes */size` gives the size (an empty file is 416 `*/0`);
 //	200  accepted only as an empty file (Content-Length 0, as http.ServeContent answers one); any other 200 means the
 //	     server ignored Range, and its body is not read;
@@ -159,20 +160,45 @@ func (r *reply) skipLine() (n int, first byte, found bool, err error) {
 //
 // A returned reply with a body must be closed by the caller.
 func (f *File) get(ctx context.Context, first, last uint64) (*reply, error) {
+	return f.fetch(ctx, strconv.FormatUint(first, 10)+"-"+strconv.FormatUint(last, 10), func(a, b, total uint64) bool {
+		// The server must give what was asked: clamped to the end of the file, never narrower, wider or elsewhere.
+		return a == first && b <= last && b < total && (b == last || b == total-1)
+	})
+}
+
+// suffix asks for the file's last n bytes (`bytes=-n`), the whole file when it is shorter, under get's status rules:
+// a 206 must end at the file's end and span min(n, size), and a 416 must be an empty file's.
+func (f *File) suffix(ctx context.Context, n uint64) (*reply, error) {
+	rp, err := f.fetch(ctx, "-"+strconv.FormatUint(n, 10), func(a, b, total uint64) bool {
+		return b < total && b == total-1 && b-a+1 == min(n, total)
+	})
+	if err == nil && rp.body == nil && rp.size != 0 {
+		return nil, unavailable("status 416 to a suffix range")
+	}
+	return rp, err
+}
+
+// fetch sends one GET for the byte range spec (what follows `bytes=`) and applies get's status rules; fits judges a
+// 206's Content-Range.
+func (f *File) fetch(ctx context.Context, spec string, fits func(a, b, total uint64) bool) (*reply, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, f.url, nil)
 	if err != nil {
 		return nil, unavailable("bad request")
 	}
-	req.Header.Set("Range", "bytes="+strconv.FormatUint(first, 10)+"-"+strconv.FormatUint(last, 10))
+	req.Header.Set("Range", "bytes="+spec)
 	resp, err := f.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrUnavailable, err)
 	}
 	switch resp.StatusCode {
 	case http.StatusPartialContent:
-		a, b, total, data, ok := contentRange(resp.Header.Get("Content-Range"))
-		// The server must give what was asked: clamped to the end of the file, never narrower, wider or elsewhere.
-		if !ok || !data || a != first || b > last || b >= total || (b != last && b != total-1) {
+		cr := resp.Header.Get("Content-Range")
+		if resp.ContentLength == 0 && strings.HasSuffix(cr, "/0") {
+			resp.Body.Close()
+			return &reply{}, nil
+		}
+		a, b, total, data, ok := contentRange(cr)
+		if !ok || !data || !fits(a, b, total) {
 			resp.Body.Close()
 			return nil, unavailable("unusable Content-Range")
 		}

@@ -66,11 +66,11 @@ func fileServer(t *testing.T, content string) (*File, *ranges) {
 	return New(srv.Listener.Addr().String(), WithNow(func() time.Time { return now })), rec
 }
 
-func handlerFile(t *testing.T, h http.HandlerFunc) *File {
+func handlerFile(t *testing.T, h http.HandlerFunc, opts ...Option) *File {
 	t.Helper()
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
-	return New(srv.Listener.Addr().String(), WithNow(func() time.Time { return now }))
+	return New(srv.Listener.Addr().String(), append([]Option{WithNow(func() time.Time { return now })}, opts...)...)
 }
 
 func read(t *testing.T, f *File, from, until uint64, budget int, prev time.Time) Chunk {
