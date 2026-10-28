@@ -421,17 +421,19 @@ used. They and the cap are deleted in Task 6, so this commit still builds with t
 - [ ] **Step 2: Write the failing end-to-end tests** in `logs_integration_test.go`.
   - Set-up: `fakegw`; an `httptest` server serving a growing default-pattern buffer through `http.ServeContent`; a fake adapter
     implementing `Resolve` and `ActuatorAddr`.
+  - Every name contains `Log` or `EndToEnd`: `make test-integration` runs only `-run 'Integration|Log|EndToEnd|Retention|ConfigView'`,
+    so any other name would never run.
   - Tests:
     - `TestPageEndToEndAgainstFakeGateway`: the newest lines arrive with `Stream == "file"`;
-    - `TestLivePollWithAfterGetsOnlyNewLines`: append lines between two pages; the second, with `After` = the first's newest
+    - `TestLogsLivePollWithAfterGetsOnlyNewLines`: append lines between two pages; the second, with `After` = the first's newest
       `TS`, returns only the appended ones;
-    - `TestPageBackWithBefore`;
+    - `TestLogsPageBackWithBefore`;
     - `TestExportEndToEndWithCreditsAndFinal`;
-    - `TestExportCancelStopsChunks`;
-    - `TestExportResumesFromTheLastSeq`: the resumed lines continue exactly after the last received chunk;
-    - `TestExportRotationMidwayEndsIncomplete`: the server swaps in a shorter buffer between credits → a final chunk with a
+    - `TestLogsExportCancelStopsChunks`;
+    - `TestLogsExportResumesFromTheLastSeq`: the resumed lines continue exactly after the last received chunk;
+    - `TestLogsExportRotationMidwayEndsIncomplete`: the server swaps in a shorter buffer between credits → a final chunk with a
       `COLLECTION_PAUSED` gap;
-    - `TestContainerGoneIsContainerMissing`;
+    - `TestLogsContainerGoneIsContainerMissing`;
     - `TestLogfileNotExposedIsNotCollecting` (`404`);
     - keep `TestAgentWithoutLogsRoleNeverReceivesLogMessages`;
     - delete `TestRetentionAppliedLiveTrimsAndGaps`.
@@ -444,7 +446,8 @@ used. They and the cap are deleted in Task 6, so this commit still builds with t
   - A page is one `Source.Page(ctx, q, limit-fixed)` and `trim(…, fromFront=true)`.
   - The export loop follows Decisions 5 and 6.
   - The role's opener is as specified under Interfaces.
-- [ ] **Step 5: Run them.** `make test` → PASS; `make test-integration` → PASS.
+- [ ] **Step 5: Run them.** `make test` → PASS; `make test-integration` → PASS, and its `-v` output has a `--- PASS` line for
+  each of Step 2's ten names.
 - [ ] **Step 6: Commit** (`feat(logs): serve MI logs on demand from /actuator/logfile`).
 
 ### Task 6: The ring, the collector and the cap go from the agent
