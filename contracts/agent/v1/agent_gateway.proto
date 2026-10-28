@@ -93,7 +93,7 @@ enum Capability {
   CAPABILITY_DISCOVERY = 4;        // sends DiscoveryReport, understands DiscoveryAck
   CAPABILITY_REMATERIALIZE = 5;    // understands OPERATION_REMATERIALIZE + expected_current_sha256
   CAPABILITY_DECLARATIONS = 6;     // understands TelemetryDeclarations
-  CAPABILITY_LOGS = 7;             // agent-collected MI logs: understands LogRetention/LogRequest, opens the Logs RPC (plan 016 T1)
+  CAPABILITY_LOGS = 7;             // understands LogRequest and opens the Logs RPC; serves the MI's /actuator/logfile
   CAPABILITY_CONFIG_VIEW = 8;      // understands ConfigViewRequest on Connect and answers ConfigViewReply (plan 017 T4)
 }
 
@@ -463,6 +463,8 @@ message AgentToGateway {
 }
 
 message GatewayToAgent {
+  reserved 15;
+  reserved "log_retention";
   oneof msg {
     SessionAccept session_accept = 1;
     SessionReject session_reject = 2;
@@ -478,7 +480,6 @@ message GatewayToAgent {
     Error error = 12;
     DiscoveryAck discovery_ack = 13;                    // plan 015 T2.3 (d)
     TelemetryDeclarations telemetry_declarations = 14;  // plan 015 T2.3 (e)
-    LogRetention log_retention = 15;                    // plan 016 T1
     LogRequest log_request = 16;                        // plan 016 T1
     ConfigViewRequest config_view_request = 17;         // plan 017 T1
   }
@@ -692,12 +693,6 @@ message TelemetryDeclarations {
 
 // ---- plan 016 T1: agent-collected MI logs (design 2026-10-20-agent-mi-logs-design.md section 4; AGW-D11: new numbers only) ----
 
-message LogRetention {
-  Envelope envelope = 1;
-  string placement_ref = 2;
-  uint64 max_bytes = 3;
-}
-
 message LogPageQuery {
   uint32 limit = 1;
   optional google.protobuf.Timestamp after = 2;
@@ -705,7 +700,7 @@ message LogPageQuery {
 }
 
 message LogExportQuery {
-  uint64 from_seq = 1;
+  uint64 from_seq = 1;  // a byte offset of the current file
 }
 
 message LogRequest {
@@ -726,6 +721,7 @@ message LogLine {
 }
 
 // reason: DROPPED_OLDEST | COLLECTION_PAUSED | OVERSIZE | CONTAINER_UNREADABLE | CAP_REDUCED
+// (CONTAINER_UNREADABLE and CAP_REDUCED are no longer emitted)
 message LogGap {
   google.protobuf.Timestamp from = 1;
   google.protobuf.Timestamp to = 2;
@@ -753,7 +749,7 @@ message LogPage {
 message LogChunk {
   Envelope envelope = 1;
   string request_id = 2;
-  uint64 seq = 3;
+  uint64 seq = 3;  // a byte offset of the current file
   repeated LogLine lines = 4;
   repeated LogGap gaps = 5;
   bool final = 6;

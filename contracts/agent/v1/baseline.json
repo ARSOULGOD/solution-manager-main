@@ -340,7 +340,6 @@
    "12": "oneof:msg Error error",
    "13": "oneof:msg DiscoveryAck discovery_ack",
    "14": "oneof:msg TelemetryDeclarations telemetry_declarations",
-   "15": "oneof:msg LogRetention log_retention",
    "16": "oneof:msg LogRequest log_request",
    "17": "oneof:msg ConfigViewRequest config_view_request",
    "2": "oneof:msg SessionReject session_reject",
@@ -484,11 +483,6 @@
    "3": "string placement_ref",
    "4": "oneof:mode LogPageQuery page",
    "5": "oneof:mode LogExportQuery export"
-  },
-  "LogRetention": {
-   "1": "Envelope envelope",
-   "2": "string placement_ref",
-   "3": "uint64 max_bytes"
   },
   "LogUp": {
    "1": "oneof:msg LogPage log_page",
