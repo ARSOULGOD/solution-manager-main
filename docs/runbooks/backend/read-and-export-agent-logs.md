@@ -23,20 +23,20 @@ export.
 
 ## MI preconditions
 
-The agent fetches `/actuator/logfile` from the MI itself, so the MI must serve it. These are the MI's deployment configuration: SM never writes them (`I1`). The Spring Boot facts behind them are verified in the [design's §3](../../design/backend/agent-gateway/specs/2026-10-28-agent-mi-logs-from-actuator-design.md) (`I2`).
+The agent fetches `/actuator/logfile` from the MI itself, so the MI must serve it. These are the MI's own deployment configuration: SM writing the MI's logging or exposure settings is not in scope ([design §9](../../design/backend/agent-gateway/specs/2026-10-28-agent-mi-logs-from-actuator-design.md)), and the agent needs no MI code change (`I1`). The Spring Boot facts behind them are verified in the [design's §3](../../design/backend/agent-gateway/specs/2026-10-28-agent-mi-logs-from-actuator-design.md) (`I2`).
 
 | Requirement | Detail |
 |---|---|
 | The MI writes a log file | `logging.file.name` or `logging.file.path` is set. Otherwise `/actuator/logfile` answers `404`. |
 | `logfile` is exposed over HTTP | `logfile` is in `management.endpoints.web.exposure.include`; only `health` is exposed by default. |
 | The actuator is at `/actuator` | No moved base path, path mapping or context path (`management.endpoints.web.base-path`, `management.endpoints.web.path-mapping.logfile`, `server.servlet.context-path`, `management.server.base-path`). The path `/actuator/logfile` is fixed. |
-| The port is declared | In the container's exec-form args `--server.port=` / `--management.server.port=`, or its env `SERVER_PORT` / `MANAGEMENT_SERVER_PORT`; the management port wins, an argument wins over the env, and with none declared the agent uses `8080`. **Not read:** a JVM `-Dserver.port=`, `JAVA_TOOL_OPTIONS`/`JAVA_OPTS`, a shell-form `CMD`; the agent then uses the env value or `8080`. **Refused:** a declared value that is empty or not 1-65535 (a `${PORT}` placeholder, `0`, `-1`) is `NOT_COLLECTING`. |
+| The port is declared | In the container's exec-form args `--server.port=` / `--management.server.port=`, or its env `SERVER_PORT` / `MANAGEMENT_SERVER_PORT`; the management port is used when it is declared (`--management.server.port=`, else `MANAGEMENT_SERVER_PORT`); otherwise `--server.port=`, else `SERVER_PORT`; with none declared the agent uses `8080`. An argument beats the env only within the same pair: `--server.port=` does not beat `MANAGEMENT_SERVER_PORT`. **Not read:** a JVM `-Dserver.port=`, `JAVA_TOOL_OPTIONS`/`JAVA_OPTS`, a shell-form `CMD`; the agent then uses the env value or `8080`. **Refused:** a declared value that is empty or not 1-65535 (a `${PORT}` placeholder, `0`, `-1`) is `NOT_COLLECTING`. |
 | The port is published | The actuator's container port is published to the host, as telemetry scraping needs (`ScrapeAddr`). |
 | The actuator has no authentication | The agent sends no credentials; a `401` or `403` is `NOT_COLLECTING`. |
 | The log pattern is Spring Boot's default | Each entry starts with the default timestamp. Another pattern still flows, but see [Known limits](#known-limits). |
 | Downloads cover the current file only | Rotated archives are never served; files rotate at 10 MB by default, so a download is at most about that. |
 
-The placement's container is also resolved as `apply` resolves it (`AG-D20`): the binding label, a declared config location and its bind mount. The agent runbook's [Logs](../../../go-agent/RUNBOOK.md#logs) section shows each refusal reproduced.
+The placement's container is also resolved as `apply` resolves it (`AG-D20`): the binding label, a declared config location and its bind mount. In the agent runbook's [Logs](../../../go-agent/RUNBOOK.md#logs) demo only a missing container (`CONTAINER_MISSING`) was reproduced; a container with no declared config location, or no bind mount for it, is `NOT_COLLECTING` by reading the code, not reproduced.
 
 ## Deploy order
 
