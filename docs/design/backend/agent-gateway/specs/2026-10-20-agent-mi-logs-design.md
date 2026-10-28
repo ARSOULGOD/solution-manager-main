@@ -1,5 +1,7 @@
 # `host-local` agent — managed-integration application logs, stored on the host and served on demand
 
+> **Superseded in part by [`2026-10-28-agent-mi-logs-from-actuator-design.md`](2026-10-28-agent-mi-logs-from-actuator-design.md).** The agent no longer collects or stores logs and the size cap is removed; this body is kept unedited as the record of the first design. The newer design's header lists exactly what it supersedes.
+
 | | |
 |---|---|
 | **Component** | `go-agent` + `contracts/agent` + `agent-gateway` + `dp-core` |

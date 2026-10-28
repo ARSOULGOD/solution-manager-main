@@ -1,5 +1,7 @@
 # 016 — Agent-collected MI application logs, served on demand — Implementation Plan
 
+> **Superseded in part by plan [`018-agent-mi-logs-from-actuator.md`](018-agent-mi-logs-from-actuator.md)** (design [`2026-10-28-agent-mi-logs-from-actuator-design.md`](../../design/backend/agent-gateway/specs/2026-10-28-agent-mi-logs-from-actuator-design.md)): the agent's collector, ring and DP-set cap were removed, and the agent now reads the MI's `/actuator/logfile` on demand. This body is the historical record and is not rewritten.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 | | |

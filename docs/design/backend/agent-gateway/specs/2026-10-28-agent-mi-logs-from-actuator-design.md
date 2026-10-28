@@ -246,3 +246,9 @@ Checked on 2026-10-28 against Spring Boot's documentation and, for the cache eng
   - a download is the current file only (by default about 10 MB);
   - resuming across a rotation can mix files (§4.4);
   - a log with a non-default pattern can repeat in the console's live poll (§4.2).
+  - *(found while building plan 018)*:
+    - the live poll's `after` is strict and Spring stamps to the millisecond, so a line stamped in the same millisecond as the newest line shown, but written after the poll, is not shown, nor is a line written a few ms out of time order;
+    - continuation lines carry their entry's time, so the rest of an entry written after a poll is not shown;
+    - a page can return fewer than `limit` lines, because it ends on an entry and time boundary so that paging back with `before` loses nothing;
+    - one entry larger than a page shows only its newest part;
+    - a page ending inside an entry whose start lies beyond the page's look-back reach takes the fetch time, and paging back stops there.
