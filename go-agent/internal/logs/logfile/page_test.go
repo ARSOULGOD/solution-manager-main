@@ -152,17 +152,38 @@ func entryRange(from, to int) []string {
 	return out
 }
 
-func TestPageNewestLinesOldestFirst(t *testing.T) {
-	for _, step := range []int{DefaultStep, 100} {
-		f, _ := pageFile(t, fixed(hundred()), WithStep(step))
-		// Ten lines fill the page; entry 91, its oldest time, goes, so that a page with Before = entry 92 has it.
-		checkLines(t, fmt.Sprintf("step %d", step), page(t, f, msg.LogPageQuery{Limit: 10}, 1<<20), entryRange(92, 100))
+// aboveInHand reports whether, walking content back from its end in steps of step, the read that ends the line
+// starting at s (the read holding the '\n' before it) also holds the whole line above it.
+func aboveInHand(content string, step, s int) bool {
+	r := len(content) - step
+	for r > s-1 {
+		r -= step
 	}
+	return r <= 0 || strings.LastIndexByte(content[:s-1], '\n') >= r
+}
 
-	// One step that ends at the '\n' before entry 91: the limit is met in that read, so there is no second.
+// fullFrom is a full page of one-line entries from..to of content, read back in steps of step. Entry from fills it;
+// when the read in hand holds the line above, whose time differs, the page keeps entry from, and otherwise that time is
+// not known and the page ends where the time changes, without entry from.
+func fullFrom(content string, step, from, to int) []string {
+	if aboveInHand(content, step, strings.Index(content, entryLine(from))) {
+		return entryRange(from, to)
+	}
+	return entryRange(from+1, to)
+}
+
+func TestPageNewestLinesOldestFirst(t *testing.T) {
+	// The brief's assertion, at the default step: the read in hand holds entry 90, whose time differs.
+	f, _ := pageFile(t, fixed(hundred()))
+	checkLines(t, "default step", page(t, f, msg.LogPageQuery{Limit: 10}, 1<<20), entryRange(91, 100))
+	g, _ := pageFile(t, fixed(hundred()), WithStep(100))
+	checkLines(t, "step 100", page(t, g, msg.LogPageQuery{Limit: 10}, 1<<20), fullFrom(hundred(), 100, 91, 100))
+
+	// One step that ends at the '\n' before entry 91: the limit is met in that read, so there is no second. That read
+	// does not hold entry 90, so the time above entry 91 is not known and entry 91 goes.
 	content := hundred()
-	f, s := pageFile(t, fixed(content), WithStep(len(content)-strings.Index(content, entryLine(91))+1))
-	checkLines(t, "exact step", page(t, f, msg.LogPageQuery{Limit: 10}, 1<<20), entryRange(92, 100))
+	h, s := pageFile(t, fixed(content), WithStep(len(content)-strings.Index(content, entryLine(91))+1))
+	checkLines(t, "exact step", page(t, h, msg.LogPageQuery{Limit: 10}, 1<<20), entryRange(92, 100))
 	if got := s.ranges(); len(got) != 1 {
 		t.Fatalf("requests %q", got)
 	}
@@ -192,7 +213,10 @@ func TestPageBeforeWalksBack(t *testing.T) {
 	f, s := pageFile(t, fixed(content), WithStep(step))
 
 	lines := page(t, f, msg.LogPageQuery{Before: at(entryTS(20)), Limit: 5}, 1<<20)
-	checkLines(t, "before 20", lines, entryRange(16, 19)) // entries 15 to 19 fill it; entry 15, its oldest time, goes
+	checkLines(t, "before 20", lines, fullFrom(content, step, 15, 19))
+	// The brief's assertion, at the default step.
+	g, _ := pageFile(t, fixed(content))
+	checkLines(t, "before 20, default step", page(t, g, msg.LogPageQuery{Before: at(entryTS(20)), Limit: 5}, 1<<20), entryRange(15, 19))
 
 	// The first read is the last step; each later one is the step before it, and none spans more than a step.
 	got := s.ranges()
@@ -218,7 +242,7 @@ func TestPageJoinsALineSplitAcrossReads(t *testing.T) {
 		for _, step := range []int{1, 7, 16, 61} { // every step shorter than one line
 			f, _ := pageFile(t, fixed(content), WithStep(step))
 			lines := page(t, f, msg.LogPageQuery{Limit: 10}, 1<<20)
-			checkLines(t, fmt.Sprintf("step %d, crlf %v", step, content == crlf), lines, entryRange(92, 100))
+			checkLines(t, fmt.Sprintf("step %d, crlf %v", step, content == crlf), lines, fullFrom(content, step, 91, 100))
 		}
 	}
 }
@@ -246,11 +270,12 @@ func TestPageDropsTheOrphanedHeadOfAnEntry(t *testing.T) {
 		{"after 95", msg.LogPageQuery{After: at(entryTS(95))}, 1 << 20, all[95*4:]},
 		// Entry 20's trace goes with entry 20; entry 19 is on the page, and entry 18's trace fills it.
 		{"before 20", msg.LogPageQuery{Before: at(entryTS(20)), Limit: 7}, 1 << 20, all[18*4 : 19*4]},
-		// Room for entries 99 and 100 and one line of entry 98's trace: full there, and that line goes, and so does
-		// entry 99, the full page's oldest time.
+		// Room for entries 99 and 100 and one line of entry 98's trace: full there, and that line goes. Entry 98's
+		// time is not read, so entry 99, the full page's oldest time, goes too.
 		{"budget", msg.LogPageQuery{}, cost(all[len(all)-9:]), all[len(all)-4:]},
-		// Room for entry 98's whole trace but not its start: the trace goes with it, and entry 99 as above.
-		{"budget, start too long", msg.LogPageQuery{}, cost(all[len(all)-11:]) + 10, all[len(all)-4:]},
+		// Room for entry 98's whole trace but not its start: the trace goes with it. Entry 98's time is read and
+		// differs from entry 99's, so the page keeps entry 99.
+		{"budget, start too long", msg.LogPageQuery{}, cost(all[len(all)-11:]) + 10, all[len(all)-8:]},
 	}
 	// Steps shorter than an entry with its trace, so reads end inside stack traces.
 	for _, step := range []int{13, 100, DefaultStep} {
@@ -338,13 +363,38 @@ func TestPageWithoutAnyEntryStartIsBoundedByThePage(t *testing.T) {
 				}
 			}
 			// The page is full at the start of the 28th line from the end, 28*37 bytes back. The walk then looks for
-			// an entry start no further than reach = max(budget, step) bytes past that, and reads no step that lies
-			// wholly below it: at most ceil((28*37 + reach) / step) requests, 2 at 64 KiB and 8 at 256 bytes, about
-			// two page budgets of bytes. The whole file would be more than 3000 at 256 bytes.
-			reach := max(budget, step)
+			// an entry start no further than reach = max(the 27 held lines' 27*37 bytes, step) past that, and reads no
+			// step that lies wholly below it: at most ceil((28*37 + reach) / step) requests, 2 at 64 KiB and 8 at 256
+			// bytes, about two page budgets of bytes. The whole file would be more than 3000 at 256 bytes.
+			reach := max(fit*(lineLen+1), step)
 			if got, most := len(s.ranges()), (28*(lineLen+1)+reach+step-1)/step; got > most {
 				t.Fatalf("step %d, %s: %d requests, want at most %d", step, name, got, most)
 			}
+		}
+	}
+}
+
+func TestPageLimitFilledWithoutAnEntryStartReadsLittle(t *testing.T) {
+	// A non-default pattern, 120000 lines of 37 bytes (about 4.4 MB), a 200-line page and the production budget. The
+	// 200 held lines span 7400 bytes, under one 64 KiB step, so the reach is one step: the first read holds the page
+	// and one more read covers the step past it. At most 2 requests, for a page and for each live poll.
+	var b strings.Builder
+	for i := range 120000 {
+		fmt.Fprintf(&b, "INFO something happened, line %06d\n", i)
+	}
+	content := b.String()
+	all := fixtureLines(content)
+	for name, q := range map[string]msg.LogPageQuery{
+		"page":      {Limit: 200},
+		"live poll": {Limit: 200, After: at(now.Add(-time.Minute))},
+	} {
+		f, s := pageFile(t, fixed(content))
+		lines := page(t, f, q, 1<<20)
+		if got := pageTexts(lines); len(got) != 200 || got[0] != all[len(all)-200] || got[199] != all[len(all)-1] || !lines[0].TS.Equal(now) {
+			t.Fatalf("%s: %d lines", name, len(got))
+		}
+		if got := s.ranges(); len(got) > 2 {
+			t.Fatalf("%s: %d requests", name, len(got))
 		}
 	}
 }
@@ -360,7 +410,7 @@ func TestPageBackFromAFetchTimePageEnds(t *testing.T) {
 	if lines := page(t, f, msg.LogPageQuery{Before: at(now)}, 1000); len(lines) != 0 {
 		t.Fatalf("%d lines: %q", len(lines), pageTexts(lines))
 	}
-	// As in TestPageWithoutAnyEntryStartIsBoundedByThePage: ceil((28*37 + 64 KiB) / 64 KiB) = 2 requests.
+	// As in TestPageWithoutAnyEntryStartIsBoundedByThePage: ceil((28*37 + max(27*37, 64 KiB)) / 64 KiB) = 2 requests.
 	if got := s.ranges(); len(got) > 2 {
 		t.Fatalf("requests %q", got)
 	}
@@ -411,31 +461,53 @@ func TestPageBackLosesNoEntrySharingAMillisecond(t *testing.T) {
 		limit  uint32
 		budget int
 	}{{4, 1 << 20}, {5, 1 << 20}, {6, 1 << 20}, {7, 1 << 20}, {0, 250}, {0, 400}} {
-		f, _ := pageFile(t, fixed(content), WithStep(100))
-		name := fmt.Sprintf("limit %d, budget %d", c.limit, c.budget)
-		seen := map[string]int{}
-		q := msg.LogPageQuery{Limit: c.limit}
-		for i := 0; ; i++ {
-			if i > 200 {
-				t.Fatalf("%s: paging back does not end", name)
-			}
-			lines := page(t, f, q, c.budget)
-			if len(lines) == 0 {
-				break
-			}
-			for _, l := range lines {
-				if !l.TS.Equal(entryTS(burst(string(l.Text)))) {
-					t.Fatalf("%s: %q at %v", name, l.Text, l.TS)
+		for _, step := range []int{100, DefaultStep} {
+			f, _ := pageFile(t, fixed(content), WithStep(step))
+			name := fmt.Sprintf("step %d, limit %d, budget %d", step, c.limit, c.budget)
+			seen := map[string]int{}
+			q := msg.LogPageQuery{Limit: c.limit}
+			for i := 0; ; i++ {
+				if i > 200 {
+					t.Fatalf("%s: paging back does not end", name)
 				}
-				seen[string(l.Text)]++
+				lines := page(t, f, q, c.budget)
+				if len(lines) == 0 {
+					break
+				}
+				for _, l := range lines {
+					if !l.TS.Equal(entryTS(burst(string(l.Text)))) {
+						t.Fatalf("%s: %q at %v", name, l.Text, l.TS)
+					}
+					seen[string(l.Text)]++
+				}
+				q.Before = at(lines[0].TS)
 			}
-			q.Before = at(lines[0].TS)
-		}
-		for _, l := range fixtureLines(content) {
-			if seen[l] != 1 {
-				t.Fatalf("%s: %q seen %d times", name, l, seen[l])
+			for _, l := range fixtureLines(content) {
+				if seen[l] != 1 {
+					t.Fatalf("%s: %q seen %d times", name, l, seen[l])
+				}
 			}
 		}
+	}
+}
+
+func TestPageDoesNotTrustALineTheReadCuts(t *testing.T) {
+	// Entries A and B share one millisecond; A's trace line quotes another time, and the one read starts exactly at
+	// that quote. Entry C and B fill a 2-line page, and the line above B, read only from the quote on, would parse
+	// as an older entry start. Its start is not in hand, so its time is not known: B goes with its time group, and
+	// paging back loses nothing.
+	ts := func(i int) string { return entryTS(i).Format("2006-01-02T15:04:05.000Z07:00") }
+	quote := ts(1) + " x"
+	content := ts(5) + "  INFO 1 --- [main] a.B : burst 5 item 1\n" + "\tcaused at " + quote + "\n" +
+		ts(5) + "  INFO 1 --- [main] a.B : burst 5 item 2\n" + entryLine(6) + "\n"
+	f, _ := pageFile(t, fixed(content), WithStep(len(content)-strings.Index(content, quote)))
+	lines := page(t, f, msg.LogPageQuery{Limit: 2}, 1<<20)
+	if got := pageTexts(lines); len(got) != 1 || got[0] != entryLine(6) {
+		t.Fatalf("first page %q", got)
+	}
+	lines = page(t, f, msg.LogPageQuery{Limit: 3, Before: at(entryTS(6))}, 1<<20)
+	if got := pageTexts(lines); len(got) != 3 || !strings.HasSuffix(got[0], "item 1") || !strings.HasSuffix(got[2], "item 2") {
+		t.Fatalf("second page %q", got)
 	}
 }
 
@@ -471,19 +543,20 @@ func TestPageAtTheFileStartKeepsTheLeadLinesThatExactlyFit(t *testing.T) {
 
 func TestPageLooksForTheEntryStartNoFurtherThanItsReach(t *testing.T) {
 	// Entry 2 passed over by Before, then ten 20-byte held lines fill a 200-byte page; above them 20-byte filler lines
-	// and entry 1's start. The whole file is one read, so only the walk's own rule decides: a line that starts more
-	// than reach (200) bytes above the start of the line that filled the page is not looked at.
-	const budget = 200
+	// and entry 1's start. The whole file is one read with a 1-byte step, so the reach is what the held lines span,
+	// 10*21 bytes, and only the walk's own rule decides: a line that starts further than that above the start of the
+	// line that filled the page is not looked at.
+	const budget, reach = 200, 10 * 21
 	line := func(c string) string { return strings.Repeat(c, 20) + "\n" }
 	l1 := len(entryLine(1)) + 1
-	found := (budget - l1) / 21               // the most filler lines that leave entry 1's start within reach
+	found := (reach - l1) / 21                // the most filler lines that leave entry 1's start within reach
 	fetch := entryTS(1).Add(time.Millisecond) // inside the window, so a page at the fetch time is seen, not filtered
 	for _, c := range []struct {
 		filler int
 		want   time.Time
 	}{{found, entryTS(1)}, {found + 1, fetch}} {
 		content := entryLine(1) + "\n" + strings.Repeat(line("f"), c.filler) + strings.Repeat(line("h"), 10) + entryLine(2) + "\n"
-		w := &walk{q: msg.LogPageQuery{Before: at(entryTS(2))}, budget: budget, reach: budget, now: fetch, tail: true}
+		w := &walk{q: msg.LogPageQuery{Before: at(entryTS(2))}, budget: budget, step: 1, now: fetch, tail: true}
 		w.read([]byte(content), 0)
 		if len(w.kept) != 10 || string(w.kept[0].Text) != line("h")[:20] || !w.kept[0].TS.Equal(c.want) {
 			t.Fatalf("%d filler lines: %+v; want ten held lines at %v", c.filler, w.kept, c.want)
@@ -494,11 +567,11 @@ func TestPageLooksForTheEntryStartNoFurtherThanItsReach(t *testing.T) {
 func TestPageCostsACutLineTheWholeBudgetAtEveryStep(t *testing.T) {
 	// A line longer than the budget, its cut falling inside a 2-byte rune, below an empty line. Read whole it would be
 	// cut to 99 bytes; read back over steps only the room left is kept of it. Either way it fits only an empty page,
-	// so the page is the same at every step: the empty line, at entry 1's time.
+	// so the page is the same at every step: the empty line, at entry 1's time (within one step above it).
 	const budget = 100
 	long := strings.Repeat("a", 99) + strings.Repeat("é", 50)
 	content := entryLine(1) + "\n" + long + "\n" + "\n"
-	for _, step := range []int{DefaultStep, 7} {
+	for _, step := range []int{DefaultStep, 64} { // 64 bytes: the 199-byte line is read back over four steps
 		f, _ := pageFile(t, fixed(content), WithStep(step))
 		lines := page(t, f, msg.LogPageQuery{}, budget)
 		if len(lines) != 1 || len(lines[0].Text) != 0 || !lines[0].TS.Equal(entryTS(1)) {
@@ -521,22 +594,25 @@ func TestPageEntryLargerThanAPage(t *testing.T) {
 		budget += len(l)
 	}
 	// Entry 2 is passed over; entry 1 alone is more than the page, whose lines are then its newest trace lines, at
-	// entry 1's time once its start is found.
-	for _, step := range []int{DefaultStep, 13} {
-		f, _ := pageFile(t, fixed(content), WithStep(step))
-		checkLines(t, fmt.Sprintf("step %d, limit", step), page(t, f, msg.LogPageQuery{Before: at(entryTS(2)), Limit: 5}, 1<<20), all[16:21])
+	// entry 1's time once its start is found. The walk looks for it no further than the reach: the five held lines'
+	// bytes (about 140), and at least one step. Entry 1's start is about 460 bytes above them: within one 64 KiB step.
+	for name, c := range map[string]struct {
+		q      msg.LogPageQuery
+		budget int
+	}{
+		"limit":  {msg.LogPageQuery{Before: at(entryTS(2)), Limit: 5}, 1 << 20},
+		"budget": {msg.LogPageQuery{Before: at(entryTS(2))}, budget},
+	} {
+		f, _ := pageFile(t, fixed(content))
+		checkLines(t, name+", step 64 KiB", page(t, f, c.q, c.budget), all[16:21])
+		// With a 13-byte step the reach is the held lines' span, and the start is not within it. The lines take
+		// the fetch time, which Before excludes.
+		g, _ := pageFile(t, fixed(content), WithStep(13))
+		if lines := page(t, g, c.q, c.budget); len(lines) != 0 {
+			t.Fatalf("%s, step 13: %q", name, pageTexts(lines))
+		}
 	}
-
-	// The walk looks for the start no further than reach = max(budget, step) past where the page filled. With a
-	// 5-line budget, entry 1's start is 15 lines and itself further up, about 460 bytes: within one 64 KiB step...
-	f, _ := pageFile(t, fixed(content))
-	checkLines(t, "budget, step 64 KiB", page(t, f, msg.LogPageQuery{Before: at(entryTS(2))}, budget), all[16:21])
-	// ...but not within one budget, the reach of a 13-byte step. Then the lines take the fetch time, which Before
-	// excludes, and without Before they are the page at the fetch time.
-	g, _ := pageFile(t, fixed(content), WithStep(13))
-	if lines := page(t, g, msg.LogPageQuery{Before: at(entryTS(2))}, budget); len(lines) != 0 {
-		t.Fatalf("budget, step 13, before 2: %q", pageTexts(lines))
-	}
+	// Without Before they are the page, at the fetch time.
 	h, _ := pageFile(t, fixed(strings.TrimSuffix(content, entryLine(2)+"\n")), WithStep(13))
 	lines := page(t, h, msg.LogPageQuery{}, budget)
 	if got := pageTexts(lines); len(got) != 5 || got[0] != all[16] || got[4] != all[20] {
@@ -585,19 +661,23 @@ func TestPageCarriesNoMoreThanThePageHasRoomFor(t *testing.T) {
 		"after kept lines": {},                       // entry 3 is kept, then entry 2 is read with little room left
 		"on an empty page": {Before: at(entryTS(3))}, // entry 2 is read with the whole budget as room
 	} {
-		w := &walk{q: q, budget: budget, reach: budget, now: now, tail: true}
-		most := 0
+		w := &walk{q: q, budget: budget, step: step, now: now, tail: true}
+		most, grew, last := 0, 0, 0
 		for end := len(content); ; {
 			first := max(end-step, 0)
 			buf := []byte(content[first:end])
 			done := w.read(buf, uint64(first))
 			clear(buf) // no line may keep a read's bytes, or every read would stay in memory
-			// The text kept and held, and the carry with its capacity, stay within one page budget (and the timestamp
-			// floor); a line joined from the carry keeps no spare capacity.
-			if c := cap(w.head); c > w.keep() || c != len(w.head) || w.cost+w.heldCost+c > budget+maxStamp+1 {
+			// The text kept and held, and the carry with all its capacity, stay within one page budget (and the
+			// timestamp floor).
+			c := cap(w.head)
+			if c > w.keep() || w.cost+w.heldCost+c > budget+maxStamp+1 {
 				t.Fatalf("%s: carry %d of capacity %d, keep %d, cost %d+%d", name, len(w.head), c, w.keep(), w.cost, w.heldCost)
 			}
-			most = max(most, cap(w.head))
+			if c > last {
+				grew++
+			}
+			most, last = max(most, c), c
 			if done || first == 0 {
 				break
 			}
@@ -606,8 +686,13 @@ func TestPageCarriesNoMoreThanThePageHasRoomFor(t *testing.T) {
 		if most < 200 {
 			t.Fatalf("%s: the carry never grew (%d), so nothing was tested", name, most)
 		}
+		// Growing geometrically, a carry of up to keep() bytes read in 100-byte steps is reallocated about
+		// log2(keep/step) times: 100, 200, 400, 800, then the cap. Growing to the exact size, it would be every step.
+		if grew > 6 {
+			t.Fatalf("%s: the carry was reallocated %d times", name, grew)
+		}
 		for _, l := range w.kept {
-			if cap(l.Text) > len(l.Text) && len(l.Text) > 100 {
+			if cap(l.Text) != len(l.Text) { // a kept line holds no spare capacity: the page's memory is its text
 				t.Fatalf("%s: a %d-byte line keeps %d bytes", name, len(l.Text), cap(l.Text))
 			}
 		}
@@ -651,9 +736,9 @@ func TestPageKeepsWithinTheTextBudget(t *testing.T) {
 			t.Fatalf("step %d: %d lines, %d bytes of text, budget %d", step, k, total, budget)
 		}
 		checkLines(t, fmt.Sprintf("step %d", step), lines, entryRange(101-k, 100)) // the newest
-		// The page was full with entry 100-k, its oldest time, which then went; the entry before that did not fit.
-		if total+len(entryLine(100-k)) > budget || total+len(entryLine(100-k))+len(entryLine(99-k)) <= budget {
-			t.Fatalf("step %d: %d lines, %d bytes: not one entry short of full", step, k, total)
+		// The next entry did not fit, and its time, read, differs: the page is as full as the budget allows.
+		if total+len(entryLine(100-k)) <= budget {
+			t.Fatalf("step %d: entry %d would still fit", step, 100-k)
 		}
 	}
 }
@@ -683,13 +768,14 @@ func TestPageLeavesAnUnterminatedTailForTheNextPoll(t *testing.T) {
 	for _, step := range []int{DefaultStep, 16} {
 		// A continuation line being written: when it ends, it goes with entry 100.
 		f, s := pageFile(t, fixed(hundred()+"partial"), WithStep(step))
-		checkLines(t, "before the end", page(t, f, msg.LogPageQuery{Limit: 10}, 1<<20), entryRange(92, 100))
+		checkLines(t, "before the end", page(t, f, msg.LogPageQuery{Limit: 10}, 1<<20), fullFrom(hundred()+"partial", step, 91, 100))
 		s.set(fixed(hundred() + "partial\n"))
 		lines := page(t, f, msg.LogPageQuery{Limit: 10}, 1<<20)
-		if got := pageTexts(lines); len(got) != 9 || got[8] != "partial" || !lines[8].TS.Equal(entryTS(100)) {
+		want := fullFrom(hundred()+"partial\n", step, 92, 100)
+		if got := pageTexts(lines); len(got) != len(want)+1 || got[len(want)] != "partial" || !lines[len(want)].TS.Equal(entryTS(100)) {
 			t.Fatalf("step %d, after the end: %+v", step, lines)
 		}
-		checkLines(t, "after the end", lines[:8], entryRange(93, 100))
+		checkLines(t, "after the end", lines[:len(want)], want)
 
 		// An entry being written, and the console's live poll for what is newer than its newest line.
 		g, s := pageFile(t, fixed(hundred()+entryLine(101)), WithStep(step))
@@ -760,7 +846,7 @@ func TestPageEndsWhenTheFileShrinks(t *testing.T) {
 		}
 		return content + entryLine(101) + "\n"
 	}, WithStep(step))
-	checkLines(t, "grown", page(t, f, msg.LogPageQuery{Limit: 10}, 1<<20), entryRange(92, 100))
+	checkLines(t, "grown", page(t, f, msg.LogPageQuery{Limit: 10}, 1<<20), fullFrom(content, step, 91, 100))
 }
 
 func TestPageCutsALineLongerThanTheBudget(t *testing.T) {
@@ -798,9 +884,9 @@ func TestPageCutsALineLongerThanTheBudget(t *testing.T) {
 func TestPageHasNoHoleWhenATraceLineDoesNotFit(t *testing.T) {
 	start := func(i int) string { return entryTS(i).Format("2006-01-02T15:04:05.000Z07:00") + " one" } // 28 bytes
 	trace := strings.Repeat("z", 5) + "\n" + strings.Repeat("x", 50) + "\n" + strings.Repeat("y", 10) + "\n"
-	for _, step := range []int{DefaultStep, 9} {
+	for _, step := range []int{DefaultStep, 40} { // 40 bytes: the x line is read back over two steps
 		// The x line does not fit beside the y line. The z line and the entry start would, but the page cannot skip
-		// the x line, so the page is the y line alone, at the time of its entry start, found within reach.
+		// the x line, so the page is the y line alone, at the time of its entry start, found within one step.
 		f, _ := pageFile(t, fixed(start(1)+"\n"+trace), WithStep(step))
 		lines := page(t, f, msg.LogPageQuery{}, 40)
 		if len(lines) != 1 || string(lines[0].Text) != strings.Repeat("y", 10) || !lines[0].TS.Equal(entryTS(1)) {
