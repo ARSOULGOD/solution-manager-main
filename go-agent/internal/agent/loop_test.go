@@ -1,19 +1,24 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/solace/solution-manager/go-agent/internal/identity"
+	"github.com/solace/solution-manager/go-agent/internal/logs/logfile"
 	"github.com/solace/solution-manager/go-agent/internal/msg"
 	"github.com/solace/solution-manager/go-agent/internal/reactor"
 	"github.com/solace/solution-manager/go-agent/internal/runtime"
@@ -402,14 +407,132 @@ func waitFor(t *testing.T, cond func() bool) {
 	}
 }
 
-func TestLogCollectorBackoffHasAFloorOnEveryAttempt(t *testing.T) {
+func TestLogsStreamBackoffHasAFloorOnEveryAttempt(t *testing.T) {
 	for a := range 12 {
 		for range 50 {
-			if d := collectorBackoff(a); d < time.Second || d > 31*time.Second {
+			if d := logsStreamBackoff(a); d < time.Second || d > 31*time.Second {
 				t.Fatalf("attempt %d: %v", a, d)
 			}
 		}
 	}
+}
+
+// ---- an MI's log file, as the logs role reads it ----
+
+var miEpoch = time.Date(2026, 10, 28, 10, 0, 0, 0, time.UTC)
+
+// miLine is entry i of an MI log in Spring Boot's default pattern, one second after entry i-1.
+func miLine(i int, text string) string {
+	return miEpoch.Add(time.Duration(i)*time.Second).Format("2006-01-02T15:04:05.000Z07:00") +
+		"  INFO 1 --- [           main] c.s.demo.App                             : " + text
+}
+
+// miLines is entries from..to-1, each text naming its number.
+func miLines(from, to int) []string {
+	var out []string
+	for i := from; i < to; i++ {
+		out = append(out, miLine(i, fmt.Sprintf("entry %03d %s", i, strings.Repeat("x", 40))))
+	}
+	return out
+}
+
+// logfileServer is an MI's /actuator/logfile: http.ServeContent answers ranged GETs over the current bytes as Spring
+// Boot does (206, and 416 with the size). add grows the file, rotate replaces it, and a non-zero status answers every
+// request with that code instead (404: the endpoint is not exposed).
+type logfileServer struct {
+	mu     sync.Mutex
+	data   []byte
+	status int
+	srv    *httptest.Server
+}
+
+func newLogfileServer(t *testing.T, lines ...string) *logfileServer {
+	t.Helper()
+	s := &logfileServer{}
+	s.add(lines...)
+	s.srv = httptest.NewServer(http.HandlerFunc(s.serve))
+	t.Cleanup(s.srv.Close)
+	return s
+}
+
+func (s *logfileServer) serve(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	data, status := s.data, s.status
+	s.mu.Unlock()
+	switch {
+	case r.URL.Path != logfile.Path:
+		http.NotFound(w, r)
+	case status != 0:
+		w.WriteHeader(status)
+	default:
+		http.ServeContent(w, r, "", time.Time{}, bytes.NewReader(data))
+	}
+}
+
+func (s *logfileServer) addr() string { return s.srv.Listener.Addr().String() }
+
+// add appends lines. The bytes go to a new array, so a reply being written never shares one with a write.
+func (s *logfileServer) add(lines ...string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	data := slices.Clip(s.data)
+	for _, l := range lines {
+		data = append(data, l+"\n"...)
+	}
+	s.data = data
+}
+
+func (s *logfileServer) rotate(lines ...string) {
+	s.mu.Lock()
+	s.data = nil
+	s.mu.Unlock()
+	s.add(lines...)
+}
+
+func (s *logfileServer) setStatus(code int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.status = code
+}
+
+func (s *logfileServer) size() uint64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return uint64(len(s.data))
+}
+
+// miAdapter resolves every placement and puts its actuator at addr, except that a placement in gone has no container
+// and one in noPort no usable actuator port. Every other runtime method panics (the embedded nil Adapter): the logs
+// role calls none.
+type miAdapter struct {
+	runtime.Adapter
+	addr   string
+	gone   map[string]bool
+	noPort map[string]bool
+}
+
+func (a miAdapter) Resolve(_ context.Context, b string) (runtime.Placement, error) {
+	if a.gone[b] {
+		return runtime.Placement{}, fmt.Errorf("fake: %w", runtime.ErrContainerNotFound)
+	}
+	return runtime.Placement{BindingID: b, ContainerID: "c-" + b}, nil
+}
+
+func (a miAdapter) ActuatorAddr(_ context.Context, p runtime.Placement) (string, error) {
+	if a.noPort[p.BindingID] {
+		return "", fmt.Errorf("fake: %w", runtime.ErrNoActuatorPort)
+	}
+	return a.addr, nil
+}
+
+// resolveOnly is an adapter with no ActuatorLocator; err, when set, is what Resolve fails with.
+type resolveOnly struct {
+	runtime.Adapter
+	err error
+}
+
+func (a resolveOnly) Resolve(_ context.Context, b string) (runtime.Placement, error) {
+	return runtime.Placement{BindingID: b}, a.err
 }
 
 // fakeLogsStream is the Logs RPC: the test reads what the agent sends and
@@ -462,72 +585,6 @@ func (s *fakeLogsStream) page(t *testing.T) msg.LogPage {
 	panic("unreachable")
 }
 
-func TestLogsRoleServesOverTheSessionStreamAndKeepsTheDPCap(t *testing.T) {
-	s, err := store.Open(filepath.Join(t.TempDir(), "d"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	role := newLogsRole(s, LogsConfig{DefaultMaxBytes: 4096}, nil, func() string { return "m" }, log)
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan struct{})
-	go func() { defer close(done); role.Run(ctx) }()
-
-	st := newFakeLogsStream()
-	opened := make(chan struct{}, 4)
-	role.Session(&LogsSession{ID: "s1", Limits: msg.Limits{MaxMessageBytes: 1 << 20, MaxBatchBytes: 1 << 20},
-		Bindings: map[string]bool{"b1": true, "b2": true},
-		Open:     func(context.Context) (LogsStream, error) { opened <- struct{}{}; return st, nil }})
-	role.Retention(msg.LogRetention{PlacementRef: "b1", MaxBytes: 1 << 20})
-	role.Retention(msg.LogRetention{PlacementRef: "b2", MaxBytes: 0})
-	waitFor(t, func() bool { rg, ok := role.ring("b1"); return ok && rg.Cap() == 1<<20 })
-	rg, _ := role.ring("b1")
-	if err := rg.Append(msg.LogLine{TS: time.Now(), Stream: "stdout", Text: []byte("hello")}); err != nil {
-		t.Fatal(err)
-	}
-
-	role.Request(msg.LogRequest{RequestID: "r1", PlacementRef: "b1", Page: &msg.LogPageQuery{Limit: 10}})
-	if p := st.page(t); p.RequestID != "r1" || len(p.Lines) != 1 || string(p.Lines[0].Text) != "hello" {
-		t.Fatalf("%+v", p)
-	}
-	role.Request(msg.LogRequest{RequestID: "r2", PlacementRef: "elsewhere", Page: &msg.LogPageQuery{Limit: 10}})
-	if p := st.page(t); p.Unavailable != msg.UnavailablePlacementNotLease {
-		t.Fatalf("%+v", p)
-	}
-	role.Request(msg.LogRequest{RequestID: "r3", PlacementRef: "b2", Page: &msg.LogPageQuery{Limit: 10}})
-	if p := st.page(t); p.Unavailable != msg.UnavailableNotCollecting {
-		t.Fatalf("a DP cap of 0 turns collection off: %+v", p)
-	}
-
-	// A new lease on the same session refreshes it without reopening the stream.
-	role.Session(&LogsSession{ID: "s1", Bindings: map[string]bool{"b1": true}, Open: func(context.Context) (LogsStream, error) { opened <- struct{}{}; return st, nil }})
-	role.Session(nil)
-	waitFor(t, func() bool {
-		select {
-		case <-st.closed:
-			return true
-		default:
-			return false
-		}
-	})
-	if len(opened) != 1 {
-		t.Fatalf("stream opened %d times", len(opened))
-	}
-	cancel()
-	<-done
-
-	// After a restart the configured default never overrides the DP's caps.
-	role2 := newLogsRole(s, LogsConfig{DefaultMaxBytes: 4096}, nil, func() string { return "m" }, log)
-	for p, want := range map[string]uint64{"b1": 1 << 20, "b2": 0, "b3": 4096} {
-		role2.ensure(context.Background(), p)
-		rg, ok := role2.ring(p)
-		if !ok || rg.Cap() != want {
-			t.Fatalf("%s: cap %d, want %d", p, rg.Cap(), want)
-		}
-		_ = rg.Close()
-	}
-}
-
 func (s *fakeLogsStream) chunk(t *testing.T) msg.LogChunk {
 	t.Helper()
 	select {
@@ -552,38 +609,35 @@ func isClosed(c chan struct{}) bool {
 	}
 }
 
-// startRole runs a logsRole over a fresh store with fast reopen backoff.
-func startRole(t *testing.T, src *fakeLogSource) (*logsRole, *store.Store, *strings.Builder) {
+// lockedLog is a log destination the test can read while the role writes to it.
+type lockedLog struct {
+	mu sync.Mutex
+	b  strings.Builder
+}
+
+func (l *lockedLog) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.b.Write(p)
+}
+
+func (l *lockedLog) String() string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.b.String()
+}
+
+// startRole runs a logsRole over adapter with fast reopen backoff; the returned log is what it wrote.
+func startRole(t *testing.T, adapter runtime.Adapter) (*logsRole, *lockedLog) {
 	t.Helper()
-	s, err := store.Open(filepath.Join(t.TempDir(), "d"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var buf strings.Builder
-	var mu sync.Mutex
-	log := slog.New(slog.NewTextHandler(lockedWriter{&mu, &buf}, nil))
-	var cs collectSource
-	if src != nil {
-		cs = src
-	}
-	role := newLogsRole(s, LogsConfig{DefaultMaxBytes: 1 << 20}, cs, func() string { return "m" }, log)
+	logged := &lockedLog{}
+	role := newLogsRole(LogsConfig{}, adapter, func() string { return "m" }, slog.New(slog.NewTextHandler(logged, nil)))
 	role.backoff = func(int) time.Duration { return 10 * time.Millisecond }
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { defer close(done); role.Run(ctx) }()
 	t.Cleanup(func() { cancel(); <-done })
-	return role, s, &buf
-}
-
-type lockedWriter struct {
-	mu *sync.Mutex
-	b  *strings.Builder
-}
-
-func (w lockedWriter) Write(p []byte) (int, error) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	return w.b.Write(p)
+	return role, logged
 }
 
 // streams hands out a new fake stream per Open.
@@ -623,15 +677,89 @@ func session(ss *streams, bindings ...string) *LogsSession {
 	return &LogsSession{ID: "s1", Limits: msg.Limits{MaxMessageBytes: 1 << 20, MaxBatchBytes: 1 << 20}, Bindings: b, Open: ss.open}
 }
 
+func TestLogsRoleServesOverTheSessionStream(t *testing.T) {
+	mi := newLogfileServer(t, miLine(0, "hello"))
+	role, logged := startRole(t, miAdapter{addr: mi.addr(), noPort: map[string]bool{"b2": true}, gone: map[string]bool{"b3": true}})
+	st := newFakeLogsStream()
+	opened := make(chan struct{}, 4)
+	open := func(context.Context) (LogsStream, error) { opened <- struct{}{}; return st, nil }
+	role.Session(&LogsSession{ID: "s1", Limits: msg.Limits{MaxMessageBytes: 1 << 20, MaxBatchBytes: 1 << 20},
+		Bindings: map[string]bool{"b1": true, "b2": true, "b3": true}, Open: open})
+
+	role.Request(msg.LogRequest{RequestID: "r1", PlacementRef: "b1", Page: &msg.LogPageQuery{Limit: 10}})
+	p := st.page(t)
+	if p.RequestID != "r1" || len(p.Lines) != 1 || string(p.Lines[0].Text) != miLine(0, "hello") {
+		t.Fatalf("%+v", p)
+	}
+	if l := p.Lines[0]; l.Stream != logfile.Stream || !l.TS.Equal(miEpoch) {
+		t.Fatalf("stream %q ts %v", l.Stream, l.TS)
+	}
+	for _, c := range []struct {
+		ref  string
+		want msg.UnavailableReason
+	}{
+		{"elsewhere", msg.UnavailablePlacementNotLease},
+		{"b2", msg.UnavailableNotCollecting},    // no usable actuator port
+		{"b3", msg.UnavailableContainerMissing}, // no container
+	} {
+		role.Request(msg.LogRequest{RequestID: "r-" + c.ref, PlacementRef: c.ref, Page: &msg.LogPageQuery{Limit: 10}})
+		if p := st.page(t); p.RequestID != "r-"+c.ref || p.Unavailable != c.want || len(p.Lines) != 0 {
+			t.Fatalf("%s: %+v", c.ref, p)
+		}
+	}
+
+	// A new lease on the same session refreshes it without reopening the stream.
+	role.Session(&LogsSession{ID: "s1", Bindings: map[string]bool{"b1": true}, Open: open})
+	role.Session(nil)
+	waitFor(t, func() bool { return isClosed(st.closed) })
+	if len(opened) != 1 {
+		t.Fatalf("stream opened %d times", len(opened))
+	}
+	if strings.Contains(logged.String(), "hello") {
+		t.Fatalf("MI log text reached the agent's log (I6): %s", logged.String())
+	}
+}
+
+func TestLogsRoleOpenerMapsEachFailureToItsReason(t *testing.T) {
+	mi := newLogfileServer(t, miLine(0, "found"))
+	ok := miAdapter{addr: mi.addr(), gone: map[string]bool{"gone": true}, noPort: map[string]bool{"noport": true}}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	for _, c := range []struct {
+		name    string
+		adapter runtime.Adapter
+		ref     string
+		want    msg.UnavailableReason
+	}{
+		{"no adapter", nil, "b1", msg.UnavailableNotCollecting},
+		{"container gone", ok, "gone", msg.UnavailableContainerMissing},
+		{"resolve fails", resolveOnly{err: errors.New("docker: daemon unreachable")}, "b1", msg.UnavailableNotCollecting},
+		{"no actuator locator", resolveOnly{}, "b1", msg.UnavailableNotCollecting},
+		{"no actuator port", ok, "noport", msg.UnavailableNotCollecting},
+		{"found", ok, "b1", msg.UnavailableNone},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			role := newLogsRole(LogsConfig{}, c.adapter, func() string { return "m" }, log)
+			src, why := role.open(context.Background(), c.ref)
+			if why != c.want || (src != nil) != (c.want == msg.UnavailableNone) {
+				t.Fatalf("reason %q source %v, want %q", why, src, c.want)
+			}
+			if src == nil {
+				return
+			}
+			lines, err := src.Page(context.Background(), msg.LogPageQuery{}, 1<<10)
+			if err != nil || len(lines) != 1 || string(lines[0].Text) != miLine(0, "found") {
+				t.Fatalf("the source must read the MI's file at its actuator: %v %d", err, len(lines))
+			}
+		})
+	}
+}
+
 func TestLogsStreamSkipsAnUndecodableMessageAndKeepsServing(t *testing.T) {
-	role, _, _ := startRole(t, nil)
+	mi := newLogfileServer(t, miLine(0, "x"))
+	role, _ := startRole(t, miAdapter{addr: mi.addr()})
 	ss := &streams{}
 	role.Session(session(ss, "b1"))
-	role.Retention(msg.LogRetention{PlacementRef: "b1", MaxBytes: 1 << 20})
 	st := ss.get(t, 0)
-	waitFor(t, func() bool { _, ok := role.ring("b1"); return ok })
-	rg, _ := role.ring("b1")
-	_ = rg.Append(msg.LogLine{TS: time.Now(), Stream: "stdout", Text: []byte("x")})
 
 	st.errs <- fmt.Errorf("decode: %w", wire.ErrUndecodable)
 	for i := range serveBound + 1 { // more exports than the bound: none may be BUSY
@@ -639,7 +767,7 @@ func TestLogsStreamSkipsAnUndecodableMessageAndKeepsServing(t *testing.T) {
 		role.Request(msg.LogRequest{RequestID: id, PlacementRef: "b1", Export: &msg.LogExportQuery{}})
 		waitFor(t, func() bool { return role.srv.Inflight() == 1 })
 		st.inject <- msg.LogCredit{RequestID: id, CreditsGranted: 1}
-		if c := st.chunk(t); c.RequestID != id || !c.Final {
+		if c := st.chunk(t); c.RequestID != id || !c.Final || len(c.Lines) != 1 || c.Seq != mi.size() {
 			t.Fatalf("%+v", c)
 		}
 		waitFor(t, func() bool { return role.srv.Inflight() == 0 })
@@ -655,14 +783,11 @@ func TestLogsStreamSkipsAnUndecodableMessageAndKeepsServing(t *testing.T) {
 const serveBound = 4
 
 func TestLogsStreamTransportErrorEndsPendingExportsAndReopens(t *testing.T) {
-	role, _, _ := startRole(t, nil)
+	mi := newLogfileServer(t, miLine(0, "x"))
+	role, _ := startRole(t, miAdapter{addr: mi.addr()})
 	ss := &streams{}
 	role.Session(session(ss, "b1"))
-	role.Retention(msg.LogRetention{PlacementRef: "b1", MaxBytes: 1 << 20})
 	st := ss.get(t, 0)
-	waitFor(t, func() bool { _, ok := role.ring("b1"); return ok })
-	rg, _ := role.ring("b1")
-	_ = rg.Append(msg.LogLine{TS: time.Now(), Stream: "stdout", Text: []byte("x")})
 	role.Request(msg.LogRequest{RequestID: "e1", PlacementRef: "b1", Export: &msg.LogExportQuery{}})
 	waitFor(t, func() bool { return role.srv.Inflight() == 1 })
 
@@ -676,88 +801,31 @@ func TestLogsStreamTransportErrorEndsPendingExportsAndReopens(t *testing.T) {
 	}
 }
 
-// fakeLogSource follows nothing; it counts live follows per binding.
-type fakeLogSource struct {
-	mu   sync.Mutex
-	live map[string]int
-}
-
-type collectSource interface {
-	FollowLogs(ctx context.Context, p runtime.Placement, since time.Time) (<-chan msg.LogLine, <-chan error)
-	ResolveByName(ctx context.Context, containerName, bindingID string) (runtime.Placement, error)
-}
-
-func (f *fakeLogSource) ResolveByName(_ context.Context, _ string, b string) (runtime.Placement, error) {
-	return runtime.Placement{BindingID: b, ContainerID: "c-" + b}, nil
-}
-
-func (f *fakeLogSource) FollowLogs(ctx context.Context, p runtime.Placement, _ time.Time) (<-chan msg.LogLine, <-chan error) {
-	f.mu.Lock()
-	f.live[p.BindingID]++
-	f.mu.Unlock()
-	lines, errs := make(chan msg.LogLine), make(chan error, 1)
-	go func() {
-		<-ctx.Done()
-		f.mu.Lock()
-		f.live[p.BindingID]--
-		f.mu.Unlock()
-		close(lines)
-		errs <- nil
-	}()
-	return lines, errs
-}
-
-func (f *fakeLogSource) following(b string) int {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return f.live[b]
-}
-
-func TestLeaseShrinkStopsCollectorClosesRingAndCancelsExport(t *testing.T) {
-	src := &fakeLogSource{live: map[string]int{}}
-	role, _, _ := startRole(t, src)
+func TestLeaseShrinkCancelsTheExportAndRefusesThePlacement(t *testing.T) {
+	mi := newLogfileServer(t, miLine(0, "kept"))
+	role, _ := startRole(t, miAdapter{addr: mi.addr()})
 	ss := &streams{}
 	role.Session(session(ss, "b1", "b2"))
 	st := ss.get(t, 0)
-	waitFor(t, func() bool { return src.following("b1") == 1 && src.following("b2") == 1 })
-	rg, _ := role.ring("b1")
-	_ = rg.Append(msg.LogLine{TS: time.Now(), Stream: "stdout", Text: []byte("kept")})
 	role.Request(msg.LogRequest{RequestID: "e1", PlacementRef: "b1", Export: &msg.LogExportQuery{}})
 	waitFor(t, func() bool { return role.srv.Inflight() == 1 })
 
 	role.Session(session(ss, "b2")) // b1 leaves the lease, same session
-	waitFor(t, func() bool {
-		_, open := role.ring("b1")
-		return src.following("b1") == 0 && !open && role.srv.Inflight() == 0
-	})
-	if src.following("b2") != 1 {
-		t.Fatal("a placement still in the lease keeps its collector")
-	}
+	waitFor(t, func() bool { return role.srv.Inflight() == 0 })
 	st.inject <- msg.LogCredit{RequestID: "e1", CreditsGranted: 5}
 	select {
 	case m := <-st.sent:
 		t.Fatalf("a revoked export must send nothing more: %T", m)
 	case <-time.After(100 * time.Millisecond):
 	}
+	role.Request(msg.LogRequest{RequestID: "r2", PlacementRef: "b1", Page: &msg.LogPageQuery{Limit: 5}})
+	if p := st.page(t); p.Unavailable != msg.UnavailablePlacementNotLease {
+		t.Fatalf("%+v", p)
+	}
 
 	role.Session(session(ss, "b1", "b2")) // re-enters
-	waitFor(t, func() bool { return src.following("b1") == 1 })
-	role.Request(msg.LogRequest{RequestID: "r2", PlacementRef: "b1", Page: &msg.LogPageQuery{Limit: 5}})
-	if p := st.page(t); len(p.Lines) != 1 || string(p.Lines[0].Text) != "kept" {
-		t.Fatalf("stored logs must survive leaving the lease: %+v", p)
-	}
-}
-
-func TestEnsureRefusesAHostileBindingIDBeforeTouchingTheStore(t *testing.T) {
-	role, s, buf := startRole(t, nil)
-	if err := s.Save(store.Blob{RelPath: "x"}); err != nil { // what "logs-dp-cap/../x" would resolve to
-		t.Fatal(err)
-	}
-	role.ensure(context.Background(), "../x")
-	if _, ok := role.ring("../x"); ok {
-		t.Fatal("a hostile id must get no ring")
-	}
-	if !strings.Contains(buf.String(), "invalid placement ref") {
-		t.Fatalf("want the id refused up front; log: %s", buf.String())
+	role.Request(msg.LogRequest{RequestID: "r3", PlacementRef: "b1", Page: &msg.LogPageQuery{Limit: 5}})
+	if p := st.page(t); len(p.Lines) != 1 || string(p.Lines[0].Text) != miLine(0, "kept") {
+		t.Fatalf("a placement back in the lease is served again: %+v", p)
 	}
 }

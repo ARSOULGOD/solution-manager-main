@@ -5,140 +5,143 @@ package agent
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
-	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/solace/solution-manager/go-agent/internal/fakegw"
+	"github.com/solace/solution-manager/go-agent/internal/logs/logfile"
 	"github.com/solace/solution-manager/go-agent/internal/msg"
 	"github.com/solace/solution-manager/go-agent/internal/runtime"
 )
 
-// logFeed is a scripted container log: FollowLogs replays every pushed line
-// whose timestamp is at or after `since` (Docker's Since), then waits for
-// more. No Docker is involved.
-type logFeed struct {
-	mu        sync.Mutex
-	cond      *sync.Cond
-	lines     []msg.LogLine
-	delivered int // lines handed to a collector, high-water mark
-}
-
-func newLogFeed() *logFeed {
-	f := &logFeed{}
-	f.cond = sync.NewCond(&f.mu)
-	return f
-}
-
-var feedEpoch = time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
-
-// push appends lines of the given text, one second apart in feed time.
-func (f *logFeed) push(texts ...string) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	for _, tx := range texts {
-		f.lines = append(f.lines, msg.LogLine{TS: feedEpoch.Add(time.Duration(len(f.lines)) * time.Second), Stream: "stdout", Text: []byte(tx)})
-	}
-	f.cond.Broadcast()
-}
-
-func (f *logFeed) size() int {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return len(f.lines)
-}
-
-// waitDelivered blocks until n lines have been received by the collector.
-// The collector stores a line before it receives the next, so when n lines
-// have been received the first n-1 are stored: callers end the feed with a
-// barrier line and expect only the lines before it.
-func (f *logFeed) waitDelivered(n int) {
-	deadline := time.Now().Add(10 * time.Second)
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	for f.delivered < n && time.Now().Before(deadline) {
-		stop := time.AfterFunc(50*time.Millisecond, f.cond.Broadcast)
-		f.cond.Wait()
-		stop.Stop()
-	}
-}
-
-func (f *logFeed) follow(ctx context.Context, since time.Time) (<-chan msg.LogLine, <-chan error) {
-	out, errs := make(chan msg.LogLine), make(chan error)
-	stop := context.AfterFunc(ctx, func() { f.mu.Lock(); f.cond.Broadcast(); f.mu.Unlock() })
-	go func() {
-		defer stop()
-		defer close(errs)
-		defer close(out)
-		idx := 0
-		f.mu.Lock()
-		for idx < len(f.lines) && !since.IsZero() && f.lines[idx].TS.Before(since) {
-			idx++
-		}
-		f.mu.Unlock()
-		for {
-			f.mu.Lock()
-			for idx >= len(f.lines) && ctx.Err() == nil {
-				f.cond.Wait()
-			}
-			if ctx.Err() != nil {
-				f.mu.Unlock()
-				return
-			}
-			l := f.lines[idx]
-			f.mu.Unlock()
-			select {
-			case out <- l:
-			case <-ctx.Done():
-				return
-			}
-			idx++
-			f.mu.Lock()
-			f.delivered = max(f.delivered, idx)
-			f.cond.Broadcast()
-			f.mu.Unlock()
-		}
-	}()
-	return out, errs
-}
-
-// logAdapter is the filesystem-only fakeAdapter that can also follow logs.
-type logAdapter struct {
+// miAgentAdapter is the filesystem-only fakeAdapter whose MI serves its log file at mi (logfileServer, in
+// loop_test.go); with gone set, Resolve finds no container.
+type miAgentAdapter struct {
 	*fakeAdapter
-	feed *logFeed
+	mi   *logfileServer
+	gone atomic.Bool
 }
 
-func (a logAdapter) FollowLogs(ctx context.Context, _ runtime.Placement, since time.Time) (<-chan msg.LogLine, <-chan error) {
-	return a.feed.follow(ctx, since)
+func (a *miAgentAdapter) Resolve(ctx context.Context, b string) (runtime.Placement, error) {
+	if a.gone.Load() {
+		return runtime.Placement{}, fmt.Errorf("fake: %w", runtime.ErrContainerNotFound)
+	}
+	return a.fakeAdapter.Resolve(ctx, b)
 }
 
-func startLogsAgent(t *testing.T, gw *fakegw.Server, feed *logFeed, roles Roles, defaultCap uint64) *agentHandle {
+func (a *miAgentAdapter) ActuatorAddr(context.Context, runtime.Placement) (string, error) {
+	return a.mi.addr(), nil
+}
+
+// startLogsAgent runs an agent against gw whose MI log file is mi, and waits for its Logs stream when it has the
+// logs role.
+func startLogsAgent(t *testing.T, gw *fakegw.Server, mi *logfileServer, roles Roles) (*agentHandle, *miAgentAdapter) {
 	t.Helper()
-	ad := logAdapter{fakeAdapter: newFakeAdapter(t), feed: feed}
-	return startAgent(t, gw, "", func(bc *BuildConfig) {
+	ad := &miAgentAdapter{fakeAdapter: newFakeAdapter(t), mi: mi}
+	h := startAgent(t, gw, "", func(bc *BuildConfig) {
 		bc.Adapter = ad
 		bc.Roles = roles
-		bc.Logs = &LogsConfig{DefaultMaxBytes: defaultCap}
 	})
-}
-
-func logPages(gw *fakegw.Server) []msg.LogPage {
-	var out []msg.LogPage
-	for _, m := range gw.Received("LogPage") {
-		out = append(out, m.(msg.LogPage))
+	if roles.Logs {
+		waitLogsStream(t, gw)
 	}
-	return out
+	return h, ad
 }
 
-func logChunks(gw *fakegw.Server) []msg.LogChunk {
+var logsOnly = Roles{Logs: true}
+
+// creditOnRequest is the scenario for exports: one chunk before the first LogCredit, the rest only as the test grants.
+func creditOnRequest() *fakegw.Scenario {
+	sc := fakegw.DefaultScenario()
+	sc.Limits.InitialCredits = 1
+	sc.Limits.MaxBatchBytes = 2048
+	sc.Policy.Logs.CreditsPerChunk = 0
+	return sc
+}
+
+func requestLogs(t *testing.T, gw *fakegw.Server, r msg.LogRequest) {
+	t.Helper()
+	if r.PlacementRef == "" {
+		r.PlacementRef = "binding-1"
+	}
+	if err := gw.RequestLogs(r); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func askPage(t *testing.T, gw *fakegw.Server, id string, q msg.LogPageQuery) msg.LogPage {
+	t.Helper()
+	requestLogs(t, gw, msg.LogRequest{RequestID: id, Page: &q})
+	return waitPage(t, gw, id)
+}
+
+func waitPage(t *testing.T, gw *fakegw.Server, id string) msg.LogPage {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		for _, m := range gw.Received("LogPage") {
+			if p := m.(msg.LogPage); p.RequestID == id {
+				return p
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("no LogPage for %s", id)
+	panic("unreachable")
+}
+
+// chunksFor is every LogChunk received for id, in arrival order.
+func chunksFor(gw *fakegw.Server, id string) []msg.LogChunk {
 	var out []msg.LogChunk
 	for _, m := range gw.Received("LogChunk") {
-		out = append(out, m.(msg.LogChunk))
+		if c := m.(msg.LogChunk); c.RequestID == id {
+			out = append(out, c)
+		}
 	}
 	return out
+}
+
+// waitChunks waits for n chunks of id.
+func waitChunks(t *testing.T, gw *fakegw.Server, id string, n int) []msg.LogChunk {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		if cs := chunksFor(gw, id); len(cs) >= n {
+			return cs
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("fewer than %d chunks for %s: %d", n, id, len(chunksFor(gw, id)))
+	panic("unreachable")
+}
+
+// waitFinal waits for id's final chunk and returns every chunk of it.
+func waitFinal(t *testing.T, gw *fakegw.Server, id string) []msg.LogChunk {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		if cs := chunksFor(gw, id); len(cs) > 0 && cs[len(cs)-1].Final {
+			return cs
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("no final chunk for %s among %d", id, len(chunksFor(gw, id)))
+	panic("unreachable")
+}
+
+// stillAt fails if id gains a chunk beyond n within a bounded window. A negative cannot be awaited: on loopback a
+// spurious chunk would arrive within milliseconds, and each test's positive half (a credit brings the rest) is what
+// makes the window meaningful.
+func stillAt(t *testing.T, gw *fakegw.Server, id string, n int) {
+	t.Helper()
+	time.Sleep(300 * time.Millisecond)
+	if got := len(chunksFor(gw, id)); got != n {
+		t.Fatalf("%s: %d chunks, want %d", id, got, n)
+	}
 }
 
 func texts(ls []msg.LogLine) []string {
@@ -149,41 +152,39 @@ func texts(ls []msg.LogLine) []string {
 	return out
 }
 
-func numbered(prefix string, n int) []string {
+func chunkTexts(cs []msg.LogChunk) []string {
 	var out []string
-	for i := 1; i <= n; i++ {
-		out = append(out, fmt.Sprintf("%s %03d %s", prefix, i, strings.Repeat("x", 60)))
+	for _, c := range cs {
+		out = append(out, texts(c.Lines)...)
 	}
 	return out
 }
 
-var logsOnly = Roles{Logs: true}
+func sameLines(t *testing.T, what string, got, want []string) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("%s: %d lines, want %d", what, len(got), len(want))
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("%s: line %d = %q, want %q", what, i, got[i], want[i])
+		}
+	}
+}
 
 func TestPageEndToEndAgainstFakeGateway(t *testing.T) {
-	feed := newLogFeed()
-	want := numbered("page", 5)
-	feed.push(want...)
-	feed.push("barrier")
-	sc := fakegw.DefaultScenario()
-	sc.Steps = []fakegw.Step{
-		{Hold: func() { feed.waitDelivered(feed.size()) }},
-		{LogRequest: &fakegw.LogRequestStep{Placement: "binding-1", RequestID: "req-page", Page: &fakegw.LogPageStep{Limit: 100}}},
-		{ExpectLogPage: &fakegw.ExpectLogPageStep{RequestID: "req-page", MinLines: 5, Timeout: 10 * time.Second}},
-	}
-	gw := startGateway(t, sc)
-	startLogsAgent(t, gw, feed, logsOnly, 1<<20)
+	mi := newLogfileServer(t, miLines(0, 8)...)
+	gw := startGateway(t, fakegw.DefaultScenario())
+	startLogsAgent(t, gw, mi, logsOnly)
 
-	if !gw.WaitFor("LogPage", 1, 15*time.Second) {
-		t.Fatal("no LogPage")
-	}
-	p := logPages(gw)[0]
-	got := texts(p.Lines)
-	if p.RequestID != "req-page" || p.Unavailable != msg.UnavailableNone || len(got) < 5 {
+	p := askPage(t, gw, "req-page", msg.LogPageQuery{Limit: 5})
+	if p.Unavailable != msg.UnavailableNone {
 		t.Fatalf("page %+v", p)
 	}
-	for i, w := range want { // oldest to newest, as stored
-		if got[i] != w {
-			t.Fatalf("line %d = %q, want %q", i, got[i], w)
+	sameLines(t, "page", texts(p.Lines), miLines(3, 8)) // the newest, oldest first
+	for i, l := range p.Lines {
+		if l.Stream != logfile.Stream || !l.TS.Equal(miEpoch.Add(time.Duration(3+i)*time.Second)) {
+			t.Fatalf("line %d: stream %q ts %v", i, l.Stream, l.TS)
 		}
 	}
 	if n := gw.LogsStreams(); n != 1 {
@@ -191,56 +192,49 @@ func TestPageEndToEndAgainstFakeGateway(t *testing.T) {
 	}
 }
 
-func TestExportEndToEndWithCreditsAndFinal(t *testing.T) {
-	feed := newLogFeed()
-	feed.push(numbered("export", 60)...)
-	feed.push("barrier")
-	sc := fakegw.DefaultScenario()
-	sc.Limits.InitialCredits = 1
-	sc.Limits.MaxBatchBytes = 2048
-	sc.Policy.Logs.CreditsPerChunk = 0 // credit only on GrantLogCredit
-	sc.Steps = []fakegw.Step{{Hold: func() { feed.waitDelivered(feed.size()) }}}
-	gw := startGateway(t, sc)
-	startLogsAgent(t, gw, feed, logsOnly, 1<<20)
+func TestLogsLivePollWithAfterGetsOnlyNewLines(t *testing.T) {
+	mi := newLogfileServer(t, miLines(0, 5)...)
+	gw := startGateway(t, fakegw.DefaultScenario())
+	startLogsAgent(t, gw, mi, logsOnly)
 
-	// The request may only be sent once the agent's Logs stream is open and the feed has landed.
-	feed.waitDelivered(feed.size())
-	waitLogsStream(t, gw)
-	if err := gw.RequestLogs(msg.LogRequest{RequestID: "req-exp", PlacementRef: "binding-1", Export: &msg.LogExportQuery{}}); err != nil {
-		t.Fatal(err)
-	}
-	if !gw.WaitFor("LogChunk", 1, 10*time.Second) {
-		t.Fatal("no first chunk")
-	}
-	// initial_credits 1: one chunk, then the agent waits. A negative cannot be
-	// awaited, so allow a bounded window (several round trips on loopback,
-	// where a spurious second chunk would arrive within milliseconds); the
-	// positive half below (credit -> the rest arrives) is what makes it meaningful.
-	time.Sleep(300 * time.Millisecond)
-	if n := len(logChunks(gw)); n != 1 {
-		t.Fatalf("%d chunks before any credit, want exactly 1", n)
-	}
-	first := logChunks(gw)[0]
+	first := askPage(t, gw, "poll-1", msg.LogPageQuery{Limit: 100})
+	sameLines(t, "first poll", texts(first.Lines), miLines(0, 5))
+	mi.add(miLines(5, 8)...)
+	after := first.Lines[len(first.Lines)-1].TS
+	second := askPage(t, gw, "poll-2", msg.LogPageQuery{Limit: 100, After: &after})
+	sameLines(t, "poll after the newest line shown", texts(second.Lines), miLines(5, 8))
+}
+
+func TestLogsPageBackWithBefore(t *testing.T) {
+	mi := newLogfileServer(t, miLines(0, 20)...)
+	gw := startGateway(t, fakegw.DefaultScenario())
+	startLogsAgent(t, gw, mi, logsOnly)
+
+	newest := askPage(t, gw, "back-1", msg.LogPageQuery{Limit: 5})
+	sameLines(t, "newest page", texts(newest.Lines), miLines(15, 20))
+	before := newest.Lines[0].TS
+	older := askPage(t, gw, "back-2", msg.LogPageQuery{Limit: 5, Before: &before})
+	sameLines(t, "the page before it", texts(older.Lines), miLines(10, 15))
+}
+
+func TestExportEndToEndWithCreditsAndFinal(t *testing.T) {
+	mi := newLogfileServer(t, miLines(0, 60)...)
+	snapshot := mi.size()
+	gw := startGateway(t, creditOnRequest())
+	startLogsAgent(t, gw, mi, logsOnly)
+
+	requestLogs(t, gw, msg.LogRequest{RequestID: "req-exp", Export: &msg.LogExportQuery{}})
+	first := waitChunks(t, gw, "req-exp", 1)[0]
+	stillAt(t, gw, "req-exp", 1) // initial_credits 1: one chunk, then the agent waits
 	if first.Final || len(first.Lines) == 0 || first.Seq == 0 {
 		t.Fatalf("first chunk %+v", first)
 	}
+	mi.add(miLines(60, 70)...) // written after the export began: not in its snapshot
 
 	if err := gw.GrantLogCredit("req-exp", 100); err != nil {
 		t.Fatal(err)
 	}
-	deadline := time.Now().Add(10 * time.Second)
-	for time.Now().Before(deadline) {
-		cs := logChunks(gw)
-		if cs[len(cs)-1].Final {
-			break
-		}
-		time.Sleep(20 * time.Millisecond)
-	}
-	cs := logChunks(gw)
-	if !cs[len(cs)-1].Final {
-		t.Fatalf("no final chunk among %d", len(cs))
-	}
-	var all []string
+	cs := waitFinal(t, gw, "req-exp")
 	for i, c := range cs {
 		if i > 0 && c.Seq <= cs[i-1].Seq {
 			t.Fatalf("chunk seq %d after %d", c.Seq, cs[i-1].Seq)
@@ -248,103 +242,119 @@ func TestExportEndToEndWithCreditsAndFinal(t *testing.T) {
 		if c.Final != (i == len(cs)-1) {
 			t.Fatalf("Final on chunk %d of %d", i, len(cs))
 		}
-		all = append(all, texts(c.Lines)...)
 	}
-	want := numbered("export", 60)
-	if len(all) < 60 {
-		t.Fatalf("exported %d lines, want >= 60", len(all))
-	}
-	for i, w := range want {
-		if all[i] != w {
-			t.Fatalf("exported line %d = %q, want %q", i, all[i], w)
-		}
-	}
-
-	// Resume: from_seq = the first chunk's seq continues right after that chunk.
-	n := len(cs)
-	if err := gw.RequestLogs(msg.LogRequest{RequestID: "req-resume", PlacementRef: "binding-1", Export: &msg.LogExportQuery{FromSeq: first.Seq}}); err != nil {
-		t.Fatal(err)
-	}
-	// Connect and Logs are separate streams: a credit sent right after the
-	// request can reach the agent first and is dropped (design 4.1). Wait for
-	// the first chunk, which initial_credits pays for, then grant.
-	waitChunkFor(t, gw, "req-resume")
-	if err := gw.GrantLogCredit("req-resume", 100); err != nil {
-		t.Fatal(err)
-	}
-	var resumed []string
-	deadline = time.Now().Add(10 * time.Second)
-	for time.Now().Before(deadline) {
-		resumed = resumed[:0]
-		done := false
-		for _, c := range logChunks(gw)[n:] {
-			if c.RequestID == "req-resume" {
-				resumed = append(resumed, texts(c.Lines)...)
-				done = done || c.Final
-			}
-		}
-		if done {
-			break
-		}
-		time.Sleep(20 * time.Millisecond)
-	}
-	if skipped := len(all) - len(resumed); skipped != len(first.Lines) {
-		t.Fatalf("resume skipped %d lines, want %d (the first chunk)", skipped, len(first.Lines))
+	sameLines(t, "export", chunkTexts(cs), miLines(0, 60))
+	if last := cs[len(cs)-1].Seq; last != snapshot {
+		t.Fatalf("final seq %d, want the snapshot's size %d", last, snapshot)
 	}
 }
 
-func TestRetentionAppliedLiveTrimsAndGaps(t *testing.T) {
-	feed := newLogFeed()
-	feed.push(numbered("early", 40)...)
-	feed.push("barrier-1")
-	sc := fakegw.DefaultScenario()
-	sc.Steps = []fakegw.Step{
-		{Hold: func() { feed.waitDelivered(feed.size()) }},
-		{LogRetention: &fakegw.LogRetentionStep{Placement: "binding-1", MaxBytes: 4096}},
-		{LogRequest: &fakegw.LogRequestStep{Placement: "binding-1", RequestID: "req-small", Page: &fakegw.LogPageStep{Limit: 1000}}},
-		{ExpectLogPage: &fakegw.ExpectLogPageStep{RequestID: "req-small", Timeout: 10 * time.Second}},
-		{LogRetention: &fakegw.LogRetentionStep{Placement: "binding-1", MaxBytes: 0}},
-		{LogRequest: &fakegw.LogRequestStep{Placement: "binding-1", RequestID: "req-off", Page: &fakegw.LogPageStep{Limit: 10}}},
-		{ExpectLogPage: &fakegw.ExpectLogPageStep{RequestID: "req-off", Unavailable: "NOT_COLLECTING", Timeout: 10 * time.Second}},
-	}
-	gw := startGateway(t, sc)
-	startLogsAgent(t, gw, feed, logsOnly, 1<<20)
+func TestLogsExportCancelStopsChunks(t *testing.T) {
+	mi := newLogfileServer(t, miLines(0, 60)...)
+	gw := startGateway(t, creditOnRequest())
+	startLogsAgent(t, gw, mi, logsOnly)
 
-	if !gw.WaitFor("LogPage", 1, 15*time.Second) {
-		t.Fatal("no LogPage after retention")
+	requestLogs(t, gw, msg.LogRequest{RequestID: "req-cancel", Export: &msg.LogExportQuery{}})
+	waitChunks(t, gw, "req-cancel", 1)
+	if err := gw.CancelLog("req-cancel"); err != nil {
+		t.Fatal(err)
 	}
-	small := logPages(gw)[0]
-	if small.RequestID != "req-small" || small.Unavailable != msg.UnavailableNone {
-		t.Fatalf("page %+v", small)
+	if err := gw.GrantLogCredit("req-cancel", 100); err != nil { // after the cancel: an unknown id
+		t.Fatal(err)
 	}
-	if n := len(small.Lines); n == 0 || n >= 41 {
-		t.Fatalf("page after a 4 KiB cap holds %d lines, want fewer than the 41 collected and more than 0", n)
+	stillAt(t, gw, "req-cancel", 1)
+
+	// The stream and the agent's slots are intact: the next request is answered.
+	if p := askPage(t, gw, "after-cancel", msg.LogPageQuery{Limit: 1}); p.Unavailable != msg.UnavailableNone || len(p.Lines) != 1 {
+		t.Fatalf("page after a cancel %+v", p)
 	}
-	if last := string(small.Lines[len(small.Lines)-1].Text); last != "barrier-1" {
-		t.Fatalf("newest line %q, want the barrier: a trim keeps the newest", last)
+}
+
+func TestLogsExportResumesFromTheLastSeq(t *testing.T) {
+	mi := newLogfileServer(t, miLines(0, 60)...)
+	gw := startGateway(t, creditOnRequest())
+	startLogsAgent(t, gw, mi, logsOnly)
+
+	requestLogs(t, gw, msg.LogRequest{RequestID: "req-1", Export: &msg.LogExportQuery{}})
+	waitChunks(t, gw, "req-1", 1)
+	if err := gw.GrantLogCredit("req-1", 2); err != nil {
+		t.Fatal(err)
 	}
-	if len(small.Gaps) == 0 {
-		t.Fatalf("trimmed ring reported no gap marker")
+	cut := waitChunks(t, gw, "req-1", 3)
+	if err := gw.CancelLog("req-1"); err != nil { // interrupted: the DP resumes from the last chunk it has
+		t.Fatal(err)
 	}
-	for _, g := range small.Gaps {
-		if g.Reason != msg.GapCapReduced && g.Reason != msg.GapDroppedOldest {
-			t.Fatalf("gap reason %q", g.Reason)
-		}
+	stillAt(t, gw, "req-1", 3)
+	if cut[2].Final {
+		t.Fatal("the export ended before it could be interrupted")
 	}
 
-	// Cap 0: collection off, stored logs deleted, the page says so.
-	if !gw.WaitFor("LogPage", 2, 15*time.Second) {
-		t.Fatal("no LogPage after cap 0")
+	requestLogs(t, gw, msg.LogRequest{RequestID: "req-2", Export: &msg.LogExportQuery{FromSeq: cut[2].Seq}})
+	// Connect and Logs are separate streams: a credit sent right after the request can reach the agent first and is
+	// dropped (2026-10-20 design §4.1). Wait for the first chunk, which initial_credits pays for, then grant.
+	waitChunks(t, gw, "req-2", 1)
+	if err := gw.GrantLogCredit("req-2", 100); err != nil {
+		t.Fatal(err)
 	}
-	off := logPages(gw)[1]
-	if off.RequestID != "req-off" || off.Unavailable != msg.UnavailableNotCollecting || len(off.Lines) != 0 {
-		t.Fatalf("page after cap 0: %+v", off)
+	rest := waitFinal(t, gw, "req-2")
+	sameLines(t, "the interrupted export and its resume", append(chunkTexts(cut), chunkTexts(rest)...), miLines(0, 60))
+}
+
+func TestLogsExportRotationMidwayEndsIncomplete(t *testing.T) {
+	mi := newLogfileServer(t, miLines(0, 60)...)
+	gw := startGateway(t, creditOnRequest())
+	startLogsAgent(t, gw, mi, logsOnly)
+
+	requestLogs(t, gw, msg.LogRequest{RequestID: "req-rot", Export: &msg.LogExportQuery{}})
+	first := waitChunks(t, gw, "req-rot", 1)[0]
+	mi.rotate(miLines(100, 101)...) // the MI rolled its file over: a new, shorter one
+	if err := gw.GrantLogCredit("req-rot", 100); err != nil {
+		t.Fatal(err)
 	}
+	cs := waitFinal(t, gw, "req-rot")
+	last := cs[len(cs)-1]
+	if len(cs) != 2 || len(last.Lines) != 0 || last.Seq != first.Seq {
+		t.Fatalf("%d chunks; final %+v", len(cs), last)
+	}
+	if len(last.Gaps) != 1 || last.Gaps[0].Reason != msg.GapCollectionPaused {
+		t.Fatalf("a rotation midway must end the export incomplete: %+v", last.Gaps)
+	}
+}
+
+func TestLogsContainerGoneIsContainerMissing(t *testing.T) {
+	mi := newLogfileServer(t, miLines(0, 5)...)
+	gw := startGateway(t, creditOnRequest())
+	_, ad := startLogsAgent(t, gw, mi, logsOnly)
+	ad.gone.Store(true)
+
+	if p := askPage(t, gw, "gone-page", msg.LogPageQuery{Limit: 5}); p.Unavailable != msg.UnavailableContainerMissing || len(p.Lines) != 0 {
+		t.Fatalf("page %+v", p)
+	}
+	requestLogs(t, gw, msg.LogRequest{RequestID: "gone-export", Export: &msg.LogExportQuery{}})
+	if p := waitPage(t, gw, "gone-export"); p.Unavailable != msg.UnavailableContainerMissing {
+		t.Fatalf("export %+v", p)
+	}
+	stillAt(t, gw, "gone-export", 0)
+}
+
+func TestLogfileNotExposedIsNotCollecting(t *testing.T) {
+	mi := newLogfileServer(t, miLines(0, 5)...)
+	mi.setStatus(http.StatusNotFound) // logfile not in management.endpoints.web.exposure.include
+	gw := startGateway(t, creditOnRequest())
+	startLogsAgent(t, gw, mi, logsOnly)
+
+	if p := askPage(t, gw, "hidden-page", msg.LogPageQuery{Limit: 5}); p.Unavailable != msg.UnavailableNotCollecting || len(p.Lines) != 0 {
+		t.Fatalf("page %+v", p)
+	}
+	requestLogs(t, gw, msg.LogRequest{RequestID: "hidden-export", Export: &msg.LogExportQuery{}})
+	if p := waitPage(t, gw, "hidden-export"); p.Unavailable != msg.UnavailableNotCollecting {
+		t.Fatalf("export %+v", p)
+	}
+	stillAt(t, gw, "hidden-export", 0)
 }
 
 func TestAgentWithoutLogsRoleNeverReceivesLogMessages(t *testing.T) {
-	feed := newLogFeed()
-	feed.push("never collected")
+	mi := newLogfileServer(t, miLine(0, "never read"))
 	sc := fakegw.DefaultScenario()
 	sc.Limits.HeartbeatInterval = 100 * time.Millisecond
 	// Forced: the fake sends these although the session did not advertise
@@ -354,7 +364,7 @@ func TestAgentWithoutLogsRoleNeverReceivesLogMessages(t *testing.T) {
 		{LogRequest: &fakegw.LogRequestStep{Placement: "binding-1", RequestID: "req-none", Page: &fakegw.LogPageStep{Limit: 10}, Force: true}},
 	}
 	gw := startGateway(t, sc)
-	h := startLogsAgent(t, gw, feed, Roles{Control: true}, 1<<20)
+	h, _ := startLogsAgent(t, gw, mi, Roles{Control: true})
 	waitPhase(t, h.loop, PhaseActive, 10*time.Second)
 
 	// The steps have run once both forced messages are in the transcript.
@@ -376,10 +386,7 @@ func TestAgentWithoutLogsRoleNeverReceivesLogMessages(t *testing.T) {
 		t.Fatalf("%d log messages from an agent without the role", n)
 	}
 	if _, err := os.Stat(filepath.Join(h.dir, "logs")); !os.IsNotExist(err) {
-		t.Fatalf("a log ring was created without the role: %v", err)
-	}
-	if _, err := os.Stat(filepath.Join(h.dir, "logs-dp-cap")); !os.IsNotExist(err) {
-		t.Fatalf("a DP cap was persisted without the role: %v", err)
+		t.Fatalf("a logs directory was created: %v", err)
 	}
 	// And the fake's own gating, directly.
 	if err := gw.RequestLogs(msg.LogRequest{RequestID: "r", PlacementRef: "binding-1", Page: &msg.LogPageQuery{Limit: 1}}); err == nil {
@@ -416,18 +423,4 @@ func waitLogsStream(t *testing.T, gw *fakegw.Server) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatal("the agent never opened its Logs stream")
-}
-
-func waitChunkFor(t *testing.T, gw *fakegw.Server, id string) {
-	t.Helper()
-	deadline := time.Now().Add(10 * time.Second)
-	for time.Now().Before(deadline) {
-		for _, c := range logChunks(gw) {
-			if c.RequestID == id {
-				return
-			}
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	t.Fatalf("no chunk for %s", id)
 }

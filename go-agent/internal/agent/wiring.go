@@ -11,7 +11,6 @@ import (
 
 	"github.com/solace/solution-manager/go-agent/internal/discovery"
 	"github.com/solace/solution-manager/go-agent/internal/identity"
-	"github.com/solace/solution-manager/go-agent/internal/logs/collect"
 	"github.com/solace/solution-manager/go-agent/internal/msg"
 	"github.com/solace/solution-manager/go-agent/internal/reactor"
 	"github.com/solace/solution-manager/go-agent/internal/runtime"
@@ -30,8 +29,9 @@ type TelemetryConfig struct {
 
 // LogsConfig configures the logs role (plan 016).
 type LogsConfig struct {
-	// DefaultMaxBytes is a placement's ring cap until the DP sets one
-	// (SM_AGENT_LOGS_DEFAULT_MAX_BYTES); zero leaves collection off until then.
+	// DefaultMaxBytes is no longer read: nothing is collected or stored, so
+	// there is no cap (agent-mi-logs-from-actuator design §4.6). It goes with
+	// SM_AGENT_LOGS_DEFAULT_MAX_BYTES.
 	DefaultMaxBytes uint64
 	// MaxConcurrent bounds log requests in flight; zero is serve's default.
 	MaxConcurrent int
@@ -127,13 +127,7 @@ func Build(bc BuildConfig) (*Loop, *store.Store, error) {
 		if bc.Logs != nil {
 			lc = *bc.Logs
 		}
-		var src collect.Source
-		if f, ok := bc.Adapter.(logFollower); ok && adapter != nil {
-			src = logSource{resolver: adapter, logFollower: f}
-		} else {
-			bc.Log.Warn("logs role: the runtime adapter cannot follow container logs; stored logs are served, nothing new is collected")
-		}
-		deps.Logs = newLogsRole(s, lc, src, newUUIDv7, bc.Log)
+		deps.Logs = newLogsRole(lc, adapter, newUUIDv7, bc.Log)
 	}
 	if adapter != nil { // keep in step with sessionCapabilities' configView argument above
 		deps.ConfigView = newConfigViewRole(adapter, bc.Log)
