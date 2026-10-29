@@ -691,7 +691,7 @@ message TelemetryDeclarations {
   HealthProbe health_probe = 5;
 }
 
-// ---- plan 016 T1: agent-collected MI logs (design 2026-10-20-agent-mi-logs-design.md section 4; AGW-D11: new numbers only) ----
+// ---- MI logs, read on demand from /actuator/logfile (design 2026-10-28-agent-mi-logs-from-actuator-design.md; AGW-D11: new numbers only) ----
 
 message LogPageQuery {
   uint32 limit = 1;
