@@ -662,7 +662,7 @@ processes with `kill`, not `Ctrl-C`.
 | Exercised | Observed |
 |---|---|
 | a page; a 20-line page | 5 lines, `file` stream, a `WARN` and its two `\tat` lines counted as three; 18 lines (a page ends on an entry boundary) |
-| a download at `max_batch_bytes` 4096 | `complete, 264 lines in 9 chunks`, each with its byte-offset `seq` |
+| a download at `max_batch_bytes` 4096 | `complete, 264 lines in 9 chunks`, each with its byte-offset `seq`. This was before `b143639`; the same 16,966-byte file, measured afterwards, comes in 8 chunks of 36–37 lines |
 | resume from a `seq` | the lines after that chunk only |
 | `from-seq` beyond the file | a first chunk with `DROPPED_OLDEST`, the download from byte 0 |
 | refusals | `PLACEMENT_NOT_IN_LEASE`; `NOT_COLLECTING` for a `404`, a stopped container and an undeclared port; `CONTAINER_MISSING` for a removed container |

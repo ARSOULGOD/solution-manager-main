@@ -403,7 +403,9 @@ listened on `18443` (`--listen`, and the agent's `--connect-endpoint`) and the a
 (`--admin-addr`), in place of `8443` and the default `9464` below. The code blocks of steps 1 to 5, 7 and 8 were then
 extracted from this file and run unedited apart from those ports; in that second run only four step 6 rows were typed again
 (`logs logs-1 5`, `logs nolog-1`, `logs nope`, `export logs-1`), the whole table having been typed in the first. Both runs
-stopped the agent and the gateway with `kill`, not `Ctrl-C`. The stand-in is `nginx:alpine` (nginx 1.31.8 the day it was
+stopped the agent and the gateway with `kill`, not `Ctrl-C`. Both runs predate `b143639`, which charges each line a fixed
+framing cost, so the observed `seq` values and chunk counts below are from the code before it; the same 16,966-byte file,
+measured afterwards, downloads in 8 chunks of 36–37 lines instead of 9 of about 31. The stand-in is `nginx:alpine` (nginx 1.31.8 the day it was
 pulled). Agent and fake gateway only; no DP, console or REST layer. The commands are also unit-tested against a scripted
 agent (`internal/fakegw/console_logs_test.go`).
 
@@ -510,7 +512,7 @@ Every command below runs from `go-agent/`, in three terminals: **T1** the gatewa
    |---|---|
    | `logs logs-1 5` | the five newest lines, `file` as the stream. A `WARN` and its two `\tat` lines count as three lines. Observed: `request 110`'s `INFO`, `WARN` and two `at demo.App…` lines, then `request 111`'s `INFO` |
    | `logs logs-1` | the newest 20 lines, or a few fewer (observed 18): a page ends on an entry boundary, see the DP runbook's [Known limits](../docs/runbooks/backend/read-and-export-agent-logs.md#known-limits) |
-   | `export logs-1` | the file as it was when the download began, in chunks of up to 4096 bytes (about 31 lines), each with its `seq`, then `complete, N lines in M chunks`. Observed: `seq=2007` … `seq=15930`, a final `seq=16966` with 16 lines, `complete, 264 lines in 9 chunks` |
+   | `export logs-1` | the file as it was when the download began, in chunks of up to 4096 bytes (about 37 lines; about 31 in the run observed here, before `b143639`), each with its `seq`, then `complete, N lines in M chunks`. Observed: `seq=2007` … `seq=15930`, a final `seq=16966` with 16 lines, `complete, 264 lines in 9 chunks` |
    | `export logs-1 <seq>`, with a `seq` from the line above | the lines after that chunk only. Observed with `15930`: the first chunk (`seq=17940`, 30 lines) began at `request 156` |
    | `export logs-1 99999999` | a `from-seq` beyond the file: the first chunk carries a `gap DROPPED_OLDEST` whose `from` and `to` are both its first line's time (e.g. `from 00:48:00 to 00:48:00`), and the download starts at byte 0. Observed: `complete, 290 lines in 10 chunks` |
    | `logs nope` | `unavailable: PLACEMENT_NOT_IN_LEASE` |
