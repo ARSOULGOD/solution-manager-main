@@ -491,6 +491,43 @@ func TestPageBackLosesNoEntrySharingAMillisecond(t *testing.T) {
 	}
 }
 
+func TestPageBackLosesNoEntryWrittenOutOfOrder(t *testing.T) {
+	// Threads can write a few milliseconds out of order: file order Z Y X W V, stamped 10, 12, 10, 20 and 30 ms.
+	base := time.Date(2026, 10, 20, 4, 0, 0, 0, time.UTC)
+	var b strings.Builder
+	for _, e := range []struct {
+		name string
+		ms   int
+	}{{"Z", 10}, {"Y", 12}, {"X", 10}, {"W", 20}, {"V", 30}} {
+		ts := base.Add(time.Duration(e.ms) * time.Millisecond).Format("2006-01-02T15:04:05.000Z07:00")
+		fmt.Fprintf(&b, "%s  INFO 1 --- [main] a.B : %s\n", ts, e.name)
+	}
+	content := b.String()
+	for _, step := range []int{DefaultStep, 64} {
+		f, _ := pageFile(t, fixed(content), WithStep(step))
+		seen := map[string]int{}
+		q := msg.LogPageQuery{Limit: 3}
+		for i := 0; ; i++ {
+			if i > 10 {
+				t.Fatalf("step %d: paging back does not end", step)
+			}
+			lines := page(t, f, q, 1<<20)
+			if len(lines) == 0 {
+				break
+			}
+			for _, l := range lines {
+				seen[string(l.Text)]++
+			}
+			q.Before = at(lines[0].TS)
+		}
+		for _, l := range fixtureLines(content) {
+			if seen[l] != 1 {
+				t.Fatalf("step %d: %q seen %d times", step, l, seen[l])
+			}
+		}
+	}
+}
+
 func TestPageDoesNotTrustALineTheReadCuts(t *testing.T) {
 	// Entries A and B share one millisecond; A's trace line quotes another time, and the one read starts exactly at
 	// that quote. Entry C and B fill a 2-line page, and the line above B, read only from the quote on, would parse

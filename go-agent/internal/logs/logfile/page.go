@@ -17,11 +17,12 @@ import (
 // above it, so it is held until that start is read, and an entry is on a page whole or not at all. The walk ends at
 // the first entry not newer than After, passes over entries not older than Before, and stops as soon as the page is
 // full, held lines counted. Then the lines held for an entry that cannot be whole are dropped (their entry began
-// before what was read; agent-mi-logs-from-actuator design §4.2). And when the newest entry left off shares the page's
-// oldest time, or its time is not known (its start is not in the bytes read, and no read is made to find it), the
-// entries at the page's oldest end at that time are dropped too, unless that would empty the page: a full page ends
-// where the time changes. A page asked with Before = the oldest time of the page before it therefore loses no line of
-// an entry that fits a page, except:
+// before what was read; agent-mi-logs-from-actuator design §4.2). And unless the newest entry left off is known to be
+// older than the page's oldest time, the entries at the page's oldest end at that time are dropped too, unless that
+// would empty the page: a full page ends where the time changes. Known older means its start is in the bytes read
+// and parses to an earlier time (no read is made to find it), so a page that fills beside held lines, which overflow
+// it, or just below a continuation line always trims. A page asked with Before = the oldest time of the page before
+// it therefore loses no line of an entry that fits a page, except:
 //
 //   - entries sharing one time that do not fit a page together: the page is the newest of them;
 //   - an entry whose start lies further above the page its newest lines fill than the reach below: its lines take
@@ -207,7 +208,7 @@ func (w *walk) entry(t time.Time, text []byte, cut bool, size int, own bool, abo
 		w.add(held, t) // the newest part of an entry larger than the page
 		return true
 	}
-	w.short = t.Equal(w.kept[len(w.kept)-1].TS) // this entry is left off
+	w.short = !t.Before(w.kept[len(w.kept)-1].TS) // this entry is left off
 	return true
 }
 
@@ -219,7 +220,7 @@ func (w *walk) before(above []byte, t time.Time) bool {
 		return false // it began in the read before this one
 	}
 	u, ok := entryTime(above[k+1:])
-	return ok && !u.Equal(t)
+	return ok && u.Before(t)
 }
 
 // overflow ends a page that is full with lines held, the line at offset at being the one that filled it. Their entry
