@@ -574,5 +574,188 @@ Deletion only, plus the guard that proves nothing can write.
 
 ## Results
 
-*(Filled in at execution: commits per task, the Java command actually run, the demo run, deviations from this plan. State
-whether a real gateway, DP and agent ran this together; if not, say so (`L26`).)*
+Executed 2026-10-28 to 2026-10-29 on `feature/agent-mi-config-view` (not pushed, not merged), task by task. Each task had
+an implementer, then a spec and quality review, then fix rounds until the review was clean. A final whole-branch review of
+`abbcffa..570e0e0` returned "ready to merge, with fixes"; one final fix wave made those fixes. **No real gateway, DP and
+agent ran this together, and no live Spring Boot MI was used (`L26`)**: see the last section.
+
+### Commits per task
+
+| Task | Commits |
+|---|---|
+| 2 | `f028890` |
+| 3 | `e5af695`, `e921021` |
+| 4 | `cc47a52`, `30714c7`, `4192c35`, `76e15fc` |
+| 5 | `d87029c` |
+| 6 | `1677b60` |
+| 1 | `f083769` |
+| 7 | `52d6992`, `b29097f` |
+| 8 | `570e0e0` |
+| Final fix wave | `b143639` (export memory), `0d8fbba` (timeouts), `105b79c` (out-of-order paging), `683cf44` (Java test and Javadoc), `79ea4df` (proto banner), `07fc716` (docs), `4776afa` (gofmt), `404612c` (data-dir test), and the commit that fills this section |
+| Docs, not plan work | `0d7a1c7`: pre-existing user edits to `go-agent/RUNBOOK.md` and `go-agent/CLAUDE.md`, committed unchanged (Ruling 3) |
+
+Before execution: `a9e768e` (design and plan) and `b4a8491` (Task 5's integration-test names).
+
+**Execution order:** 2, 3, 4, 5, 6, 1, 7, 8. Docker Desktop was off at the start, and Tasks 1, 7 and 8 need it (Ruling 4).
+
+### The Java command, as run
+
+Maven 3.9 and JDK 17 in `maven:3.9-eclipse-temurin-17`. The host Docker Desktop socket is mounted, and the Maven
+repository lives in the named volume `sm-m2`. The script is kept outside the repository:
+
+```bash
+export DOCKER_HOST=unix://$HOME/.docker/desktop/docker.sock
+docker run --rm \
+  --add-host=host.docker.internal:host-gateway -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal \
+  -u 1000:1000 --group-add 0 -e HOME=/tmp/home -e MAVEN_CONFIG=/m2 \
+  -e DOCKER_HOST=unix:///var/run/docker.sock -e TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock \
+  -v "$HOME/.docker/desktop/docker.sock:/var/run/docker.sock" -v sm-m2:/m2 -v "$REPO:/work" -w /work \
+  maven:3.9-eclipse-temurin-17 mvn -B -Dmaven.repo.local=/m2/repository -f backend/pom.xml "$@"
+```
+
+- The repository is mounted at `/work` because its host path contains a space, which breaks `license-maven-plugin`
+  ("Illegal character in path").
+- `--group-add 0` lets uid 1000 open the socket.
+- Testcontainers reaches its containers through `host.docker.internal`.
+- **Trap:** with the socket unreadable and `DockerAvailabilityPreflightIT` filtered out by `-Dit.test`, the selected
+  ITs are *skipped* and the build still ends `BUILD SUCCESS`. Check the IT counts.
+
+Per task: `-pl dp-api,agent-gateway verify`; `-pl dp-api,dp-core verify -Dtest=AgentLogServiceTest,AgentLogExportServiceTest
+-Dit.test=SmDataBootstrapIT,InventorySchemaIT` (with `-Dsurefire.failIfNoSpecifiedTests=false
+-Dfailsafe.failIfNoSpecifiedTests=false`); `-pl arch-tests -am install -DskipTests -DskipITs`, then `-pl arch-tests verify`.
+
+| Suite | Before Task 1 | After Task 1 | Final fix wave |
+|---|---|---|---|
+| `dp-api` | 19 | 19 | 19 |
+| `agent-gateway` | 149 | 147 (the two cap tests removed) | 147 |
+| dp-core `AgentLogServiceTest` + `AgentLogExportServiceTest` | 17 + 24 | 17 + 24, unchanged (the DP read path did not move) | 17 + 24 |
+| dp-core `ConfigViewWiringTest` | — | — | 7 (one new: `LogExportService` wired once) |
+| dp-core `SmDataBootstrapIT` + `InventorySchemaIT` | 11 + 83 | 11 + 82 (`V054` runs; the cap-table test removed) | not re-run (no migration change) |
+| `arch-tests` | 172 | 172 | not re-run |
+| dp-core, all unit tests | — | 1728 run, 4 failures, all pre-existing (below) | — |
+
+All failures 0 except the pre-existing reds below. Task 8 re-ran `dp-api` and `agent-gateway` after the proto change:
+19 and 147, 0 skipped. The `launcher` was not run (its known context red); by reading, its only cap reference was the
+deleted `AgentLogRetentionSourceWiringTest`.
+
+### Go verification (final, after the fix wave)
+
+| Command | Result |
+|---|---|
+| `make test` (`go vet ./...`, `go test ./...`) | ok, 30 packages |
+| `make test-integration` | 64 pass, 1 skip (`TestIntegrationRenewAtHalfLifeAndSameIDOnResend`, skipped in the test itself on `AG-5`), 1 fail: `TestIntegrationTelemetryOnlyRoleRefusesCommands`, pre-existing. All ten Task 5 integration tests and the logs role tests pass. |
+| `go test -race -count=1 ./internal/logs/... ./internal/agent/...` | ok |
+| `gofmt -l` over the 36 Go files the branch touched | nothing |
+| `check_proto_append_only.py`, plain, `--self-test` (and `--superset` in Task 8) | ok |
+| `make proto` with `protoc-gen-go-grpc` v1.5.1 | Task 8: `agent_gateway_grpc.pb.go` byte-identical, `agent_gateway.pb.go` only `LogRetention` and the descriptor changed; final wave: both byte-identical |
+
+### The demo, as run
+
+`go-agent/RUNBOOK.md` "Logs", run on 2026-10-29 with the gateway on `18443` and the agent's admin listener on `19464`.
+The stand-in MI was `nginx:alpine` (nginx 1.31.8) serving a growing default-pattern file at `/actuator/logfile` with
+`Range`. Only the agent and `fake-gateway` ran: no DP, console or REST layer.
+
+There were two runs. The first typed the whole step 6 table. The second extracted the code blocks of steps 1 to 5, 7
+and 8 from the file and ran them unedited apart from the ports, then typed four step 6 rows again. Both stopped the
+processes with `kill`, not `Ctrl-C`.
+
+| Exercised | Observed |
+|---|---|
+| a page; a 20-line page | 5 lines, `file` stream, a `WARN` and its two `\tat` lines counted as three; 18 lines (a page ends on an entry boundary) |
+| a download at `max_batch_bytes` 4096 | `complete, 264 lines in 9 chunks`, each with its byte-offset `seq` |
+| resume from a `seq` | the lines after that chunk only |
+| `from-seq` beyond the file | a first chunk with `DROPPED_OLDEST`, the download from byte 0 |
+| refusals | `PLACEMENT_NOT_IN_LEASE`; `NOT_COLLECTING` for a `404`, a stopped container and an undeclared port; `CONTAINER_MISSING` for a removed container |
+| restart with a new host port | the agent followed it (the port is looked up per request) |
+| a missing `logs` role | `the session did not advertise logs` |
+| nothing stored | `ls bin/agent-data`: `apply identity reports session`, no `logs` |
+
+**Not exercised:**
+- a download whose file shrinks mid-way (`COLLECTION_PAUSED`);
+- the live poll with `after` (the console has no command for it);
+- the no-config-location and no-bind-mount refusals (read from the code only);
+- the `PLACEMENT_NOT_IN_LEASE` fix (not shown run);
+- the combined "Logs and config view" section (edited, not re-run);
+- a real Spring Boot MI.
+
+### Deviations and rulings
+
+| # | Ruling, one line |
+|---|---|
+| 1 | Task 1 Step 7's grep expects hits only in `SmDataBootstrapIT.java` (the `V054` pin message and the `to_regclass` assertion), not "no output". |
+| 2 | Task 5 also moves `internal/agent/loop_test.go`'s three logs-role tests to the new `newLogsRole`; `Retention` and its dispatch tests stay until Task 6, so every commit builds. |
+| 3 | The pre-session `RUNBOOK.md`/`CLAUDE.md` edits never enter Tasks 1 to 6; they were committed unchanged as `0d7a1c7` before Task 7. |
+| 4 | Execution order 2, 3, 4, 5, 6, 1, 7, 8, because Docker Desktop was off. |
+| 5 | The live poll's strict `after` (same-millisecond lines, out-of-order lines, the rest of an entry written after a poll) is spec-conformant: recorded as known limits, no code change. |
+| 6 | A page stops when full, held lines counted; held lines whose entry start was not read are dropped, unless the page would be empty. |
+| 7 | (amends 6) A full page also ends at a time boundary; the "otherwise empty" look-back is bounded and gives the entry its real time when it finds the start. |
+| 8 | (refines 7) The oldest time group is trimmed only when the entry left off shares that time or its time is not known. |
+| 9 | The look-back reach is `max(bytes the held lines span, one step)`, not the text budget. |
+| 10 | serve's page `trim` drops whole time groups, so no continuation line leaves without its entry. |
+| 11 | No code change for the mixed-version teardown (an old gateway's `LogRetention` drops the session); a deploy-order note instead (below). A lenient receive path for unknown gateway messages is a general wire-policy change, raised to the user, not built. |
+| 12 | The DP runbook's port-precedence wording and its `I1` citations were fixed in Task 7's fix round. |
+| 13 | (final review I-1) `Read` charges each line `len(text) + logfile.LineCost`; serve caps a page's `Limit` at `room / LineCost`. |
+
+Other deviations from the plan as written:
+- **Decision 5's "first read"** is built as "before the first chunk is sent". A failing skip-only follow-up read, or the
+  re-read from 0 after a replaced file, is also refused `NOT_COLLECTING`, which matches the decision's reason.
+- **Spec §8's data-dir test** is `TestExportEndToEndWithCreditsAndFinal`'s before/after snapshot of the data dir
+  (final wave, `404612c`), which spans two pages and a download. The import guard `TestLogsCodeCannotWriteToDisk`
+  (Task 6) is a second line of defence; it checks direct imports only.
+- **Read timeout** (Global Constraints table): the plan's "4 s per open, page and export read" could add up past the
+  DP's 5 s wait. The final wave made it one 4 s deadline shared by the open and the first reply (the page, or an
+  export's reads until its first chunk); later export reads keep 4 s each (`0d8fbba`).
+- **Export text budget:** Task 5 asked `Read` for about half of `max_batch_bytes`. With Ruling 13 it asks for the whole
+  room. Measured (scratch test, 10 MiB of `\n` at 4 MiB): 111 chunks, allocation 50.6 GB to 3.0 GB, 19.7 s to 1.3 s.
+  The range read is still `textBudget + 1` bytes, so a file of very short lines re-reads most of each 4 MiB range per
+  chunk: a transfer cost, not a memory one.
+- **Out-of-order paging:** the final wave fixed the trim comparisons (`105b79c`; file order 10, 12, 10, 20, 30 ms at
+  `Limit` 3 now loses nothing). Other out-of-order shapes can still repeat or skip an entry; `Page`'s doc keeps them
+  as an exception.
+- **Task 1:** the migration-count pin moved 44 to 45 (required by `V054`; not in the brief).
+- **Task 5:** three more `loop_test.go` tests changed, forced by the removed collector and store: one renamed, one
+  adapted, one deleted.
+
+### Deploy order (Ruling 11)
+
+The gateway and DP must not be older than an agent from this branch. Such an agent drops its control session when an
+older gateway sends the removed `LogRetention`, which it sends for a stored cap row at every session open. No API can
+write that row. Remedy: upgrade the gateway and DP, or delete the row. The DP runbook's "Deploy order" says so.
+
+### Reds that are not this plan's
+
+**Pre-existing:**
+- `TestIntegrationTelemetryOnlyRoleRefusesCommands` (plan 017: the advertised set gained `config-view`);
+- `TestIntegrationPlannedDrainFinishesInFlightCommandBeforeAnsweringAndThenReconnects`: red 3 of 3 at base `abbcffa`,
+  measured by the final reviewer; flaky on the branch (it passed in the final run);
+- `DataPlaneConfigurationTest.theAggregatorImportsEveryDataPlaneConfiguration`: plan 017 added `ConfigViewConfiguration`
+  to the aggregator, not to the test's expected set;
+- plan 017's listed Java reds: `InventoryPlacementOperationsTest` (two tests) and
+  `PrivateKeyInspectorTest.aSec1EcPemKeyIsRefusedBecauseTheTransportCouldNotOpenIt`. `SchemaMirrorLockTest` and
+  `ConnectionOrchestratorTest`, also on that list, did not fail here;
+- the `launcher` context (`sm_control` `V028`).
+
+**Environment:**
+- `run-checks.sh` step 12, anchor mode: 16 anchor commits are not in this clone. Base mode is ok, and step 18 is ok.
+- The host Python fails the preflight: `jsonschema` 4.10.3 < 4.25.1, no `referencing`, and `PyYAML` 6.0.1 < 6.0.3. A
+  scratch venv passes it.
+
+### `L26`: what has not run together
+
+No real gateway, DP and agent ran together, and no live Spring Boot MI was read. The agent ran against `fake-gateway`
+and against `http.ServeContent` or handlers built from §3's verified facts. The Java ran against in-process gateways.
+
+Remaining risks:
+- the strict `206`/`416` handling (exact `Content-Range`, the empty-file answers) against a real Spring MI;
+- the real gateway's limits: `max_message_bytes` 16 MiB and `max_batch_bytes` 4 MiB, exercised only in unit tests and
+  in the scratch measurement above;
+- the timeouts, unit-tested only.
+
+### Follow-ups
+
+- A byte-offset cursor for the live poll, so that `after` misses no same-millisecond or out-of-order line (a console/DP
+  contract change).
+- A run against a real Spring Boot MI and a real gateway and DP.
+- A lenient receive path for unknown gateway messages (general wire policy; today any unknown `GatewayToAgent` drops the
+  session).
+- The plan 017 reds above.
