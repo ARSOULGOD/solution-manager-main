@@ -46,8 +46,13 @@ type Opener func(ctx context.Context, placementRef string) (Source, msg.Unavaila
 // (design §7: no queue).
 const DefaultMaxConcurrent = 4
 
-// DefaultReadTimeout bounds each open, each page and each export read, so that a page is answered inside
-// the DP's 5 s wait (sm.dp.logs.agent-request-deadline).
+// DefaultReadTimeout is one deadline for a request's open and its first reply together: the page, or an
+// export's reads until its first chunk is sent (or it is refused). The DP's 5 s wait
+// (sm.dp.logs.agent-request-deadline, sm.dp.logs.export-start-timeout) also starts once, at its request, so with an
+// opener and a source that honour their context the first answer is ready within 4 s of admission, leaving the
+// wire and the gateway the rest. A wait for an export's first credit counts against it too (a logs session starts
+// with at least one initial credit, so there is normally none). Each later export read has a timeout of its own of
+// the same length.
 const DefaultReadTimeout = 4 * time.Second
 
 // defaultBudget stands in for a Limits value the session did not carry.
@@ -70,7 +75,8 @@ type Option func(*Server)
 // WithMaxConcurrent sets the in-flight bound (minimum 1).
 func WithMaxConcurrent(n int) Option { return func(s *Server) { s.maxConc = max(n, 1) } }
 
-// WithReadTimeout sets the bound on each open, page and export read; d <= 0 is ignored.
+// WithReadTimeout sets DefaultReadTimeout's bound: the open and first reply's deadline, and each later export
+// read's timeout; d <= 0 is ignored.
 func WithReadTimeout(d time.Duration) Option {
 	return func(s *Server) {
 		if d > 0 {
@@ -137,7 +143,7 @@ func New(open Opener, inLease func(placementRef string) bool, limits func() (max
 // malformed request or a request id already in flight is ignored and counted;
 // a placement outside the lease is refused PLACEMENT_NOT_IN_LEASE before
 // anything is looked up; over the in-flight bound is BUSY. Only then, on the
-// request's own goroutine and within the read timeout, is the placement's file
+// request's own goroutine and within the first reply's deadline, is the placement's file
 // opened, so an open never blocks Handle and BUSY comes before CONTAINER_MISSING
 // or NOT_COLLECTING. A refusal is always a LogPage, for an export too, since
 // LogChunk carries no reason. ctx ends the request (the session).
@@ -173,25 +179,26 @@ func (s *Server) Handle(ctx context.Context, req msg.LogRequest, out LogsSender)
 	go func() {
 		defer s.wg.Done()
 		defer s.finish(id, rq)
-		src, why := s.openSource(rctx, req.PlacementRef)
+		// One deadline for the open and the first reply: the DP waits for them as one.
+		first, cancelFirst := context.WithTimeout(rctx, s.timeout)
+		defer cancelFirst()
+		src, why := s.openSource(first, req.PlacementRef)
 		switch {
 		case rctx.Err() != nil:
 			return // cancelled, revoked or the session ended: nothing more is sent
 		case why != msg.UnavailableNone:
 			_ = out.Send(msg.LogPage{Envelope: s.env(), RequestID: id, Unavailable: why})
 		case req.Page != nil:
-			s.page(rctx, src, id, *req.Page, out)
+			s.page(rctx, first, src, id, *req.Page, out)
 		default:
-			s.export(rctx, rq, src, id, req.Export.FromSeq, out)
+			s.export(rctx, first, rq, src, id, req.Export.FromSeq, out)
 		}
 	}()
 }
 
-// openSource opens the placement's file within the read timeout. An opener that gives no source and no reason
-// is NOT_COLLECTING.
+// openSource opens the placement's file within ctx, the first reply's deadline. An opener that gives no source
+// and no reason is NOT_COLLECTING.
 func (s *Server) openSource(ctx context.Context, placementRef string) (Source, msg.UnavailableReason) {
-	ctx, cancel := context.WithTimeout(ctx, s.timeout)
-	defer cancel()
 	src, why := s.open(ctx, placementRef)
 	if why == msg.UnavailableNone && src == nil {
 		why = msg.UnavailableNotCollecting
@@ -336,14 +343,13 @@ func pageLimit(room int, limit uint32) uint32 {
 	return limit
 }
 
-func (s *Server) page(ctx context.Context, src Source, id string, q msg.LogPageQuery, out LogsSender) {
+// page answers a page request, reading within first, the deadline its open began; ctx ends the request.
+func (s *Server) page(ctx, first context.Context, src Source, id string, q msg.LogPageQuery, out LogsSender) {
 	limit, _ := s.budgets()
 	e := s.env()
 	room := limit - (headerOverhead + len(id) + len(e.MessageID))
 	q.Limit = pageLimit(room, q.Limit)
-	rctx, cancel := context.WithTimeout(ctx, s.timeout)
-	lines, err := src.Page(rctx, q, textBudget(room, q.Limit))
-	cancel()
+	lines, err := src.Page(first, q, textBudget(room, q.Limit))
 	if ctx.Err() != nil {
 		return // cancelled: the gateway no longer waits for this page
 	}
@@ -370,8 +376,9 @@ type exportPos struct {
 // first line's time (the lost range's times are unknown). The file shrinking below the snapshot, or a read
 // failing once a chunk is out, ends the export with a final chunk carrying a COLLECTION_PAUSED gap; a read
 // failing before that is refused NOT_COLLECTING, so that the DP answers with a status rather than with an
-// incomplete download.
-func (s *Server) export(ctx context.Context, rq *request, src Source, id string, seq uint64, out LogsSender) {
+// incomplete download. The reads for the first chunk share first, the deadline the open began; each later read
+// has the read timeout of its own. ctx ends the request.
+func (s *Server) export(ctx, first context.Context, rq *request, src Source, id string, seq uint64, out LogsSender) {
 	_, limit := s.budgets()
 	pos := exportPos{seq: seq}
 	var lastTS time.Time // of the newest line sent
@@ -382,8 +389,12 @@ func (s *Server) export(ctx context.Context, rq *request, src Source, id string,
 		}
 		e := s.env()
 		room := limit - (headerOverhead + len(id) + len(e.MessageID))
+		reads := ctx
+		if !sent {
+			reads = first
+		}
 		// Read charges each line its text plus the framing lineSize counts, so its lines fit room as they are.
-		ch, shrunk, err := s.advance(ctx, src, &pos, max(room, 1), lastTS)
+		ch, shrunk, err := s.advance(reads, src, &pos, max(room, 1), lastTS)
 		if ctx.Err() != nil {
 			return
 		}

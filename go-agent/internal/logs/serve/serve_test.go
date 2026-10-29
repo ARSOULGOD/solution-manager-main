@@ -511,7 +511,8 @@ func TestHandleDoesNotBlockOnOpen(t *testing.T) {
 		case <-ctx.Done():
 			return nil, msg.UnavailableNotCollecting
 		}
-	}, func(string) bool { return true }, func() (uint64, uint64) { return 1 << 20, 1 << 20 })
+	}, func(string) bool { return true }, func() (uint64, uint64) { return 1 << 20, 1 << 20 },
+		WithReadTimeout(time.Minute)) // the opens wait on release, never on the deadline
 	t.Cleanup(func() { srv.CancelAll(); srv.Wait() })
 	out := newSink()
 	for i := range DefaultMaxConcurrent {
@@ -582,6 +583,79 @@ func TestEachCallIsBoundedByTheReadTimeout(t *testing.T) {
 			}
 			out.none(t)
 		})
+	}
+}
+
+func TestOneDeadlineBoundsTheOpenAndTheFirstReply(t *testing.T) {
+	// The DP waits once, from its request, for a page or for an export's first answer: a slow open leaves the read
+	// after it only what is left of one read timeout, not a timeout of its own (scaled down: 3 s of 4 s).
+	const timeout, openTook = 400 * time.Millisecond, 300 * time.Millisecond
+	blocked := func(ctx context.Context) error {
+		<-ctx.Done()
+		return fmt.Errorf("%w: %w", logfile.ErrUnavailable, ctx.Err())
+	}
+	src := &fakeSource{
+		pageFn: func(ctx context.Context, _ msg.LogPageQuery, _ int) ([]msg.LogLine, error) { return nil, blocked(ctx) },
+		readFn: func(ctx context.Context, _ int, _ readCall) (logfile.Chunk, error) {
+			return logfile.Chunk{}, blocked(ctx)
+		},
+	}
+	slowOpen := func(ctx context.Context, _ string) (Source, msg.UnavailableReason) {
+		select {
+		case <-time.After(openTook):
+			return src, msg.UnavailableNone
+		case <-ctx.Done():
+			return nil, msg.UnavailableNotCollecting
+		}
+	}
+	for _, req := range []msg.LogRequest{pageReq("r-page", 10), exportReq("r-export", 0)} {
+		t.Run(req.RequestID, func(t *testing.T) {
+			srv := New(slowOpen, func(string) bool { return true }, func() (uint64, uint64) { return 1 << 20, 1 << 20 },
+				WithReadTimeout(timeout), WithInitialCredits(func() uint32 { return 1 }))
+			t.Cleanup(func() { srv.CancelAll(); srv.Wait() })
+			out := newSink()
+			start := time.Now()
+			srv.Handle(context.Background(), req, out)
+			p := page(t, out)
+			d := time.Since(start)
+			if p.RequestID != req.RequestID || p.Unavailable != msg.UnavailableNotCollecting {
+				t.Fatalf("%+v", p)
+			}
+			// One deadline ends it at about 400ms; an open and a read timed apart would take 700ms.
+			if d > timeout+150*time.Millisecond {
+				t.Fatalf("answered after %v: the open and the read each had the %v read timeout", d, timeout)
+			}
+			out.none(t)
+		})
+	}
+}
+
+func TestLaterExportReadsHaveATimeoutOfTheirOwn(t *testing.T) {
+	const timeout, openTook = 400 * time.Millisecond, 300 * time.Millisecond
+	f := newMemFile(3, 99)   // 300 bytes; a max_batch_bytes of 300 is one line a chunk
+	var left [2]atomic.Int64 // the time left on each of the first two reads' deadlines, as they began
+	src := &fakeSource{readFn: func(ctx context.Context, n int, c readCall) (logfile.Chunk, error) {
+		if dl, ok := ctx.Deadline(); ok && n < len(left) {
+			left[n].Store(int64(time.Until(dl)))
+		}
+		return f.read(ctx, n, c)
+	}}
+	srv := New(func(context.Context, string) (Source, msg.UnavailableReason) {
+		time.Sleep(openTook)
+		return src, msg.UnavailableNone
+	}, func(string) bool { return true }, func() (uint64, uint64) { return 1 << 20, 300 },
+		WithReadTimeout(timeout), WithInitialCredits(func() uint32 { return 1 }))
+	t.Cleanup(func() { srv.CancelAll(); srv.Wait() })
+	out := newSink()
+	srv.Handle(context.Background(), exportReq("e1", 0), out)
+	chunk(t, out)
+	srv.Credit("e1", 1)
+	chunk(t, out)
+	if first := time.Duration(left[0].Load()); first <= 0 || first > timeout-openTook+50*time.Millisecond {
+		t.Fatalf("the first read had %v left; want what the open left of %v", first, timeout)
+	}
+	if later := time.Duration(left[1].Load()); later < timeout-50*time.Millisecond {
+		t.Fatalf("a later read had %v left; want a %v timeout of its own", later, timeout)
 	}
 }
 
