@@ -50,11 +50,11 @@ func TestCapLogsMapsToWire(t *testing.T) {
 
 func logFixtures() ([]msg.LogLine, []msg.LogGap) {
 	return []msg.LogLine{
-		{TS: now, Stream: "stdout", Text: []byte("hello\n")},
-		{TS: now.Add(time.Second), Stream: "stderr", Text: []byte{0xff, 0x00, 'x'}, Truncated: true},
-	}, []msg.LogGap{
-		{From: now.Add(-time.Minute), To: now, Reason: "DROPPED_OLDEST"},
-	}
+			{TS: now, Stream: "stdout", Text: []byte("hello\n")},
+			{TS: now.Add(time.Second), Stream: "stderr", Text: []byte{0xff, 0x00, 'x'}, Truncated: true},
+		}, []msg.LogGap{
+			{From: now.Add(-time.Minute), To: now, Reason: "DROPPED_OLDEST"},
+		}
 }
 
 func TestLogPageEncodeKeepsGapsAndUnavailable(t *testing.T) {
