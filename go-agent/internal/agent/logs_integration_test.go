@@ -5,13 +5,16 @@ package agent
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/solace/solution-manager/go-agent/internal/authority"
 	"github.com/solace/solution-manager/go-agent/internal/fakegw"
 	"github.com/solace/solution-manager/go-agent/internal/logs/logfile"
 	"github.com/solace/solution-manager/go-agent/internal/msg"
@@ -217,11 +220,48 @@ func TestLogsPageBackWithBefore(t *testing.T) {
 	sameLines(t, "the page before it", texts(older.Lines), miLines(10, 15))
 }
 
+// dataDirPaths is every path under dir, relative to it.
+func dataDirPaths(t *testing.T, dir string) map[string]bool {
+	t.Helper()
+	paths := map[string]bool{}
+	err := filepath.WalkDir(dir, func(p string, _ fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(dir, p)
+		paths[rel] = true
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return paths
+}
+
 func TestExportEndToEndWithCreditsAndFinal(t *testing.T) {
 	mi := newLogfileServer(t, miLines(0, 60)...)
 	snapshot := mi.size()
 	gw := startGateway(t, creditOnRequest())
-	startLogsAgent(t, gw, mi, logsOnly)
+	h, _ := startLogsAgent(t, gw, mi, logsOnly)
+	// Design §8: after pages and a download, nothing new exists under <data-dir>. The snapshot is taken once the
+	// agent's own records are on disk. The lease is written just after the reducer accepts it (effects run after the
+	// state swap), so the test waits for its file, not only for the phase.
+	waitAuthority(t, h.loop, authority.PhaseActive, 10*time.Second)
+	lease := filepath.Join(h.dir, "session", "lease.json")
+	for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(10 * time.Millisecond) {
+		if _, err := os.Stat(lease); err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the agent never wrote its lease record")
+		}
+	}
+	before := dataDirPaths(t, h.dir)
+
+	newest := askPage(t, gw, "req-page", msg.LogPageQuery{Limit: 5})
+	sameLines(t, "page", texts(newest.Lines), miLines(55, 60))
+	older := askPage(t, gw, "req-page-back", msg.LogPageQuery{Limit: 5, Before: &newest.Lines[0].TS})
+	sameLines(t, "the page before it", texts(older.Lines), miLines(50, 55))
 
 	requestLogs(t, gw, msg.LogRequest{RequestID: "req-exp", Export: &msg.LogExportQuery{}})
 	first := waitChunks(t, gw, "req-exp", 1)[0]
@@ -246,6 +286,17 @@ func TestExportEndToEndWithCreditsAndFinal(t *testing.T) {
 	sameLines(t, "export", chunkTexts(cs), miLines(0, 60))
 	if last := cs[len(cs)-1].Seq; last != snapshot {
 		t.Fatalf("final seq %d, want the snapshot's size %d", last, snapshot)
+	}
+
+	var added []string
+	for p := range dataDirPaths(t, h.dir) {
+		if !before[p] {
+			added = append(added, p)
+		}
+	}
+	if len(added) > 0 {
+		slices.Sort(added)
+		t.Fatalf("the pages and the download left new paths under the data dir: %v", added)
 	}
 }
 
