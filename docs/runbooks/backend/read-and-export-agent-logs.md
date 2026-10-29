@@ -30,8 +30,8 @@ The agent fetches `/actuator/logfile` from the MI itself, so the MI must serve i
 | The MI writes a log file | `logging.file.name` or `logging.file.path` is set. Otherwise `/actuator/logfile` answers `404`. |
 | `logfile` is exposed over HTTP | `logfile` is in `management.endpoints.web.exposure.include`; only `health` is exposed by default. |
 | The actuator is at `/actuator` | No moved base path, path mapping or context path (`management.endpoints.web.base-path`, `management.endpoints.web.path-mapping.logfile`, `server.servlet.context-path`, `management.server.base-path`). The path `/actuator/logfile` is fixed. |
-| The port is declared | In the container's exec-form args `--server.port=` / `--management.server.port=`, or its env `SERVER_PORT` / `MANAGEMENT_SERVER_PORT`; the management port is used when it is declared (`--management.server.port=`, else `MANAGEMENT_SERVER_PORT`); otherwise `--server.port=`, else `SERVER_PORT`; with none declared the agent uses `8080`. An argument beats the env only within the same pair: `--server.port=` does not beat `MANAGEMENT_SERVER_PORT`. **Not read:** a JVM `-Dserver.port=`, `JAVA_TOOL_OPTIONS`/`JAVA_OPTS`, a shell-form `CMD`; the agent then uses the env value or `8080`. **Refused:** a declared value that is empty or not 1-65535 (a `${PORT}` placeholder, `0`, `-1`) is `NOT_COLLECTING`. |
-| The port is published | The actuator's container port is published to the host, as telemetry scraping needs (`ScrapeAddr`). |
+| The port is declared | In the container's exec-form args `--server.port=` / `--management.server.port=`, or its env `SERVER_PORT` / `MANAGEMENT_SERVER_PORT`; the management port is used when it is declared (`--management.server.port=`, else `MANAGEMENT_SERVER_PORT`); otherwise `--server.port=`, else `SERVER_PORT`; with none declared the agent uses `8080`. An argument beats the env only within the same pair: `--server.port=` does not beat `MANAGEMENT_SERVER_PORT`. **Not read:** a JVM `-Dserver.port=`, `JAVA_TOOL_OPTIONS`/`JAVA_OPTS`, a shell-form `CMD`, and a port set only in the MI's `application.yml` (packaged in the image, or written by SM); the agent then uses the env value or `8080`. **Refused:** a declared value that is empty or not 1-65535 (a `${PORT}` placeholder, `0`, `-1`) is `NOT_COLLECTING`. |
+| The port is reachable | The agent finds the address as telemetry scraping does (`ScrapeAddr`): the host port Docker published for the actuator's container port, else the container's IP on its first network (by name) at that port, which the agent must then be able to reach. |
 | The actuator has no authentication | The agent sends no credentials; a `401` or `403` is `NOT_COLLECTING`. |
 | The log pattern is Spring Boot's default | Each entry starts with the default timestamp. Another pattern still flows, but see [Known limits](#known-limits). |
 | Downloads cover the current file only | Rotated archives are never served; files rotate at 10 MB by default, so a download is at most about that. |
@@ -40,7 +40,7 @@ The placement's container is also resolved as `apply` resolves it (`AG-D20`): th
 
 ## Deploy order
 
-The gateway and DP must not be older than an agent from this change: such an agent drops its control session if an older gateway sends the removed cap message. That can happen only for a placement with a stored cap row; no API can write one, so in practice only a hand-inserted row (`V054` drops the table).
+The gateway and DP must not be older than an agent from this change: such an agent drops its control session if an older gateway sends the removed cap message. That can happen only for a placement with a stored cap row; no API can write one, so in practice only a hand-inserted row (`V054` drops the table). The older gateway sends the stored cap again at every session open, so the agent re-dials and drops each time until the gateway is upgraded. Remedy: upgrade the gateway and DP, or delete the placement's row from `sm_data.placement_log_retention`.
 
 ## Properties
 
@@ -88,7 +88,7 @@ the gateway writes the marker and then **aborts the connection without the chunk
 transfer.
 
 **Resume:** call again with `fromSeq=<n>` from the marker. It may repeat up to one chunk of lines already written and never loses
-one. `fromSeq` is a byte offset in the MI's current log file; one beyond its size means the file was replaced, so the download starts at byte 0 with a `DROPPED_OLDEST` gap first. A line the agent cut ends with
+one. `fromSeq` is a byte offset in the MI's current log file; one beyond its size means the file was replaced, so the download starts at byte 0 with a `DROPPED_OLDEST` gap first. A resume point inside a stack trace gives the trace's remaining continuation lines the time of the next entry after them (or, with none in that read, the fetch time), not their own entry's: the entry start is before the resume point (plan 018 Decision 3). A `fromSeq` inside a line behaves the same, since the agent skips to the next line start. A line the agent cut ends with
 `[line truncated]`.
 
 ## `readLogs` on an agent placement
@@ -118,6 +118,7 @@ heap for it, or lower `export-max-concurrent` / `agent-max-concurrent-reads`.
 - **Live poll and multi-line entries.** Continuation lines carry their entry's time, so the rest of an entry written after a poll is not shown.
 - **Short pages.** A page can return fewer than `limit` lines, because it ends on an entry and time boundary so that paging back with `before` loses nothing.
 - **Oversize entries.** One entry larger than a page shows only its newest part.
+- **Paging back within one millisecond.** When one millisecond holds more lines than one page carries (`limit`, or the page's size), the page shows the newest of them, and paging back with `before` = that time skips the rest.
 - **Paging back can stop.** A page ending inside an entry whose start lies beyond the page's look-back reach takes the fetch time, and paging back stops there.
 - **Non-default log pattern.** Every line takes the fetch time, and the live poll repeats lines (design §9).
 

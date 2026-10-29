@@ -114,7 +114,8 @@ Checked on 2026-10-28 against Spring Boot's documentation and, for the cache eng
   - Known limit: a `from_seq` that is inside a replaced file's size cannot be told apart from a valid one. The agent skips to the
     next line start, so the resumed download may silently mix two files (§9).
   - Gap times *(builder's call, settled here)*: a `DROPPED_OLDEST` gap's `from` and `to` are both the first line's `ts`, because
-    the lost range's times are unknown. A `COLLECTION_PAUSED` gap's are the last sent line's `ts`.
+    the lost range's times are unknown. A `COLLECTION_PAUSED` gap runs from the last sent line's `ts` (the send time, if none
+    was sent) to the time the final chunk is sent (plan 018 Decision 6).
 
 ### 4.5 Refusals and errors
 
@@ -251,4 +252,6 @@ Checked on 2026-10-28 against Spring Boot's documentation and, for the cache eng
     - continuation lines carry their entry's time, so the rest of an entry written after a poll is not shown;
     - a page can return fewer than `limit` lines, because it ends on an entry and time boundary so that paging back with `before` loses nothing;
     - one entry larger than a page shows only its newest part;
-    - a page ending inside an entry whose start lies beyond the page's look-back reach takes the fetch time, and paging back stops there.
+    - a page ending inside an entry whose start lies beyond the page's look-back reach takes the fetch time, and paging back stops there;
+    - a resume point inside a stack trace, or inside a line, gives the trace's remaining continuation lines the next entry's time, not their own entry's (plan 018 Decision 3);
+    - paging back with `before` skips lines when one millisecond holds more lines than a page carries: the page shows the newest of them.

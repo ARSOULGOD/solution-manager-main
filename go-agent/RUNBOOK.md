@@ -353,9 +353,13 @@ from the code, not reproduced). The port comes from the container's own launch s
 
 Arguments are the container's entrypoint and command in exec form. A JVM `-Dserver.port=`, `JAVA_TOOL_OPTIONS`/`JAVA_OPTS`
 and a shell-form `CMD` are **not read**. A declared value that is empty or not 1-65535 is refused (`NOT_COLLECTING`), never
-replaced by a later one. The port goes through the same host mapping as telemetry scraping (`ScrapeAddr`), so the container
-must **publish** it (`-p 127.0.0.1::<port>`). No proxy, no redirects, no credentials, a 4 s timeout on every call. The MI
-facts behind this (`logfile` must be exposed, `Range`, and `404` for a missing log file) are verified in the design's §3.
+replaced by a later one. A port set only in the MI's `application.yml` (packaged in the image, or written by SM) is not read
+either, so with none in the arguments or env the agent uses `8080`. The port then goes through the same address lookup as
+telemetry scraping (`ScrapeAddr`): the host port Docker published for it (`-p 127.0.0.1::<port>`), else the container's IP on
+its first network (by name) at that port, which the agent must then be able to reach. No proxy, no redirects, no
+credentials, and one 4 s deadline for finding the container and the first answer (each later download read has its own).
+The MI facts behind this (`logfile` must be exposed, `Range`, and `404` for a missing log file) are verified in the design's
+§3.
 
 **A page** (`logs`). The agent reads the end of the file in ranged steps and replies with one `LogPage`: the newest lines,
 oldest first. `stream` is `file`. A line's time is its entry's time in UTC; the continuation lines of a stack trace take
@@ -397,7 +401,9 @@ into an error string; a refusal carries an enum reason only.
 **Status: executed 2026-10-29**, steps 1 to 8 as written, by piping the step 6 commands into the gateway. Ports: the gateway
 listened on `18443` (`--listen`, and the agent's `--connect-endpoint`) and the agent's admin listener on `19464`
 (`--admin-addr`), in place of `8443` and the default `9464` below. The code blocks of steps 1 to 5, 7 and 8 were then
-extracted from this file and run unedited apart from those ports. The stand-in is `nginx:alpine` (nginx 1.31.8 the day it was
+extracted from this file and run unedited apart from those ports; in that second run only four step 6 rows were typed again
+(`logs logs-1 5`, `logs nolog-1`, `logs nope`, `export logs-1`), the whole table having been typed in the first. Both runs
+stopped the agent and the gateway with `kill`, not `Ctrl-C`. The stand-in is `nginx:alpine` (nginx 1.31.8 the day it was
 pulled). Agent and fake gateway only; no DP, console or REST layer. The commands are also unit-tested against a scripted
 agent (`internal/fakegw/console_logs_test.go`).
 
@@ -459,7 +465,7 @@ Every command below runs from `go-agent/`, in three terminals: **T1** the gatewa
      nginx:alpine
    ```
 
-   Check both endpoints yourself, as the agent will (busybox `date` has no milliseconds, so the stamps end in `.000Z`):
+   Check both endpoints yourself, as the agent will:
 
    ```bash
    P=$(docker port logs-demo 80/tcp | head -1 | sed 's/.*://')                    # the host port Docker picked
@@ -506,12 +512,12 @@ Every command below runs from `go-agent/`, in three terminals: **T1** the gatewa
    | `logs logs-1` | the newest 20 lines, or a few fewer (observed 18): a page ends on an entry boundary, see the DP runbook's [Known limits](../docs/runbooks/backend/read-and-export-agent-logs.md#known-limits) |
    | `export logs-1` | the file as it was when the download began, in chunks of up to 4096 bytes (about 31 lines), each with its `seq`, then `complete, N lines in M chunks`. Observed: `seq=2007` … `seq=15930`, a final `seq=16966` with 16 lines, `complete, 264 lines in 9 chunks` |
    | `export logs-1 <seq>`, with a `seq` from the line above | the lines after that chunk only. Observed with `15930`: the first chunk (`seq=17940`, 30 lines) began at `request 156` |
-   | `export logs-1 99999999` | a `from-seq` beyond the file: the first chunk carries `gap DROPPED_OLDEST from 00:48:00 to 00:48:00` and the download starts at byte 0. Observed: `complete, 290 lines in 10 chunks` |
+   | `export logs-1 99999999` | a `from-seq` beyond the file: the first chunk carries a `gap DROPPED_OLDEST` whose `from` and `to` are both its first line's time (e.g. `from 00:48:00 to 00:48:00`), and the download starts at byte 0. Observed: `complete, 290 lines in 10 chunks` |
    | `logs nope` | `unavailable: PLACEMENT_NOT_IN_LEASE` |
    | `logs nolog-1` | `unavailable: NOT_COLLECTING`: the container is there and answers, but `/actuator/logfile` is `404` |
    | `docker stop logs-demo` (T3), then `logs logs-1 3` | `unavailable: NOT_COLLECTING` |
    | `docker start logs-demo` (T3), wait 3 s, then `logs logs-1 3` | lines again. Docker picked a new host port (`33787`, then `42583`) and the agent followed, because it looks the port up on every request. The stand-in's counter restarts at `request 1` |
-   | `docker rm -f logs-demo` (T3), then `logs logs-1 3` | `unavailable: CONTAINER_MISSING`. Run step 2's `docker run … logs-demo` again, wait 5 s: lines return, from the new, empty file |
+   | `docker rm -f logs-demo` (T3), then `logs logs-1 3` | `unavailable: CONTAINER_MISSING`. Recreate it with step 2's command, `docker run -d --name logs-demo --label com.solace.sm.binding-id=logs-1 -e SERVER_PORT=80 -p 127.0.0.1::80 -e SPRING_CONFIG_ADDITIONAL_LOCATION=file:/etc/app/ -v ~/sm-logs-demo:/etc/app nginx:alpine sh /etc/app/mi.sh`, wait 5 s, and `logs logs-1 3`: lines return, from the new, empty file |
 
 7. **T3: nothing is stored.** After the pages and downloads above, the agent's data dir holds only its identity, journal and
    session; there is no `logs` directory.
@@ -529,14 +535,14 @@ Every command below runs from `go-agent/`, in three terminals: **T1** the gatewa
 
 ### Logs: if it goes wrong
 
-Every symptom was reproduced on 2026-10-29 (ports `18443`/`19464`, against the containers of step 2), and the fix was run for every row but the `404` one, whose fix is configuration of a real MI that the stand-in does not have.
+Every symptom was reproduced on 2026-10-29 (ports `18443`/`19464`, against the containers of step 2). The fix was run for the missing `logs` role, the undeclared port and the missing container. The `PLACEMENT_NOT_IN_LEASE` fix (redo steps 3 to 5) was not shown run, and the `404` row's fix is configuration of a real MI, which the stand-in does not have.
 
 | Symptom | Cause | Fix |
 |---|---|---|
 | `logs` or `export` prints `fakegw: the session did not advertise logs`. | The agent was started without `logs` in `--roles`, so its session never advertised `CAPABILITY_LOGS`. | `Ctrl-C` the agent and start it again with `--roles control,logs`, **without** the `rm -rf`: the gateway is still the same one (fact 3). The next `logs` returns lines. |
 | `logs logs-1` prints `unavailable: PLACEMENT_NOT_IN_LEASE`. | The gateway was started without `--scenario bin/logs-lease.yaml`; the built-in lease grants only `binding-1`. | `Ctrl-C` both and redo steps 3 to 5: the gateway with the scenario, then the agent from an empty data dir, `rm -rf` included (fact 3). |
-| `logs nolog-1` (or any placement whose container is running) prints `unavailable: NOT_COLLECTING`, and `curl -si http://127.0.0.1:<port>/actuator/logfile \| head -1` prints `HTTP/1.1 404 Not Found`. | The MI has no log file to serve: no `logging.file.name`/`logging.file.path`, or the file is unreadable, which the design's §3 verifies answers `404`. `nolog-1` is plain nginx and stands in for that case only. The agent maps `401`, `403` and `404` to `NOT_COLLECTING`, and refuses any answer other than `206`/`416`, or an empty `200`, the same way. | Not an agent fault: the MI's logging and exposure settings are its own, and SM writing them is not in scope (design §9). Set them as the DP runbook's [MI preconditions](../docs/runbooks/backend/read-and-export-agent-logs.md#mi-preconditions) say, restart the MI, and check `curl -si -r -200 http://127.0.0.1:<port>/actuator/logfile \| head -1` prints `HTTP/1.1 206 Partial Content`. |
-| `logs logs-1` prints `unavailable: NOT_COLLECTING`, and the same `curl` against the port the MI serves on answers. | The container declares no `SERVER_PORT` (or `--server.port=`) for the port it serves on, so the agent tried `8080`, which is not published. Reproduced by recreating `logs-demo` without `-e SERVER_PORT=80`. A stopped container gives the same answer. | Declare the port in the container's exec-form args or env, publish it (`-p 127.0.0.1::<port>`), and recreate the container; `docker start` a stopped one. |
+| `logs nolog-1` (or any placement whose container is running) prints `unavailable: NOT_COLLECTING`, and `curl -si http://127.0.0.1:<port>/actuator/logfile \| head -1` prints `HTTP/1.1 404 Not Found`. | The MI has no log file to serve: no `logging.file.name`/`logging.file.path`, or the file is unreadable, which the design's §3 verifies answers `404`. `nolog-1` is plain nginx and stands in for that case only. The agent maps `401`, `403` and `404` to `NOT_COLLECTING`, and refuses any answer other than `206`, `416` or an empty `200` the same way. | Not an agent fault: the MI's logging and exposure settings are its own, and SM writing them is not in scope (design §9). Set them as the DP runbook's [MI preconditions](../docs/runbooks/backend/read-and-export-agent-logs.md#mi-preconditions) say, restart the MI, and check `curl -si -r -200 http://127.0.0.1:<port>/actuator/logfile \| head -1` prints `HTTP/1.1 206 Partial Content`. |
+| `logs logs-1` prints `unavailable: NOT_COLLECTING` although `logs-demo` is running. | The container declares no `SERVER_PORT` (or `--server.port=`) for the port it serves on, so the agent read port `8080`, where the container serves nothing. To reproduce: `docker rm -f logs-demo`, then `docker run -d --name logs-demo --label com.solace.sm.binding-id=logs-1 -p 127.0.0.1::80 -e SPRING_CONFIG_ADDITIONAL_LOCATION=file:/etc/app/ -v ~/sm-logs-demo:/etc/app nginx:alpine sh /etc/app/mi.sh` (step 2's command without `-e SERVER_PORT=80`), and `logs logs-1 3`. A stopped container gives the same answer. | Declare the port in the container's exec-form args or env and recreate the container (step 2's command as written); `docker start` a stopped one. The next `logs` returns lines. |
 | `logs logs-1` prints `unavailable: CONTAINER_MISSING`. | No container carries `com.solace.sm.binding-id=logs-1` (it was removed, or never created). | Create it (step 2). The next `logs` returns lines, with no agent restart. |
 
 ## Config view
@@ -700,6 +706,7 @@ To show both without restarting anything between them, grant both bindings in on
    ```bash
    cat > bin/both-lease.yaml <<'EOF'
    lease: {target_id: target-1, binding_ids: [logs-1, nolog-1, cfgview-1], capabilities: [apply-config, lifecycle], duration: 1h}
+   limits: {max_batch_bytes: 4096}
    EOF
    ```
 
