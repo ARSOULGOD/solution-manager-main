@@ -29,7 +29,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * {@link LogExportService} over a {@code host-local} agent's collected log (plan 016 task 10, spec 4.1 and 5).
+ * {@link LogExportService} over the MI log file a {@code host-local} agent reads on demand from {@code /actuator/logfile}
+ * (plan 016 task 10, spec 4.1 and 5; plan 018).
  *
  * <ul>
  *   <li><b>Tenant-bound (I5).</b> The placement is resolved exactly as {@link AgentLogService} resolves it (live row for
@@ -342,8 +343,8 @@ public final class AgentLogExportService implements LogExportService {
             }
             resumeSeq = chunk.resumeSeq();
             if (chunk.last()) {
-                // The agent ends a failed read with a final chunk of no lines and one COLLECTION_PAUSED gap (what it sends when the
-                // rest of the log could not be read); lines after the failure may still be on its disk, so this is not "complete".
+                // The agent ends an export whose file could not be read on, or shrank under it, with a final chunk of no
+                // lines whose last gap is COLLECTION_PAUSED; the rest of the log was not read, so this is not "complete".
                 boolean readError = chunk.lines().isEmpty() && !gaps.isEmpty()
                         && "COLLECTION_PAUSED".equals(gaps.get(gaps.size() - 1).reason());
                 tail = readError ? marker(READ_ERROR_MARKER, resumeSeq) : gapsSeen ? marker(COMPLETE_WITH_GAPS) : "";

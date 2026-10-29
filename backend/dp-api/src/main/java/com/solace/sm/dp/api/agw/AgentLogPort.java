@@ -30,9 +30,12 @@ public interface AgentLogPort {
             Instant before, Duration deadline);
 
     /**
-     * Starts an export from {@code fromSeq} (0 or older than the ring starts at the oldest retained line), bounded by
-     * {@code deadline} and by {@code maxBytes} of line text in total. An export is not a snapshot: it follows the live ring
-     * until it catches up. A refusal shows as the handle's state, not as an exception.
+     * Starts an export from {@code fromSeq}, a byte offset in the MI's current log file (0 is its start), bounded by
+     * {@code deadline} and by {@code maxBytes} of line text in total. An export is a snapshot of the current file: it ends at
+     * the size the agent's first read reports, however the file grows after. Each chunk's resume point is the byte offset just
+     * past its last line; a {@code fromSeq} beyond the file's size means the file was replaced, and the export starts again
+     * at 0 behind a {@code DROPPED_OLDEST} gap (plan 018, spec 4.4). A refusal shows as the handle's state, not as an
+     * exception.
      */
     LogExportHandle openExport(AgentSessionRef ref, UUID placementId, long fromSeq, Duration deadline, long maxBytes);
 }

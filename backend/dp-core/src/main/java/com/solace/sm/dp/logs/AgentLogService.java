@@ -28,8 +28,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * {@link LogService} over a {@code host-local} agent's collected log (plan 016 task 8, spec 4.1). The page is asked of the
- * gateway's {@link AgentLogPort}; no host is reached by the data plane.
+ * {@link LogService} over the MI log file a {@code host-local} agent reads on demand from {@code /actuator/logfile} (plan 016
+ * task 8, spec 4.1; plan 018). The page is asked of the gateway's {@link AgentLogPort}; no host is reached by the data plane.
  *
  * <ul>
  *   <li><b>Tenant-bound (I5).</b> The placement is resolved from the DP's own tables by {@code (organization, instance,
@@ -141,7 +141,7 @@ public final class AgentLogService implements LogService {
         }
     }
 
-    /** The page the caller sees: the bounded lines, plus (agent only) the holes in the collected log and whether a line was cut. */
+    /** The page the caller sees: the bounded lines, plus (agent only) any gaps on the agent's page and whether a line was cut. */
     private static LogPageView view(AgentLogPage page, int limit, Instant after, Instant before) {
         List<LogLineView> lines = bounded(page.lines(), limit, after, before);
         Instant first = lines.isEmpty() ? null : lines.get(0).at();

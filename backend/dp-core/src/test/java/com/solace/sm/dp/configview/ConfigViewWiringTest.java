@@ -10,6 +10,7 @@ import com.solace.sm.dp.api.agw.AgentConfigView;
 import com.solace.sm.dp.api.agw.AgentConfigViewPort;
 import com.solace.sm.dp.api.configview.ConfigViewResult;
 import com.solace.sm.dp.api.configview.ConfigViewService;
+import com.solace.sm.dp.api.logs.LogExportService;
 import com.solace.sm.dp.apply.runtime.PlacementTransports;
 import com.solace.sm.dp.apply.runtime.agent.AgentPlacementCatalog;
 import com.solace.sm.dp.inventory.PlacementRows;
@@ -22,11 +23,15 @@ import org.springframework.context.annotation.AnnotatedBeanDefinitionReader;
 import org.springframework.context.annotation.ConfigurationClassPostProcessor;
 import org.springframework.context.support.GenericApplicationContext;
 
-/** Plan 017 task 5: the config view is wired exactly once through the aggregator, and its properties reach the port. */
+/**
+ * Plan 017 task 5: the config view is wired exactly once through the aggregator, and its properties reach the port. Plan 018
+ * also keeps here the one assertion of the deleted {@code DataPlaneLogRetentionWiringTest} that outlived the log cap: the log
+ * export service is wired exactly once.
+ */
 class ConfigViewWiringTest {
 
-    @Test
-    void theAggregatorRegistersExactlyOneConfigViewServiceWithoutAnOverride() {
+    /** The aggregator's bean DEFINITIONS (no bean is created), registered with overriding off, as under SpringApplication. */
+    private static GenericApplicationContext aggregatorDefinitions() {
         GenericApplicationContext context = new GenericApplicationContext();
         context.setAllowBeanDefinitionOverriding(false);
         new AnnotatedBeanDefinitionReader(context).register(DataPlaneConfiguration.class);
@@ -34,11 +39,21 @@ class ConfigViewWiringTest {
         processor.setEnvironment(context.getEnvironment());
         processor.setResourceLoader(context);
         assertDoesNotThrow(() -> processor.postProcessBeanDefinitionRegistry(context));
+        return context;
+    }
 
-        var factory = context.getBeanFactory();
+    @Test
+    void theAggregatorRegistersExactlyOneConfigViewServiceWithoutAnOverride() {
+        var factory = aggregatorDefinitions().getBeanFactory();
         assertEquals(1, factory.getBeanNamesForType(ConfigViewService.class, true, false).length);
         assertEquals(1, factory.getBeanNamesForType(AgentConfigViewService.class, true, false).length);
         assertEquals(1, factory.getBeanNamesForType(ConfigViewConfiguration.class, true, false).length);
+    }
+
+    @Test
+    void theAggregatorRegistersExactlyOneLogExportServiceWithoutAnOverride() {
+        assertEquals(1, aggregatorDefinitions().getBeanFactory().getBeanNamesForType(LogExportService.class, true, false).length,
+                "the export service is wired exactly once (plan 016 T10)");
     }
 
     /** Records what the gateway port was asked. */
