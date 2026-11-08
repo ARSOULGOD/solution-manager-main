@@ -42,6 +42,10 @@ python3 scripts/render_config.py render --package <out-dir>/package.json --role 
   `server.ssl.enabled: true` points at a key store on someone's laptop.
 - Secrets become `${SM_SECRET_<PATH>}` placeholders, which the MI resolves from its environment at start. A secret in
   `--values` is refused. `deploy_ssh.sh` refuses a config that holds a literal value for any secret-named key.
+- Pass `--profile` so the profile's preserved, non-YAML components (File Mesh's optional `cache`) are left out. Pass
+  `--components a,b,…` to render exactly an instance's component selection instead.
+- Pass `--secret-env` only for the secrets this instance actually uses. `apply` refuses a named secret that is
+  unset in the user's shell, and a feature that is switched off (SFTP, FTP, TLS) shouldn't force one.
 
 ## 3.2 Dry run (the default)
 

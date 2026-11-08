@@ -414,7 +414,7 @@ class Run:
         if self.args.provenance == "dev-mode":
             self.pkg["provenance"] = {"author": "dev-mode"}
             self.notes.append("provenance set to dev-mode (unsigned) at the user's request")
-        elif prov.get("signature") and self.touched:
+        elif prov.get("signature") and churn:
             self.questions.append("provenance carries a signature over content this run changed, so it no longer "
                                   "covers the package. Keep it as-is, or re-run with --provenance dev-mode?")
         if (self.profile.get("defaults") or {}).get("role_components", "yaml") == "yaml" and \

@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: ui-stage-file-mesh
+expected_outcome: |
+  The skill runs Stage 2: the generated contract test (reporting pinned known defects), the headless browser check for both roles with screenshots, and the YAML round-trip per role. It reports the instances page / version selector as BLOCKED by the console's own dev-fixture defect rather than as passed, changes no UI code, and stops at the Stage 2 gate without starting an SSH deploy.
+context:
+  scaffold_script: place-files.sh

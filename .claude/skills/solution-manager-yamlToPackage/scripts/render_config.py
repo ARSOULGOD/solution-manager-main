@@ -37,23 +37,28 @@ def secret_placeholder(key):
     return "${SM_SECRET_" + re.sub(r"[^A-Za-z0-9]+", "_", key).strip("_").upper() + "}"
 
 
-def members(pkg, role, version):
+def members(pkg, role, version, only=None, skip=()):
+    """Components a `role` instance renders at `version`: its role component(s) and the shared ones.
+    `only` (an explicit instance component selection) wins; otherwise `skip` drops components that no YAML
+    feeds (the profile's preserved ones, such as an optional env-style component)."""
     pv = pkg["packageVersion"]
     out = []
     for c in pkg["components"]:
         crole = c.get("role") or "none"
         if crole not in (role, "none") or version not in effective(c.get("version"), pv):
             continue
+        if (only is not None and c["type"] not in only) or (only is None and c["type"] in skip):
+            continue
         cv = effective(c.get("version"), pv)
         out.append((c, [f for f in c.get("fields", []) if version in effective(f.get("version"), cv)]))
     return out
 
 
-def flat_render(pkg, role, version, values=None, secrets="placeholder"):
+def flat_render(pkg, role, version, values=None, secrets="placeholder", only=None, skip=()):
     """{dotted path: value} for one role at one version."""
     values = values or {}
     flat, origin = {}, {}
-    for c, fields in members(pkg, role, version):
+    for c, fields in members(pkg, role, version, only, skip):
         cp = c.get("configPath", "")
         for f in fields:
             if f.get("virtual"):
@@ -100,7 +105,12 @@ def load_profile(path):
 def cmd_render(a):
     pkg = json.load(open(a.package, encoding="utf-8"))
     values = json.load(open(a.values, encoding="utf-8")) if a.values else {}
-    flat, _ = flat_render(pkg, a.role, a.version, values)
+    only = [c for c in a.components.split(",") if c] if a.components else None
+    skip = set(((load_profile(a.profile).get("preserve") or {}).get("components") or [])) if a.profile else set()
+    flat, origin = flat_render(pkg, a.role, a.version, values, only=only, skip=skip)
+    print(f"components rendered: {', '.join(dict.fromkeys(origin.values()))}"
+          + (f" (skipped, no YAML source: {', '.join(sorted(skip))}; pass --components to include)" if skip and only is None else ""),
+          file=sys.stderr)
     text = ("# Rendered by solution-manager-yamlToPackage. Secrets are ${SM_SECRET_*} placeholders resolved from\n"
             "# the MI's environment at start; no secret value is written here (I6).\n"
             + yaml.safe_dump(nest(flat), sort_keys=False, allow_unicode=True, width=1000))
@@ -201,8 +211,9 @@ def main():
         p.add_argument("--version", required=True, type=int)
         p.add_argument("--out")
         if name == "render":
-            p.add_argument("--profile")
+            p.add_argument("--profile", help="drops the profile's preserved (non-YAML) components unless --components")
             p.add_argument("--values")
+            p.add_argument("--components", help="comma list: the instance's component selection, rendered exactly")
         else:
             p.add_argument("--profile", required=True)
             p.add_argument("--yaml", required=True)

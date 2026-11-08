@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: ssh-dry-run-placeholder
+expected_outcome: |
+  The skill renders the source config with secret placeholders, prints a dry-run plan (exact ssh/scp commands, remote paths, start command) without touching the network, asks for what is missing (a known_hosts file, the secret values in the user's shell, explicit approval), never asks for a password, and stops before applying.
+context:
+  scaffold_script: place-files.sh
