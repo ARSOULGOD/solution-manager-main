@@ -163,7 +163,7 @@
 - [x] (b) Stage 3 dry run against a placeholder host (`mi.example.invalid`), proving no network call is made (run under
   `unshare -n` or with ssh shimmed to fail). Real run against the local `sm-standin-sshd` + stand-in MI + mock broker
   (D1), with the report saying exactly which parts were stand-ins.
-- [ ] New eval cases (`ui-stage-file-mesh`, `ssh-dry-run-placeholder`); iteration 2 with baselines; viewer. *Not done: offered to the user.*
+- [x] New eval cases (`ui-stage-file-mesh`, `ssh-dry-run-placeholder`); iteration 2 with baselines; viewer.
 
 ## Results
 
@@ -210,3 +210,27 @@ Fixed during testing:
 - teardown left the `app/` and `work/` subfolders it had created in a pre-existing dir.
 
 Open: the File Mesh `smoke_test` assumption (what `file_paths.cfg` means); the iteration-2 benchmark with Stage 2/3 eval cases.
+
+### Benchmark iteration 2, 2026-11-08 (Task 8, last item)
+
+Five eval cases, with skill vs without (the three original cases reuse their iteration-1 baselines).
+
+| case | with skill | without |
+|---|---|---|
+| file-mesh-source-regenerate | 7/7 | 5/7 |
+| file-mesh-sink-flags-consumer | 5/5 | 3/5 |
+| no-profile-stops-and-asks | 7/7 | 2/7 |
+| ui-stage-file-mesh (new) | 6/6 | 4/6 |
+| ssh-dry-run-placeholder (new) | 5/5 | 5/5 |
+
+Overall: 100% vs 65%, about 141 s vs 521 s and 87k vs 131k tokens per run. The UI baseline's numbers are inflated by an API
+rate-limit interruption.
+
+Fixed from these runs (`420fb75`): a provenance question on a no-op run, and the optional `cache` component rendered into a
+role's config.
+
+Candidates for iteration 3, which the UI baseline did and the skill does not:
+- an edit + save check through the Designer;
+- a full build + vitest regression against the original package.
+
+The baseline also found a second console crash: a dropped package's generated instance fails on `placements[0]`.
