@@ -2,7 +2,7 @@
   "solution": "file-mesh",
   "role": "source",
   "profile": ".claude/skills/solution-manager-yamlToPackage/references/profiles/file-mesh.yaml",
-  "yaml": ".claude/skills/solution-manager-yamlToPackage/examples/file-mesh-source/input/application-source-file-v2.yml",
+  "yaml": "application-source-file-v2.yml",
   "package": "frontend/contracts/packages/file-mesh/package.json",
   "target_versions": [
     1,
@@ -1350,7 +1350,8 @@
     }
   ],
   "notes": [
-    "component cache preserved untouched (profile `preserve`)"
+    "component cache preserved untouched (profile `preserve`)",
+    "defaults were taken from the YAML (profile defaults.role_components: yaml). This conflicts with docs/design/dynamic-ui/design.md section 7.3 (UI-D*, PROPOSED): defaults come from field initializers, never from a sample application.yml. Flagged, not resolved."
   ],
   "questions": [
     "provenance carries a signature over content this run changed, so it no longer covers the package. Keep it as-is, or re-run with --provenance dev-mode?"

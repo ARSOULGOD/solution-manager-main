@@ -1,0 +1,72 @@
+# Sensitive fields are intentionally omitted. Edit them in Form View.
+file:
+  source:
+    scheduler:
+      restart_time_sec: 10
+    general:
+      adapter_id: fm-file-source
+      file_type: 4
+      ignoreEmptyFiles: false
+      state_backup_path: ''
+      copy_file_mode_permissions: 1
+      max_file_transfer_size: 999000
+      max_files_allowed: 99999
+      max_bandwidth_limit: 100000000
+      clear_state_on_eod: 1
+      eod_time_sec: -1
+      multiple_files_flag: 0
+    file_to_event:
+      enabled: 0
+      fileFormat: 4
+      eventDelimiter: '|'
+      jsonPath: $.Authors[*].Books[*]
+      xPath: /class/student
+    gcs:
+      enabled: 0
+      projectId: GCS_PROJECT_ID
+      credentialsFilePath: /home/centos/pubsubplus-connector-file-2.2.0/configs/gcs/creds.json
+      retrySettings:
+        maxAttempts: 5
+        retryDelayMultiplier: 3
+        maxDurationMinutes: 2
+    sftp_settings:
+      enabled: 0
+      ip: SFTP_HOST_ADDRESS
+      port: 22
+      user: SFTP_USER
+      strictHostKeyChecking: 'no'
+    ftp_settings:
+      enabled: 0
+      ip: FTP_HOST_ADDRESS
+      port: 21
+      user: FTP_USER
+      secured: true
+    directory_wildcard:
+      wildcard_type: 0
+      config_path: ''
+    directory_replication:
+      start_time: -1
+    solace_out:
+      lvq: file.source.lvq
+      destination: file/source/lvq
+    command_center:
+      enabled: 1
+      useOutputDestinationSolaceCredentials: true
+      heartbeat_enabled: 1
+      heartbeat_interval: 20
+      solace_base_publish_topic_heartbeat: scm/dd/FIN/source/cc/se/fa/source/findata
+      solace_base_publish_topic: scm/dd/FIN/source/cc/se/fa/source/findata
+      solace_messaging_mode: PERSISTENT
+      events:
+        fileStart: true
+        fileComplete: true
+spring:
+  cloud:
+    stream:
+      bindings:
+        input-0:
+          destination: /home/banala/Music/entityFolders/updated/SOURCE_TEST_V1/file_paths.cfg
+          binder: file
+        output-0:
+          destination: file/test
+          binder: solace

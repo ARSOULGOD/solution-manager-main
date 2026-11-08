@@ -1,0 +1,216 @@
+#!/usr/bin/env python3
+"""Render a role's config from a package, and check it round-trips to the input YAML.
+
+    render_config.py render    --package P --profile F --role R --version V [--values draft.json] [--out app.yml]
+    render_config.py roundtrip --package P --profile F --role R --version V --yaml input.yml --report report.json
+                               [--console-artifact <solution>-<role>.rendered.json] [--out roundtrip.md]
+
+render: the same rules as the console (src/features/designer/yamlConfiguration.ts): path = configPath + key,
+virtual fields skipped, nested by '.', unset -> null. Secrets become `${SM_SECRET_<NAME>}` placeholders that the
+MI resolves from its environment at start (I6: no secret value is ever written). --values overlays a Designer
+draft ({key: value}); a secret in it is refused.
+
+roundtrip: compares the rendered defaults with the input YAML, ignoring comments and key order. Allowed
+differences come ONLY from the engine's report.json (excluded, flagged, coerced, withheld secrets, shared
+defaults kept) and the profile (preserved components). Anything else is a bug in the package or the profile.
+With --console-artifact (written by the generated contract test), the console's own rendering is compared
+with this one and any disagreement fails too, so the two renderers cannot drift.
+Exit 0 PASS, 1 FAIL, 2 bad input.
+"""
+import argparse
+import json
+import os
+import re
+import sys
+
+import yaml
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import common  # noqa: E402
+
+
+def effective(declared, inherited):
+    return list(inherited) if declared is None else [v for v in declared if v in inherited]
+
+
+def secret_placeholder(key):
+    return "${SM_SECRET_" + re.sub(r"[^A-Za-z0-9]+", "_", key).strip("_").upper() + "}"
+
+
+def members(pkg, role, version):
+    pv = pkg["packageVersion"]
+    out = []
+    for c in pkg["components"]:
+        crole = c.get("role") or "none"
+        if crole not in (role, "none") or version not in effective(c.get("version"), pv):
+            continue
+        cv = effective(c.get("version"), pv)
+        out.append((c, [f for f in c.get("fields", []) if version in effective(f.get("version"), cv)]))
+    return out
+
+
+def flat_render(pkg, role, version, values=None, secrets="placeholder"):
+    """{dotted path: value} for one role at one version."""
+    values = values or {}
+    flat, origin = {}, {}
+    for c, fields in members(pkg, role, version):
+        cp = c.get("configPath", "")
+        for f in fields:
+            if f.get("virtual"):
+                continue
+            path = f"{cp}.{f['key']}" if cp else f["key"]
+            if f["type"] == "secret" or f.get("secret"):
+                if f["key"] in values:
+                    sys.exit(f"error: --values carries a value for secret {f['key']!r}; secrets are never rendered")
+                if secrets == "omit":
+                    continue
+                flat[path] = secret_placeholder(path)
+            else:
+                flat[path] = values.get(f["key"], f.get("default"))
+            origin[path] = c["type"]
+    return flat, origin
+
+
+def nest(flat):
+    root = {}
+    for path, v in flat.items():
+        segs = [s for s in path.split(".") if s]
+        node = root
+        for s in segs[:-1]:
+            node = node.setdefault(s, {})
+        node[segs[-1]] = v
+    return root
+
+
+def flatten_yaml_text(text, list_policy=lambda k: "flag"):
+    import tempfile
+    with tempfile.NamedTemporaryFile("w", suffix=".yml", delete=False) as fh:
+        fh.write(text)
+    try:
+        leaves = common.load_yaml_leaves(fh.name, list_policy=list_policy)["leaves"]
+    finally:
+        os.unlink(fh.name)
+    return {l["key"]: l["value"] for l in leaves}
+
+
+def load_profile(path):
+    return yaml.load(open(path, encoding="utf-8"), Loader=common.StrictLoader)
+
+
+def cmd_render(a):
+    pkg = json.load(open(a.package, encoding="utf-8"))
+    values = json.load(open(a.values, encoding="utf-8")) if a.values else {}
+    flat, _ = flat_render(pkg, a.role, a.version, values)
+    text = ("# Rendered by solution-manager-yamlToPackage. Secrets are ${SM_SECRET_*} placeholders resolved from\n"
+            "# the MI's environment at start; no secret value is written here (I6).\n"
+            + yaml.safe_dump(nest(flat), sort_keys=False, allow_unicode=True, width=1000))
+    if a.out:
+        open(a.out, "w", encoding="utf-8").write(text)
+        print(f"wrote {a.out}: {len(flat)} keys, {sum(1 for v in flat.values() if isinstance(v, str) and v.startswith('${SM_SECRET_'))} secret placeholders")
+    else:
+        print(text)
+
+
+def cmd_roundtrip(a):
+    pkg = json.load(open(a.package, encoding="utf-8"))
+    prof = load_profile(a.profile)
+    rep = json.load(open(a.report, encoding="utf-8"))
+    lists = prof.get("lists") or {}
+    src = flatten_yaml_text(open(a.yaml, encoding="utf-8").read(),
+                            list_policy=lambda k: common.lookup(lists, k) or "flag")
+    rendered, origin = flat_render(pkg, a.role, a.version)
+    excluded = {x["key"]: x["reason"] for x in rep.get("excluded", [])}
+    flagged = {x["key"]: x["reason"] for x in rep.get("flagged", [])}
+    coerced = {x["key"]: x["note"] for x in rep.get("coerced", [])}
+    withheld = {x["key"] for x in rep.get("secrets_withheld", [])}
+    shared = {d["key"]: d for d in rep.get("shared_differences", [])}
+    preserved = set((prof.get("preserve") or {}).get("components") or [])
+    ok, allowed, bad = 0, [], []
+
+    for key, yv in src.items():
+        if key in excluded:
+            (bad if key in rendered else allowed).append((key, f"excluded: {excluded[key]}" +
+                                                          (" BUT it is rendered" if key in rendered else "")))
+            continue
+        if key in flagged:
+            allowed.append((key, f"flagged (decision pending): {flagged[key]}"))
+            continue
+        if key not in rendered:
+            bad.append((key, "in the YAML but not rendered from the package"))
+            continue
+        rv = rendered[key]
+        if isinstance(rv, str) and rv.startswith("${SM_SECRET_"):
+            allowed.append((key, "secret: withheld, rendered as a placeholder"))
+            continue
+        if rv == yv:
+            ok += 1
+        elif key in coerced and isinstance(yv, str) and yv.lower() in ("true", "false") and rv == (yv.lower() == "true"):
+            allowed.append((key, f"coerced: {coerced[key]}"))
+        elif key in coerced and isinstance(yv, list) and rv == ",".join(map(str, yv)):
+            allowed.append((key, f"coerced: {coerced[key]}"))
+        elif key in shared:
+            allowed.append((key, f"shared default kept: package {json.dumps(rv)} vs YAML {json.dumps(yv)}"))
+        else:
+            bad.append((key, f"value differs: rendered {json.dumps(rv)} vs YAML {json.dumps(yv)}"))
+    for key in rendered:
+        if key not in src:
+            if origin[key] in preserved:
+                allowed.append((key, f"from preserved component {origin[key]} (no YAML source)"))
+            else:
+                bad.append((key, f"rendered from {origin[key]} but absent from the YAML"))
+
+    drift = []
+    if a.console_artifact:
+        art = json.load(open(a.console_artifact, encoding="utf-8"))
+        if art.get("version") != a.version:
+            drift.append(("<artifact>", f"console artifact is for version {art.get('version')}, not {a.version}"))
+        console = flatten_yaml_text(art["yaml"])
+        mine, _ = flat_render(pkg, a.role, a.version, secrets="omit")
+        for k in sorted(set(console) | set(mine)):
+            if console.get(k, "<absent>") != mine.get(k, "<absent>"):
+                drift.append((k, f"console {json.dumps(console.get(k, '<absent>'))} vs render_config "
+                                 f"{json.dumps(mine.get(k, '<absent>'))}"))
+        lead = [p for _, _, p in art.get("renderedPaths", []) if p and p.startswith(".")]
+        if lead:
+            allowed.append(("<renderedPath>", f"{len(lead)} console renderedPath values start with '.' "
+                                              "(empty configPath known defect); the YAML renderer drops the empty segment"))
+
+    verdict = "PASS" if not bad and not drift else "FAIL"
+    L = [f"# Round-trip: {pkg['solution']} / {a.role} @ v{a.version}: {verdict}", "",
+         f"YAML keys: {len(src)} · rendered keys: {len(rendered)} · equal: {ok} · allowed differences: "
+         f"{len(allowed)} · unexplained: {len(bad)}" + (f" · console drift: {len(drift)}" if a.console_artifact else ""), ""]
+    if bad:
+        L += ["## Unexplained differences (bugs in the package or the profile)", ""] + [f"- `{k}`: {r}" for k, r in bad] + [""]
+    if drift:
+        L += ["## Console renderer vs render_config.py", ""] + [f"- `{k}`: {r}" for k, r in drift] + [""]
+    L += ["## Allowed differences (from report.json / the profile)", ""] + ([f"- `{k}`: {r}" for k, r in allowed] or ["- none"])
+    text = "\n".join(L) + "\n"
+    if a.out:
+        open(a.out, "w", encoding="utf-8").write(text)
+    print(text if not a.out else f"{verdict}: wrote {a.out} (unexplained {len(bad)}, drift {len(drift)}, allowed {len(allowed)})")
+    sys.exit(0 if verdict == "PASS" else 1)
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    for name in ("render", "roundtrip"):
+        p = sub.add_parser(name)
+        p.add_argument("--package", required=True)
+        p.add_argument("--role", required=True)
+        p.add_argument("--version", required=True, type=int)
+        p.add_argument("--out")
+        if name == "render":
+            p.add_argument("--profile")
+            p.add_argument("--values")
+        else:
+            p.add_argument("--profile", required=True)
+            p.add_argument("--yaml", required=True)
+            p.add_argument("--report", required=True)
+            p.add_argument("--console-artifact")
+    a = ap.parse_args()
+    (cmd_render if a.cmd == "render" else cmd_roundtrip)(a)
+
+
+if __name__ == "__main__":
+    main()

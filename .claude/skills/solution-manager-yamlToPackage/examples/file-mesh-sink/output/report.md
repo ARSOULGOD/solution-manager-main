@@ -1,7 +1,7 @@
 # yamlToPackage report: file-mesh / sink
 
 - Profile: `.claude/skills/solution-manager-yamlToPackage/references/profiles/file-mesh.yaml`
-- YAML: `.claude/skills/solution-manager-yamlToPackage/examples/file-mesh-sink/input/application-sink-file-v2.yml`
+- YAML: `application-sink-file-v2.yml`
 - Package: `frontend/contracts/packages/file-mesh/package.json`
 - Target versions: [1, 2, 3]
 
@@ -128,10 +128,12 @@
 ## Notes
 
 - component cache preserved untouched (profile `preserve`)
+- defaults were taken from the YAML (profile defaults.role_components: yaml). This conflicts with docs/design/dynamic-ui/design.md section 7.3 (UI-D*, PROPOSED): defaults come from field initializers, never from a sample application.yml. Flagged, not resolved.
 
 ## Open questions
 
-1. provenance carries a signature over content this run changed, so it no longer covers the package. Keep it as-is, or re-run with --provenance dev-mode?
-2. `spring.cloud.stream.solace.default.consumer.queue-name-expression`, `spring.cloud.stream.solace.default.consumer.provision-durable-queue`, `spring.cloud.stream.solace.default.consumer.add-destination-as-subscription-to-queue`: role-exclusive (FM-D2: the Solace binder consumer defaults appear only in the sink YAML.) but would land in shared component spring-cloud-stream; decide: field role 'sink' in spring-cloud-stream, a new component, or exclude
+1. shared component logging renders 2 field(s) this sink YAML does not carry (logging.level.com.solace.connector.jms, logging.level.com.solace.connector.core). Every sink instance gets them. Keep them shared, give them a field role, or move them to a role component?
+2. provenance carries a signature over content this run changed, so it no longer covers the package. Keep it as-is, or re-run with --provenance dev-mode?
+3. `spring.cloud.stream.solace.default.consumer.queue-name-expression`, `spring.cloud.stream.solace.default.consumer.provision-durable-queue`, `spring.cloud.stream.solace.default.consumer.add-destination-as-subscription-to-queue`: role-exclusive (FM-D2: the Solace binder consumer defaults appear only in the sink YAML.) but would land in shared component spring-cloud-stream; decide: field role 'sink' in spring-cloud-stream, a new component, or exclude
 
 authoring: {"reviewedRows": 149, "totalRows": 156}

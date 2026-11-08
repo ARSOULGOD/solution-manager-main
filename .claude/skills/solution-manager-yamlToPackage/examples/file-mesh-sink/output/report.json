@@ -2,7 +2,7 @@
   "solution": "file-mesh",
   "role": "sink",
   "profile": ".claude/skills/solution-manager-yamlToPackage/references/profiles/file-mesh.yaml",
-  "yaml": ".claude/skills/solution-manager-yamlToPackage/examples/file-mesh-sink/input/application-sink-file-v2.yml",
+  "yaml": "application-sink-file-v2.yml",
   "package": "frontend/contracts/packages/file-mesh/package.json",
   "target_versions": [
     1,
@@ -1260,9 +1260,11 @@
     }
   ],
   "notes": [
-    "component cache preserved untouched (profile `preserve`)"
+    "component cache preserved untouched (profile `preserve`)",
+    "defaults were taken from the YAML (profile defaults.role_components: yaml). This conflicts with docs/design/dynamic-ui/design.md section 7.3 (UI-D*, PROPOSED): defaults come from field initializers, never from a sample application.yml. Flagged, not resolved."
   ],
   "questions": [
+    "shared component logging renders 2 field(s) this sink YAML does not carry (logging.level.com.solace.connector.jms, logging.level.com.solace.connector.core). Every sink instance gets them. Keep them shared, give them a field role, or move them to a role component?",
     "provenance carries a signature over content this run changed, so it no longer covers the package. Keep it as-is, or re-run with --provenance dev-mode?"
   ],
   "validation": {

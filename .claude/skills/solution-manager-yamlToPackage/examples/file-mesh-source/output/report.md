@@ -1,7 +1,7 @@
 # yamlToPackage report: file-mesh / source
 
 - Profile: `.claude/skills/solution-manager-yamlToPackage/references/profiles/file-mesh.yaml`
-- YAML: `.claude/skills/solution-manager-yamlToPackage/examples/file-mesh-source/input/application-source-file-v2.yml`
+- YAML: `application-source-file-v2.yml`
 - Package: `frontend/contracts/packages/file-mesh/package.json`
 - Target versions: [1, 2, 3]
 
@@ -124,6 +124,7 @@
 ## Notes
 
 - component cache preserved untouched (profile `preserve`)
+- defaults were taken from the YAML (profile defaults.role_components: yaml). This conflicts with docs/design/dynamic-ui/design.md section 7.3 (UI-D*, PROPOSED): defaults come from field initializers, never from a sample application.yml. Flagged, not resolved.
 
 ## Open questions
 

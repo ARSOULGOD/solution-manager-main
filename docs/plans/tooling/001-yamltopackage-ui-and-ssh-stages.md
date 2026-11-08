@@ -59,23 +59,24 @@
 
 ## Task 0: iteration-1 fixes (from the benchmark)
 
-- [ ] **Chaining role runs.** SKILL.md: when a previous role's run produced an output package in this session (or the
+- [x] **Chaining role runs.** SKILL.md: when a previous role's run produced an output package in this session (or the
   user says "same package" after one), feed that output as `--package` and say which base was used. Both sink runs in
   iteration 1 tripped on this.
-- [ ] **§7.3 conflict (D2).** `yaml_to_package.py` adds a standing note when `defaults.role_components: yaml`, citing
-  `design.md` §7.3. Draft the `DECISIONS.md` open item and show it to the user before adding it (it is a register change).
-- [ ] Re-run the two File Mesh examples; diff unchanged apart from the note.
+- [x] **§7.3 conflict (D2).** `yaml_to_package.py` adds a standing note when `defaults.role_components: yaml`, citing
+  `design.md` §7.3.
+- [ ] Draft the `DECISIONS.md` open item and show it to the user before adding it (it is a register change). *Drafted at the Stage 2 gate.*
+- [x] Re-run the two File Mesh examples; diff unchanged apart from the note.
 
 ## Task 1: Stage gates and per-stage summary in SKILL.md
 
-- [ ] Restructure SKILL.md into three stages, each ending with a PASS/FAIL block and an explicit STOP. Move the stage
+- [x] Restructure SKILL.md into three stages, each ending with a PASS/FAIL block and an explicit STOP. Move the stage
   details to `references/ui-testing.md` and `references/ssh-deploy.md`, so SKILL.md stays under 300 lines.
-- [ ] Description: add triggers "build/test the UI for this package" and "deploy the MI over SSH".
+- [x] Description: add triggers "build/test the UI for this package" (done) and "deploy the MI over SSH" (with Stage 3).
 - [ ] Final output: a per-stage summary table (stage · verdict · evidence path · open questions).
 
 ## Task 2: `scripts/gen_contract_test.py` (Stage 2.2)
 
-- [ ] Read `frontend/contracts/packages/file-mesh/package.test.ts` and generate
+- [x] Read `frontend/contracts/packages/file-mesh/package.test.ts` and generate
   `<solution>/package.generated.test.ts`. It must never overwrite a hand-written `package.test.ts`. Cover:
   - validity via `parseAndValidateSolutionPackage` in dev mode;
   - component/role/cardinality shape and unique keys;
@@ -83,35 +84,35 @@
   - role-only fields stay in their role component, using the profile's `role_exclusive` and component map;
   - enum options, `when` show/hide and `required`;
   - `project()` at **every** declared `packageVersion`, with the field set matching the `version[]` filter.
-- [ ] Known defects are pinned with `it.fails` and reported, as the reference test does; never worked around.
-- [ ] The test also writes the frontend renderer's YAML (`yamlConfiguration.ts`) for the defaults to a JSON artifact
+- [x] Known defects are pinned with `it.fails` and reported, as the reference test does; never worked around.
+- [x] The test also writes the frontend renderer's YAML (`yamlConfiguration.ts`) for the defaults to a JSON artifact
   that Task 4 consumes.
-- [ ] Placement: the file has to sit beside the package for vitest's `contracts` project to pick it up. Writing it
+- [x] Placement: the file has to sit beside the package for vitest's `contracts` project to pick it up. Writing it
   into `frontend/contracts/packages/<solution>/` is a repo change, so it is a gate question. Otherwise run it from a
   temporary copy and delete it afterwards.
 
 ## Task 3: `scripts/run_frontend.sh` (D3)
 
-- [ ] Subcommands `test <file>`, `dev`, `e2e <spec>`. Each runs `docker run --rm -v <repo>:/repo -w /repo/frontend node:22 …`,
+- [x] Subcommands `test <file>`, `dev`, `e2e <spec>`. Each runs `docker run --rm -v <repo>:/repo -w /repo/frontend node:22 …`,
   with Playwright Chromium installed once into a named volume. Prints the exact command before running it.
-- [ ] Verify `vitest run contracts/packages/file-mesh/package.test.ts` passes in the container, as a baseline before
+- [x] Verify `vitest run contracts/packages/file-mesh/package.test.ts` passes in the container, as a baseline before
   any generated test is trusted.
 
 ## Task 4: round-trip (Stage 2.4) and `scripts/render_config.py`
 
-- [ ] `render_config.py --package --role --version [--values draft.json]`: builds the config tree with the same rules as
+- [x] `render_config.py --package --role --version [--values draft.json]`: builds the config tree with the same rules as
   `yamlConfiguration.ts` (`renderedPath`, virtual excluded, `setAtPath`). Secrets become `${SM_SECRET_…}`; output
   goes to YAML.
-- [ ] `roundtrip`: compare the rendered defaults with the input YAML, ignoring comments and key order. The allowed
+- [x] `roundtrip`: compare the rendered defaults with the input YAML, ignoring comments and key order. The allowed
   differences come from `report.json` only: coerced, excluded, withheld secrets, list joins, and the profile's listed
   shared differences. Anything else fails with the key path.
-- [ ] Compare against Task 2's frontend-rendered artifact; any disagreement fails.
+- [x] Compare against Task 2's frontend-rendered artifact; any disagreement fails.
 
 ## Task 5: headless UI check (Stage 2.3)
 
-- [ ] Learn the dev load flow from `src/app/dev/parsePackage.ts`, `devPackageFlow.test.ts` and the `/solutions` dialog,
+- [x] Learn the dev load flow from `src/app/dev/parsePackage.ts`, `devPackageFlow.test.ts` and the `/solutions` dialog,
   and the `fixture` Playwright project (MSW, dev server).
-- [ ] Generate `ui-check.spec.ts` (temporary, outside `frontend/e2e/` unless the user agrees). It loads the package
+- [x] Generate `ui-check.spec.ts` (temporary, outside `frontend/e2e/` unless the user agrees). It loads the package
   through the dialog and asserts:
   - the catalog card and inventory;
   - the role component plus the shared ones;
@@ -123,7 +124,7 @@
   - defaults equal to the YAML values.
 
   It captures one screenshot per role.
-- [ ] Report PASS/FAIL per check with the screenshot paths. Then **STOP**.
+- [x] Report PASS/FAIL per check with the screenshot paths. Then **STOP**.
 
 ## Task 6: `scripts/deploy_ssh.sh` + `references/ssh-deploy.md` (Stage 3)
 
@@ -166,4 +167,23 @@
 
 ## Results
 
-*(filled in at the end: per-task outcome, evidence paths, deviations, lessons → `docs/tasks/lessons.md`)*
+### Stage 2 (Tasks 0-5), 2026-11-08: BLOCKED at one step, everything else PASS
+
+Evidence: `.claude/skills/solution-manager-yamlToPackage/examples/file-mesh-stage2/`.
+
+| step | verdict | evidence |
+|---|---|---|
+| 2.1 baseline `file-mesh/package.test.ts` | **FAIL, pre-existing** (4 failed, 9 passed, 1 expected fail) | test assumes `configPath: file.source`; the package now uses `""` |
+| 2.2 generated contract test | PASS (24 passed + 1 known defect pinned) | `contract-test/vitest-output.txt`; planted password default caught |
+| 2.3 browser check | 17 PASS · 2 N/A · 2 BLOCKED | `ui/ui-check.json`, 9 screenshots; planted secret leak caught |
+| 2.4 round-trip source @v3 | PASS (0 unexplained, 0 console drift) | `roundtrip-source.md` |
+| 2.4 round-trip sink @v3 | **FAIL** (2 unexplained) | `roundtrip-sink.md`: shared `logging` renders 2 source-only `logging.level.com.solace.connector.*` keys for sink |
+
+Findings, reported and not fixed:
+- leading-dot `renderedPath` for an empty `configPath` (frontend `project.ts:384` vs the canonical engine);
+- the instances grid crashes for a loaded package (pre-plan-008 dev fixture rows; the repo's own `devPackageFlow`/`devPackageScreens` tests fail on the same path), which blocks the version selector;
+- the baked dev instances cover only role + `spring-cloud-stream` at v1.
+
+The sink round-trip FAIL is a real package finding (FM-D11 class). The engine now raises it as an open question.
+
+Deviation: D4 overridden; executed in this session at the user's "go ahead".

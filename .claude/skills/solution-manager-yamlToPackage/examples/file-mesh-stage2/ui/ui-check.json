@@ -1,0 +1,134 @@
+{
+  "verdict": "BLOCKED",
+  "base": "http://127.0.0.1:5199",
+  "solution": "file-mesh",
+  "checks": [
+    {
+      "name": "load dialog validates the package",
+      "status": "PASS",
+      "detail": "Package format is valid",
+      "screenshot": "/work/ui/01-load-dialog.png"
+    },
+    {
+      "name": "dialog shows every package version",
+      "status": "PASS",
+      "detail": "Package versions 1, 2, 3, 4",
+      "screenshot": "/work/ui/01-load-dialog.png"
+    },
+    {
+      "name": "inventory lists every component with its cardinality and field count",
+      "status": "PASS",
+      "detail": "10 components",
+      "screenshot": "/work/ui/01-load-dialog.png"
+    },
+    {
+      "name": "catalog card appears with the latest version marked",
+      "status": "PASS",
+      "detail": "card for file-mesh; expects \"4 · latest\"",
+      "screenshot": "/work/ui/02-catalog.png"
+    },
+    {
+      "name": "instances page renders",
+      "status": "BLOCKED",
+      "detail": "console error: This page failed to load MUI X: The Data Grid component requires all rows to have a unique `id` property. Alternatively, you can use the `getRowId` prop to specify a custom id for each row. A row was provided without id in the rows prop: {\"name\":\"Frankfurt feed (source)\",\"solutionId\":\"file-mesh\",\"componentTypes\":[\"file-source\",\"spring-cloud-stream\"],\"packageVersion\":1,\"env\":\"PROD\",\"org\":\"Acme Fina",
+      "screenshot": "/work/ui/03-instances.png"
+    },
+    {
+      "name": "Designer renders the source role",
+      "status": "PASS",
+      "detail": "instance fm-source-1",
+      "screenshot": "/work/ui/04-designer-source.png"
+    },
+    {
+      "name": "sections in ui.order with their field counts: source (instance fm-source-1, v1, components file-source+spring-cloud-stream)",
+      "status": "PASS",
+      "detail": "14 sections",
+      "screenshot": "/work/ui/05-all-fields-source.png"
+    },
+    {
+      "name": "labels shown: source (instance fm-source-1, v1, components file-source+spring-cloud-stream)",
+      "status": "PASS",
+      "detail": "53 fields",
+      "screenshot": "/work/ui/05-all-fields-source.png"
+    },
+    {
+      "name": "helper text shown: source (instance fm-source-1, v1, components file-source+spring-cloud-stream)",
+      "status": "PASS",
+      "detail": "53 fields",
+      "screenshot": "/work/ui/05-all-fields-source.png"
+    },
+    {
+      "name": "secrets masked: source (instance fm-source-1, v1, components file-source+spring-cloud-stream)",
+      "status": "PASS",
+      "detail": "2 masked inputs for 2 secret fields",
+      "screenshot": "/work/ui/05-all-fields-source.png"
+    },
+    {
+      "name": "when show/hide: source (instance fm-source-1, v1, components file-source+spring-cloud-stream)",
+      "status": "N/A",
+      "detail": "no `when` predicate in the rendered components",
+      "screenshot": null
+    },
+    {
+      "name": "defaults seeded from the package (console YAML view): source (instance fm-source-1, v1, components file-source+spring-cloud-stream)",
+      "status": "PASS",
+      "detail": "51 keys match",
+      "screenshot": "/work/ui/06-yaml-source.png"
+    },
+    {
+      "name": "Designer renders the sink role",
+      "status": "PASS",
+      "detail": "instance fm-sink-1",
+      "screenshot": "/work/ui/04-designer-sink.png"
+    },
+    {
+      "name": "sections in ui.order with their field counts: sink (instance fm-sink-1, v1, components file-sink+spring-cloud-stream)",
+      "status": "PASS",
+      "detail": "10 sections",
+      "screenshot": "/work/ui/05-all-fields-sink.png"
+    },
+    {
+      "name": "labels shown: sink (instance fm-sink-1, v1, components file-sink+spring-cloud-stream)",
+      "status": "PASS",
+      "detail": "45 fields",
+      "screenshot": "/work/ui/05-all-fields-sink.png"
+    },
+    {
+      "name": "helper text shown: sink (instance fm-sink-1, v1, components file-sink+spring-cloud-stream)",
+      "status": "PASS",
+      "detail": "45 fields",
+      "screenshot": "/work/ui/05-all-fields-sink.png"
+    },
+    {
+      "name": "secrets masked: sink (instance fm-sink-1, v1, components file-sink+spring-cloud-stream)",
+      "status": "PASS",
+      "detail": "2 masked inputs for 2 secret fields",
+      "screenshot": "/work/ui/05-all-fields-sink.png"
+    },
+    {
+      "name": "when show/hide: sink (instance fm-sink-1, v1, components file-sink+spring-cloud-stream)",
+      "status": "N/A",
+      "detail": "no `when` predicate in the rendered components",
+      "screenshot": null
+    },
+    {
+      "name": "defaults seeded from the package (console YAML view): sink (instance fm-sink-1, v1, components file-sink+spring-cloud-stream)",
+      "status": "PASS",
+      "detail": "43 keys match",
+      "screenshot": "/work/ui/06-yaml-sink.png"
+    },
+    {
+      "name": "version selector offers every package version",
+      "status": "BLOCKED",
+      "detail": "the selector lives in the Declare-instance dialog on the instances page, which does not render (see above)",
+      "screenshot": null
+    },
+    {
+      "name": "no secret value in the DOM (every page visited)",
+      "status": "PASS",
+      "detail": "3 value(s) searched; 2 too short to search reliably",
+      "screenshot": null
+    }
+  ],
+  "pageErrors": []
+}

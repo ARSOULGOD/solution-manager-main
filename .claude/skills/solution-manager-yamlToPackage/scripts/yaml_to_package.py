@@ -364,6 +364,13 @@ class Run:
 
     def check_shared(self, comp, items):
         existing = {f["key"]: f for f in comp["fields"]}
+        fed = {m["field"]["key"] for m in items}
+        missing = [k for k, f in existing.items() if k not in fed and not (f.get("virtual") or f.get("valueFrom"))]
+        if missing:
+            # every instance of this role renders these from the shared component, yet its YAML does not carry them
+            self.questions.append(f"shared component {comp['type']} renders {len(missing)} field(s) this {self.role} "
+                                  f"YAML does not carry ({', '.join(missing[:5])}). Every {self.role} instance gets "
+                                  "them. Keep them shared, give them a field role, or move them to a role component?")
         for m in items:
             f, d = existing.get(m["field"]["key"]), m["field"]
             if f is None:
@@ -410,6 +417,11 @@ class Run:
         elif prov.get("signature") and self.touched:
             self.questions.append("provenance carries a signature over content this run changed, so it no longer "
                                   "covers the package. Keep it as-is, or re-run with --provenance dev-mode?")
+        if (self.profile.get("defaults") or {}).get("role_components", "yaml") == "yaml" and \
+                any(r["changed"] for r in self.diff_rows.values()):
+            self.notes.append("defaults were taken from the YAML (profile defaults.role_components: yaml). This "
+                              "conflicts with docs/design/dynamic-ui/design.md section 7.3 (UI-D*, PROPOSED): defaults "
+                              "come from field initializers, never from a sample application.yml. Flagged, not resolved.")
         schema = self.args.schema or validate_package.find_schema(self.args.package or self.args.out_dir, os.getcwd())
         self.validation = validate_package.validate(self.pkg, schema)
         # every YAML leaf in exactly one bucket

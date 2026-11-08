@@ -1,0 +1,27 @@
+ ✓  contracts  contracts/packages/_skill_file-mesh/package.generated.test.ts > file-mesh package: validity > passes the load-time gates the upload dialog runs (dev mode) 33ms
+ ✓  contracts  contracts/packages/_skill_file-mesh/package.generated.test.ts > file-mesh package: shape > declares the components, roles and cardinalities the mapping profile names 1ms
+ ✓  contracts  contracts/packages/_skill_file-mesh/package.generated.test.ts > file-mesh package: shape > has unique keys within every component, case-insensitively 2ms
+ ✓  contracts  contracts/packages/_skill_file-mesh/package.generated.test.ts > file-mesh package: shape > keeps role-only fields in their own role component 0ms
+ ✓  contracts  contracts/packages/_skill_file-mesh/package.generated.test.ts > file-mesh package: shape > keeps role-exclusive leaves out of shared components (unless given a field role) 0ms
+ ✓  contracts  contracts/packages/_skill_file-mesh/package.generated.test.ts > file-mesh package: secrets (I6) > declares every password-like field as a secret, with no default value 2ms
+ ✓  contracts  contracts/packages/_skill_file-mesh/package.generated.test.ts > file-mesh package: secrets (I6) > projects every secret as a masked control whose value never appears 4ms
+ ✓  contracts  contracts/packages/_skill_file-mesh/package.generated.test.ts > file-mesh package: enum, when, required > file-source file.source.sftp_settings.strictHostKeyChecking: default is one of its options 2ms
+ ✓  contracts  contracts/packages/_skill_file-mesh/package.generated.test.ts > file-mesh package: enum, when, required > file-source file.source.command_center.solace_messaging_mode: default is one of its options 1ms
+ ✓  contracts  contracts/packages/_skill_file-mesh/package.generated.test.ts > file-mesh package: enum, when, required > file-sink file.sink.sftp_settings.strictHostKeyChecking: default is one of its options 0ms
+ ✓  contracts  contracts/packages/_skill_file-mesh/package.generated.test.ts > file-mesh package: enum, when, required > file-sink file.sink.command_center.solace_messaging_mode: default is one of its options 0ms
+ ✓  contracts  contracts/packages/_skill_file-mesh/package.generated.test.ts > file-mesh package: enum, when, required > cache CACHE_PROVIDER: default is one of its options 0ms
+ ✓  contracts  contracts/packages/_skill_file-mesh/package.generated.test.ts > file-mesh package: enum, when, required > spring-cloud-stream spring.cloud.stream.bindings.input-0.binder: default is one of its options 0ms
+ ✓  contracts  contracts/packages/_skill_file-mesh/package.generated.test.ts > file-mesh package: enum, when, required > spring-cloud-stream spring.cloud.stream.bindings.output-0.binder: default is one of its options 0ms
+ ✓  contracts  contracts/packages/_skill_file-mesh/package.generated.test.ts > file-mesh package: enum, when, required > solace solace.connector.management.leader-election.mode: default is one of its options 0ms
+ ✓  contracts  contracts/packages/_skill_file-mesh/package.generated.test.ts > file-mesh package: enum, when, required > cache REDIS_URL: shown when its predicate holds, hidden otherwise 1ms
+ ✓  contracts  contracts/packages/_skill_file-mesh/package.generated.test.ts > file-mesh package: enum, when, required > solace solaceManagementBroker: required with no default projects a REQUIRED validation 1ms
+ ✓  contracts  contracts/packages/_skill_file-mesh/package.generated.test.ts > file-mesh package: enum, when, required > solace solaceDataBroker: required with no default projects a REQUIRED validation 0ms
+ ✓  contracts  contracts/packages/_skill_file-mesh/package.generated.test.ts > file-mesh package: version filtering through project() > at package version 1, each component projects exactly its fields 3ms
+ ✓  contracts  contracts/packages/_skill_file-mesh/package.generated.test.ts > file-mesh package: version filtering through project() > at package version 2, each component projects exactly its fields 2ms
+ ✓  contracts  contracts/packages/_skill_file-mesh/package.generated.test.ts > file-mesh package: version filtering through project() > at package version 3, each component projects exactly its fields 2ms
+ ✓  contracts  contracts/packages/_skill_file-mesh/package.generated.test.ts > file-mesh package: version filtering through project() > at package version 4, each component projects exactly its fields 1ms
+ ✓  contracts  contracts/packages/_skill_file-mesh/package.generated.test.ts > file-mesh package: KNOWN DEFECTS (reported, not worked around) > renders a field of an empty-configPath component at its own key, with no leading dot 14ms
+ ✓  contracts  contracts/packages/_skill_file-mesh/package.generated.test.ts > file-mesh package: render defaults with the console renderer (round-trip artifact) > role source 10ms
+ ✓  contracts  contracts/packages/_skill_file-mesh/package.generated.test.ts > file-mesh package: render defaults with the console renderer (round-trip artifact) > role sink 5ms
+ Test Files  1 passed (1)
+      Tests  24 passed | 1 expected fail (25)

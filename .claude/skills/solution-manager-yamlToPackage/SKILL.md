@@ -8,7 +8,9 @@ description: >-
   db-designer, or a new solution) and supplies its YAML. Also use it when they ask to create,
   regenerate, update or sync a solution package, package.json fields or Designer fields from
   config, or to onboard a new solution's configuration into the console. A solution with no mapping
-  profile yet goes through a propose-and-confirm flow before anything is generated.
+  profile yet goes through a propose-and-confirm flow before anything is generated. Also use it to
+  build or test the UI for a package: generate its contract test, load it into the console in a
+  headless browser, and check that its config round-trips back to the YAML.
 ---
 
 # Solution YAML → Solution Package
@@ -28,6 +30,16 @@ Read as needed:
 - `references/package-schema.md`: package shape, what varies between solutions, validation gates.
 - `references/mapping-guide.md`: engine rules, merge rules, profile format, how to write a profile.
 - `references/profiles/file-mesh.yaml`: the worked example, with its discrepancy list.
+
+## The pipeline, and its gates
+
+| stage | does | reference |
+|---|---|---|
+| 1. Package creation | YAML → `package.json` (this file, below) | `references/mapping-guide.md` |
+| 2. UI building | contract test, console in a headless browser, YAML round-trip | `references/ui-testing.md` |
+
+Each stage ends with a PASS/FAIL (or BLOCKED) report, and then **STOP and wait for the user's go-ahead**
+before the next stage. A user who asked only for the package gets Stage 1 and an offer of Stage 2, not Stage 2.
 
 ## Inputs to establish first
 
@@ -65,7 +77,12 @@ Exit codes:
 Then present the four outputs (see "Output of every run").
 
 The engine never overwrites `--package`. Copy `<out-dir>/package.json` over the real file only once
-the user has seen the report and agrees. In the repo, also run
+the user has seen the report and agrees.
+
+**Running several roles in a row** (for example, "now do the sink" after a source run): pass the previous
+run's `<out-dir>/package.json` as `--package`, not the original file. Otherwise the second run starts from a
+package without the first run's changes. Say which base you used. If the earlier output was never applied
+and the user may want it discarded, ask. In the repo, also run
 `python3 contracts/validation/validate-package.py --dev-mode <package.json>`.
 
 ### B. The solution has NO profile (the common case)
@@ -146,6 +163,28 @@ Package: <out-dir>/package.json · report: <out-dir>/report.md · diff: <out-dir
 1. …
 ```
 
+## Stage 2: UI building
+
+Follow `references/ui-testing.md`. In short:
+
+1. `scripts/run_frontend.sh setup`, once. The frontend runs in Docker (Node ≥ 22.12), with its own volumes.
+2. Run the existing hand-written contract test as a baseline. Then generate and run
+   `package.generated.test.ts` (`scripts/gen_contract_test.py`) in a temporary `_skill_<solution>/` folder.
+3. Start the dev console and run `run_frontend.sh ui-check` with each role. It loads the package through the
+   `/solutions` dialog and checks:
+   - the catalog card and inventory;
+   - the Designer per role, with sections in `ui.order`;
+   - labels and helper text;
+   - masked secrets, with no secret value in the DOM;
+   - defaults, via the console's YAML view.
+
+   Screenshots are saved per step.
+4. `scripts/render_config.py roundtrip` per role, against the console's own rendering.
+5. Report the Stage 2 table, delete the temporary folder, stop the dev server, and **STOP**.
+
+Never change UI code to make a check pass. Known console issues found so far are listed at the end of
+`references/ui-testing.md`; report them as found.
+
 ## Scripts
 
 | script | does |
@@ -153,6 +192,10 @@ Package: <out-dir>/package.json · report: <out-dir>/report.md · diff: <out-dir
 | `scripts/yaml_to_package.py` | engine: flatten, type, derive ui, merge, validate, write package + report + diff |
 | `scripts/profile_proposer.py` | no-profile flow: structure, resemblance, draft profile, questions |
 | `scripts/validate_package.py` | schema + structural gates; usable on any package |
+| `scripts/gen_contract_test.py` | Stage 2: generates the vitest contract test for a package + profile |
+| `scripts/run_frontend.sh` | Stage 2: runs vitest, the dev server, Playwright and `ui-check` in Docker |
+| `scripts/ui_check.mjs` | Stage 2: headless browser check of the loaded package |
+| `scripts/render_config.py` | renders a role's config (secrets as `${SM_SECRET_*}`); `roundtrip` compares it with the YAML |
 | `scripts/common.py` | shared: strict YAML 1.2 loader, flattening, matching, humanising |
 
 They need Python 3 with PyYAML. `jsonschema` is optional; without it, the schema gate is skipped and
