@@ -276,6 +276,7 @@ def main():
 
     print("\n".join(out))
     if args.out:
+        os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
         with open(args.out, "w", encoding="utf-8") as fh:
             fh.write("# DRAFT profile proposal: not used by the engine until confirmed.\n" + text)
         print(f"\n(draft written to {args.out})")

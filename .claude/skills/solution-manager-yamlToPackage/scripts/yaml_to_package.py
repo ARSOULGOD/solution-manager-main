@@ -537,7 +537,11 @@ def main():
     ap.add_argument("--update-shared", action="store_true", help="add new leaves to existing shared components")
     ap.add_argument("--provenance", choices=["keep", "dev-mode"], default="keep")
     ap.add_argument("--schema")
-    run = Run(ap.parse_args())
+    args = ap.parse_args()
+    for flag, path in (("--profile", args.profile), ("--yaml", args.yaml), ("--package", args.package)):
+        if path and not os.path.isfile(path):
+            die(2, f"{flag} {path}: no such file")
+    run = Run(args)
     run.check_inputs()
     run.classify()
     run.merge()
