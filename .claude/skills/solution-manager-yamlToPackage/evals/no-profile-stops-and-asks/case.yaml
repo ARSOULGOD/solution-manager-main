@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: no-profile-stops-and-asks
+expected_outcome: |
+  There is no cache-manager profile, so the skill inspects the YAML, says which existing profile/package it resembles (weakly) and why, drafts a profile with status draft, and stops with numbered questions (roles, component boundaries, key style/configPath, cardinality, enums, the warmup.sources list, the partitions map, target versions). It generates no package and saves no profile, and does not impose File Mesh's source/sink roles.
+context:
+  scaffold_script: place-files.sh

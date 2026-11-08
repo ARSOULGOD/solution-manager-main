@@ -1,0 +1,1374 @@
+{
+  "solution": "file-mesh",
+  "role": "source",
+  "profile": ".claude/skills/solution-manager-yamlToPackage/references/profiles/file-mesh.yaml",
+  "yaml": ".claude/skills/solution-manager-yamlToPackage/examples/file-mesh-source/input/application-source-file-v2.yml",
+  "package": "frontend/contracts/packages/file-mesh/package.json",
+  "target_versions": [
+    1,
+    2,
+    3
+  ],
+  "counts": {
+    "leaves": 110,
+    "mapped": 109,
+    "flagged": 0,
+    "excluded": 1,
+    "coerced": 6,
+    "secrets_withheld": 6,
+    "balanced": true
+  },
+  "mapped": [
+    {
+      "key": "server.port",
+      "line": 2,
+      "component": "server",
+      "field": "server.port",
+      "type": "int",
+      "shared": true
+    },
+    {
+      "key": "server.ssl.enabled",
+      "line": 4,
+      "component": "server",
+      "field": "server.ssl.enabled",
+      "type": "bool",
+      "shared": true
+    },
+    {
+      "key": "server.ssl.key-store",
+      "line": 5,
+      "component": "server",
+      "field": "server.ssl.key-store",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "server.ssl.key-store-password",
+      "line": 6,
+      "component": "server",
+      "field": "server.ssl.key-store-password",
+      "type": "secret",
+      "shared": true
+    },
+    {
+      "key": "server.ssl.key-store-type",
+      "line": 7,
+      "component": "server",
+      "field": "server.ssl.key-store-type",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "server.ssl.key-alias",
+      "line": 8,
+      "component": "server",
+      "field": "server.ssl.key-alias",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "spring.boot.admin.client.instance.prefer-ip",
+      "line": 14,
+      "component": "spring-boot-admin",
+      "field": "spring.boot.admin.client.instance.prefer-ip",
+      "type": "bool",
+      "shared": true
+    },
+    {
+      "key": "spring.boot.admin.client.instance.management-url",
+      "line": 15,
+      "component": "spring-boot-admin",
+      "field": "spring.boot.admin.client.instance.management-url",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "spring.boot.admin.client.instance.service-url",
+      "line": 16,
+      "component": "spring-boot-admin",
+      "field": "spring.boot.admin.client.instance.service-url",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "spring.boot.admin.client.enabled",
+      "line": 17,
+      "component": "spring-boot-admin",
+      "field": "spring.boot.admin.client.enabled",
+      "type": "bool",
+      "shared": true
+    },
+    {
+      "key": "spring.boot.admin.client.url",
+      "line": 18,
+      "component": "spring-boot-admin",
+      "field": "spring.boot.admin.client.url",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "spring.boot.admin.client.auto-registration",
+      "line": 19,
+      "component": "spring-boot-admin",
+      "field": "spring.boot.admin.client.auto-registration",
+      "type": "bool",
+      "shared": true
+    },
+    {
+      "key": "spring.boot.admin.client.prefer-ip",
+      "line": 20,
+      "component": "spring-boot-admin",
+      "field": "spring.boot.admin.client.prefer-ip",
+      "type": "bool",
+      "shared": true
+    },
+    {
+      "key": "spring.boot.admin.client.username",
+      "line": 21,
+      "component": "spring-boot-admin",
+      "field": "spring.boot.admin.client.username",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "spring.boot.admin.client.password",
+      "line": 22,
+      "component": "spring-boot-admin",
+      "field": "spring.boot.admin.client.password",
+      "type": "secret",
+      "shared": true
+    },
+    {
+      "key": "spring.application.name",
+      "line": 24,
+      "component": "application",
+      "field": "spring.application.name",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "spring.cloud.stream.bindings.input-0.destination",
+      "line": 29,
+      "component": "spring-cloud-stream",
+      "field": "spring.cloud.stream.bindings.input-0.destination",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "spring.cloud.stream.bindings.input-0.binder",
+      "line": 30,
+      "component": "spring-cloud-stream",
+      "field": "spring.cloud.stream.bindings.input-0.binder",
+      "type": "enum",
+      "shared": true
+    },
+    {
+      "key": "spring.cloud.stream.bindings.output-0.destination",
+      "line": 32,
+      "component": "spring-cloud-stream",
+      "field": "spring.cloud.stream.bindings.output-0.destination",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "spring.cloud.stream.bindings.output-0.binder",
+      "line": 33,
+      "component": "spring-cloud-stream",
+      "field": "spring.cloud.stream.bindings.output-0.binder",
+      "type": "enum",
+      "shared": true
+    },
+    {
+      "key": "file.source.scheduler.restart_time_sec",
+      "line": 37,
+      "component": "file-source",
+      "field": "file.source.scheduler.restart_time_sec",
+      "type": "int",
+      "shared": false
+    },
+    {
+      "key": "file.source.general.adapter_id",
+      "line": 39,
+      "component": "file-source",
+      "field": "file.source.general.adapter_id",
+      "type": "string",
+      "shared": false
+    },
+    {
+      "key": "file.source.general.file_type",
+      "line": 40,
+      "component": "file-source",
+      "field": "file.source.general.file_type",
+      "type": "int",
+      "shared": false
+    },
+    {
+      "key": "file.source.general.ignoreEmptyFiles",
+      "line": 41,
+      "component": "file-source",
+      "field": "file.source.general.ignoreEmptyFiles",
+      "type": "bool",
+      "shared": false
+    },
+    {
+      "key": "file.source.general.state_backup_path",
+      "line": 42,
+      "component": "file-source",
+      "field": "file.source.general.state_backup_path",
+      "type": "string",
+      "shared": false
+    },
+    {
+      "key": "file.source.general.copy_file_mode_permissions",
+      "line": 43,
+      "component": "file-source",
+      "field": "file.source.general.copy_file_mode_permissions",
+      "type": "int",
+      "shared": false
+    },
+    {
+      "key": "file.source.general.max_file_transfer_size",
+      "line": 44,
+      "component": "file-source",
+      "field": "file.source.general.max_file_transfer_size",
+      "type": "int",
+      "shared": false
+    },
+    {
+      "key": "file.source.general.max_files_allowed",
+      "line": 45,
+      "component": "file-source",
+      "field": "file.source.general.max_files_allowed",
+      "type": "int",
+      "shared": false
+    },
+    {
+      "key": "file.source.general.max_bandwidth_limit",
+      "line": 46,
+      "component": "file-source",
+      "field": "file.source.general.max_bandwidth_limit",
+      "type": "int",
+      "shared": false
+    },
+    {
+      "key": "file.source.general.clear_state_on_eod",
+      "line": 47,
+      "component": "file-source",
+      "field": "file.source.general.clear_state_on_eod",
+      "type": "int",
+      "shared": false
+    },
+    {
+      "key": "file.source.general.eod_time_sec",
+      "line": 48,
+      "component": "file-source",
+      "field": "file.source.general.eod_time_sec",
+      "type": "int",
+      "shared": false
+    },
+    {
+      "key": "file.source.general.multiple_files_flag",
+      "line": 49,
+      "component": "file-source",
+      "field": "file.source.general.multiple_files_flag",
+      "type": "int",
+      "shared": false
+    },
+    {
+      "key": "file.source.file_to_event.enabled",
+      "line": 51,
+      "component": "file-source",
+      "field": "file.source.file_to_event.enabled",
+      "type": "int",
+      "shared": false
+    },
+    {
+      "key": "file.source.file_to_event.fileFormat",
+      "line": 52,
+      "component": "file-source",
+      "field": "file.source.file_to_event.fileFormat",
+      "type": "int",
+      "shared": false
+    },
+    {
+      "key": "file.source.file_to_event.eventDelimiter",
+      "line": 53,
+      "component": "file-source",
+      "field": "file.source.file_to_event.eventDelimiter",
+      "type": "string",
+      "shared": false
+    },
+    {
+      "key": "file.source.file_to_event.jsonPath",
+      "line": 54,
+      "component": "file-source",
+      "field": "file.source.file_to_event.jsonPath",
+      "type": "string",
+      "shared": false
+    },
+    {
+      "key": "file.source.file_to_event.xPath",
+      "line": 55,
+      "component": "file-source",
+      "field": "file.source.file_to_event.xPath",
+      "type": "string",
+      "shared": false
+    },
+    {
+      "key": "file.source.gcs.enabled",
+      "line": 57,
+      "component": "file-source",
+      "field": "file.source.gcs.enabled",
+      "type": "int",
+      "shared": false
+    },
+    {
+      "key": "file.source.gcs.projectId",
+      "line": 58,
+      "component": "file-source",
+      "field": "file.source.gcs.projectId",
+      "type": "string",
+      "shared": false
+    },
+    {
+      "key": "file.source.gcs.credentialsFilePath",
+      "line": 59,
+      "component": "file-source",
+      "field": "file.source.gcs.credentialsFilePath",
+      "type": "string",
+      "shared": false
+    },
+    {
+      "key": "file.source.gcs.retrySettings.maxAttempts",
+      "line": 61,
+      "component": "file-source",
+      "field": "file.source.gcs.retrySettings.maxAttempts",
+      "type": "int",
+      "shared": false
+    },
+    {
+      "key": "file.source.gcs.retrySettings.retryDelayMultiplier",
+      "line": 62,
+      "component": "file-source",
+      "field": "file.source.gcs.retrySettings.retryDelayMultiplier",
+      "type": "int",
+      "shared": false
+    },
+    {
+      "key": "file.source.gcs.retrySettings.maxDurationMinutes",
+      "line": 63,
+      "component": "file-source",
+      "field": "file.source.gcs.retrySettings.maxDurationMinutes",
+      "type": "int",
+      "shared": false
+    },
+    {
+      "key": "file.source.sftp_settings.enabled",
+      "line": 65,
+      "component": "file-source",
+      "field": "file.source.sftp_settings.enabled",
+      "type": "int",
+      "shared": false
+    },
+    {
+      "key": "file.source.sftp_settings.ip",
+      "line": 66,
+      "component": "file-source",
+      "field": "file.source.sftp_settings.ip",
+      "type": "string",
+      "shared": false
+    },
+    {
+      "key": "file.source.sftp_settings.port",
+      "line": 67,
+      "component": "file-source",
+      "field": "file.source.sftp_settings.port",
+      "type": "int",
+      "shared": false
+    },
+    {
+      "key": "file.source.sftp_settings.user",
+      "line": 68,
+      "component": "file-source",
+      "field": "file.source.sftp_settings.user",
+      "type": "string",
+      "shared": false
+    },
+    {
+      "key": "file.source.sftp_settings.password",
+      "line": 69,
+      "component": "file-source",
+      "field": "file.source.sftp_settings.password",
+      "type": "secret",
+      "shared": false
+    },
+    {
+      "key": "file.source.sftp_settings.strictHostKeyChecking",
+      "line": 70,
+      "component": "file-source",
+      "field": "file.source.sftp_settings.strictHostKeyChecking",
+      "type": "enum",
+      "shared": false
+    },
+    {
+      "key": "file.source.ftp_settings.enabled",
+      "line": 72,
+      "component": "file-source",
+      "field": "file.source.ftp_settings.enabled",
+      "type": "int",
+      "shared": false
+    },
+    {
+      "key": "file.source.ftp_settings.ip",
+      "line": 73,
+      "component": "file-source",
+      "field": "file.source.ftp_settings.ip",
+      "type": "string",
+      "shared": false
+    },
+    {
+      "key": "file.source.ftp_settings.port",
+      "line": 74,
+      "component": "file-source",
+      "field": "file.source.ftp_settings.port",
+      "type": "int",
+      "shared": false
+    },
+    {
+      "key": "file.source.ftp_settings.user",
+      "line": 75,
+      "component": "file-source",
+      "field": "file.source.ftp_settings.user",
+      "type": "string",
+      "shared": false
+    },
+    {
+      "key": "file.source.ftp_settings.password",
+      "line": 76,
+      "component": "file-source",
+      "field": "file.source.ftp_settings.password",
+      "type": "secret",
+      "shared": false
+    },
+    {
+      "key": "file.source.ftp_settings.secured",
+      "line": 77,
+      "component": "file-source",
+      "field": "file.source.ftp_settings.secured",
+      "type": "bool",
+      "shared": false
+    },
+    {
+      "key": "file.source.directory_wildcard.wildcard_type",
+      "line": 79,
+      "component": "file-source",
+      "field": "file.source.directory_wildcard.wildcard_type",
+      "type": "int",
+      "shared": false
+    },
+    {
+      "key": "file.source.directory_wildcard.config_path",
+      "line": 80,
+      "component": "file-source",
+      "field": "file.source.directory_wildcard.config_path",
+      "type": "string",
+      "shared": false
+    },
+    {
+      "key": "file.source.directory_replication.start_time",
+      "line": 82,
+      "component": "file-source",
+      "field": "file.source.directory_replication.start_time",
+      "type": "int",
+      "shared": false
+    },
+    {
+      "key": "file.source.solace_out.lvq",
+      "line": 84,
+      "component": "file-source",
+      "field": "file.source.solace_out.lvq",
+      "type": "string",
+      "shared": false
+    },
+    {
+      "key": "file.source.solace_out.destination",
+      "line": 85,
+      "component": "file-source",
+      "field": "file.source.solace_out.destination",
+      "type": "string",
+      "shared": false
+    },
+    {
+      "key": "file.source.command_center.enabled",
+      "line": 87,
+      "component": "file-source",
+      "field": "file.source.command_center.enabled",
+      "type": "int",
+      "shared": false
+    },
+    {
+      "key": "file.source.command_center.useOutputDestinationSolaceCredentials",
+      "line": 88,
+      "component": "file-source",
+      "field": "file.source.command_center.useOutputDestinationSolaceCredentials",
+      "type": "bool",
+      "shared": false
+    },
+    {
+      "key": "file.source.command_center.heartbeat_enabled",
+      "line": 89,
+      "component": "file-source",
+      "field": "file.source.command_center.heartbeat_enabled",
+      "type": "int",
+      "shared": false
+    },
+    {
+      "key": "file.source.command_center.heartbeat_interval",
+      "line": 90,
+      "component": "file-source",
+      "field": "file.source.command_center.heartbeat_interval",
+      "type": "int",
+      "shared": false
+    },
+    {
+      "key": "file.source.command_center.solace_base_publish_topic_heartbeat",
+      "line": 91,
+      "component": "file-source",
+      "field": "file.source.command_center.solace_base_publish_topic_heartbeat",
+      "type": "string",
+      "shared": false
+    },
+    {
+      "key": "file.source.command_center.solace_base_publish_topic",
+      "line": 92,
+      "component": "file-source",
+      "field": "file.source.command_center.solace_base_publish_topic",
+      "type": "string",
+      "shared": false
+    },
+    {
+      "key": "file.source.command_center.solace_messaging_mode",
+      "line": 93,
+      "component": "file-source",
+      "field": "file.source.command_center.solace_messaging_mode",
+      "type": "enum",
+      "shared": false
+    },
+    {
+      "key": "file.source.command_center.events.fileStart",
+      "line": 95,
+      "component": "file-source",
+      "field": "file.source.command_center.events.fileStart",
+      "type": "bool",
+      "shared": false
+    },
+    {
+      "key": "file.source.command_center.events.fileComplete",
+      "line": 96,
+      "component": "file-source",
+      "field": "file.source.command_center.events.fileComplete",
+      "type": "bool",
+      "shared": false
+    },
+    {
+      "key": "solace.connector.security.enabled",
+      "line": 101,
+      "component": "solace",
+      "field": "solace.connector.security.enabled",
+      "type": "bool",
+      "shared": true
+    },
+    {
+      "key": "solace.connector.error.handle",
+      "line": 103,
+      "component": "solace",
+      "field": "solace.connector.error.handle",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "solace.connector.workflows.0.enabled",
+      "line": 106,
+      "component": "solace",
+      "field": "solace.connector.workflows.0.enabled",
+      "type": "bool",
+      "shared": true
+    },
+    {
+      "key": "solace.connector.workflows.0.acknowledgment.publish-async",
+      "line": 108,
+      "component": "solace",
+      "field": "solace.connector.workflows.0.acknowledgment.publish-async",
+      "type": "bool",
+      "shared": true
+    },
+    {
+      "key": "solace.connector.management.leader-election.mode",
+      "line": 111,
+      "component": "solace",
+      "field": "solace.connector.management.leader-election.mode",
+      "type": "enum",
+      "shared": true
+    },
+    {
+      "key": "solace.connector.management.leader-election.fail-over.max-attempts",
+      "line": 113,
+      "component": "solace",
+      "field": "solace.connector.management.leader-election.fail-over.max-attempts",
+      "type": "int",
+      "shared": true
+    },
+    {
+      "key": "solace.connector.management.leader-election.fail-over.back-off-initial-interval",
+      "line": 114,
+      "component": "solace",
+      "field": "solace.connector.management.leader-election.fail-over.back-off-initial-interval",
+      "type": "int",
+      "shared": true
+    },
+    {
+      "key": "solace.connector.management.leader-election.fail-over.back-off-max-interval",
+      "line": 115,
+      "component": "solace",
+      "field": "solace.connector.management.leader-election.fail-over.back-off-max-interval",
+      "type": "int",
+      "shared": true
+    },
+    {
+      "key": "solace.connector.management.leader-election.fail-over.back-off-multiplier",
+      "line": 116,
+      "component": "solace",
+      "field": "solace.connector.management.leader-election.fail-over.back-off-multiplier",
+      "type": "int",
+      "shared": true
+    },
+    {
+      "key": "solace.connector.management.queue",
+      "line": 117,
+      "component": "solace",
+      "field": "solace.connector.management.queue",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "solace.connector.management.session.host",
+      "line": 119,
+      "component": "solace",
+      "field": "solace.connector.management.session.host",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "solace.connector.management.session.msg-vpn",
+      "line": 120,
+      "component": "solace",
+      "field": "solace.connector.management.session.msg-vpn",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "solace.connector.management.session.client-username",
+      "line": 121,
+      "component": "solace",
+      "field": "solace.connector.management.session.client-username",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "solace.connector.management.session.client-password",
+      "line": 122,
+      "component": "solace",
+      "field": "solace.connector.management.session.client-password",
+      "type": "secret",
+      "shared": true
+    },
+    {
+      "key": "solace.java.host",
+      "line": 124,
+      "component": "solace",
+      "field": "solace.java.host",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "solace.java.msg-vpn",
+      "line": 125,
+      "component": "solace",
+      "field": "solace.java.msg-vpn",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "solace.java.client-username",
+      "line": 126,
+      "component": "solace",
+      "field": "solace.java.client-username",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "solace.java.client-password",
+      "line": 127,
+      "component": "solace",
+      "field": "solace.java.client-password",
+      "type": "secret",
+      "shared": true
+    },
+    {
+      "key": "solace.java.connectRetries",
+      "line": 128,
+      "component": "solace",
+      "field": "solace.java.connectRetries",
+      "type": "int",
+      "shared": true
+    },
+    {
+      "key": "solace.java.reconnectRetries",
+      "line": 129,
+      "component": "solace",
+      "field": "solace.java.reconnectRetries",
+      "type": "int",
+      "shared": true
+    },
+    {
+      "key": "logging.level.root",
+      "line": 132,
+      "component": "logging",
+      "field": "logging.level.root",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "logging.level.com.solace.connector.jms",
+      "line": 133,
+      "component": "logging",
+      "field": "logging.level.com.solace.connector.jms",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "logging.level.com.solace.connector.core",
+      "line": 134,
+      "component": "logging",
+      "field": "logging.level.com.solace.connector.core",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "logging.level.com.solace.spring.cloud.stream.binder",
+      "line": 135,
+      "component": "logging",
+      "field": "logging.level.com.solace.spring.cloud.stream.binder",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "logging.level.com.solacecoe.spring.cloud.stream.binders.file",
+      "line": 136,
+      "component": "logging",
+      "field": "logging.level.com.solacecoe.spring.cloud.stream.binders.file",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "logging.file.name",
+      "line": 138,
+      "component": "logging",
+      "field": "logging.file.name",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "logging.logback.rollingpolicy.file-name-pattern",
+      "line": 141,
+      "component": "logging",
+      "field": "logging.logback.rollingpolicy.file-name-pattern",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "logging.logback.rollingpolicy.max-file-size",
+      "line": 142,
+      "component": "logging",
+      "field": "logging.logback.rollingpolicy.max-file-size",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "logging.logback.rollingpolicy.max-history",
+      "line": 143,
+      "component": "logging",
+      "field": "logging.logback.rollingpolicy.max-history",
+      "type": "int",
+      "shared": true
+    },
+    {
+      "key": "logging.logback.rollingpolicy.total-size-cap",
+      "line": 144,
+      "component": "logging",
+      "field": "logging.logback.rollingpolicy.total-size-cap",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "management.security.enabled",
+      "line": 147,
+      "component": "management",
+      "field": "management.security.enabled",
+      "type": "bool",
+      "shared": true
+    },
+    {
+      "key": "management.simple.metrics.export.enabled",
+      "line": 151,
+      "component": "management",
+      "field": "management.simple.metrics.export.enabled",
+      "type": "bool",
+      "shared": true
+    },
+    {
+      "key": "management.endpoints.web.exposure.include",
+      "line": 155,
+      "component": "management",
+      "field": "management.endpoints.web.exposure.include",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "management.endpoints.web.cors.allowed-origins",
+      "line": 157,
+      "component": "management",
+      "field": "management.endpoints.web.cors.allowed-origins",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "management.endpoints.web.cors.allowed-methods",
+      "line": 158,
+      "component": "management",
+      "field": "management.endpoints.web.cors.allowed-methods",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "management.endpoints.web.cors.allowed-headers",
+      "line": 159,
+      "component": "management",
+      "field": "management.endpoints.web.cors.allowed-headers",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "management.endpoint.logfile.external-file",
+      "line": 162,
+      "component": "management",
+      "field": "management.endpoint.logfile.external-file",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "management.endpoint.prometheus.enabled",
+      "line": 164,
+      "component": "management",
+      "field": "management.endpoint.prometheus.enabled",
+      "type": "bool",
+      "shared": true
+    },
+    {
+      "key": "management.endpoint.health.show-details",
+      "line": 166,
+      "component": "management",
+      "field": "management.endpoint.health.show-details",
+      "type": "string",
+      "shared": true
+    },
+    {
+      "key": "management.endpoint.health.status.order",
+      "line": 169,
+      "component": "management",
+      "field": "management.endpoint.health.status.order",
+      "type": "string",
+      "shared": true
+    }
+  ],
+  "flagged": [],
+  "excluded": [
+    {
+      "key": "file.source.command_center.useoutputdestinationsolacecredentials",
+      "line": 97,
+      "reason": "FM-D1: lowercase duplicate of useOutputDestinationSolaceCredentials (string 'true' vs bool true)."
+    }
+  ],
+  "coerced": [
+    {
+      "key": "spring.boot.admin.client.instance.prefer-ip",
+      "line": 14,
+      "note": "string 'true' coerced to bool"
+    },
+    {
+      "key": "spring.boot.admin.client.enabled",
+      "line": 17,
+      "note": "string 'true' coerced to bool"
+    },
+    {
+      "key": "spring.boot.admin.client.auto-registration",
+      "line": 19,
+      "note": "string 'true' coerced to bool"
+    },
+    {
+      "key": "spring.boot.admin.client.prefer-ip",
+      "line": 20,
+      "note": "string 'true' coerced to bool"
+    },
+    {
+      "key": "file.source.sftp_settings.strictHostKeyChecking",
+      "line": 70,
+      "note": "unquoted 'no' kept as a string (a YAML 1.1 reader would make it a bool)"
+    },
+    {
+      "key": "management.endpoint.health.status.order",
+      "line": 169,
+      "note": "list ['DOWN', 'OUT_OF_SERVICE', 'RECONNECTING', 'UP', 'UNKNOWN'] joined with ',' into one string"
+    }
+  ],
+  "secrets_withheld": [
+    {
+      "key": "server.ssl.key-store-password",
+      "line": 6
+    },
+    {
+      "key": "spring.boot.admin.client.password",
+      "line": 22
+    },
+    {
+      "key": "file.source.sftp_settings.password",
+      "line": 69
+    },
+    {
+      "key": "file.source.ftp_settings.password",
+      "line": 76
+    },
+    {
+      "key": "solace.connector.management.session.client-password",
+      "line": 122
+    },
+    {
+      "key": "solace.java.client-password",
+      "line": 127
+    }
+  ],
+  "diff": {
+    "server": {
+      "added": [],
+      "changed": [
+        {
+          "key": "server.ssl.key-store-password",
+          "changes": [
+            [
+              "default (secret withheld)",
+              "changeit",
+              null
+            ]
+          ]
+        }
+      ],
+      "package_only": []
+    },
+    "spring-boot-admin": {
+      "added": [],
+      "changed": [
+        {
+          "key": "spring.boot.admin.client.password",
+          "changes": [
+            [
+              "default (secret withheld)",
+              "pass",
+              null
+            ]
+          ]
+        }
+      ],
+      "package_only": []
+    },
+    "file-source": {
+      "added": [],
+      "changed": [
+        {
+          "key": "file.source.general.adapter_id",
+          "changes": [
+            [
+              "default",
+              "SOURCE_TEST_V1",
+              "fm-file-source"
+            ]
+          ]
+        },
+        {
+          "key": "file.source.sftp_settings.password",
+          "changes": [
+            [
+              "default (secret withheld)",
+              "SFTP_PASSWORD",
+              null
+            ]
+          ]
+        },
+        {
+          "key": "file.source.ftp_settings.password",
+          "changes": [
+            [
+              "default (secret withheld)",
+              "FTP_PASSWORD",
+              null
+            ]
+          ]
+        }
+      ],
+      "package_only": []
+    },
+    "solace": {
+      "added": [],
+      "changed": [
+        {
+          "key": "solace.connector.management.session.client-password",
+          "changes": [
+            [
+              "default (secret withheld)",
+              "test",
+              null
+            ]
+          ]
+        },
+        {
+          "key": "solace.java.client-password",
+          "changes": [
+            [
+              "default (secret withheld)",
+              "test",
+              null
+            ]
+          ]
+        }
+      ],
+      "package_only": []
+    }
+  },
+  "shared_differences": [
+    {
+      "component": "server",
+      "key": "server.port",
+      "package": 8094,
+      "yaml": 8092,
+      "valueFrom": false
+    },
+    {
+      "component": "server",
+      "key": "server.ssl.enabled",
+      "package": true,
+      "yaml": false,
+      "valueFrom": false
+    },
+    {
+      "component": "application",
+      "key": "spring.application.name",
+      "package": "SOURCE_TEST_V1",
+      "yaml": "fm-file-source",
+      "valueFrom": false
+    },
+    {
+      "component": "spring-cloud-stream",
+      "key": "spring.cloud.stream.bindings.input-0.destination",
+      "package": "/home/banala/Music/entityFolders/updated/SOURCE_TEST_V1/file_paths.cfg",
+      "yaml": "/app/external/classpath/file_paths.cfg",
+      "valueFrom": false
+    },
+    {
+      "component": "spring-cloud-stream",
+      "key": "spring.cloud.stream.bindings.output-0.destination",
+      "package": "file/test",
+      "yaml": "SOURCE/DEFAULT/Alice/FF/NWFILE/SEP15/1",
+      "valueFrom": false
+    },
+    {
+      "component": "solace",
+      "key": "solace.connector.management.queue",
+      "package": "",
+      "yaml": "fm-file-source-management",
+      "valueFrom": false
+    },
+    {
+      "component": "solace",
+      "key": "solace.connector.management.session.host",
+      "package": "tcp://localhost:55555",
+      "yaml": "tcp://host.docker.internal:55554",
+      "valueFrom": true
+    },
+    {
+      "component": "solace",
+      "key": "solace.java.host",
+      "package": "tcp://localhost:55555",
+      "yaml": "tcp://host.docker.internal:55554",
+      "valueFrom": true
+    },
+    {
+      "component": "management",
+      "key": "management.endpoints.web.exposure.include",
+      "package": "*",
+      "yaml": "health,info,metrics",
+      "valueFrom": false
+    }
+  ],
+  "ui_differences": [
+    {
+      "component": "file-source",
+      "key": "file.source.file_to_event.xPath",
+      "package": [
+        "File To Event",
+        "XPath"
+      ],
+      "derived": [
+        "File To Event",
+        "X path"
+      ]
+    },
+    {
+      "component": "file-source",
+      "key": "file.source.gcs.projectId",
+      "package": [
+        "GCS",
+        "GCS project ID"
+      ],
+      "derived": [
+        "GCS",
+        "Project ID"
+      ]
+    },
+    {
+      "component": "file-source",
+      "key": "file.source.gcs.credentialsFilePath",
+      "package": [
+        "GCS",
+        "GCS credentials file path"
+      ],
+      "derived": [
+        "GCS",
+        "Credentials file path"
+      ]
+    },
+    {
+      "component": "file-source",
+      "key": "file.source.gcs.retrySettings.maxAttempts",
+      "package": [
+        "GCS Retry",
+        "GCS max attempts"
+      ],
+      "derived": [
+        "GCS Retry",
+        "Max attempts"
+      ]
+    },
+    {
+      "component": "file-source",
+      "key": "file.source.gcs.retrySettings.retryDelayMultiplier",
+      "package": [
+        "GCS Retry",
+        "GCS retry delay multiplier"
+      ],
+      "derived": [
+        "GCS Retry",
+        "Retry delay multiplier"
+      ]
+    },
+    {
+      "component": "file-source",
+      "key": "file.source.gcs.retrySettings.maxDurationMinutes",
+      "package": [
+        "GCS Retry",
+        "GCS max duration (minutes)"
+      ],
+      "derived": [
+        "GCS Retry",
+        "Max duration (minutes)"
+      ]
+    },
+    {
+      "component": "file-source",
+      "key": "file.source.sftp_settings.ip",
+      "package": [
+        "SFTP",
+        "SFTP host"
+      ],
+      "derived": [
+        "SFTP",
+        "SFTP IP"
+      ]
+    },
+    {
+      "component": "file-source",
+      "key": "file.source.ftp_settings.ip",
+      "package": [
+        "FTP",
+        "FTP host"
+      ],
+      "derived": [
+        "FTP",
+        "FTP IP"
+      ]
+    },
+    {
+      "component": "file-source",
+      "key": "file.source.directory_wildcard.config_path",
+      "package": [
+        "Directory Wildcard",
+        "Wildcard config path"
+      ],
+      "derived": [
+        "Directory Wildcard",
+        "Config path"
+      ]
+    },
+    {
+      "component": "file-source",
+      "key": "file.source.directory_replication.start_time",
+      "package": [
+        "Directory Replication",
+        "Replication start time"
+      ],
+      "derived": [
+        "Directory Replication",
+        "Start time"
+      ]
+    },
+    {
+      "component": "file-source",
+      "key": "file.source.solace_out.lvq",
+      "package": [
+        "Solace Output",
+        "LVQ"
+      ],
+      "derived": [
+        "Solace Out",
+        "LVQ"
+      ]
+    },
+    {
+      "component": "file-source",
+      "key": "file.source.solace_out.destination",
+      "package": [
+        "Solace Output",
+        "Destination"
+      ],
+      "derived": [
+        "Solace Out",
+        "Destination"
+      ]
+    },
+    {
+      "component": "file-source",
+      "key": "file.source.command_center.enabled",
+      "package": [
+        "Command Center",
+        "Command Center enabled"
+      ],
+      "derived": [
+        "Command Center",
+        "Command center enabled"
+      ]
+    },
+    {
+      "component": "file-source",
+      "key": "file.source.command_center.useOutputDestinationSolaceCredentials",
+      "package": [
+        "Command Center",
+        "Use output destination Solace credentials"
+      ],
+      "derived": [
+        "Command Center",
+        "Use output destination solace credentials"
+      ]
+    },
+    {
+      "component": "file-source",
+      "key": "file.source.command_center.solace_base_publish_topic_heartbeat",
+      "package": [
+        "Command Center",
+        "Heartbeat publish topic"
+      ],
+      "derived": [
+        "Command Center",
+        "Solace base publish topic heartbeat"
+      ]
+    },
+    {
+      "component": "file-source",
+      "key": "file.source.command_center.solace_base_publish_topic",
+      "package": [
+        "Command Center",
+        "Publish topic"
+      ],
+      "derived": [
+        "Command Center",
+        "Solace base publish topic"
+      ]
+    },
+    {
+      "component": "file-source",
+      "key": "file.source.command_center.solace_messaging_mode",
+      "package": [
+        "Command Center",
+        "Messaging mode"
+      ],
+      "derived": [
+        "Command Center",
+        "Solace messaging mode"
+      ]
+    },
+    {
+      "component": "file-source",
+      "key": "file.source.command_center.events.fileStart",
+      "package": [
+        "Command Center Events",
+        "File start event"
+      ],
+      "derived": [
+        "Command Center Events",
+        "File start"
+      ]
+    },
+    {
+      "component": "file-source",
+      "key": "file.source.command_center.events.fileComplete",
+      "package": [
+        "Command Center Events",
+        "File complete event"
+      ],
+      "derived": [
+        "Command Center Events",
+        "File complete"
+      ]
+    }
+  ],
+  "notes": [
+    "component cache preserved untouched (profile `preserve`)"
+  ],
+  "questions": [
+    "provenance carries a signature over content this run changed, so it no longer covers the package. Keep it as-is, or re-run with --provenance dev-mode?"
+  ],
+  "validation": {
+    "ok": true,
+    "errors": [],
+    "warnings": [
+      "file-sink/file.sink.sftp_settings.password: secret field carries a default value (I6: secret values never land in config storage)",
+      "file-sink/file.sink.ftp_settings.password: secret field carries a default value (I6: secret values never land in config storage)",
+      "latest package version 4 is carried by only 1 of 10 components"
+    ],
+    "notes": [
+      "schema: /home/arnav-rinawa/Documents/solution_manager/solution-manager-main-main/contracts/solution-package.schema.json"
+    ]
+  },
+  "authoring": {
+    "reviewedRows": 149,
+    "totalRows": 156
+  }
+}

@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: file-mesh-source-regenerate
+expected_outcome: |
+  The skill uses the existing file-mesh profile, maps 109 of 110 leaves, excludes the lowercase useoutputdestinationsolacecredentials duplicate, changes only adapter_id's default in file-source and withholds secret defaults, keeps file-sink and all other content, validates PASS, and reports coverage, diff and open questions without overwriting the input package.
+context:
+  scaffold_script: place-files.sh

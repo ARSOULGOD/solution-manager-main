@@ -1,0 +1,32 @@
+# cache-manager: a made-up solution used to test the no-profile flow.
+cache-manager:
+  instance:
+    name: cm-primary
+    region: eu-west-1
+    mode: CLUSTERED          # one of STANDALONE | CLUSTERED
+  store:
+    backend: redis           # options: memory, redis, hazelcast
+    redis:
+      url: redis://localhost:6379
+      password: s3cr3t
+      pool-size: 16
+      connect-timeout: 5s
+    memory:
+      max-entries: 100000
+  eviction:
+    policy: LRU
+    ttl: 30m
+    idle-timeout: 10m
+  warmup:
+    enabled: "false"
+    sources:
+      - orders
+      - customers
+  partitions:
+    orders: 8
+    customers: 4
+metrics:
+  export:
+    enabled: true
+    step: 1m
+    api-key: abc123

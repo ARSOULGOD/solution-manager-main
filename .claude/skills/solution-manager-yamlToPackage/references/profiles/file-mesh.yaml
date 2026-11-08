@@ -1,0 +1,127 @@
+# Mapping profile: File Mesh. The worked example, not a template for other solutions.
+#
+# Built from application-source-file-v2.yml, application-sink-file-v2.yml and
+# frontend/contracts/packages/file-mesh/package.json. Every key below is described in
+# references/mapping-guide.md ("Profile format"). Patterns are dotted prefixes on a segment
+# boundary unless they contain * ? or [ ], in which case they are globs over the whole key.
+
+solution: file-mesh
+status: confirmed            # draft | confirmed. The engine refuses to run a draft profile.
+package: frontend/contracts/packages/file-mesh/package.json   # canonical package (hint, repo-relative)
+roles: [source, sink]
+
+# Variation points ------------------------------------------------------------------------
+key_style: full-dotted       # keys are the whole YAML path; configPath is "" so nothing is prefixed twice
+ui_order: running            # File Mesh numbers ui.order per field (0,1,2... / 5,6,7...), not per section.
+                             # New profiles default to section-index.
+preserve_reviewed_ui: true   # a field already in the package keeps its reviewed label/section/order/helperText
+explicit_versions: true      # write version[] on every field, as the shipped package does
+
+components:
+  # Role components: one per role, one-of-many. Each YAML feeds exactly one of these.
+  - type: file-source
+    role: source
+    cardinality: one-of-many
+    configPath: ""
+    loggerPrefix: com.solace.solutions.filemesh.source
+    match: [file.source]
+  - type: file-sink
+    role: sink
+    cardinality: one-of-many
+    configPath: ""
+    loggerPrefix: com.solace.solutions.filemesh.sink
+    match: [file.sink]
+
+  # Shared components (role none). Both role YAMLs carry them; the first run creates them, later
+  # runs only verify and report, so a second role never duplicates or silently rewrites them.
+  - {type: server, role: none, shared: true, cardinality: zero-or-more, configPath: "", match: [server]}
+  - {type: spring-boot-admin, role: none, shared: true, cardinality: zero-or-more, configPath: "", match: [spring.boot.admin]}
+  - {type: spring-cloud-stream, role: none, shared: true, cardinality: zero-or-more, configPath: "", match: [spring.cloud.stream]}
+  - {type: solace, role: none, shared: true, cardinality: zero-or-more, configPath: "", loggerPrefix: com.solace, match: [solace]}
+  - {type: application, role: none, shared: true, cardinality: zero-or-more, configPath: "", match: [spring.application]}
+  - {type: logging, role: none, shared: true, cardinality: zero-or-more, configPath: "", match: [logging]}
+  - {type: management, role: none, shared: true, cardinality: zero-or-more, configPath: "", match: [management]}
+  # Env-style component inside a Spring-style package. No role YAML feeds it; it is preserved as-is.
+  - {type: cache, role: none, shared: true, cardinality: zero-or-more, configPath: cache, key_style: env-style,
+     loggerPrefix: com.solace.solutions.cache, match: []}
+
+role_exclusive:
+  - match: spring.cloud.stream.solace.default.consumer
+    roles: [sink]
+    reason: "FM-D2: the Solace binder consumer defaults appear only in the sink YAML."
+
+lists:
+  management.endpoint.health.status.order: join-comma   # FM-D4
+
+enums:
+  "file.*.sftp_settings.strictHostKeyChecking": [yes, no]
+  "file.*.command_center.solace_messaging_mode": [DIRECT, PERSISTENT, NON-PERSISTENT]
+  solace.connector.management.leader-election.mode: [standalone, active_active, active_standby]
+  "spring.cloud.stream.bindings.*.binder": [file, solace]
+
+types: {}                    # explicit {pattern: type} overrides; none needed for File Mesh
+secret_patterns: []          # extra regexes on the leaf name, on top of the engine's password/secret/token/api-key set
+acronyms: [lvq, gcs, eod]
+
+sections:                    # only where the generic "nearest parent" rule reads badly
+  logging.level: Log Levels
+  logging.logback.rollingpolicy: Rolling Policy
+  solace.connector.management.leader-election: Leader Election
+  spring.cloud.stream.bindings.input-0: Input Binding
+  spring.cloud.stream.bindings.output-0: Output Binding
+  spring.cloud.stream.solace.default.consumer: Solace Consumer
+
+exclude:
+  - match: file.source.command_center.useoutputdestinationsolacecredentials
+    reason: "FM-D1: lowercase duplicate of useOutputDestinationSolaceCredentials (string 'true' vs bool true)."
+
+# Non-YAML content the engine must carry over untouched on every run.
+preserve:
+  components: [cache]
+  fields:
+    - {component: solace, key: solaceManagementBroker, kind: virtual + optionsSource}
+    - {component: solace, key: solaceDataBroker, kind: virtual + optionsSource}
+    - {component: solace, match: solace.connector.management.session, kind: valueFrom (4 fields)}
+    - {component: solace, match: solace.java, kind: valueFrom (4 fields; host, msg-vpn, client-username, client-password)}
+  metrics: [file-source, file-sink]
+
+defaults:
+  role_components: yaml      # FM-D7: a role component takes its defaults from the role YAML
+  shared_components: package # shared defaults keep the package's values; differences are reported only
+
+discrepancies:
+  - id: FM-D1
+    what: "source YAML has both useOutputDestinationSolaceCredentials: true and the lowercase useoutputdestinationsolacecredentials: 'true'"
+    resolution: exclude the lowercase key (see exclude)
+  - id: FM-D2
+    what: "spring.cloud.stream.solace.default.consumer.* (3 leaves) exists only in the sink YAML and in no package component"
+    resolution: flagged on every run until the owner decides; candidate is spring-cloud-stream with field role sink
+  - id: FM-D3
+    what: "spring.boot.admin.client.* booleans are quoted strings ('true')"
+    resolution: coerced to bool by the engine and reported
+  - id: FM-D4
+    what: "management.endpoint.health.status.order is a YAML list; the package stores one comma-joined string"
+    resolution: lists policy join-comma
+  - id: FM-D5
+    what: "the package numbers ui.order per field, not per section"
+    resolution: ui_order running, so regenerated components match the shared ones
+  - id: FM-D6
+    what: "the YAMLs carry real-looking password values (changeit, pass, test, SFTP_PASSWORD)"
+    resolution: secret defaults are always withheld (I6); the engine reports each one
+  - id: FM-D7
+    what: "role YAML defaults (adapter_id fm-file-source) differ from the package (SOURCE_TEST_V1)"
+    resolution: role components take YAML defaults; shared components keep package defaults
+  - id: FM-D8
+    what: "solace broker selectors and 8 valueFrom fields have no YAML leaf (selectors) or are overridden by a Connection Object (valueFrom)"
+    resolution: preserved; a valueFrom field keeps its valueFrom and only its default is compared
+  - id: FM-D9
+    what: "source YAML writes strictHostKeyChecking: no unquoted, which a YAML 1.1 parser reads as false"
+    resolution: the engine's YAML 1.2 loader keeps the string 'no'; the enum makes it [yes, no]
+  - id: FM-D10
+    what: "spring.application.name differs per role (fm-file-source / fm-file-sink) but sits in the shared application component"
+    resolution: reported as a shared default difference; open question whether it belongs in the role components
+  - id: FM-D11
+    what: "the 'shared' spring-cloud-stream bindings run in opposite directions per role (source: input file -> output solace;
+      sink: input solace -> output file), and server.port / solace management queue / leader-election mode differ too.
+      The package's single shared copy carries the source values"
+    resolution: reported on every sink run as shared default differences; open question whether these belong in the role components

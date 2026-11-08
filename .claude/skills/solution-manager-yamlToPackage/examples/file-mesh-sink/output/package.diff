@@ -1,0 +1,60 @@
+--- frontend/contracts/packages/file-mesh/package.json
++++ package.json (generated)
+@@ -13,6 +13,6 @@
+   },
+   "authoring": {
+-    "reviewedRows": 163,
+-    "totalRows": 163
++    "reviewedRows": 149,
++    "totalRows": 156
+   },
+   "components": [
+@@ -875,5 +875,5 @@
+           "key": "file.sink.general.adapter_id",
+           "type": "string",
+-          "default": "SINK_CONN_ID1",
++          "default": "fm-file-sink",
+           "ui": {
+             "section": "General",
+@@ -1195,5 +1195,5 @@
+           "key": "file.sink.sftp_settings.password",
+           "type": "secret",
+-          "default": "SFTP_PASSWORD",
++          "default": null,
+           "ui": {
+             "section": "SFTP",
+@@ -1295,5 +1295,5 @@
+           "key": "file.sink.ftp_settings.password",
+           "type": "secret",
+-          "default": "FTP_PASSWORD",
++          "default": null,
+           "ui": {
+             "section": "FTP",
+@@ -1683,5 +1683,5 @@
+           "key": "server.ssl.key-store-password",
+           "type": "secret",
+-          "default": "changeit",
++          "default": null,
+           "ui": {
+             "section": "SSL",
+@@ -1872,5 +1872,5 @@
+           "key": "spring.boot.admin.client.password",
+           "type": "secret",
+-          "default": "pass",
++          "default": null,
+           "ui": {
+             "section": "Authentication",
+@@ -2239,5 +2239,5 @@
+           "key": "solace.connector.management.session.client-password",
+           "type": "secret",
+-          "default": "test",
++          "default": null,
+           "valueFrom": {
+             "ref": "solaceManagementBroker",
+@@ -2347,5 +2347,5 @@
+           "key": "solace.java.client-password",
+           "type": "secret",
+-          "default": "test",
++          "default": null,
+           "valueFrom": {
+             "ref": "solaceDataBroker",
