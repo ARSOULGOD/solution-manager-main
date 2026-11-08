@@ -10,7 +10,9 @@ description: >-
   config, or to onboard a new solution's configuration into the console. A solution with no mapping
   profile yet goes through a propose-and-confirm flow before anything is generated. Also use it to
   build or test the UI for a package: generate its contract test, load it into the console in a
-  headless browser, and check that its config round-trips back to the YAML.
+  headless browser, and check that its config round-trips back to the YAML. And use it to deploy and
+  test the MI over SSH: render the config, dry-run the deploy, start it, check health and logs, run
+  a smoke test, and offer teardown.
 ---
 
 # Solution YAML → Solution Package
@@ -37,6 +39,7 @@ Read as needed:
 |---|---|---|
 | 1. Package creation | YAML → `package.json` (this file, below) | `references/mapping-guide.md` |
 | 2. UI building | contract test, console in a headless browser, YAML round-trip | `references/ui-testing.md` |
+| 3. Solution via SSH | render config, dry run, deploy, verify, smoke test, offer teardown | `references/ssh-deploy.md` |
 
 Each stage ends with a PASS/FAIL (or BLOCKED) report, and then **STOP and wait for the user's go-ahead**
 before the next stage. A user who asked only for the package gets Stage 1 and an offer of Stage 2, not Stage 2.
@@ -185,6 +188,33 @@ Follow `references/ui-testing.md`. In short:
 Never change UI code to make a check pass. Known console issues found so far are listed at the end of
 `references/ui-testing.md`; report them as found.
 
+## Stage 3: Solution via SSH
+
+Read `references/ssh-deploy.md` first. It is a **test harness**: SM itself does not deploy artifacts, so never
+present this as an SM feature.
+
+1. Ask for host/user/port, key or agent auth (**never a password**), a known_hosts file, delivery and artifact,
+   install dir, start mode and broker details. Secret values stay in the user's shell as `SM_SECRET_*` variables.
+2. `render_config.py render --values <designer draft>`: secrets become `${SM_SECRET_*}` placeholders.
+3. `deploy_ssh.sh plan` (no network). Show it and **wait for explicit approval**.
+4. `deploy_ssh.sh apply --yes-i-approved`, then `verify`: health UP, log scan, Solace connection (MOCKED/real).
+5. `smoke_test.py` with the profile's `smoke_test:`. Unconfirmed specs need the user's acceptance.
+6. Offer `deploy_ssh.sh teardown`; never run it unasked.
+
+If SSH is refused (exit 4), don't try workarounds. Stay in `plan` and hand over the commands and the script.
+
+## Final output: per-stage summary
+
+End the whole run with one table, after each stage's own report:
+
+| stage | verdict | evidence | open questions |
+|---|---|---|---|
+| 1. Package creation | PASS/FAIL | `<out-dir>/report.md`, `package.diff` | n |
+| 2. UI building | PASS/FAIL/BLOCKED | contract test, `ui-check.json`, screenshots, round-trip | n |
+| 3. Solution via SSH | PASS/FAIL (real host / stand-in, mocked broker) | plan, verify, smoke report | n |
+
+A stage that was not run says "not run (awaiting go-ahead)".
+
 ## Scripts
 
 | script | does |
@@ -196,6 +226,9 @@ Never change UI code to make a check pass. Known console issues found so far are
 | `scripts/run_frontend.sh` | Stage 2: runs vitest, the dev server, Playwright and `ui-check` in Docker |
 | `scripts/ui_check.mjs` | Stage 2: headless browser check of the loaded package |
 | `scripts/render_config.py` | renders a role's config (secrets as `${SM_SECRET_*}`); `roundtrip` compares it with the YAML |
+| `scripts/deploy_ssh.sh` | Stage 3: `plan` (default, no network) / `apply` / `verify` / `teardown` over SSH |
+| `scripts/smoke_test.py` | Stage 3: runs the profile's `smoke_test:` over SSH |
+| `scripts/testing/` | the skill's own Stage 3 target: local sshd, stand-in MI image, mocked broker |
 | `scripts/common.py` | shared: strict YAML 1.2 loader, flattening, matching, humanising |
 
 They need Python 3 with PyYAML. `jsonschema` is optional; without it, the schema gate is skipped and

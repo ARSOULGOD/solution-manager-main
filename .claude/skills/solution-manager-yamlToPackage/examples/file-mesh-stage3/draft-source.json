@@ -1,0 +1,9 @@
+{
+ "server.port": 8092,
+ "server.ssl.enabled": false,
+ "spring.application.name": "fm-file-source",
+ "spring.cloud.stream.bindings.input-0.destination": "/app/external/classpath/file_paths.cfg",
+ "spring.cloud.stream.bindings.output-0.destination": "SOURCE/DEFAULT/Alice/FF/NWFILE/SEP15/1",
+ "solace.connector.management.queue": "fm-file-source-management",
+ "management.endpoints.web.exposure.include": "health,info,metrics"
+}

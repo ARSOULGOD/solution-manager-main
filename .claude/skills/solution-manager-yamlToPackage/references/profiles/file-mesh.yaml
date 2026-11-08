@@ -125,3 +125,20 @@ discrepancies:
       sink: input solace -> output file), and server.port / solace management queue / leader-election mode differ too.
       The package's single shared copy carries the source values"
     resolution: reported on every sink run as shared default differences; open question whether these belong in the role components
+
+# Stage 3 functional smoke test (scripts/smoke_test.py). UNCONFIRMED: the runner refuses it without
+# --accept-unconfirmed, and the report says so. The assumption below needs the owner's confirmation.
+smoke_test:
+  status: unconfirmed
+  assumption: >-
+    The source's spring.cloud.stream.bindings.input-0.destination (file_paths.cfg in the YAML) is a LIST FILE whose
+    lines are directories to watch. It may instead be the watched path itself; confirm before trusting a real run.
+  needs_roles: [source, sink]
+  vars: {watch_dir: /app/external/in}
+  steps:
+    - {id: watch-list, kind: write_text, role: source, path_from: spring.cloud.stream.bindings.input-0.destination,
+       text: "{watch_dir}\n"}
+    - {id: drop-file, kind: put_random_file, role: source, dir: "{watch_dir}", bytes: 4096}
+    - {id: published, kind: expect_log, role: source, pattern: "published {file}", timeout_s: 30}
+    - {id: delivered, kind: expect_file, role: sink, dir_from: spring.cloud.stream.bindings.output-0.destination,
+       same_checksum: true, timeout_s: 60}

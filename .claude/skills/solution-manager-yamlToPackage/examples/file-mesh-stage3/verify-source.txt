@@ -1,0 +1,4 @@
+health: polling http://127.0.0.1:8092/actuator/health on the target for up to 60s
+HEALTH UP
+SOLACE UP (MOCKED broker): component solace
+LOG /tmp/claude-1000/-home-arnav-rinawa-Documents-solution-manager-solution-manager-main-main/4504279c-f90f-499b-988b-b6a7ae7bb58f/scratchpad/stage3/local/target/fm-source/work/myapp.log: 7 lines read, 0 ERROR/Exception

@@ -1,0 +1,12 @@
+{
+ "server.port": 8093,
+ "server.ssl.enabled": false,
+ "spring.application.name": "fm-file-sink",
+ "spring.cloud.stream.bindings.input-0.destination": "SOURCE/DEFAULT/Alice/FF/NWFILE/SEP15/1",
+ "spring.cloud.stream.bindings.input-0.binder": "solace",
+ "spring.cloud.stream.bindings.output-0.destination": "/app/external/file-output",
+ "spring.cloud.stream.bindings.output-0.binder": "file",
+ "solace.connector.management.leader-election.mode": "active_standby",
+ "solace.connector.management.queue": "fm-file-sink-management",
+ "management.endpoints.web.exposure.include": "health,info,metrics"
+}

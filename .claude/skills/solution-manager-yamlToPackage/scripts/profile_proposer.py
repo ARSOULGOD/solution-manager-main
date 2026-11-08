@@ -225,6 +225,7 @@ def main():
         "preserve": {"components": [], "fields": [], "metrics": []},
         "defaults": {"role_components": "yaml", "shared_components": "package"},
         "discrepancies": [],
+        "smoke_test": {"status": "draft", "assumption": "TODO", "needs_roles": [], "vars": {}, "steps": []},
     }
     text = yaml.safe_dump(draft, sort_keys=False, allow_unicode=True, width=110)
     P("## 3. Draft profile (status: draft)\n")
@@ -267,6 +268,8 @@ def main():
                              f"({', '.join(l['path'][-1] for l in ls)}): a fixed record (one field each) or a "
                              "dynamic map (one `map` field)?")
     questions.append("Is there an existing package.json to merge into, and which package version(s) does this YAML target?")
+    questions.append("Stage 3 smoke test (only if you will deploy it over SSH): what should the test send or drop, "
+                     "where, and what proves it worked (a log line, an output file with the same checksum, a message)?")
     questions.append("Any non-YAML content to preserve (metrics, actions, virtual/valueFrom/optionsSource fields)?")
     P("## 4. Open questions (answer these before anything is generated)\n")
     P("\n".join(f"{i}. {q}" for i, q in enumerate(questions, 1)))

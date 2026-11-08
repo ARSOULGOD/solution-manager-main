@@ -1,7 +1,7 @@
 # yamlToPackage report: file-mesh / sink
 
 - Profile: `.claude/skills/solution-manager-yamlToPackage/references/profiles/file-mesh.yaml`
-- YAML: `application-sink-file-v2.yml`
+- YAML: `.claude/skills/solution-manager-yamlToPackage/examples/file-mesh-sink/input/application-sink-file-v2.yml`
 - Package: `frontend/contracts/packages/file-mesh/package.json`
 - Target versions: [1, 2, 3]
 

@@ -72,7 +72,7 @@
 - [x] Restructure SKILL.md into three stages, each ending with a PASS/FAIL block and an explicit STOP. Move the stage
   details to `references/ui-testing.md` and `references/ssh-deploy.md`, so SKILL.md stays under 300 lines.
 - [x] Description: add triggers "build/test the UI for this package" (done) and "deploy the MI over SSH" (with Stage 3).
-- [ ] Final output: a per-stage summary table (stage · verdict · evidence path · open questions).
+- [x] Final output: a per-stage summary table (stage · verdict · evidence path · open questions).
 
 ## Task 2: `scripts/gen_contract_test.py` (Stage 2.2)
 
@@ -128,42 +128,42 @@
 
 ## Task 6: `scripts/deploy_ssh.sh` + `references/ssh-deploy.md` (Stage 3)
 
-- [ ] Inputs (asked, never guessed): host, user, port, auth (key or agent), known_hosts, delivery (jar, docker or
+- [x] Inputs (asked, never guessed): host, user, port, auth (key or agent), known_hosts, delivery (jar, docker or
   tarball, and its location), install dir, start mode (systemd, nohup or docker), broker details.
-- [ ] `plan` (default): print every `ssh`/`scp` command, file, remote path and start command. Secrets show as
+- [x] `plan` (default): print every `ssh`/`scp` command, file, remote path and start command. Secrets show as
   `${SM_SECRET_…}`. Exit without touching the network.
-- [ ] `apply` (needs `--yes-i-approved`):
+- [x] `apply` (needs `--yes-i-approved`):
   - create the dedicated dir;
   - back up any existing config to `config.bak.<ts>`;
   - copy the config and the artifact;
   - start the MI;
   - record the PID or container id in `<dir>/.sm-skill-state`.
-- [ ] `verify`:
+- [x] `verify`:
   - poll `/actuator/health` until `UP` within a timeout (port and exposure from the rendered YAML; if `health` is
     not exposed, report that rather than fail open);
   - grep the file in `logging.file.name` for ERROR/Exception;
   - confirm the Solace connection from health details or the log, marked **mocked** under D1.
-- [ ] `teardown`: offered, never automatic. Stop the MI, restore the backup, and remove only what `.sm-skill-state`
+- [x] `teardown`: offered, never automatic. Stop the MI, restore the backup, and remove only what `.sm-skill-state`
   lists.
-- [ ] On SSH refusal, print the exact commands and the script; do not retry with other options.
+- [x] On SSH refusal, print the exact commands and the script; do not retry with other options.
 
 ## Task 7: smoke test (Stage 3.5)
 
-- [ ] `smoke_test:` section in `references/profiles/file-mesh.yaml`: what to drop, where (source watched path), the
+- [x] `smoke_test:` section in `references/profiles/file-mesh.yaml`: what to drop, where (source watched path), the
   expected Solace destination, the sink output dir, and a checksum compare. **Mark it unconfirmed.** It needs the
   user to say which path File Mesh actually watches (the source YAML points `input-0.destination` at
   `file_paths.cfg`, a list file, not a directory).
-- [ ] For other solutions: `profile_proposer.py` drafts a `smoke_test:` stub and asks; the engine never runs an
+- [x] For other solutions: `profile_proposer.py` drafts a `smoke_test:` stub and asks; the engine never runs an
   unconfirmed smoke test.
 
 ## Task 8: tests
 
-- [ ] (a) Generated file-mesh contract test runs green in `node:22`, or reports its known defects. Show the screenshots
+- [x] (a) Generated file-mesh contract test runs green in `node:22`, or reports its known defects. Show the screenshots
   (source, sink) and the round-trip result.
-- [ ] (b) Stage 3 dry run against a placeholder host (`mi.example.invalid`), proving no network call is made (run under
+- [x] (b) Stage 3 dry run against a placeholder host (`mi.example.invalid`), proving no network call is made (run under
   `unshare -n` or with ssh shimmed to fail). Real run against the local `sm-standin-sshd` + stand-in MI + mock broker
   (D1), with the report saying exactly which parts were stand-ins.
-- [ ] New eval cases (`ui-stage-file-mesh`, `ssh-dry-run-placeholder`); iteration 2 with baselines; viewer.
+- [ ] New eval cases (`ui-stage-file-mesh`, `ssh-dry-run-placeholder`); iteration 2 with baselines; viewer. *Not done: offered to the user.*
 
 ## Results
 
@@ -187,3 +187,26 @@ Findings, reported and not fixed:
 The sink round-trip FAIL is a real package finding (FM-D11 class). The engine now raises it as an open question.
 
 Deviation: D4 overridden; executed in this session at the user's "go ahead".
+
+### Stage 3 (Tasks 6-8), 2026-11-08: PASS against the local stand-in target (mocked broker)
+
+Evidence: `.claude/skills/solution-manager-yamlToPackage/examples/file-mesh-stage3/`. Target (D1): repo `sm-standin-sshd`
+on 127.0.0.1:2223 with a fresh key, **stand-in MI** (`scripts/testing/standin-mi`), **mocked Solace** (a shared
+directory). No real File Mesh artifact or broker was used.
+
+| step | verdict | evidence |
+|---|---|---|
+| 3.1 render source / sink @v3 | PASS: 113 / 105 keys, 6 secret placeholders each | `application-<role>.yml`, Designer drafts `draft-<role>.json` |
+| 3.2 plan, placeholder host `mi.example.invalid` | PASS: tripwire `ssh`/`scp`/`curl` never invoked | `plan-placeholder.txt` |
+| 3.2 refusals | PASS: system/shallow/relative install dir, no known_hosts, apply without approval, literal secret in config | |
+| 3.3 apply source + sink | PASS: two containers started; 12/12 secrets resolved from stdin; no secret value in any file | `plan-<role>.txt` |
+| 3.4 verify | PASS: HEALTH UP on 8092/8093, 0 ERROR lines, Solace UP **(MOCKED)** | `verify-<role>.txt` |
+| 3.5 smoke test | PASS **with an unconfirmed spec**: refused without `--accept-unconfirmed`; with it, 4 KiB file source → mock broker → sink, SHA-256 matches | `smoke.md` |
+| 3.6 teardown | PASS: created dirs removed; in a pre-existing dir the original config was restored byte-identical and the operator's file kept | |
+
+Fixed during testing:
+- `plan` exited 1 after success;
+- `die` printed its exit code in the message;
+- teardown left the `app/` and `work/` subfolders it had created in a pre-existing dir.
+
+Open: the File Mesh `smoke_test` assumption (what `file_paths.cfg` means); the iteration-2 benchmark with Stage 2/3 eval cases.

@@ -2,7 +2,7 @@
   "solution": "file-mesh",
   "role": "source",
   "profile": ".claude/skills/solution-manager-yamlToPackage/references/profiles/file-mesh.yaml",
-  "yaml": "application-source-file-v2.yml",
+  "yaml": ".claude/skills/solution-manager-yamlToPackage/examples/file-mesh-source/input/application-source-file-v2.yml",
   "package": "frontend/contracts/packages/file-mesh/package.json",
   "target_versions": [
     1,

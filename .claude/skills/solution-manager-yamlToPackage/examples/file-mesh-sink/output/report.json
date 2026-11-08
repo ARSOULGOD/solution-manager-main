@@ -2,7 +2,7 @@
   "solution": "file-mesh",
   "role": "sink",
   "profile": ".claude/skills/solution-manager-yamlToPackage/references/profiles/file-mesh.yaml",
-  "yaml": "application-sink-file-v2.yml",
+  "yaml": ".claude/skills/solution-manager-yamlToPackage/examples/file-mesh-sink/input/application-sink-file-v2.yml",
   "package": "frontend/contracts/packages/file-mesh/package.json",
   "target_versions": [
     1,
