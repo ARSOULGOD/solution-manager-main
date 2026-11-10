@@ -1,7 +1,7 @@
 {
   "solution": "file-mesh",
   "role": "source",
-  "profile": ".claude/skills/solution-manager-yamlToPackage/references/profiles/file-mesh.yaml",
+  "profile": "/tmp/claude-1000/-home-arnav-rinawa-Documents-solution-manager-solution-manager-main-main/f006b63b-389c-48c0-9bac-370ecfe1d448/scratchpad/t11/e2e/profile.yaml",
   "yaml": ".claude/skills/solution-manager-yamlToPackage/examples/file-mesh-source/input/application-source-file-v2.yml",
   "package": "frontend/contracts/packages/file-mesh/package.json",
   "target_versions": [
@@ -10,15 +10,15 @@
     3
   ],
   "counts": {
-    "leaves": 110,
-    "mapped": 109,
-    "flagged": 0,
-    "excluded": 1,
+    "keys": 110,
+    "placed": 109,
+    "removed": 1,
+    "open": 0,
     "coerced": 6,
     "secrets_withheld": 6,
     "balanced": true
   },
-  "mapped": [
+  "placed": [
     {
       "key": "server.port",
       "line": 2,
@@ -150,34 +150,34 @@
     {
       "key": "spring.cloud.stream.bindings.input-0.destination",
       "line": 29,
-      "component": "spring-cloud-stream",
+      "component": "file-source",
       "field": "spring.cloud.stream.bindings.input-0.destination",
       "type": "string",
-      "shared": true
+      "shared": false
     },
     {
       "key": "spring.cloud.stream.bindings.input-0.binder",
       "line": 30,
-      "component": "spring-cloud-stream",
+      "component": "file-source",
       "field": "spring.cloud.stream.bindings.input-0.binder",
       "type": "enum",
-      "shared": true
+      "shared": false
     },
     {
       "key": "spring.cloud.stream.bindings.output-0.destination",
       "line": 32,
-      "component": "spring-cloud-stream",
+      "component": "file-source",
       "field": "spring.cloud.stream.bindings.output-0.destination",
       "type": "string",
-      "shared": true
+      "shared": false
     },
     {
       "key": "spring.cloud.stream.bindings.output-0.binder",
       "line": 33,
-      "component": "spring-cloud-stream",
+      "component": "file-source",
       "field": "spring.cloud.stream.bindings.output-0.binder",
       "type": "enum",
-      "shared": true
+      "shared": false
     },
     {
       "key": "file.source.scheduler.restart_time_sec",
@@ -892,12 +892,13 @@
       "shared": true
     }
   ],
-  "flagged": [],
-  "excluded": [
+  "removed": [
     {
       "key": "file.source.command_center.useoutputdestinationsolacecredentials",
       "line": 97,
-      "reason": "FM-D1: lowercase duplicate of useOutputDestinationSolaceCredentials (string 'true' vs bool true)."
+      "reason": "case variant; kept useOutputDestinationSolaceCredentials",
+      "role": "source",
+      "component": "file-source"
     }
   ],
   "coerced": [
@@ -959,6 +960,84 @@
     }
   ],
   "diff": {
+    "spring-cloud-stream": {
+      "added": [],
+      "changed": [],
+      "package_only": [],
+      "removed": [
+        "spring.cloud.stream.bindings.input-0.destination",
+        "spring.cloud.stream.bindings.input-0.binder",
+        "spring.cloud.stream.bindings.output-0.destination",
+        "spring.cloud.stream.bindings.output-0.binder"
+      ]
+    },
+    "file-source": {
+      "added": [
+        "spring.cloud.stream.bindings.input-0.destination",
+        "spring.cloud.stream.bindings.input-0.binder",
+        "spring.cloud.stream.bindings.output-0.destination",
+        "spring.cloud.stream.bindings.output-0.binder"
+      ],
+      "changed": [
+        {
+          "key": "file.source.sftp_settings.password",
+          "changes": [
+            [
+              "default (secret withheld)",
+              "***",
+              null
+            ]
+          ]
+        },
+        {
+          "key": "file.source.ftp_settings.password",
+          "changes": [
+            [
+              "default (secret withheld)",
+              "***",
+              null
+            ]
+          ]
+        },
+        {
+          "key": "file.source.general.adapter_id",
+          "changes": [
+            [
+              "default",
+              "SOURCE_TEST_V1",
+              "fm-file-source"
+            ]
+          ]
+        }
+      ],
+      "package_only": []
+    },
+    "file-sink": {
+      "added": [],
+      "changed": [
+        {
+          "key": "file.sink.sftp_settings.password",
+          "changes": [
+            [
+              "default (secret withheld)",
+              "***",
+              null
+            ]
+          ]
+        },
+        {
+          "key": "file.sink.ftp_settings.password",
+          "changes": [
+            [
+              "default (secret withheld)",
+              "***",
+              null
+            ]
+          ]
+        }
+      ],
+      "package_only": []
+    },
     "server": {
       "added": [],
       "changed": [
@@ -967,7 +1046,7 @@
           "changes": [
             [
               "default (secret withheld)",
-              "changeit",
+              "***",
               null
             ]
           ]
@@ -983,43 +1062,7 @@
           "changes": [
             [
               "default (secret withheld)",
-              "pass",
-              null
-            ]
-          ]
-        }
-      ],
-      "package_only": []
-    },
-    "file-source": {
-      "added": [],
-      "changed": [
-        {
-          "key": "file.source.general.adapter_id",
-          "changes": [
-            [
-              "default",
-              "SOURCE_TEST_V1",
-              "fm-file-source"
-            ]
-          ]
-        },
-        {
-          "key": "file.source.sftp_settings.password",
-          "changes": [
-            [
-              "default (secret withheld)",
-              "SFTP_PASSWORD",
-              null
-            ]
-          ]
-        },
-        {
-          "key": "file.source.ftp_settings.password",
-          "changes": [
-            [
-              "default (secret withheld)",
-              "FTP_PASSWORD",
+              "***",
               null
             ]
           ]
@@ -1035,7 +1078,7 @@
           "changes": [
             [
               "default (secret withheld)",
-              "test",
+              "***",
               null
             ]
           ]
@@ -1045,7 +1088,7 @@
           "changes": [
             [
               "default (secret withheld)",
-              "test",
+              "***",
               null
             ]
           ]
@@ -1074,20 +1117,6 @@
       "key": "spring.application.name",
       "package": "SOURCE_TEST_V1",
       "yaml": "fm-file-source",
-      "valueFrom": false
-    },
-    {
-      "component": "spring-cloud-stream",
-      "key": "spring.cloud.stream.bindings.input-0.destination",
-      "package": "/home/banala/Music/entityFolders/updated/SOURCE_TEST_V1/file_paths.cfg",
-      "yaml": "/app/external/classpath/file_paths.cfg",
-      "valueFrom": false
-    },
-    {
-      "component": "spring-cloud-stream",
-      "key": "spring.cloud.stream.bindings.output-0.destination",
-      "package": "file/test",
-      "yaml": "SOURCE/DEFAULT/Alice/FF/NWFILE/SEP15/1",
       "valueFrom": false
     },
     {
@@ -1350,26 +1379,75 @@
     }
   ],
   "notes": [
-    "component cache preserved untouched (profile `preserve`)",
-    "defaults were taken from the YAML (profile defaults.role_components: yaml). This conflicts with docs/design/dynamic-ui/design.md section 7.3 (UI-D*, PROPOSED): defaults come from field initializers, never from a sample application.yml. Flagged, not resolved."
-  ],
-  "questions": [
-    "provenance carries a signature over content this run changed, so it no longer covers the package. Keep it as-is, or re-run with --provenance dev-mode?"
+    "4 field(s) matching 'spring.cloud.stream.bindings' relocated out of shared component spring-cloud-stream (FM-D11: the bindings run in opposite directions per role, so one shared default cannot fit both)",
+    "shared component spring-cloud-stream has no fields left after relocation; it was kept so instances that already select it stay valid",
+    "secret default withheld: file-source/file.source.sftp_settings.password",
+    "secret default withheld: file-source/file.source.ftp_settings.password",
+    "secret default withheld: file-sink/file.sink.sftp_settings.password",
+    "secret default withheld: file-sink/file.sink.ftp_settings.password",
+    "secret default withheld: server/server.ssl.key-store-password",
+    "secret default withheld: spring-boot-admin/spring.boot.admin.client.password",
+    "secret default withheld: solace/solace.connector.management.session.client-password",
+    "secret default withheld: solace/solace.java.client-password",
+    "component cache preserved (profile `preserve`), but this run changes it: the accepted restyle",
+    "defaults were taken from the YAML (profile defaults.role_components: yaml). This conflicts with docs/design/dynamic-ui/design.md section 7.3 (UI-D*, PROPOSED): defaults come from field initializers, never from a sample application.yml. Flagged, not resolved.",
+    "secret: true added: file-source/file.source.sftp_settings.password",
+    "secret: true added: file-source/file.source.ftp_settings.password",
+    "secret: true added: file-sink/file.sink.sftp_settings.password",
+    "secret: true added: file-sink/file.sink.ftp_settings.password",
+    "secret: true added: server/server.ssl.key-store-password",
+    "secret: true added: spring-boot-admin/spring.boot.admin.client.password",
+    "secret: true added: solace/solace.connector.management.session.client-password",
+    "secret: true added: solace/solace.java.client-password"
   ],
   "validation": {
     "ok": true,
     "errors": [],
     "warnings": [
-      "file-sink/file.sink.sftp_settings.password: secret field carries a default value (I6: secret values never land in config storage)",
-      "file-sink/file.sink.ftp_settings.password: secret field carries a default value (I6: secret values never land in config storage)",
       "latest package version 4 is carried by only 1 of 10 components"
     ],
     "notes": [
-      "schema: /home/arnav-rinawa/Documents/solution_manager/solution-manager-main-main/contracts/solution-package.schema.json"
+      "schema: /home/arnav-rinawa/Documents/solution_manager/solution-manager-main-main/contracts/solution-package.schema.json",
+      "read-back: 109 placed field(s) present, 1 removed key(s) absent"
     ]
   },
   "authoring": {
-    "reviewedRows": 149,
+    "reviewedRows": 0,
     "totalRows": 156
-  }
+  },
+  "restyle": {
+    "offered": true,
+    "decision": "accepted",
+    "counts": {
+      "order_changed": 138,
+      "stock_removed": 154,
+      "custom_kept": 2
+    }
+  },
+  "suggestions": [
+    {
+      "component": "application",
+      "field": "spring.application.name",
+      "attribute": "required",
+      "decision": "reject"
+    },
+    {
+      "component": "solace",
+      "field": "solace.connector.management.session.host",
+      "attribute": "required",
+      "decision": "accept"
+    },
+    {
+      "component": "solace",
+      "field": "solace.java.host",
+      "attribute": "required",
+      "decision": "accept"
+    },
+    {
+      "component": "logging",
+      "field": "logging.file.name",
+      "attribute": "required",
+      "decision": "reject"
+    }
+  ]
 }

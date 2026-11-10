@@ -1,60 +1,2417 @@
---- frontend/contracts/packages/file-mesh/package.json
+--- frontend/contracts/packages/file-mesh/package.json (secret defaults shown as ***)
 +++ package.json (generated)
 @@ -13,6 +13,6 @@
    },
    "authoring": {
 -    "reviewedRows": 163,
 -    "totalRows": 163
-+    "reviewedRows": 149,
++    "reviewedRows": 0,
 +    "totalRows": 156
    },
    "components": [
-@@ -43,5 +43,5 @@
+@@ -30,7 +30,6 @@
+           "ui": {
+             "section": "Scheduler",
+-            "order": 5,
+-            "label": "Restart time (seconds)",
+-            "helperText": "Enter the numeric value for \u201cRestart time (seconds)\u201d in the \u201cScheduler\u201d section."
++            "order": 0,
++            "label": "Restart time (seconds)"
+           },
+           "version": [
+@@ -43,10 +42,9 @@
            "key": "file.source.general.adapter_id",
            "type": "string",
 -          "default": "SOURCE_TEST_V1",
 +          "default": "fm-file-source",
            "ui": {
              "section": "General",
-@@ -459,5 +459,5 @@
+-            "order": 6,
+-            "label": "Adapter ID",
+-            "helperText": "Enter the value for \u201cAdapter ID\u201d in the \u201cGeneral\u201d section."
++            "order": 0,
++            "label": "Adapter ID"
+           },
+           "version": [
+@@ -62,7 +60,6 @@
+           "ui": {
+             "section": "General",
+-            "order": 7,
+-            "label": "File type",
+-            "helperText": "Enter the numeric value for \u201cFile type\u201d in the \u201cGeneral\u201d section."
++            "order": 1,
++            "label": "File type"
+           },
+           "version": [
+@@ -78,327 +75,306 @@
+           "ui": {
+             "section": "General",
++            "order": 2,
++            "label": "Ignore empty files"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "file.source.general.state_backup_path",
++          "type": "string",
++          "default": "",
++          "ui": {
++            "section": "General",
++            "order": 3,
++            "label": "State backup path"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "file.source.general.copy_file_mode_permissions",
++          "type": "int",
++          "default": 1,
++          "ui": {
++            "section": "General",
++            "order": 4,
++            "label": "Copy file mode permissions"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "file.source.general.max_file_transfer_size",
++          "type": "int",
++          "default": 999000,
++          "ui": {
++            "section": "General",
++            "order": 5,
++            "label": "Max file transfer size"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "file.source.general.max_files_allowed",
++          "type": "int",
++          "default": 99999,
++          "ui": {
++            "section": "General",
++            "order": 6,
++            "label": "Max files allowed"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "file.source.general.max_bandwidth_limit",
++          "type": "int",
++          "default": 100000000,
++          "ui": {
++            "section": "General",
++            "order": 7,
++            "label": "Max bandwidth limit"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "file.source.general.clear_state_on_eod",
++          "type": "int",
++          "default": 1,
++          "ui": {
++            "section": "General",
+             "order": 8,
+-            "label": "Ignore empty files",
+-            "helperText": "Turn \u201cIgnore empty files\u201d on or off in the \u201cGeneral\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "file.source.general.state_backup_path",
+-          "type": "string",
+-          "default": "",
++            "label": "Clear state on EOD"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "file.source.general.eod_time_sec",
++          "type": "int",
++          "default": -1,
+           "ui": {
+             "section": "General",
+             "order": 9,
+-            "label": "State backup path",
+-            "helperText": "Enter the value for \u201cState backup path\u201d in the \u201cGeneral\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "file.source.general.copy_file_mode_permissions",
+-          "type": "int",
+-          "default": 1,
++            "label": "EOD time (seconds)"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "file.source.general.multiple_files_flag",
++          "type": "int",
++          "default": 0,
+           "ui": {
+             "section": "General",
+             "order": 10,
+-            "label": "Copy file mode permissions",
+-            "helperText": "Enter the numeric value for \u201cCopy file mode permissions\u201d in the \u201cGeneral\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "file.source.general.max_file_transfer_size",
+-          "type": "int",
+-          "default": 999000,
+-          "ui": {
+-            "section": "General",
+-            "order": 11,
+-            "label": "Max file transfer size",
+-            "helperText": "Enter the numeric value for \u201cMax file transfer size\u201d in the \u201cGeneral\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "file.source.general.max_files_allowed",
+-          "type": "int",
+-          "default": 99999,
+-          "ui": {
+-            "section": "General",
+-            "order": 12,
+-            "label": "Max files allowed",
+-            "helperText": "Enter the numeric value for \u201cMax files allowed\u201d in the \u201cGeneral\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "file.source.general.max_bandwidth_limit",
+-          "type": "int",
+-          "default": 100000000,
+-          "ui": {
+-            "section": "General",
+-            "order": 13,
+-            "label": "Max bandwidth limit",
+-            "helperText": "Enter the numeric value for \u201cMax bandwidth limit\u201d in the \u201cGeneral\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "file.source.general.clear_state_on_eod",
+-          "type": "int",
+-          "default": 1,
+-          "ui": {
+-            "section": "General",
+-            "order": 14,
+-            "label": "Clear state on EOD",
+-            "helperText": "Enter the numeric value for \u201cClear state on EOD\u201d in the \u201cGeneral\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "file.source.general.eod_time_sec",
+-          "type": "int",
+-          "default": -1,
+-          "ui": {
+-            "section": "General",
+-            "order": 15,
+-            "label": "EOD time (seconds)",
+-            "helperText": "Enter the numeric value for \u201cEOD time (seconds)\u201d in the \u201cGeneral\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "file.source.general.multiple_files_flag",
++            "label": "Multiple files flag"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "file.source.file_to_event.enabled",
+           "type": "int",
+           "default": 0,
+           "ui": {
+-            "section": "General",
+-            "order": 16,
+-            "label": "Multiple files flag",
+-            "helperText": "Enter the numeric value for \u201cMultiple files flag\u201d in the \u201cGeneral\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "file.source.file_to_event.enabled",
++            "section": "File To Event",
++            "order": 0,
++            "label": "File to event enabled"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "file.source.file_to_event.fileFormat",
++          "type": "int",
++          "default": 4,
++          "ui": {
++            "section": "File To Event",
++            "order": 1,
++            "label": "File format"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "file.source.file_to_event.eventDelimiter",
++          "type": "string",
++          "default": "|",
++          "ui": {
++            "section": "File To Event",
++            "order": 2,
++            "label": "Event delimiter"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "file.source.file_to_event.jsonPath",
++          "type": "string",
++          "default": "$.Authors[*].Books[*]",
++          "ui": {
++            "section": "File To Event",
++            "order": 3,
++            "label": "JSON path"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "file.source.file_to_event.xPath",
++          "type": "string",
++          "default": "/class/student",
++          "ui": {
++            "section": "File To Event",
++            "order": 4,
++            "label": "XPath"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "file.source.gcs.enabled",
+           "type": "int",
+           "default": 0,
+           "ui": {
+-            "section": "File To Event",
+-            "order": 17,
+-            "label": "File to event enabled",
+-            "helperText": "Enter the numeric value for \u201cFile to event enabled\u201d in the \u201cFile To Event\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "file.source.file_to_event.fileFormat",
+-          "type": "int",
+-          "default": 4,
+-          "ui": {
+-            "section": "File To Event",
+-            "order": 18,
+-            "label": "File format",
+-            "helperText": "Enter the numeric value for \u201cFile format\u201d in the \u201cFile To Event\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "file.source.file_to_event.eventDelimiter",
+-          "type": "string",
+-          "default": "|",
+-          "ui": {
+-            "section": "File To Event",
+-            "order": 19,
+-            "label": "Event delimiter",
+-            "helperText": "Enter the value for \u201cEvent delimiter\u201d in the \u201cFile To Event\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "file.source.file_to_event.jsonPath",
+-          "type": "string",
+-          "default": "$.Authors[*].Books[*]",
+-          "ui": {
+-            "section": "File To Event",
+-            "order": 20,
+-            "label": "JSON path",
+-            "helperText": "Enter the value for \u201cJSON path\u201d in the \u201cFile To Event\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "file.source.file_to_event.xPath",
+-          "type": "string",
+-          "default": "/class/student",
+-          "ui": {
+-            "section": "File To Event",
+-            "order": 21,
+-            "label": "XPath",
+-            "helperText": "Enter the value for \u201cXPath\u201d in the \u201cFile To Event\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "file.source.gcs.enabled",
++            "section": "GCS",
++            "order": 0,
++            "label": "GCS enabled"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "file.source.gcs.projectId",
++          "type": "string",
++          "default": "GCS_PROJECT_ID",
++          "ui": {
++            "section": "GCS",
++            "order": 1,
++            "label": "GCS project ID"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "file.source.gcs.credentialsFilePath",
++          "type": "string",
++          "default": "/home/centos/pubsubplus-connector-file-2.2.0/configs/gcs/creds.json",
++          "ui": {
++            "section": "GCS",
++            "order": 2,
++            "label": "GCS credentials file path"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "file.source.gcs.retrySettings.maxAttempts",
++          "type": "int",
++          "default": 5,
++          "ui": {
++            "section": "GCS Retry",
++            "order": 0,
++            "label": "GCS max attempts"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "file.source.gcs.retrySettings.retryDelayMultiplier",
++          "type": "int",
++          "default": 3,
++          "ui": {
++            "section": "GCS Retry",
++            "order": 1,
++            "label": "GCS retry delay multiplier"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "file.source.gcs.retrySettings.maxDurationMinutes",
++          "type": "int",
++          "default": 2,
++          "ui": {
++            "section": "GCS Retry",
++            "order": 2,
++            "label": "GCS max duration (minutes)"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "file.source.sftp_settings.enabled",
+           "type": "int",
+           "default": 0,
+           "ui": {
+-            "section": "GCS",
+-            "order": 22,
+-            "label": "GCS enabled",
+-            "helperText": "Enter the numeric value for \u201cGCS enabled\u201d in the \u201cGCS\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "file.source.gcs.projectId",
+-          "type": "string",
+-          "default": "GCS_PROJECT_ID",
+-          "ui": {
+-            "section": "GCS",
+-            "order": 23,
+-            "label": "GCS project ID",
+-            "helperText": "Enter the value for \u201cGCS project ID\u201d in the \u201cGCS\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "file.source.gcs.credentialsFilePath",
+-          "type": "string",
+-          "default": "/home/centos/pubsubplus-connector-file-2.2.0/configs/gcs/creds.json",
+-          "ui": {
+-            "section": "GCS",
+-            "order": 24,
+-            "label": "GCS credentials file path",
+-            "helperText": "Enter the value for \u201cGCS credentials file path\u201d in the \u201cGCS\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "file.source.gcs.retrySettings.maxAttempts",
+-          "type": "int",
+-          "default": 5,
+-          "ui": {
+-            "section": "GCS Retry",
+-            "order": 25,
+-            "label": "GCS max attempts",
+-            "helperText": "Enter the numeric value for \u201cGCS max attempts\u201d in the \u201cGCS Retry\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "file.source.gcs.retrySettings.retryDelayMultiplier",
+-          "type": "int",
+-          "default": 3,
+-          "ui": {
+-            "section": "GCS Retry",
+-            "order": 26,
+-            "label": "GCS retry delay multiplier",
+-            "helperText": "Enter the numeric value for \u201cGCS retry delay multiplier\u201d in the \u201cGCS Retry\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "file.source.gcs.retrySettings.maxDurationMinutes",
+-          "type": "int",
+-          "default": 2,
+-          "ui": {
+-            "section": "GCS Retry",
+-            "order": 27,
+-            "label": "GCS max duration (minutes)",
+-            "helperText": "Enter the numeric value for \u201cGCS max duration (minutes)\u201d in the \u201cGCS Retry\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "file.source.sftp_settings.enabled",
+-          "type": "int",
+-          "default": 0,
+-          "ui": {
+             "section": "SFTP",
+-            "order": 28,
+-            "label": "SFTP enabled",
+-            "helperText": "Enter the numeric value for \u201cSFTP enabled\u201d in the \u201cSFTP\u201d section."
++            "order": 0,
++            "label": "SFTP enabled"
+           },
+           "version": [
+@@ -414,7 +390,6 @@
+           "ui": {
+             "section": "SFTP",
+-            "order": 29,
+-            "label": "SFTP host",
+-            "helperText": "Enter the value for \u201cSFTP host\u201d in the \u201cSFTP\u201d section."
++            "order": 1,
++            "label": "SFTP host"
+           },
+           "version": [
+@@ -430,7 +405,6 @@
+           "ui": {
+             "section": "SFTP",
+-            "order": 30,
+-            "label": "SFTP port",
+-            "helperText": "Enter the numeric value for \u201cSFTP port\u201d in the \u201cSFTP\u201d section."
++            "order": 2,
++            "label": "SFTP port"
+           },
+           "version": [
+@@ -446,7 +420,6 @@
+           "ui": {
+             "section": "SFTP",
+-            "order": 31,
+-            "label": "SFTP user",
+-            "helperText": "Enter the value for \u201cSFTP user\u201d in the \u201cSFTP\u201d section."
++            "order": 3,
++            "label": "SFTP user"
+           },
+           "version": [
+@@ -459,16 +432,16 @@
            "key": "file.source.sftp_settings.password",
            "type": "secret",
--          "default": "SFTP_PASSWORD",
+-          "default": "***",
 +          "default": null,
            "ui": {
              "section": "SFTP",
-@@ -559,5 +559,5 @@
+-            "order": 32,
+-            "label": "SFTP password",
+-            "helperText": "Enter \u201cSFTP password\u201d for the \u201cSFTP\u201d section. This value is treated as sensitive."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
++            "order": 4,
++            "label": "SFTP password"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ],
++          "secret": true
+         },
+         {
+@@ -482,7 +455,6 @@
+           "ui": {
+             "section": "SFTP",
+-            "order": 33,
+-            "label": "Strict host key checking",
+-            "helperText": "Select the \u201cStrict host key checking\u201d option in the \u201cSFTP\u201d section."
++            "order": 5,
++            "label": "Strict host key checking"
+           },
+           "version": [
+@@ -498,7 +470,6 @@
+           "ui": {
+             "section": "FTP",
+-            "order": 34,
+-            "label": "FTP enabled",
+-            "helperText": "Enter the numeric value for \u201cFTP enabled\u201d in the \u201cFTP\u201d section."
++            "order": 0,
++            "label": "FTP enabled"
+           },
+           "version": [
+@@ -514,7 +485,6 @@
+           "ui": {
+             "section": "FTP",
+-            "order": 35,
+-            "label": "FTP host",
+-            "helperText": "Enter the value for \u201cFTP host\u201d in the \u201cFTP\u201d section."
++            "order": 1,
++            "label": "FTP host"
+           },
+           "version": [
+@@ -530,7 +500,6 @@
+           "ui": {
+             "section": "FTP",
+-            "order": 36,
+-            "label": "FTP port",
+-            "helperText": "Enter the numeric value for \u201cFTP port\u201d in the \u201cFTP\u201d section."
++            "order": 2,
++            "label": "FTP port"
+           },
+           "version": [
+@@ -546,7 +515,6 @@
+           "ui": {
+             "section": "FTP",
+-            "order": 37,
+-            "label": "FTP user",
+-            "helperText": "Enter the value for \u201cFTP user\u201d in the \u201cFTP\u201d section."
++            "order": 3,
++            "label": "FTP user"
+           },
+           "version": [
+@@ -559,16 +527,16 @@
            "key": "file.source.ftp_settings.password",
            "type": "secret",
--          "default": "FTP_PASSWORD",
+-          "default": "***",
 +          "default": null,
            "ui": {
              "section": "FTP",
-@@ -1683,5 +1683,5 @@
-           "key": "server.ssl.key-store-password",
+-            "order": 38,
+-            "label": "FTP password",
+-            "helperText": "Enter \u201cFTP password\u201d for the \u201cFTP\u201d section. This value is treated as sensitive."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
++            "order": 4,
++            "label": "FTP password"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ],
++          "secret": true
+         },
+         {
+@@ -578,7 +546,6 @@
+           "ui": {
+             "section": "FTP",
+-            "order": 39,
+-            "label": "FTP secured",
+-            "helperText": "Turn \u201cFTP secured\u201d on or off in the \u201cFTP\u201d section."
++            "order": 5,
++            "label": "FTP secured"
+           },
+           "version": [
+@@ -594,7 +561,6 @@
+           "ui": {
+             "section": "Directory Wildcard",
+-            "order": 40,
+-            "label": "Wildcard type",
+-            "helperText": "Enter the numeric value for \u201cWildcard type\u201d in the \u201cDirectory Wildcard\u201d section."
++            "order": 0,
++            "label": "Wildcard type"
+           },
+           "version": [
+@@ -610,7 +576,6 @@
+           "ui": {
+             "section": "Directory Wildcard",
+-            "order": 41,
+-            "label": "Wildcard config path",
+-            "helperText": "Enter the value for \u201cWildcard config path\u201d in the \u201cDirectory Wildcard\u201d section."
++            "order": 1,
++            "label": "Wildcard config path"
+           },
+           "version": [
+@@ -626,7 +591,6 @@
+           "ui": {
+             "section": "Directory Replication",
+-            "order": 42,
+-            "label": "Replication start time",
+-            "helperText": "Enter the numeric value for \u201cReplication start time\u201d in the \u201cDirectory Replication\u201d section."
++            "order": 0,
++            "label": "Replication start time"
+           },
+           "version": [
+@@ -642,7 +606,6 @@
+           "ui": {
+             "section": "Solace Output",
+-            "order": 43,
+-            "label": "LVQ",
+-            "helperText": "Enter the value for \u201cLVQ\u201d in the \u201cSolace Output\u201d section."
++            "order": 0,
++            "label": "LVQ"
+           },
+           "version": [
+@@ -658,7 +621,6 @@
+           "ui": {
+             "section": "Solace Output",
+-            "order": 44,
+-            "label": "Destination",
+-            "helperText": "Enter the value for \u201cDestination\u201d in the \u201cSolace Output\u201d section."
++            "order": 1,
++            "label": "Destination"
+           },
+           "version": [
+@@ -674,7 +636,6 @@
+           "ui": {
+             "section": "Command Center",
+-            "order": 45,
+-            "label": "Command Center enabled",
+-            "helperText": "Enter the numeric value for \u201cCommand Center enabled\u201d in the \u201cCommand Center\u201d section."
++            "order": 0,
++            "label": "Command Center enabled"
+           },
+           "version": [
+@@ -690,7 +651,6 @@
+           "ui": {
+             "section": "Command Center",
+-            "order": 46,
+-            "label": "Use output destination Solace credentials",
+-            "helperText": "Turn \u201cUse output destination Solace credentials\u201d on or off in the \u201cCommand Center\u201d section."
++            "order": 1,
++            "label": "Use output destination Solace credentials"
+           },
+           "version": [
+@@ -706,7 +666,6 @@
+           "ui": {
+             "section": "Command Center",
+-            "order": 47,
+-            "label": "Heartbeat enabled",
+-            "helperText": "Enter the numeric value for \u201cHeartbeat enabled\u201d in the \u201cCommand Center\u201d section."
++            "order": 2,
++            "label": "Heartbeat enabled"
+           },
+           "version": [
+@@ -722,7 +681,6 @@
+           "ui": {
+             "section": "Command Center",
+-            "order": 48,
+-            "label": "Heartbeat interval",
+-            "helperText": "Enter the numeric value for \u201cHeartbeat interval\u201d in the \u201cCommand Center\u201d section."
++            "order": 3,
++            "label": "Heartbeat interval"
+           },
+           "version": [
+@@ -738,7 +696,6 @@
+           "ui": {
+             "section": "Command Center",
+-            "order": 49,
+-            "label": "Heartbeat publish topic",
+-            "helperText": "Enter the value for \u201cHeartbeat publish topic\u201d in the \u201cCommand Center\u201d section."
++            "order": 4,
++            "label": "Heartbeat publish topic"
+           },
+           "version": [
+@@ -754,7 +711,6 @@
+           "ui": {
+             "section": "Command Center",
+-            "order": 50,
+-            "label": "Publish topic",
+-            "helperText": "Enter the value for \u201cPublish topic\u201d in the \u201cCommand Center\u201d section."
++            "order": 5,
++            "label": "Publish topic"
+           },
+           "version": [
+@@ -775,7 +731,6 @@
+           "ui": {
+             "section": "Command Center",
+-            "order": 51,
+-            "label": "Messaging mode",
+-            "helperText": "Select the \u201cMessaging mode\u201d option in the \u201cCommand Center\u201d section."
++            "order": 6,
++            "label": "Messaging mode"
+           },
+           "version": [
+@@ -791,7 +746,6 @@
+           "ui": {
+             "section": "Command Center Events",
+-            "order": 52,
+-            "label": "File start event",
+-            "helperText": "Turn \u201cFile start event\u201d on or off in the \u201cCommand Center Events\u201d section."
++            "order": 0,
++            "label": "File start event"
+           },
+           "version": [
+@@ -807,8 +761,75 @@
+           "ui": {
+             "section": "Command Center Events",
+-            "order": 53,
+-            "label": "File complete event",
+-            "helperText": "Turn \u201cFile complete event\u201d on or off in the \u201cCommand Center Events\u201d section."
+-          },
++            "order": 1,
++            "label": "File complete event"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "spring.cloud.stream.bindings.input-0.destination",
++          "type": "string",
++          "default": "/app/external/classpath/file_paths.cfg",
++          "ui": {
++            "section": "Input Binding",
++            "order": 0,
++            "label": "Input destination"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "spring.cloud.stream.bindings.input-0.binder",
++          "type": "enum",
++          "default": "file",
++          "ui": {
++            "section": "Input Binding",
++            "order": 1,
++            "label": "Input binder"
++          },
++          "options": [
++            "file",
++            "solace"
++          ],
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "spring.cloud.stream.bindings.output-0.destination",
++          "type": "string",
++          "default": "SOURCE/DEFAULT/Alice/FF/NWFILE/SEP15/1",
++          "ui": {
++            "section": "Output Binding",
++            "order": 0,
++            "label": "Output destination"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "spring.cloud.stream.bindings.output-0.binder",
++          "type": "enum",
++          "default": "solace",
++          "ui": {
++            "section": "Output Binding",
++            "order": 1,
++            "label": "Output binder"
++          },
++          "options": [
++            "file",
++            "solace"
++          ],
+           "version": [
+             1,
+@@ -878,7 +899,6 @@
+           "ui": {
+             "section": "General",
+-            "order": 4,
+-            "label": "Adapter ID",
+-            "helperText": "Enter the value for \u201cAdapter ID\u201d in the \u201cGeneral\u201d section."
++            "order": 0,
++            "label": "Adapter ID"
+           },
+           "version": [
+@@ -894,7 +914,6 @@
+           "ui": {
+             "section": "General",
+-            "order": 5,
+-            "label": "Auto create directory",
+-            "helperText": "Enter the numeric value for \u201cAuto create directory\u201d in the \u201cGeneral\u201d section."
++            "order": 1,
++            "label": "Auto create directory"
+           },
+           "version": [
+@@ -910,7 +929,6 @@
+           "ui": {
+             "section": "General",
+-            "order": 6,
+-            "label": "Destination file name type",
+-            "helperText": "Enter the numeric value for \u201cDestination file name type\u201d in the \u201cGeneral\u201d section."
++            "order": 2,
++            "label": "Destination file name type"
+           },
+           "version": [
+@@ -926,7 +944,6 @@
+           "ui": {
+             "section": "General",
+-            "order": 7,
+-            "label": "Store backup state remotely",
+-            "helperText": "Turn \u201cStore backup state remotely\u201d on or off in the \u201cGeneral\u201d section."
++            "order": 3,
++            "label": "Store backup state remotely"
+           },
+           "version": [
+@@ -942,7 +959,6 @@
+           "ui": {
+             "section": "General",
+-            "order": 8,
+-            "label": "State backup path",
+-            "helperText": "Enter the value for \u201cState backup path\u201d in the \u201cGeneral\u201d section."
++            "order": 4,
++            "label": "State backup path"
+           },
+           "version": [
+@@ -958,7 +974,6 @@
+           "ui": {
+             "section": "General",
+-            "order": 9,
+-            "label": "Clear state on EOD",
+-            "helperText": "Enter the numeric value for \u201cClear state on EOD\u201d in the \u201cGeneral\u201d section."
++            "order": 5,
++            "label": "Clear state on EOD"
+           },
+           "version": [
+@@ -974,7 +989,6 @@
+           "ui": {
+             "section": "General",
+-            "order": 10,
+-            "label": "EOD time (seconds)",
+-            "helperText": "Enter the numeric value for \u201cEOD time (seconds)\u201d in the \u201cGeneral\u201d section."
++            "order": 6,
++            "label": "EOD time (seconds)"
+           },
+           "version": [
+@@ -990,7 +1004,6 @@
+           "ui": {
+             "section": "General",
+-            "order": 11,
+-            "label": "Always verify data",
+-            "helperText": "Turn \u201cAlways verify data\u201d on or off in the \u201cGeneral\u201d section."
++            "order": 7,
++            "label": "Always verify data"
+           },
+           "version": [
+@@ -1006,7 +1019,6 @@
+           "ui": {
+             "section": "General",
+-            "order": 12,
+-            "label": "Always match complete event",
+-            "helperText": "Turn \u201cAlways match complete event\u201d on or off in the \u201cGeneral\u201d section."
++            "order": 8,
++            "label": "Always match complete event"
+           },
+           "version": [
+@@ -1022,7 +1034,6 @@
+           "ui": {
+             "section": "GCS",
+-            "order": 13,
+-            "label": "GCS enabled",
+-            "helperText": "Enter the numeric value for \u201cGCS enabled\u201d in the \u201cGCS\u201d section."
++            "order": 0,
++            "label": "GCS enabled"
+           },
+           "version": [
+@@ -1038,7 +1049,6 @@
+           "ui": {
+             "section": "GCS",
+-            "order": 14,
+-            "label": "GCS project ID",
+-            "helperText": "Enter the value for \u201cGCS project ID\u201d in the \u201cGCS\u201d section."
++            "order": 1,
++            "label": "GCS project ID"
+           },
+           "version": [
+@@ -1054,7 +1064,6 @@
+           "ui": {
+             "section": "GCS",
+-            "order": 15,
+-            "label": "GCS credentials file path",
+-            "helperText": "Enter the value for \u201cGCS credentials file path\u201d in the \u201cGCS\u201d section."
++            "order": 2,
++            "label": "GCS credentials file path"
+           },
+           "version": [
+@@ -1070,7 +1079,6 @@
+           "ui": {
+             "section": "GCS",
+-            "order": 16,
+-            "label": "GCS bulk compose strategy",
+-            "helperText": "Turn \u201cGCS bulk compose strategy\u201d on or off in the \u201cGCS\u201d section."
++            "order": 3,
++            "label": "GCS bulk compose strategy"
+           },
+           "version": [
+@@ -1086,7 +1094,6 @@
+           "ui": {
+             "section": "GCS Retry",
+-            "order": 17,
+-            "label": "GCS max attempts",
+-            "helperText": "Enter the numeric value for \u201cGCS max attempts\u201d in the \u201cGCS Retry\u201d section."
++            "order": 0,
++            "label": "GCS max attempts"
+           },
+           "version": [
+@@ -1102,7 +1109,6 @@
+           "ui": {
+             "section": "GCS Retry",
+-            "order": 18,
+-            "label": "GCS retry delay multiplier",
+-            "helperText": "Enter the numeric value for \u201cGCS retry delay multiplier\u201d in the \u201cGCS Retry\u201d section."
++            "order": 1,
++            "label": "GCS retry delay multiplier"
+           },
+           "version": [
+@@ -1118,7 +1124,6 @@
+           "ui": {
+             "section": "GCS Retry",
+-            "order": 19,
+-            "label": "GCS max duration (minutes)",
+-            "helperText": "Enter the numeric value for \u201cGCS max duration (minutes)\u201d in the \u201cGCS Retry\u201d section."
++            "order": 2,
++            "label": "GCS max duration (minutes)"
+           },
+           "version": [
+@@ -1134,7 +1139,6 @@
+           "ui": {
+             "section": "SFTP",
+-            "order": 20,
+-            "label": "SFTP enabled",
+-            "helperText": "Enter the numeric value for \u201cSFTP enabled\u201d in the \u201cSFTP\u201d section."
++            "order": 0,
++            "label": "SFTP enabled"
+           },
+           "version": [
+@@ -1150,7 +1154,6 @@
+           "ui": {
+             "section": "SFTP",
+-            "order": 21,
+-            "label": "SFTP host",
+-            "helperText": "Enter the value for \u201cSFTP host\u201d in the \u201cSFTP\u201d section."
++            "order": 1,
++            "label": "SFTP host"
+           },
+           "version": [
+@@ -1166,7 +1169,6 @@
+           "ui": {
+             "section": "SFTP",
+-            "order": 22,
+-            "label": "SFTP port",
+-            "helperText": "Enter the numeric value for \u201cSFTP port\u201d in the \u201cSFTP\u201d section."
++            "order": 2,
++            "label": "SFTP port"
+           },
+           "version": [
+@@ -1182,7 +1184,6 @@
+           "ui": {
+             "section": "SFTP",
+-            "order": 23,
+-            "label": "SFTP user",
+-            "helperText": "Enter the value for \u201cSFTP user\u201d in the \u201cSFTP\u201d section."
++            "order": 3,
++            "label": "SFTP user"
+           },
+           "version": [
+@@ -1195,16 +1196,16 @@
+           "key": "file.sink.sftp_settings.password",
            "type": "secret",
--          "default": "changeit",
+-          "default": "***",
++          "default": null,
+           "ui": {
+             "section": "SFTP",
+-            "order": 24,
+-            "label": "SFTP password",
+-            "helperText": "Enter \u201cSFTP password\u201d for the \u201cSFTP\u201d section. This value is treated as sensitive."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
++            "order": 4,
++            "label": "SFTP password"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ],
++          "secret": true
+         },
+         {
+@@ -1218,7 +1219,6 @@
+           "ui": {
+             "section": "SFTP",
+-            "order": 25,
+-            "label": "Strict host key checking",
+-            "helperText": "Select the \u201cStrict host key checking\u201d option in the \u201cSFTP\u201d section."
++            "order": 5,
++            "label": "Strict host key checking"
+           },
+           "version": [
+@@ -1234,7 +1234,6 @@
+           "ui": {
+             "section": "FTP",
+-            "order": 26,
+-            "label": "FTP enabled",
+-            "helperText": "Enter the numeric value for \u201cFTP enabled\u201d in the \u201cFTP\u201d section."
++            "order": 0,
++            "label": "FTP enabled"
+           },
+           "version": [
+@@ -1250,7 +1249,6 @@
+           "ui": {
+             "section": "FTP",
+-            "order": 27,
+-            "label": "FTP host",
+-            "helperText": "Enter the value for \u201cFTP host\u201d in the \u201cFTP\u201d section."
++            "order": 1,
++            "label": "FTP host"
+           },
+           "version": [
+@@ -1266,7 +1264,6 @@
+           "ui": {
+             "section": "FTP",
+-            "order": 28,
+-            "label": "FTP port",
+-            "helperText": "Enter the numeric value for \u201cFTP port\u201d in the \u201cFTP\u201d section."
++            "order": 2,
++            "label": "FTP port"
+           },
+           "version": [
+@@ -1282,7 +1279,6 @@
+           "ui": {
+             "section": "FTP",
+-            "order": 29,
+-            "label": "FTP user",
+-            "helperText": "Enter the value for \u201cFTP user\u201d in the \u201cFTP\u201d section."
++            "order": 3,
++            "label": "FTP user"
+           },
+           "version": [
+@@ -1295,16 +1291,16 @@
+           "key": "file.sink.ftp_settings.password",
+           "type": "secret",
+-          "default": "***",
++          "default": null,
+           "ui": {
+             "section": "FTP",
+-            "order": 30,
+-            "label": "FTP password",
+-            "helperText": "Enter \u201cFTP password\u201d for the \u201cFTP\u201d section. This value is treated as sensitive."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
++            "order": 4,
++            "label": "FTP password"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ],
++          "secret": true
+         },
+         {
+@@ -1314,7 +1310,6 @@
+           "ui": {
+             "section": "FTP",
+-            "order": 31,
+-            "label": "FTP secured",
+-            "helperText": "Turn \u201cFTP secured\u201d on or off in the \u201cFTP\u201d section."
++            "order": 5,
++            "label": "FTP secured"
+           },
+           "version": [
+@@ -1330,7 +1325,6 @@
+           "ui": {
+             "section": "File Owner Permissions",
+-            "order": 32,
+-            "label": "Copy source file mode permissions",
+-            "helperText": "Enter the numeric value for \u201cCopy source file mode permissions\u201d in the \u201cFile Owner Permissions\u201d section."
++            "order": 0,
++            "label": "Copy source file mode permissions"
+           },
+           "version": [
+@@ -1346,7 +1340,6 @@
+           "ui": {
+             "section": "File Owner Permissions",
+-            "order": 33,
+-            "label": "Copy source file owner",
+-            "helperText": "Enter the numeric value for \u201cCopy source file owner\u201d in the \u201cFile Owner Permissions\u201d section."
++            "order": 1,
++            "label": "Copy source file owner"
+           },
+           "version": [
+@@ -1362,7 +1355,6 @@
+           "ui": {
+             "section": "File Owner Permissions",
+-            "order": 34,
+-            "label": "Override username",
+-            "helperText": "Enter the value for \u201cOverride username\u201d in the \u201cFile Owner Permissions\u201d section."
++            "order": 2,
++            "label": "Override username"
+           },
+           "version": [
+@@ -1378,7 +1370,6 @@
+           "ui": {
+             "section": "File Owner Permissions",
+-            "order": 35,
+-            "label": "Override group",
+-            "helperText": "Enter the value for \u201cOverride group\u201d in the \u201cFile Owner Permissions\u201d section."
++            "order": 3,
++            "label": "Override group"
+           },
+           "version": [
+@@ -1394,7 +1385,6 @@
+           "ui": {
+             "section": "Command Center",
+-            "order": 36,
+-            "label": "Command Center enabled",
+-            "helperText": "Enter the numeric value for \u201cCommand Center enabled\u201d in the \u201cCommand Center\u201d section."
++            "order": 0,
++            "label": "Command Center enabled"
+           },
+           "version": [
+@@ -1410,7 +1400,6 @@
+           "ui": {
+             "section": "Command Center",
+-            "order": 37,
+-            "label": "Use output destination Solace credentials",
+-            "helperText": "Turn \u201cUse output destination Solace credentials\u201d on or off in the \u201cCommand Center\u201d section."
++            "order": 1,
++            "label": "Use output destination Solace credentials"
+           },
+           "version": [
+@@ -1426,7 +1415,6 @@
+           "ui": {
+             "section": "Command Center",
+-            "order": 38,
+-            "label": "Publish topic",
+-            "helperText": "Enter the value for \u201cPublish topic\u201d in the \u201cCommand Center\u201d section."
++            "order": 2,
++            "label": "Publish topic"
+           },
+           "version": [
+@@ -1447,7 +1435,6 @@
+           "ui": {
+             "section": "Command Center",
+-            "order": 39,
+-            "label": "Messaging mode",
+-            "helperText": "Select the \u201cMessaging mode\u201d option in the \u201cCommand Center\u201d section."
++            "order": 3,
++            "label": "Messaging mode"
+           },
+           "version": [
+@@ -1463,7 +1450,6 @@
+           "ui": {
+             "section": "Command Center",
+-            "order": 40,
+-            "label": "Heartbeat enabled",
+-            "helperText": "Enter the numeric value for \u201cHeartbeat enabled\u201d in the \u201cCommand Center\u201d section."
++            "order": 4,
++            "label": "Heartbeat enabled"
+           },
+           "version": [
+@@ -1479,7 +1465,6 @@
+           "ui": {
+             "section": "Command Center",
+-            "order": 41,
+-            "label": "Heartbeat interval",
+-            "helperText": "Enter the numeric value for \u201cHeartbeat interval\u201d in the \u201cCommand Center\u201d section."
++            "order": 5,
++            "label": "Heartbeat interval"
+           },
+           "version": [
+@@ -1495,7 +1480,6 @@
+           "ui": {
+             "section": "Command Center",
+-            "order": 42,
+-            "label": "Heartbeat publish topic",
+-            "helperText": "Enter the value for \u201cHeartbeat publish topic\u201d in the \u201cCommand Center\u201d section."
++            "order": 6,
++            "label": "Heartbeat publish topic"
+           },
+           "version": [
+@@ -1511,7 +1495,6 @@
+           "ui": {
+             "section": "Command Center Events",
+-            "order": 43,
+-            "label": "File start event",
+-            "helperText": "Turn \u201cFile start event\u201d on or off in the \u201cCommand Center Events\u201d section."
++            "order": 0,
++            "label": "File start event"
+           },
+           "version": [
+@@ -1527,7 +1510,6 @@
+           "ui": {
+             "section": "Command Center Events",
+-            "order": 44,
+-            "label": "File complete event",
+-            "helperText": "Turn \u201cFile complete event\u201d on or off in the \u201cCommand Center Events\u201d section."
++            "order": 1,
++            "label": "File complete event"
+           },
+           "version": [
+@@ -1559,6 +1541,5 @@
+             "section": "Cache",
+             "order": 0,
+-            "label": "Enable cache",
+-            "helperText": "Turn \u201cEnable cache\u201d on or off in the \u201cCache\u201d section."
++            "label": "Enable cache"
+           },
+           "version": [
+@@ -1579,6 +1560,5 @@
+             "section": "Cache",
+             "order": 1,
+-            "label": "Cache provider",
+-            "helperText": "Select the \u201cCache provider\u201d option in the \u201cCache\u201d section."
++            "label": "Cache provider"
+           },
+           "version": [
+@@ -1595,6 +1575,5 @@
+             "section": "Cache",
+             "order": 2,
+-            "label": "Cache TTL",
+-            "helperText": "Enter the duration for \u201cCache TTL\u201d in the \u201cCache\u201d section."
++            "label": "Cache TTL"
+           },
+           "version": [
+@@ -1613,6 +1592,5 @@
+             "section": "Cache",
+             "order": 3,
+-            "label": "Redis URL",
+-            "helperText": "Enter the value for \u201cRedis URL\u201d in the \u201cCache\u201d section."
++            "label": "Redis URL"
+           },
+           "version": [
+@@ -1639,6 +1617,5 @@
+             "section": "Server",
+             "order": 0,
+-            "label": "Server port",
+-            "helperText": "Enter the numeric value for \u201cServer port\u201d in the \u201cServer\u201d section."
++            "label": "Server port"
+           },
+           "version": [
+@@ -1654,7 +1631,6 @@
+           "ui": {
+             "section": "SSL",
+-            "order": 1,
+-            "label": "SSL enabled",
+-            "helperText": "Turn \u201cSSL enabled\u201d on or off in the \u201cSSL\u201d section."
++            "order": 0,
++            "label": "SSL enabled"
+           },
+           "version": [
+@@ -1668,57 +1644,54 @@
+           "type": "string",
+           "default": "file:/home/banala/Music/entityFolders/download_binaries/SOURCE_NOSUBORG_Alice_FF_NWFILE_T3/keystore.p12",
++          "ui": {
++            "section": "SSL",
++            "order": 1,
++            "label": "SSL key store"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "server.ssl.key-store-password",
++          "type": "secret",
 +          "default": null,
            "ui": {
              "section": "SSL",
-@@ -1872,5 +1872,5 @@
+             "order": 2,
+-            "label": "SSL key store",
+-            "helperText": "Enter the value for \u201cSSL key store\u201d in the \u201cSSL\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "server.ssl.key-store-password",
+-          "type": "secret",
+-          "default": "***",
++            "label": "SSL key store password"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ],
++          "secret": true
++        },
++        {
++          "key": "server.ssl.key-store-type",
++          "type": "string",
++          "default": "PKCS12",
+           "ui": {
+             "section": "SSL",
+             "order": 3,
+-            "label": "SSL key store password",
+-            "helperText": "Enter \u201cSSL key store password\u201d for the \u201cSSL\u201d section. This value is treated as sensitive."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "server.ssl.key-store-type",
+-          "type": "string",
+-          "default": "PKCS12",
++            "label": "SSL key store type"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "server.ssl.key-alias",
++          "type": "string",
++          "default": "myalias",
+           "ui": {
+             "section": "SSL",
+             "order": 4,
+-            "label": "SSL key store type",
+-            "helperText": "Enter the value for \u201cSSL key store type\u201d in the \u201cSSL\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "server.ssl.key-alias",
+-          "type": "string",
+-          "default": "myalias",
+-          "ui": {
+-            "section": "SSL",
+-            "order": 5,
+-            "label": "SSL key alias",
+-            "helperText": "Enter the value for \u201cSSL key alias\u201d in the \u201cSSL\u201d section."
++            "label": "SSL key alias"
+           },
+           "version": [
+@@ -1748,6 +1721,5 @@
+             "section": "Instance",
+             "order": 0,
+-            "label": "Prefer IP",
+-            "helperText": "Turn \u201cPrefer IP\u201d on or off in the \u201cInstance\u201d section."
++            "label": "Prefer IP"
+           },
+           "version": [
+@@ -1764,6 +1736,5 @@
+             "section": "Instance",
+             "order": 1,
+-            "label": "Management URL",
+-            "helperText": "Enter the value for \u201cManagement URL\u201d in the \u201cInstance\u201d section."
++            "label": "Management URL"
+           },
+           "version": [
+@@ -1780,6 +1751,5 @@
+             "section": "Instance",
+             "order": 2,
+-            "label": "Service URL",
+-            "helperText": "Enter the value for \u201cService URL\u201d in the \u201cInstance\u201d section."
++            "label": "Service URL"
+           },
+           "version": [
+@@ -1795,7 +1765,6 @@
+           "ui": {
+             "section": "Client",
+-            "order": 3,
+-            "label": "Admin client enabled",
+-            "helperText": "Turn \u201cAdmin client enabled\u201d on or off in the \u201cClient\u201d section."
++            "order": 0,
++            "label": "Admin client enabled"
+           },
+           "version": [
+@@ -1811,7 +1780,6 @@
+           "ui": {
+             "section": "Client",
+-            "order": 4,
+-            "label": "Admin server URL",
+-            "helperText": "Enter the value for \u201cAdmin server URL\u201d in the \u201cClient\u201d section."
++            "order": 1,
++            "label": "Admin server URL"
+           },
+           "version": [
+@@ -1827,7 +1795,6 @@
+           "ui": {
+             "section": "Client",
+-            "order": 5,
+-            "label": "Auto registration",
+-            "helperText": "Turn \u201cAuto registration\u201d on or off in the \u201cClient\u201d section."
++            "order": 2,
++            "label": "Auto registration"
+           },
+           "version": [
+@@ -1843,7 +1810,6 @@
+           "ui": {
+             "section": "Client",
+-            "order": 6,
+-            "label": "Prefer IP",
+-            "helperText": "Turn \u201cPrefer IP\u201d on or off in the \u201cClient\u201d section."
++            "order": 3,
++            "label": "Prefer IP"
+           },
+           "version": [
+@@ -1859,7 +1825,6 @@
+           "ui": {
+             "section": "Authentication",
+-            "order": 7,
+-            "label": "Admin username",
+-            "helperText": "Enter the value for \u201cAdmin username\u201d in the \u201cAuthentication\u201d section."
++            "order": 0,
++            "label": "Admin username"
+           },
+           "version": [
+@@ -1872,16 +1837,16 @@
            "key": "spring.boot.admin.client.password",
            "type": "secret",
--          "default": "pass",
+-          "default": "***",
 +          "default": null,
            "ui": {
              "section": "Authentication",
-@@ -2239,5 +2239,5 @@
+-            "order": 8,
+-            "label": "Admin password",
+-            "helperText": "Enter \u201cAdmin password\u201d for the \u201cAuthentication\u201d section. This value is treated as sensitive."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
++            "order": 1,
++            "label": "Admin password"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ],
++          "secret": true
+         }
+       ],
+@@ -1897,78 +1862,5 @@
+       "role": "none",
+       "configPath": "",
+-      "fields": [
+-        {
+-          "key": "spring.cloud.stream.bindings.input-0.destination",
+-          "type": "string",
+-          "default": "/home/banala/Music/entityFolders/updated/SOURCE_TEST_V1/file_paths.cfg",
+-          "ui": {
+-            "section": "Input Binding",
+-            "order": 0,
+-            "label": "Input destination",
+-            "helperText": "Enter the value for \u201cInput destination\u201d in the \u201cInput Binding\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "spring.cloud.stream.bindings.input-0.binder",
+-          "type": "enum",
+-          "options": [
+-            "file",
+-            "solace"
+-          ],
+-          "default": "file",
+-          "ui": {
+-            "section": "Input Binding",
+-            "order": 1,
+-            "label": "Input binder",
+-            "helperText": "Select the \u201cInput binder\u201d option in the \u201cInput Binding\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "spring.cloud.stream.bindings.output-0.destination",
+-          "type": "string",
+-          "default": "file/test",
+-          "ui": {
+-            "section": "Output Binding",
+-            "order": 2,
+-            "label": "Output destination",
+-            "helperText": "Enter the value for \u201cOutput destination\u201d in the \u201cOutput Binding\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "spring.cloud.stream.bindings.output-0.binder",
+-          "type": "enum",
+-          "options": [
+-            "file",
+-            "solace"
+-          ],
+-          "default": "solace",
+-          "ui": {
+-            "section": "Output Binding",
+-            "order": 3,
+-            "label": "Output binder",
+-            "helperText": "Select the \u201cOutput binder\u201d option in the \u201cOutput Binding\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        }
+-      ],
++      "fields": [],
+       "version": [
+         1,
+@@ -1991,6 +1883,5 @@
+             "section": "Security",
+             "order": 0,
+-            "label": "Connector security enabled",
+-            "helperText": "Turn \u201cConnector security enabled\u201d on or off in the \u201cSecurity\u201d section."
++            "label": "Connector security enabled"
+           },
+           "version": [
+@@ -2006,7 +1897,6 @@
+           "ui": {
+             "section": "Error",
+-            "order": 1,
+-            "label": "Error handling",
+-            "helperText": "Enter the value for \u201cError handling\u201d in the \u201cError\u201d section."
++            "order": 0,
++            "label": "Error handling"
+           },
+           "version": [
+@@ -2022,7 +1912,6 @@
+           "ui": {
+             "section": "Workflow",
+-            "order": 2,
+-            "label": "Workflow enabled",
+-            "helperText": "Turn \u201cWorkflow enabled\u201d on or off in the \u201cWorkflow\u201d section."
++            "order": 0,
++            "label": "Workflow enabled"
+           },
+           "version": [
+@@ -2038,7 +1927,6 @@
+           "ui": {
+             "section": "Workflow",
+-            "order": 3,
+-            "label": "Publish asynchronously",
+-            "helperText": "Turn \u201cPublish asynchronously\u201d on or off in the \u201cWorkflow\u201d section."
++            "order": 1,
++            "label": "Publish asynchronously"
+           },
+           "version": [
+@@ -2059,71 +1947,66 @@
+           "ui": {
+             "section": "Leader Election",
++            "order": 0,
++            "label": "Leader election mode"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "solace.connector.management.leader-election.fail-over.max-attempts",
++          "type": "int",
++          "default": 3,
++          "ui": {
++            "section": "Leader Election",
++            "order": 1,
++            "label": "Failover max attempts"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "solace.connector.management.leader-election.fail-over.back-off-initial-interval",
++          "type": "int",
++          "default": 1000,
++          "ui": {
++            "section": "Leader Election",
++            "order": 2,
++            "label": "Initial backoff interval"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "solace.connector.management.leader-election.fail-over.back-off-max-interval",
++          "type": "int",
++          "default": 10000,
++          "ui": {
++            "section": "Leader Election",
++            "order": 3,
++            "label": "Maximum backoff interval"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "solace.connector.management.leader-election.fail-over.back-off-multiplier",
++          "type": "int",
++          "default": 2,
++          "ui": {
++            "section": "Leader Election",
+             "order": 4,
+-            "label": "Leader election mode",
+-            "helperText": "Select the \u201cLeader election mode\u201d option in the \u201cLeader Election\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "solace.connector.management.leader-election.fail-over.max-attempts",
+-          "type": "int",
+-          "default": 3,
+-          "ui": {
+-            "section": "Leader Election",
+-            "order": 5,
+-            "label": "Failover max attempts",
+-            "helperText": "Enter the numeric value for \u201cFailover max attempts\u201d in the \u201cLeader Election\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "solace.connector.management.leader-election.fail-over.back-off-initial-interval",
+-          "type": "int",
+-          "default": 1000,
+-          "ui": {
+-            "section": "Leader Election",
+-            "order": 6,
+-            "label": "Initial backoff interval",
+-            "helperText": "Enter the numeric value for \u201cInitial backoff interval\u201d in the \u201cLeader Election\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "solace.connector.management.leader-election.fail-over.back-off-max-interval",
+-          "type": "int",
+-          "default": 10000,
+-          "ui": {
+-            "section": "Leader Election",
+-            "order": 7,
+-            "label": "Maximum backoff interval",
+-            "helperText": "Enter the numeric value for \u201cMaximum backoff interval\u201d in the \u201cLeader Election\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "solace.connector.management.leader-election.fail-over.back-off-multiplier",
+-          "type": "int",
+-          "default": 2,
+-          "ui": {
+-            "section": "Leader Election",
+-            "order": 8,
+-            "label": "Backoff multiplier",
+-            "helperText": "Enter the numeric value for \u201cBackoff multiplier\u201d in the \u201cLeader Election\u201d section."
++            "label": "Backoff multiplier"
+           },
+           "version": [
+@@ -2139,7 +2022,6 @@
+           "ui": {
+             "section": "Management",
+-            "order": 9,
+-            "label": "Management queue",
+-            "helperText": "Enter the value for \u201cManagement queue\u201d in the \u201cManagement\u201d section."
++            "order": 0,
++            "label": "Management queue"
+           },
+           "version": [
+@@ -2161,5 +2043,5 @@
+           "ui": {
+             "section": "Management Session",
+-            "order": 10,
++            "order": 0,
+             "label": "Broker",
+             "helperText": "Selects the Connection Object that populates the management-session fields below (UI-D28).",
+@@ -2177,20 +2059,20 @@
+           "type": "string",
+           "default": "tcp://localhost:55555",
++          "ui": {
++            "section": "Management Session",
++            "order": 1,
++            "label": "Management host"
++          },
++          "required": true,
++          "version": [
++            1,
++            2,
++            3,
++            4
++          ],
+           "valueFrom": {
+             "ref": "solaceManagementBroker",
+             "attribute": "host"
+-          },
+-          "ui": {
+-            "section": "Management Session",
+-            "order": 10,
+-            "label": "Management host",
+-            "helperText": "Enter the value for \u201cManagement host\u201d in the \u201cManagement Session\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3,
+-            4
+-          ]
++          }
+         },
+         {
+@@ -2204,7 +2086,6 @@
+           "ui": {
+             "section": "Management Session",
+-            "order": 11,
+-            "label": "Management Message VPN",
+-            "helperText": "Enter the value for \u201cManagement Message VPN\u201d in the \u201cManagement Session\u201d section."
++            "order": 2,
++            "label": "Management Message VPN"
+           },
+           "version": [
+@@ -2225,7 +2106,6 @@
+           "ui": {
+             "section": "Management Session",
+-            "order": 12,
+-            "label": "Management client username",
+-            "helperText": "Enter the value for \u201cManagement client username\u201d in the \u201cManagement Session\u201d section."
++            "order": 3,
++            "label": "Management client username"
+           },
+           "version": [
+@@ -2239,5 +2119,5 @@
            "key": "solace.connector.management.session.client-password",
            "type": "secret",
--          "default": "test",
+-          "default": "***",
 +          "default": null,
            "valueFrom": {
              "ref": "solaceManagementBroker",
-@@ -2347,5 +2347,5 @@
+@@ -2246,7 +2126,6 @@
+           "ui": {
+             "section": "Management Session",
+-            "order": 13,
+-            "label": "Management client password",
+-            "helperText": "Enter \u201cManagement client password\u201d for the \u201cManagement Session\u201d section. This value is treated as sensitive."
++            "order": 4,
++            "label": "Management client password"
+           },
+           "version": [
+@@ -2255,5 +2134,6 @@
+             3,
+             4
+-          ]
++          ],
++          "secret": true
+         },
+         {
+@@ -2269,5 +2149,5 @@
+           "ui": {
+             "section": "Java Client",
+-            "order": 14,
++            "order": 0,
+             "label": "Broker",
+             "helperText": "Selects the Connection Object that populates the Java client fields below (UI-D28).",
+@@ -2285,20 +2165,20 @@
+           "type": "string",
+           "default": "tcp://localhost:55555",
++          "ui": {
++            "section": "Java Client",
++            "order": 1,
++            "label": "Solace Java host"
++          },
++          "required": true,
++          "version": [
++            1,
++            2,
++            3,
++            4
++          ],
+           "valueFrom": {
+             "ref": "solaceDataBroker",
+             "attribute": "host"
+-          },
+-          "ui": {
+-            "section": "Java Client",
+-            "order": 14,
+-            "label": "Solace Java host",
+-            "helperText": "Enter the value for \u201cSolace Java host\u201d in the \u201cJava Client\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3,
+-            4
+-          ]
++          }
+         },
+         {
+@@ -2312,7 +2192,6 @@
+           "ui": {
+             "section": "Java Client",
+-            "order": 15,
+-            "label": "Solace Java Message VPN",
+-            "helperText": "Enter the value for \u201cSolace Java Message VPN\u201d in the \u201cJava Client\u201d section."
++            "order": 2,
++            "label": "Solace Java Message VPN"
+           },
+           "version": [
+@@ -2333,7 +2212,6 @@
+           "ui": {
+             "section": "Java Client",
+-            "order": 16,
+-            "label": "Solace Java client username",
+-            "helperText": "Enter the value for \u201cSolace Java client username\u201d in the \u201cJava Client\u201d section."
++            "order": 3,
++            "label": "Solace Java client username"
+           },
+           "version": [
+@@ -2347,5 +2225,5 @@
            "key": "solace.java.client-password",
            "type": "secret",
--          "default": "test",
+-          "default": "***",
 +          "default": null,
            "valueFrom": {
              "ref": "solaceDataBroker",
+@@ -2354,7 +2232,6 @@
+           "ui": {
+             "section": "Java Client",
+-            "order": 17,
+-            "label": "Solace Java client password",
+-            "helperText": "Enter \u201cSolace Java client password\u201d for the \u201cJava Client\u201d section. This value is treated as sensitive."
++            "order": 4,
++            "label": "Solace Java client password"
+           },
+           "version": [
+@@ -2363,5 +2240,6 @@
+             3,
+             4
+-          ]
++          ],
++          "secret": true
+         },
+         {
+@@ -2371,7 +2249,6 @@
+           "ui": {
+             "section": "Java Client",
+-            "order": 18,
+-            "label": "Connect retries",
+-            "helperText": "Enter the numeric value for \u201cConnect retries\u201d in the \u201cJava Client\u201d section."
++            "order": 5,
++            "label": "Connect retries"
+           },
+           "version": [
+@@ -2387,7 +2264,6 @@
+           "ui": {
+             "section": "Java Client",
+-            "order": 19,
+-            "label": "Reconnect retries",
+-            "helperText": "Enter the numeric value for \u201cReconnect retries\u201d in the \u201cJava Client\u201d section."
++            "order": 6,
++            "label": "Reconnect retries"
+           },
+           "version": [
+@@ -2418,6 +2294,5 @@
+             "section": "Application",
+             "order": 0,
+-            "label": "Application name",
+-            "helperText": "Enter the value for \u201cApplication name\u201d in the \u201cApplication\u201d section."
++            "label": "Application name"
+           },
+           "version": [
+@@ -2447,6 +2322,5 @@
+             "section": "Log Levels",
+             "order": 0,
+-            "label": "Root log level",
+-            "helperText": "Enter the value for \u201cRoot log level\u201d in the \u201cLog Levels\u201d section."
++            "label": "Root log level"
+           },
+           "version": [
+@@ -2463,6 +2337,5 @@
+             "section": "Log Levels",
+             "order": 1,
+-            "label": "Solace JMS log level",
+-            "helperText": "Enter the value for \u201cSolace JMS log level\u201d in the \u201cLog Levels\u201d section."
++            "label": "Solace JMS log level"
+           },
+           "version": [
+@@ -2479,6 +2352,5 @@
+             "section": "Log Levels",
+             "order": 2,
+-            "label": "Connector core log level",
+-            "helperText": "Enter the value for \u201cConnector core log level\u201d in the \u201cLog Levels\u201d section."
++            "label": "Connector core log level"
+           },
+           "version": [
+@@ -2495,6 +2367,5 @@
+             "section": "Log Levels",
+             "order": 3,
+-            "label": "Solace binder log level",
+-            "helperText": "Enter the value for \u201cSolace binder log level\u201d in the \u201cLog Levels\u201d section."
++            "label": "Solace binder log level"
+           },
+           "version": [
+@@ -2511,6 +2382,5 @@
+             "section": "Log Levels",
+             "order": 4,
+-            "label": "File binder log level",
+-            "helperText": "Enter the value for \u201cFile binder log level\u201d in the \u201cLog Levels\u201d section."
++            "label": "File binder log level"
+           },
+           "version": [
+@@ -2526,7 +2396,6 @@
+           "ui": {
+             "section": "File",
+-            "order": 5,
+-            "label": "Log file name",
+-            "helperText": "Enter the value for \u201cLog file name\u201d in the \u201cFile\u201d section."
++            "order": 0,
++            "label": "Log file name"
+           },
+           "version": [
+@@ -2542,7 +2411,6 @@
+           "ui": {
+             "section": "Rolling Policy",
+-            "order": 6,
+-            "label": "Rolling file name pattern",
+-            "helperText": "Enter the value for \u201cRolling file name pattern\u201d in the \u201cRolling Policy\u201d section."
++            "order": 0,
++            "label": "Rolling file name pattern"
+           },
+           "version": [
+@@ -2558,7 +2426,6 @@
+           "ui": {
+             "section": "Rolling Policy",
+-            "order": 7,
+-            "label": "Maximum log file size",
+-            "helperText": "Enter the value for \u201cMaximum log file size\u201d in the \u201cRolling Policy\u201d section."
++            "order": 1,
++            "label": "Maximum log file size"
+           },
+           "version": [
+@@ -2574,7 +2441,6 @@
+           "ui": {
+             "section": "Rolling Policy",
+-            "order": 8,
+-            "label": "Maximum history",
+-            "helperText": "Enter the numeric value for \u201cMaximum history\u201d in the \u201cRolling Policy\u201d section."
++            "order": 2,
++            "label": "Maximum history"
+           },
+           "version": [
+@@ -2590,7 +2456,6 @@
+           "ui": {
+             "section": "Rolling Policy",
+-            "order": 9,
+-            "label": "Total size cap",
+-            "helperText": "Enter the value for \u201cTotal size cap\u201d in the \u201cRolling Policy\u201d section."
++            "order": 3,
++            "label": "Total size cap"
+           },
+           "version": [
+@@ -2620,6 +2485,5 @@
+             "section": "Security",
+             "order": 0,
+-            "label": "Management security enabled",
+-            "helperText": "Turn \u201cManagement security enabled\u201d on or off in the \u201cSecurity\u201d section."
++            "label": "Management security enabled"
+           },
+           "version": [
+@@ -2635,7 +2499,6 @@
+           "ui": {
+             "section": "Metrics",
+-            "order": 1,
+-            "label": "Simple metrics export enabled",
+-            "helperText": "Turn \u201cSimple metrics export enabled\u201d on or off in the \u201cMetrics\u201d section."
++            "order": 0,
++            "label": "Simple metrics export enabled"
+           },
+           "version": [
+@@ -2651,55 +2514,51 @@
+           "ui": {
+             "section": "Web Endpoints",
++            "order": 0,
++            "label": "Exposed web endpoints"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "management.endpoints.web.cors.allowed-origins",
++          "type": "string",
++          "default": "*",
++          "ui": {
++            "section": "CORS",
++            "order": 0,
++            "label": "Allowed CORS origins"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "management.endpoints.web.cors.allowed-methods",
++          "type": "string",
++          "default": "*",
++          "ui": {
++            "section": "CORS",
++            "order": 1,
++            "label": "Allowed CORS methods"
++          },
++          "version": [
++            1,
++            2,
++            3
++          ]
++        },
++        {
++          "key": "management.endpoints.web.cors.allowed-headers",
++          "type": "string",
++          "default": "*",
++          "ui": {
++            "section": "CORS",
+             "order": 2,
+-            "label": "Exposed web endpoints",
+-            "helperText": "Enter the value for \u201cExposed web endpoints\u201d in the \u201cWeb Endpoints\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "management.endpoints.web.cors.allowed-origins",
+-          "type": "string",
+-          "default": "*",
+-          "ui": {
+-            "section": "CORS",
+-            "order": 3,
+-            "label": "Allowed CORS origins",
+-            "helperText": "Enter the value for \u201cAllowed CORS origins\u201d in the \u201cCORS\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "management.endpoints.web.cors.allowed-methods",
+-          "type": "string",
+-          "default": "*",
+-          "ui": {
+-            "section": "CORS",
+-            "order": 4,
+-            "label": "Allowed CORS methods",
+-            "helperText": "Enter the value for \u201cAllowed CORS methods\u201d in the \u201cCORS\u201d section."
+-          },
+-          "version": [
+-            1,
+-            2,
+-            3
+-          ]
+-        },
+-        {
+-          "key": "management.endpoints.web.cors.allowed-headers",
+-          "type": "string",
+-          "default": "*",
+-          "ui": {
+-            "section": "CORS",
+-            "order": 5,
+-            "label": "Allowed CORS headers",
+-            "helperText": "Enter the value for \u201cAllowed CORS headers\u201d in the \u201cCORS\u201d section."
++            "label": "Allowed CORS headers"
+           },
+           "version": [
+@@ -2715,7 +2574,6 @@
+           "ui": {
+             "section": "Logfile",
+-            "order": 6,
+-            "label": "External log file",
+-            "helperText": "Enter the value for \u201cExternal log file\u201d in the \u201cLogfile\u201d section."
++            "order": 0,
++            "label": "External log file"
+           },
+           "version": [
+@@ -2731,7 +2589,6 @@
+           "ui": {
+             "section": "Prometheus",
+-            "order": 7,
+-            "label": "Prometheus enabled",
+-            "helperText": "Turn \u201cPrometheus enabled\u201d on or off in the \u201cPrometheus\u201d section."
++            "order": 0,
++            "label": "Prometheus enabled"
+           },
+           "version": [
+@@ -2747,7 +2604,6 @@
+           "ui": {
+             "section": "Health",
+-            "order": 8,
+-            "label": "Health details",
+-            "helperText": "Enter the value for \u201cHealth details\u201d in the \u201cHealth\u201d section."
++            "order": 0,
++            "label": "Health details"
+           },
+           "version": [
+@@ -2763,7 +2619,6 @@
+           "ui": {
+             "section": "Health",
+-            "order": 9,
+-            "label": "Health status order",
+-            "helperText": "Enter the value for \u201cHealth status order\u201d in the \u201cHealth\u201d section."
++            "order": 1,
++            "label": "Health status order"
+           },
+           "version": [

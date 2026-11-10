@@ -1,0 +1,51 @@
+--- .claude/skills/solution-manager-yamlToPackage/references/profiles/file-mesh.yaml	2026-11-10 20:22:13.060607123 +0530
++++ /tmp/claude-1000/-home-arnav-rinawa-Documents-solution-manager-solution-manager-main-main/f006b63b-389c-48c0-9bac-370ecfe1d448/scratchpad/t11/e2e/sink/profile.yaml	2026-11-10 20:33:42.145756081 +0530
+@@ -145,5 +145,47 @@
+     - {id: delivered, kind: expect_file, role: sink, dir_from: spring.cloud.stream.bindings.output-0.destination,
+        same_checksum: true, timeout_s: 60}
+ # >>> decisions: written by the skill from your preview answers; do not edit by hand >>>
+-decisions: {}
++decisions:
++  removed:
++  - key: file.source.command_center.useoutputdestinationsolacecredentials
++    role: source
++    date: '2026-11-10'
++    reason: case variant; kept useOutputDestinationSolaceCredentials
++  suggestions:
++  - component: application
++    field: spring.application.name
++    attribute: required
++    decision: reject
++    date: '2026-11-10'
++    evidence:
++    - 'notifications/notification-template/NAME: required'
++    - 'scheduler/job/NAME: required'
++  - component: solace
++    field: solace.connector.management.session.host
++    attribute: required
++    decision: accept
++    date: '2026-11-10'
++    evidence:
++    - 'cache/cache-engine/solace.host: required'
++  - component: solace
++    field: solace.java.host
++    attribute: required
++    decision: accept
++    date: '2026-11-10'
++    evidence:
++    - 'cache/cache-engine/solace.host: required'
++  - component: logging
++    field: logging.file.name
++    attribute: required
++    decision: reject
++    date: '2026-11-10'
++    evidence:
++    - 'notifications/notification-template/NAME: required'
++    - 'scheduler/job/NAME: required'
++  style:
++    restyle: accepted
++    date: '2026-11-10'
++  provenance:
++    choice: keep
++    date: '2026-11-10'
+ # <<< decisions <<<
