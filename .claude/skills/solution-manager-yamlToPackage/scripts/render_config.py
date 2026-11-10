@@ -27,6 +27,7 @@ import yaml
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common  # noqa: E402
+import decisions  # noqa: E402
 
 
 def effective(declared, inherited):
@@ -87,15 +88,54 @@ def nest(flat):
     return root
 
 
-def flatten_yaml_text(text, list_policy=lambda k: "flag"):
+def _load_text(text, list_policy=lambda k: "flag"):
     import tempfile
     with tempfile.NamedTemporaryFile("w", suffix=".yml", delete=False) as fh:
         fh.write(text)
     try:
-        leaves = common.load_yaml_leaves(fh.name, list_policy=list_policy)["leaves"]
+        return common.load_yaml_leaves(fh.name, list_policy=list_policy)
     finally:
         os.unlink(fh.name)
-    return {l["key"]: l["value"] for l in leaves}
+
+
+def flatten_yaml_text(text, list_policy=lambda k: "flag"):
+    return {l["key"]: l["value"] for l in _load_text(text, list_policy)["leaves"]}
+
+
+def stored_answers(profile_path, role):
+    """{key: [as, ...]} from the decisions block of the profile, for entries that apply to `role`."""
+    with open(profile_path, encoding="utf-8") as fh:
+        block = decisions.read_block(fh.read())
+    out = {}
+    for e in block.get("stored") or []:
+        if e.get("key") is not None and e.get("role") in (None, role) and e.get("as") not in out.get(e["key"], []):
+            out.setdefault(e["key"], []).append(e.get("as"))
+    return out
+
+
+def explain_stored(key, yv, rendered, as_list, other):
+    """(note, extra_keys) when a remembered `stored` answer accounts for the difference, else None."""
+    for how in as_list:
+        rv = rendered.get(key)
+        if how == "index":
+            n = len(yv) if isinstance(yv, list) else 0
+            items = [f"{key}.{i}" for i in range(n)]
+            if n and key not in rendered and all(i in rendered for i in items) \
+                    and [rendered[i] for i in items] == yv:
+                return f"stored by you as {how}", set(items)
+        elif how == "string" and key in rendered and rv == str(yv):
+            return f"stored by you as {how}", set()
+        elif how == "map" and key in rendered and rv is None and yv == {}:
+            return f"stored by you as {how}", set()
+        elif how == "join-comma" and isinstance(yv, list) and rv == ",".join(map(str, yv)):
+            return f"stored by you as {how}", set()
+        elif how == "list" and key in rendered and rv == yv:
+            return f"stored by you as {how}", set()
+        elif how in ("first", "second") and key in other and rv in other[key] + [yv]:
+            return f"stored by you as {how}", set()
+        elif how in ("add-option", "yaml-type", "package-type") and key in rendered:
+            return f"stored by you as {how}", set()
+    return None
 
 
 def _load_json(path):
@@ -135,8 +175,17 @@ def cmd_roundtrip(a):
     lists = prof.get("lists") or {}
     with open(a.yaml, encoding="utf-8") as fh:
         yaml_text = fh.read()
-    src = flatten_yaml_text(yaml_text,
-                            list_policy=lambda k: common.lookup(lists, k) or "flag")
+    loaded = _load_text(yaml_text, list_policy=lambda k: common.lookup(lists, k) or "flag")
+    src = {l["key"]: l["value"] for l in loaded["leaves"]}
+    other = {}
+    for d in loaded["duplicates"]:
+        other.setdefault(d["key"], []).append(d["value"])
+    stored = stored_answers(a.profile, a.role)
+    kept_in_package = set()
+    if rep.get("package") and os.path.isfile(rep["package"]):
+        for c in _load_json(rep["package"]).get("components", []):
+            kept_in_package |= {f["key"] for f in c.get("fields", [])}
+    explained = set()
     rendered, origin = flat_render(pkg, a.role, a.version)
     removed = {x["key"]: x["reason"] for x in rep.get("removed", [])}
     coerced = {x["key"]: x["note"] for x in rep.get("coerced", [])}
@@ -149,6 +198,11 @@ def cmd_roundtrip(a):
         if key in removed:
             (bad if key in rendered else allowed).append((key, f"removed by you: {removed[key]}" +
                                                           (" BUT it is rendered" if key in rendered else "")))
+            continue
+        got = explain_stored(key, yv, rendered, stored[key], other) if key in stored and rendered.get(key) != yv else None
+        if got:
+            allowed.append((key, got[0]))
+            explained |= got[1]
             continue
         if key not in rendered:
             bad.append((key, "in the YAML but not rendered from the package"))
@@ -168,9 +222,11 @@ def cmd_roundtrip(a):
         else:
             bad.append((key, f"value differs: rendered {json.dumps(rv)} vs YAML {json.dumps(yv)}"))
     for key in rendered:
-        if key not in src:
+        if key not in src and key not in explained:
             if origin[key] in preserved:
                 allowed.append((key, f"from preserved component {origin[key]} (no YAML source)"))
+            elif key in kept_in_package and key not in removed:
+                allowed.append((key, "in the package, not in this YAML (kept)"))
             else:
                 bad.append((key, f"rendered from {origin[key]} but absent from the YAML"))
 

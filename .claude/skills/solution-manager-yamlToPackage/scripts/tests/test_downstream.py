@@ -1,4 +1,5 @@
 """Task 9: the scripts that read the new report or draft profiles."""
+import json
 import subprocess
 import sys
 import unittest
@@ -22,15 +23,39 @@ def one_secret_package(flag):
             "components": [{"type": "c", "configPath": "", "version": [1], "fields": [field]}]}
 
 
+def roundtrip(out, report=None, name="rt.md"):
+    done = subprocess.run([sys.executable, str(RENDER), "roundtrip", "--package", str(out / "package.json"),
+                           "--profile", str(out / "profile.yaml"), "--role", "alpha", "--version", "2",
+                           "--yaml", str(ALPHA), "--report", str(report or out / "report.json"),
+                           "--out", str(out / name)], capture_output=True)
+    return done.returncode, (out / name).read_text()
+
+
 class DownstreamTests(unittest.TestCase):
+    def test_roundtrip_explains_stored_answers_and_passes(self):
+        out = empty_dir()
+        run_cli("apply", "alpha", out, answers=ANSWERS_FILE)
+        code, md = roundtrip(out)
+        self.assertEqual(code, 0, md)
+        for key, how in (("retries", "index"), ("ratio", "string"), ("extras", "map"), ("host", "second")):
+            self.assertIn(f"`demo.alpha.{key}`: stored by you as {how}", md)
+        self.assertIn("in the package, not in this YAML (kept)", md)
+
+    def test_roundtrip_fails_a_removed_key_that_is_still_rendered(self):
+        out = empty_dir()
+        run_cli("apply", "alpha", out, answers=ANSWERS_FILE)
+        rep = json.loads((out / "report.json").read_text())
+        rep["removed"].append({"key": "demo.alpha.username", "line": 3, "reason": "planted", "role": "alpha",
+                               "component": "alpha-core"})
+        (out / "planted.json").write_text(json.dumps(rep))
+        code, md = roundtrip(out, report=out / "planted.json", name="rt2.md")
+        self.assertEqual(code, 1)
+        self.assertIn("BUT it is rendered", md)
+
     def test_roundtrip_lists_keys_removed_by_you(self):
         out = empty_dir()
         run_cli("apply", "alpha", out, answers=ANSWERS_FILE)
-        subprocess.run([sys.executable, str(RENDER), "roundtrip", "--package", str(out / "package.json"),
-                        "--profile", str(out / "profile.yaml"), "--role", "alpha", "--version", "2",
-                        "--yaml", str(ALPHA), "--report", str(out / "report.json"),
-                        "--out", str(out / "rt.md")], capture_output=True)
-        md = (out / "rt.md").read_text()
+        _, md = roundtrip(out)
         self.assertIn("demo.alpha.filename", md)
         self.assertIn("removed by you", md)
         self.assertNotIn("excluded", md)
