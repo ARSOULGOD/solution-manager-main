@@ -44,14 +44,14 @@ def fields_by_key(pkg):
     return {f["key"]: f for c in pkg["components"] for f in c.get("fields", [])}
 
 
-def build_demo(role, answers=None, remembered=None, package=PACKAGE, applies_to=None, samples=SAMPLES):
+def build_demo(role, answers=None, remembered=None, package=PACKAGE, applies_to=None, samples=SAMPLES, yaml_path=None):
     work = empty_dir()
     profile = work / "profile.yaml"
     text = PROFILE.read_text(encoding="utf-8")
     if remembered is not None:
         text = decisions.write_block(text, remembered)
     profile.write_text(text, encoding="utf-8")
-    argv = ["--profile", str(profile), "--role", role, "--yaml", str(YAMLS[role]),
+    argv = ["--profile", str(profile), "--role", role, "--yaml", str(yaml_path or YAMLS[role]),
             "--target-versions", "1,2", "--today", "2026-11-10", "--samples", str(samples)]
     if package is not None:
         argv += ["--package", str(package)]

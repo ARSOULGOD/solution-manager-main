@@ -71,6 +71,16 @@ def ordered_field(d):
     return out
 
 
+def read_text(path):
+    with open(path, encoding="utf-8") as fh:
+        return fh.read()
+
+
+def write_text(path, text):
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(text)
+
+
 def is_shared(spec):
     return bool(spec.get("shared")) or spec.get("role") in (None, "none")
 
@@ -133,7 +143,7 @@ class Run:
         """Every YAML key is exactly one of placed, open or removed."""
         keys = set(self.yaml_keys)
         placed = [p["key"] for p in self.placed]
-        removed = [r["key"] for r in self.removed]
+        removed = [r["key"] for r in self.removed if r["line"] is not None]   # line None: a package-only field
         held = self.open_keys()
         if len(set(placed)) != len(placed) or len(set(removed)) != len(removed):
             return False
@@ -297,6 +307,12 @@ class Run:
             list_policy=lambda k: common.lookup(lists, k) or "flag",
             map_leaf=lambda k: common.lookup(types, k) == "map")
         leaves = parsed["leaves"]
+        leaf_keys = {leaf["key"] for leaf in leaves}
+        for d in parsed["duplicates"]:
+            if d["key"] not in leaf_keys:
+                die(2, f"{self.args.yaml}: mapping {d['key']!r} is written twice in one mapping (lines "
+                       f"{d['first_line']} and {d['line']}); the keys under the second copy would be lost; merge "
+                       "the two blocks into one and run again.")
         self.yaml_keys = [leaf["key"] for leaf in leaves]
         self.key_count = len(set(self.yaml_keys))
         if parsed["documents"] > 1:
@@ -306,9 +322,12 @@ class Run:
         for d in parsed["duplicates"]:
             duplicates.setdefault(d["key"], []).append(d)
 
-        candidates = []
+        candidates, seen = [], set()
         for leaf in leaves:
             key = leaf["key"]
+            if key in seen:   # a later document repeats the key: the first occurrence governs, counted once
+                continue
+            seen.add(key)
             if key in removed:
                 self.remove(leaf, removed[key])
                 continue
@@ -317,9 +336,11 @@ class Run:
             tgt = None
             if decision and "scope" not in decision:   # shared-component scopes are applied later
                 tgt = self.answered(leaf, decision)
-            elif isinstance(nat, dict):
+                if not isinstance(nat, dict) and nat[0] in decisions.SHARED_KINDS and tgt["shared"]:
+                    tgt = None   # adding to a shared component needs a scope (all-roles / this-role)
+            if tgt is None and isinstance(nat, dict):
                 tgt = nat
-            else:
+            elif tgt is None:
                 kind, text, context, tentative = nat
                 self.ask(kind, key, leaf["line"], text, CHOICES[kind], context)
                 if tentative:
@@ -340,12 +361,7 @@ class Run:
                 self.check_against_package(leaf, tgt, field)
             candidates.append({"leaf": leaf, "component": tgt["component"], "field": field,
                                "shared": tgt["shared"], "fkey": tgt["fkey"]})
-        for d in parsed["duplicates"]:   # a duplicated mapping (not a leaf) still must not vanish
-            if d["key"] not in set(self.yaml_keys):
-                self.ask("dup-key", d["key"], d["first_line"],
-                         f"a mapping written twice (lines {d['first_line']} and {d['line']}); the keys under the "
-                         "second copy are not read. Use the first, the second, or remove it?", CHOICES["dup-key"],
-                         {"lines": [d["first_line"], d["line"]]})
+        self.remove_package_fields(set(self.yaml_keys))
 
         self.ask_spelling(candidates)
         held = self.open_keys()
@@ -366,9 +382,49 @@ class Run:
         role = None if tgt["shared"] else tgt["spec"].get("role")
         self.placements[key] = (tgt["component"], tgt["fkey"], role)
 
-    def remove(self, leaf, reason):
+    def own(self, spec):
+        """Is this a component of this run's role, or a shared one?"""
+        return is_shared(spec) or spec.get("role") == self.role
+
+    def place_decision(self, key):
+        """The `place` decision for a key, read from the answers and the remembered block directly: an answered
+        `remove` has already replaced it in effective()."""
+        found = None
+        for e in self.remembered.get("placed") or []:
+            if isinstance(e, dict) and e.get("key") == key and e.get("role") in (None, self.role):
+                found = e
+        for e in self.answers.get("place") or []:
+            if isinstance(e, dict) and e.get("key") == key:
+                found = e
+        return found
+
+    def removal_target(self, leaf):
+        """The component of this role (or a shared one) that holds or would hold the key's field, or None."""
+        key = leaf["key"]
+        decision = self.place_decision(key)
+        if decision and isinstance(decision.get("component"), str):
+            ctype = decision["component"]
+            known = any(c["type"] == ctype for c in self.profile["components"]) or self.find_comp(ctype)
+            if decision.get("new") is not None and isinstance(decision["new"], dict) and not known:
+                spec = dict(decision["new"], type=ctype)
+            else:
+                spec = self.spec_for(ctype) if known else None
+            fkey = self.field_key(key, spec) if spec else None
+            if spec and fkey is not None and self.own(spec):
+                return self.make_target(ctype, spec, "", fkey)
         nat = self.natural(leaf, honour_exclude=False)
         tgt = nat if isinstance(nat, dict) else (nat[3] if nat[0] in decisions.SHARED_KINDS else None)
+        if tgt is not None:
+            return tgt
+        for comp in self.pkg["components"]:
+            spec = self.spec_for(comp["type"])
+            fkey = self.field_key(key, spec)
+            if fkey is not None and self.own(spec) and any(f["key"] == fkey for f in comp.get("fields", [])):
+                return self.make_target(comp["type"], spec, "", fkey)
+        return None
+
+    def remove(self, leaf, reason):
+        tgt = self.removal_target(leaf)
         if tgt is not None:
             self.note_placement(leaf["key"], tgt)
         place = self.placements.get(leaf["key"])
@@ -376,6 +432,29 @@ class Run:
                              "role": place[2] if place else self.role,
                              "component": place[0] if place else None,
                              "field": place[1] if place else None})
+
+    def remove_package_fields(self, yaml_keys):
+        """A `remove` naming component + field: a package field the YAML does not carry. Not a YAML key, so it is
+        recorded with line None and stays out of key_count and balanced()."""
+        named = set()
+        for e in self.answers.get("remove") or []:
+            if isinstance(e, dict) and e.get("key") is None:
+                named.add((e.get("component"), e.get("field")))
+        for e in self.remembered.get("removed") or []:
+            if isinstance(e, dict) and e.get("key") is None:
+                named.add((e.get("component"), e.get("field")))
+        for name, reason in self.decided["removed"].items():
+            if name in yaml_keys:
+                continue
+            match = next(((c, f) for c, f in named if f"{c}/{f}" == name), None)
+            if match is None:
+                continue
+            ctype, fkey = match
+            spec = self.spec_for(ctype) if (self.find_comp(ctype) or any(
+                c["type"] == ctype for c in self.profile["components"])) else {}
+            self.removed.append({"key": fkey, "line": None, "reason": reason,
+                                 "role": None if not spec or is_shared(spec) else spec.get("role"),
+                                 "component": ctype, "field": fkey})
 
     def ask_spelling(self, candidates):
         groups = {}
@@ -718,20 +797,20 @@ class Run:
     def write(self):
         os.makedirs(self.args.out_dir, exist_ok=True)
         text = json.dumps(self.pkg, indent=2, ensure_ascii=self.ascii_style()) + "\n"
-        open(os.path.join(self.args.out_dir, "package.json"), "w", encoding="utf-8").write(text)
+        write_text(os.path.join(self.args.out_dir, "package.json"), text)
         if self.old is not None:
-            old_text = open(self.args.package, encoding="utf-8").read()
+            old_text = read_text(self.args.package)
             diff = "".join(difflib.unified_diff(old_text.splitlines(True), text.splitlines(True),
                                                 fromfile=self.args.package, tofile="package.json (generated)", n=2))
-            open(os.path.join(self.args.out_dir, "package.diff"), "w", encoding="utf-8").write(diff)
+            write_text(os.path.join(self.args.out_dir, "package.diff"), diff)
         report = self.report_json()
-        json.dump(report, open(os.path.join(self.args.out_dir, "report.json"), "w", encoding="utf-8"),
-                  indent=2, ensure_ascii=False, default=str)
-        open(os.path.join(self.args.out_dir, "report.md"), "w", encoding="utf-8").write(self.report_md(report))
+        write_text(os.path.join(self.args.out_dir, "report.json"),
+                   json.dumps(report, indent=2, ensure_ascii=False, default=str))
+        write_text(os.path.join(self.args.out_dir, "report.md"), self.report_md(report))
 
     def ascii_style(self):
         if self.args.package:
-            return "\\u201c" in open(self.args.package, encoding="utf-8").read()
+            return "\\u201c" in read_text(self.args.package)
         return False
 
     def report_json(self):

@@ -72,7 +72,8 @@ def load_yaml_leaves(path, list_policy=lambda key: "flag", map_leaf=lambda key: 
     Path segments are kept as a tuple so a key that itself contains dots
     (`logging.level.com.solace.connector.jms`) still has the right parent.
     """
-    text = open(path, encoding="utf-8").read()
+    with open(path, encoding="utf-8") as fh:
+        text = fh.read()
     lines = text.splitlines()
     docs = list(yaml.compose_all(text, Loader=StrictLoader))
     leaves, duplicates = [], []

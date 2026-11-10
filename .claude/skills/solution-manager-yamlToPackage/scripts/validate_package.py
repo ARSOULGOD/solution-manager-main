@@ -36,7 +36,8 @@ def schema_errors(pkg, schema_path):
         import jsonschema
     except ImportError:
         return None, "jsonschema module not installed: schema check skipped"
-    schema = json.load(open(schema_path, encoding="utf-8"))
+    with open(schema_path, encoding="utf-8") as fh:
+        schema = json.load(fh)
     v = jsonschema.Draft202012Validator(schema)
     return [f"schema: {'/'.join(map(str, e.path)) or '<root>'}: {e.message}"
             for e in sorted(v.iter_errors(pkg), key=lambda e: list(e.path))], None
@@ -145,7 +146,8 @@ def main():
     args = ap.parse_args()
     rc = 0
     for p in args.packages:
-        pkg = json.load(open(p, encoding="utf-8"))
+        with open(p, encoding="utf-8") as fh:
+            pkg = json.load(fh)
         res = validate(pkg, args.schema or find_schema(p, os.getcwd()))
         nf = sum(len(c.get("fields", [])) for c in pkg.get("components", []))
         print(f"{'PASS' if res['ok'] else 'FAIL'} {p}  components={len(pkg.get('components', []))} fields={nf}")
