@@ -1,6 +1,6 @@
 # yamlToPackage report: file-mesh / source
 
-- Profile: `/tmp/claude-1000/-home-arnav-rinawa-Documents-solution-manager-solution-manager-main-main/f006b63b-389c-48c0-9bac-370ecfe1d448/scratchpad/t11/e2e/profile.yaml`
+- Profile: `<scratch>/e2e/profile.yaml`
 - YAML: `.claude/skills/solution-manager-yamlToPackage/examples/file-mesh-source/input/application-source-file-v2.yml`
 - Package: `frontend/contracts/packages/file-mesh/package.json`
 - Target versions: [1, 2, 3]
@@ -139,7 +139,7 @@ accepted: new positions on 138 field(s), stock helper text removed from 154, 2 c
 
 **PASS**
 
-- note: schema: /home/arnav-rinawa/Documents/solution_manager/solution-manager-main-main/contracts/solution-package.schema.json
+- note: schema: contracts/solution-package.schema.json
 - note: read-back: 109 placed field(s) present, 1 removed key(s) absent
 - warning: latest package version 4 is carried by only 1 of 10 components
 

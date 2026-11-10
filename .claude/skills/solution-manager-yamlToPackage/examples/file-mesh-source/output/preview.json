@@ -1,7 +1,7 @@
 {
   "solution": "file-mesh",
   "role": "source",
-  "profile": "/tmp/claude-1000/-home-arnav-rinawa-Documents-solution-manager-solution-manager-main-main/f006b63b-389c-48c0-9bac-370ecfe1d448/scratchpad/t11/e2e/profile.yaml",
+  "profile": "<scratch>/e2e/profile.yaml",
   "yaml": ".claude/skills/solution-manager-yamlToPackage/examples/file-mesh-source/input/application-source-file-v2.yml",
   "package": "frontend/contracts/packages/file-mesh/package.json",
   "target_versions": [

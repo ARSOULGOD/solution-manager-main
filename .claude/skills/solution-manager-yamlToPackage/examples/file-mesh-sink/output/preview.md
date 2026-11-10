@@ -1,7 +1,7 @@
 ## file-mesh / sink: PREVIEW (nothing created yet)
 
 - YAML: `application-sink-file-v2.yml`, 102 keys · profile: `profile.yaml` (confirmed)
-- Package: `/tmp/claude-1000/-home-arnav-rinawa-Documents-solution-manager-solution-manager-main-main/f006b63b-389c-48c0-9bac-370ecfe1d448/scratchpad/t11/e2e/source/package.json` · packageVersion [1,2,3,4] · appliesTo ">=1.0 <2.0"
+- Package: `<scratch>/e2e/source/package.json` · packageVersion [1,2,3,4] · appliesTo ">=1.0 <2.0"
 - Roles: sink → file-sink (one-of-many) · shared (none): cache, server, spring-boot-admin, spring-cloud-stream, solace, application, logging, management
 - Versions: this YAML targets [1,2,3]; every field it feeds carries [1,2,3]
 - Samples: `frontend/contracts/packages`: 8 packages, 103 distinct fields (file-mesh itself not used)

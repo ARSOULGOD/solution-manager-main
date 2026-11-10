@@ -1,9 +1,9 @@
 {
   "solution": "file-mesh",
   "role": "sink",
-  "profile": "/tmp/claude-1000/-home-arnav-rinawa-Documents-solution-manager-solution-manager-main-main/f006b63b-389c-48c0-9bac-370ecfe1d448/scratchpad/t11/e2e/source/profile.yaml",
+  "profile": "<scratch>/e2e/source/profile.yaml",
   "yaml": ".claude/skills/solution-manager-yamlToPackage/examples/file-mesh-sink/input/application-sink-file-v2.yml",
-  "package": "/tmp/claude-1000/-home-arnav-rinawa-Documents-solution-manager-solution-manager-main-main/f006b63b-389c-48c0-9bac-370ecfe1d448/scratchpad/t11/e2e/source/package.json",
+  "package": "<scratch>/e2e/source/package.json",
   "target_versions": [
     1,
     2,

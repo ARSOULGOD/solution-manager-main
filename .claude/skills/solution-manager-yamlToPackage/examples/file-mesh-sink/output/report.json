@@ -1,9 +1,9 @@
 {
   "solution": "file-mesh",
   "role": "sink",
-  "profile": "/tmp/claude-1000/-home-arnav-rinawa-Documents-solution-manager-solution-manager-main-main/f006b63b-389c-48c0-9bac-370ecfe1d448/scratchpad/t11/e2e/source/profile.yaml",
+  "profile": "<scratch>/e2e/source/profile.yaml",
   "yaml": ".claude/skills/solution-manager-yamlToPackage/examples/file-mesh-sink/input/application-sink-file-v2.yml",
-  "package": "/tmp/claude-1000/-home-arnav-rinawa-Documents-solution-manager-solution-manager-main-main/f006b63b-389c-48c0-9bac-370ecfe1d448/scratchpad/t11/e2e/source/package.json",
+  "package": "<scratch>/e2e/source/package.json",
   "target_versions": [
     1,
     2,
@@ -1179,7 +1179,7 @@
   "notes": [
     "component cache preserved untouched (profile `preserve`)",
     "defaults were taken from the YAML (profile defaults.role_components: yaml). This conflicts with docs/design/dynamic-ui/design.md section 7.3 (UI-D*, PROPOSED): defaults come from field initializers, never from a sample application.yml. Flagged, not resolved.",
-    "package.diff compares content: /tmp/claude-1000/-home-arnav-rinawa-Documents-solution-manager-solution-manager-main-main/f006b63b-389c-48c0-9bac-370ecfe1d448/scratchpad/t11/e2e/source/package.json is formatted differently from the generated package.json, and that formatting change is not shown"
+    "package.diff compares content: <scratch>/e2e/source/package.json is formatted differently from the generated package.json, and that formatting change is not shown"
   ],
   "validation": {
     "ok": true,
@@ -1188,7 +1188,7 @@
       "latest package version 4 is carried by only 1 of 10 components"
     ],
     "notes": [
-      "schema: /home/arnav-rinawa/Documents/solution_manager/solution-manager-main-main/contracts/solution-package.schema.json",
+      "schema: contracts/solution-package.schema.json",
       "read-back: 102 placed field(s) present, 0 removed key(s) absent"
     ]
   },
