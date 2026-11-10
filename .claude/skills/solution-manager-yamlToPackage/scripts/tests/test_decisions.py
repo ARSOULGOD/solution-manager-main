@@ -97,6 +97,58 @@ class DecisionsTest(unittest.TestCase):
         self.assertEqual(eff["stored"], {})
         self.assertEqual(eff["restyle"], "accepted")
 
+    def test_validate_happy_path_returns_no_errors(self):
+        self.assertEqual(decisions.validate_answers({
+            "remove": [{"key": "a.b", "reason": "dup"}],
+            "store": [{"key": "a.list", "as": "join-comma"}],
+            "amend": [{"key": "a.b", "set": {"required": True}}]}, CTX), [])
+
+    def test_place_requires_component_even_with_new(self):
+        ctx = dict(CTX, open={"x": {"kind": "no-component", "key": "q", "choices": []}})
+        errors = decisions.validate_answers({"place": [{"key": "q", "new": {
+            "role": "none", "cardinality": "zero-or-more", "configPath": ""}}]}, ctx)
+        self.assertEqual(errors, ["place q: component missing"])
+
+    def test_effective_applies_answered_suggestions_through_fields(self):
+        answers = {"suggestions": [{"key": "a.pw", "attribute": "required", "decision": "accept"},
+                                   {"key": "zzz", "attribute": "required", "decision": "accept"}]}
+        remembered = {"suggestions": [{"component": "core", "field": "a.pw", "attribute": "required",
+                                       "decision": "reject", "date": "d", "evidence": []}]}
+        eff = decisions.effective(remembered, answers, "alpha", fields={"a.pw": ("core", "a.pw")})
+        self.assertEqual(eff["suggestions"], {("core", "a.pw", "required"): "accept"})
+
+    def test_effective_dedupes_amend_by_key_against_remembered_component_field(self):
+        remembered = {"amendments": [{"component": "core", "field": "a.pw", "set": {"required": False},
+                                      "date": "d", "reason": None}]}
+        eff = decisions.effective(remembered, {"amend": [{"key": "a.pw", "set": {"required": True}}]}, "alpha",
+                                  fields={"a.pw": ("core", "a.pw")})
+        self.assertEqual([a["set"] for a in eff["amendments"]], [{"required": True}])
+
+    def test_malformed_sections_are_reported(self):
+        errors = decisions.validate_answers({"remove": "oops", "store": ["x", {"key": "a.list", "as": "list"}]}, CTX)
+        self.assertIn("remove: must be a list of mappings", errors)
+        self.assertIn("store item 0: not a mapping", errors)
+
+    def test_secret_default_refused_by_type_or_target_but_null_allowed(self):
+        bad_type = decisions.validate_answers({"amend": [{"key": "a.b", "set": {"type": "secret", "default": "x"}}]}, CTX)
+        bad_target = decisions.validate_answers({"amend": [{"key": "a.pw", "set": {"default": "x"}}]}, CTX)
+        null_ok = decisions.validate_answers({"amend": [{"key": "a.pw", "set": {"default": None}}]}, CTX)
+        self.assertEqual((len(bad_type), len(bad_target), null_ok), (1, 1, []))
+
+    def test_answer_replaces_only_same_role_or_shared_entries(self):
+        remembered = {"placed": [{"key": "k", "component": "c1", "role": "alpha", "date": "d"},
+                                 {"key": "k", "component": "c0", "role": None, "date": "d"}]}
+        answers = {"place": [{"key": "k", "component": "c2", "scope": "this-role"}]}
+        new = decisions.merge(remembered, answers, today="T", placements={"k": ("c2", "k", "beta")}, evidence={})
+        self.assertEqual([(e["component"], e["role"]) for e in new["placed"]], [("c1", "alpha"), ("c2", "beta")])
+        eff = decisions.effective(remembered, answers, "alpha")
+        self.assertEqual(eff["placed"]["k"]["component"], "c2")  # alpha sees the shared one replaced by its answer
+
+    def test_merge_role_fallback_for_key_without_placement(self):
+        new = decisions.merge({}, {"remove": [{"key": "orphan", "reason": "r"}]}, today="T", placements={},
+                              evidence={}, role="alpha")
+        self.assertEqual(new["removed"][0]["role"], "alpha")
+
 
 if __name__ == "__main__":
     unittest.main()

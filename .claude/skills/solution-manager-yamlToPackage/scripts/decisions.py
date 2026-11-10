@@ -97,8 +97,26 @@ def _remembered_keys(remembered):
     return {e.get("key") for s in KEYED for e in (remembered.get(s) or []) if e.get("key") is not None}
 
 
-def validate_answers(answers, ctx):
+LIST_SECTIONS = ("remove", "place", "store", "suggestions", "amend", "forget")
+
+
+def _shape_errors(answers):
     errors = []
+    for section in LIST_SECTIONS:
+        value = answers.get(section)
+        if value is None:
+            continue
+        if not isinstance(value, list):
+            errors.append("%s: must be a list of mappings" % section)
+            continue
+        for n, item in enumerate(value):
+            if not isinstance(item, dict):
+                errors.append("%s item %d: not a mapping" % (section, n))
+    return errors
+
+
+def validate_answers(answers, ctx):
+    errors = _shape_errors(answers)
     open_items = ctx.get("open", {})
     remembered = ctx.get("remembered", {})
 
@@ -115,13 +133,15 @@ def validate_answers(answers, ctx):
         asked = bool(kinds & PLACE_KINDS)
         if not asked and key not in _remembered_keys(remembered):
             errors.append("place %s: no open question or remembered decision for this key" % key)
+        if not isinstance(e.get("component"), str) or not e["component"]:
+            errors.append("place %s: component missing" % key)
         new = e.get("new")
         if new is not None:
             if not isinstance(new, dict) or new.get("cardinality") not in CARDINALITIES or "role" not in new \
                     or "configPath" not in new:
                 errors.append("place %s: new needs role, configPath and a cardinality of %s"
                               % (key, ", ".join(sorted(CARDINALITIES))))
-        elif e.get("component") not in ctx["components"]:
+        elif isinstance(e.get("component"), str) and e["component"] and e["component"] not in ctx["components"]:
             errors.append("place %s: component %r is not in the package" % (key, e.get("component")))
         if "scope" in e:
             if e["scope"] not in ("all-roles", "this-role"):
@@ -163,7 +183,8 @@ def validate_answers(answers, ctx):
                 target = ctx.get("fields", {}).get(e["key"])
             else:
                 target = (e.get("component"), e.get("field"))
-            if target in ctx.get("secrets", set()):
+            secret = setting.get("type") == "secret" or target in ctx.get("secrets", set())
+            if secret and setting["default"] is not None:
                 errors.append("amend %s: a secret field cannot take a default" % name)
             elif isinstance(setting["default"], (dict, list)):
                 errors.append("amend %s: default must be a scalar or null" % name)
@@ -201,8 +222,11 @@ def _sug_ident(entry):
     return (entry.get("component"), entry.get("field"), entry.get("attribute"))
 
 
-def _survivors(remembered, answers):
-    """Remembered entries per section, minus those an answer replaces or forgets (role not yet filtered)."""
+def _survivors(remembered, answers, new_role):
+    """Remembered entries per section, minus those an answer replaces or forgets.
+
+    A key-named answer replaces a remembered entry only when that entry's role is None or equals
+    new_role(key); entries of other roles survive."""
     replaced_keys = {e["key"] for s in ("remove", "place", "store") for e in _entries(answers, s) if e.get("key") is not None}
     replaced_keys |= {e["key"] for e in _entries(answers, "forget") if e.get("key") is not None}
     replaced_cf = {_ident(e) for e in _entries(answers, "remove") + _entries(answers, "amend") if e.get("key") is None}
@@ -211,7 +235,8 @@ def _survivors(remembered, answers):
     out = {}
     for section in KEYED:
         out[section] = [e for e in remembered.get(section) or []
-                        if (e.get("key") not in replaced_keys if e.get("key") is not None else _ident(e) not in replaced_cf)]
+                        if (not (e["key"] in replaced_keys and e.get("role") in (None, new_role(e["key"])))
+                            if e.get("key") is not None else _ident(e) not in replaced_cf)]
     out["suggestions"] = [e for e in remembered.get("suggestions") or []
                           if _sug_ident(e) not in forgotten_sug]
     out["amendments"] = [e for e in remembered.get("amendments") or []
@@ -227,8 +252,9 @@ def _restyle_word(value):
     return {"accept": "accepted", "refuse": "refused"}.get(value, value)
 
 
-def effective(remembered, answers, role):
-    kept = _survivors(remembered, answers)
+def effective(remembered, answers, role, *, fields=None):
+    fields = fields or {}
+    kept = _survivors(remembered, answers, lambda key: role)
     removed, placed, stored, sugs = {}, {}, {}, {}
     stale = []
     for e in kept["removed"]:
@@ -246,7 +272,15 @@ def effective(remembered, answers, role):
                 stale.append(e["key"])
     for e in kept["suggestions"]:
         sugs[_sug_ident(e)] = e.get("decision")
-    amendments = [copy.deepcopy(e) for e in kept["amendments"] if _applies(e, role)]
+    for e in _entries(answers, "suggestions"):
+        if e.get("key") in fields:
+            sugs[(fields[e["key"]][0], fields[e["key"]][1], e.get("attribute"))] = e.get("decision")
+    answered_cf = set()
+    for e in _entries(answers, "amend"):
+        if e.get("key") in fields:
+            answered_cf.add(("cf",) + tuple(fields[e["key"]]))
+    amendments = [copy.deepcopy(e) for e in kept["amendments"]
+                  if _applies(e, role) and _ident(e) not in answered_cf]
 
     for e in _entries(answers, "remove"):
         removed[_name(e)] = e.get("reason")
@@ -266,11 +300,11 @@ def effective(remembered, answers, role):
             "amendments": amendments, "restyle": style, "provenance": prov, "stale_candidates": stale}
 
 
-def merge(remembered, answers, *, today, placements, evidence):
-    kept = _survivors(remembered, answers)
-
+def merge(remembered, answers, *, today, placements, evidence, role=None):
     def role_of(key):
-        return placements[key][2] if key in placements else None
+        return placements[key][2] if key in placements else role
+
+    kept = _survivors(remembered, answers, role_of)
 
     def target(e):
         """(component, field) for an answer that names a key or a component+field."""
