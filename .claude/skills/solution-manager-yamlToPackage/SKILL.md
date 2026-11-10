@@ -54,7 +54,8 @@ before the next stage. A user who asked only for the package gets Stage 1 and an
    silently changes which instances see the fields. Without an existing package, also ask for
    `appliesTo` (the semver range of MI versions).
 5. **The samples folder** the suggestions are learned from: every `package.json` under
-   `frontend/contracts/packages/`, found by walking up from the working folder, or `--samples <folder>`.
+   `frontend/contracts/packages/`, found by walking up from the working folder (else from the skill's own
+   folder), or `--samples <folder>`.
    Say which folder you will use; the preview's `Samples:` line confirms it. No samples is not a failure:
    the preview says so and suggests nothing.
 
@@ -109,7 +110,8 @@ Exit codes (both commands):
 Neither command writes over an input: an `--out-dir` that would overwrite the YAML, package, profile or
 answers file is refused (exit 2). Answers are validated in stages, since some questions appear only once an
 earlier answer is applied (placing a key can raise its type conflict). An answer nothing asks for, a choice
-not offered, or a secret default exits 2 naming the entry.
+not offered, a secret default, an unknown key in an entry, or a second entry for one target exits 2 naming
+the entry. **Never alter, trim or rewrite the user's answers** to get past a refusal: show the error and ask.
 
 **The answers file** (`<out-dir>/answers.yaml`; every section optional):
 
@@ -125,13 +127,14 @@ store:       # every other key-level choice: list, join-comma, index, map, strin
   - {key: <k>, as: <choice>}  # first, second, package-type, yaml-type. One per question; a key may have several
 suggestions:
   - {key: <k>, attribute: required | advanced, decision: accept | reject}
-amend:       # key, or component + field; `set` takes the attributes listed in mapping-guide
+amend:       # key, or component + field; ALL of one field's amendments in one `set` (attributes: mapping-guide)
   - {key: <k>, set: {required: true, ui.label: "Adapter ID"}, reason: "..."}
 restyle: accept | refuse
 provenance: keep | dev-mode
 forget:      # drop a remembered decision so it is asked again
-  - {key: <k>}
-  - {component: <type>, field: <field key>, attribute: required}
+  - {key: <k>}                                                     # its removed, placed and stored decisions
+  - {component: <type>, field: <field key>, attribute: required}   # a suggestion
+  - {decision: restyle | provenance}                               # the restyle or signature answer
 ```
 
 **Running several roles in a row** (for example, "now do the sink" after a source run): pass the previous
@@ -183,8 +186,9 @@ without the first run's changes or decisions. Say which base you used. If the ea
   helper text is kept. Refused, every component keeps its detected style and new fields follow it. Adding
   `secret: true` is listed separately and is not part of it.
 - **Never hand-edit the decisions block** between the `# >>> decisions` markers at the end of a profile. Only
-  `apply` writes it, and the hand-written part above it stays byte-for-byte. To revisit a remembered decision,
-  put a `forget` entry in `answers.yaml`.
+  `apply` writes it, and the hand-written part above it stays byte-for-byte. To revisit a remembered key,
+  suggestion, restyle or signature decision, put a `forget` entry in `answers.yaml` (shapes above); a new
+  `remove`, `place` or `amend` answer for the same target also replaces the remembered one.
 - **Example answers never go into the real profile.** Answers from `examples/`, evals or tests are not the
   user's decisions: run them against a scratch copy of the profile, and never copy that run's `profile.yaml`
   into `references/profiles/`.
@@ -209,6 +213,8 @@ without the first run's changes or decisions. Say which base you used. If the ea
   fields not in this YAML) and `### Profile changes saved on "create"`.
 
 After that, show `## Changes since the last preview` and the still-open questions. Link `preview.md`.
+When a package-wide change (the restyle, `secret: true`, withheld secret defaults) reaches components other
+than this role's, say so in the reply and name those components; nothing else of theirs is re-derived.
 
 **(b) The `apply` report**, once:
 
@@ -234,13 +240,8 @@ Follow `references/ui-testing.md`. In short:
 2. Run the existing hand-written contract test as a baseline. Then generate and run
    `package.generated.test.ts` (`scripts/gen_contract_test.py`) in a temporary `_skill_<solution>/` folder.
 3. Start the dev console and run `run_frontend.sh ui-check` with each role. It loads the package through the
-   `/solutions` dialog and checks:
-   - the catalog card and inventory;
-   - the Designer per role, with sections in `ui.order`;
-   - labels and helper text;
-   - masked secrets, with no secret value in the DOM;
-   - defaults, via the console's YAML view.
-
+   `/solutions` dialog and checks the catalog card and inventory, the Designer per role (sections in `ui.order`),
+   labels and helper text, masked secrets (no secret value in the DOM) and defaults (the console's YAML view).
    Screenshots are saved per step.
 4. `scripts/render_config.py roundtrip` per role, against the console's own rendering.
 5. Report the Stage 2 table, delete the temporary folder, stop the dev server, and **STOP**.

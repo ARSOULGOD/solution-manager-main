@@ -60,7 +60,9 @@ is a reading aid. If they disagree, the schema wins. Say so in the report.
 
 **The skill writes the YAML comment alone**, and only when the YAML line has a comment of four or more
 words; otherwise the field has no `helperText` (as in db-designer and the other hand-written samples). A
-comment that repeats a secret value is never used (I6).
+comment that repeats a secret value is never used (I6). **One exception:** when the user refuses the restyle,
+a new field in a component whose every helper text starts with its stock sentence follows that component's
+style: it gets the stock sentence below, plus the comment as a second sentence when it has four or more words.
 
 The stock sentences below are what older packages carry (File Mesh, generated before plan tooling/002, with
 the comment appended as a second sentence). They are what the restyle removes: a helper text that exactly

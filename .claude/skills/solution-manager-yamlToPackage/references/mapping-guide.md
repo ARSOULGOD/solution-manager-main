@@ -84,19 +84,25 @@ preview is kept in the profile too, in its decisions block (see "Profile format"
    - `ui.order` is the field's position inside its section, counting from 0 in file order;
    - `ui.helperText` is written only when the YAML line has a comment of four or more words, and then it is
      the comment alone, with no stock sentence. A comment that repeats a secret value is never used (I6);
-   - `type: secret` always comes with `secret: true`, and the default stays empty;
+   - `type: secret` always comes with `secret: true`, and the default stays empty; a field flagged
+     `secret: true` on any other type keeps no default either, and the engine never removes an existing flag;
    - `loggerPrefix` comes only from the profile; `actions` and `metrics` are never derived (existing ones
      are kept).
 
    **The restyle** is one preview question for the whole package. Per component (profile `preserve` ones
    too), it lists how many positions change and how many stock helper sentences are removed. A stock sentence
    is one that exactly equals the stock sentence for the field's current label, section and type; any other
-   helper text is kept. Accepted, every component gets the db-designer style. Refused, the decision is
-   remembered and each component keeps its detected style (running counter, section index, or position
-   within section); new fields follow it, and a new component gets the db-designer style. Adding
+   helper text is kept. The question also says what accepting does to `authoring.reviewedRows`: every field
+   the restyle changes counts as unreviewed (File Mesh: 163 → 0). Accepted, every component gets the
+   db-designer style. Refused, the decision is remembered and each component keeps its detected style
+   (running counter, section index, or position within section; a component with a field that has no
+   `ui.order` is "mixed", so the restyle is offered); new fields follow it, and a new component gets the
+   db-designer style. A remembered restyle or signature answer is applied with an information line
+   (`restyle: accepted (remembered <date>)`); `forget: [{decision: restyle}]` asks it again. Adding
    `secret: true` to an existing secret field is not part of the restyle; it is listed wherever it applies.
 9. **Learned suggestions (strict).** The samples are every `package.json` under
-   `frontend/contracts/packages/` (found by walking up from the working folder, or `--samples <folder>`),
+   `frontend/contracts/packages/` (found by walking up from the working folder, else from the skill's own
+   folder, or `--samples <folder>`),
    minus the package of the solution being generated and `virtual` fields. A component reused across samples
    (`http-client`, `cache`) counts once. A YAML key matches a sample field when the last segments of both,
    split into words (camelCase, `-`, `_`) and lower-cased, are the same words in the same order
@@ -158,20 +164,28 @@ Every section is optional; the shapes are in `SKILL.md` ("The answers file"). Th
 - **`store`**: `{key, as}` for every other key-level choice. A key may carry several `store` answers, one per
   question (a duplicated list needs `first`/`second` and a list shape); two answers to one question are refused.
 - **`suggestions`**: `{key, attribute: required | advanced, decision: accept | reject}`.
-- **`amend`**: `{key, set, reason?}` or `{component, field, set, reason?}`. `set` takes `type`, `default`,
+- **`amend`**: `{key, set, reason?}` or `{component, field, set, reason?}`, one entry per field: put all of
+  one field's amendments in one `set` (a second entry for the same field is refused). `set` takes `type`, `default`,
   `required`, `discriminator`, `when`, `pattern`, `min`, `max`, `options`, `ui.label`, `ui.section`, `ui.order`,
   `ui.advanced`, `ui.helperText` and `ui.readOnly`; null removes an attribute. A secret's default is refused.
   A key stored as one field per item (`index`) is amended by component and field.
 - **`restyle`**: `accept | refuse`. **`provenance`**: `keep | dev-mode`, only when the signature question is asked.
 - **`forget`**: `{key}` drops the remembered `removed`, `placed` and `stored` decisions for that key (all-roles
-  ones and this role's); `{component, field, attribute}` drops a remembered suggestion. The question is asked again on the next preview.
+  ones and this role's); `{component, field, attribute}` drops a remembered suggestion; `{decision: restyle}`
+  and `{decision: provenance}` drop the remembered restyle or signature answer. The question is asked again
+  (if it still applies) on the next preview.
+- **One entry per target.** A second `remove` for the same key or field, a second `place` for the same key, a
+  second answer to one suggestion, or a second `amend` for the same field is refused, not merged. An entry
+  takes only its section's keys (`reasn` for `reason` is refused, never ignored).
 
 Answers are **validated in stages**, each against a build with the earlier stages applied, because some
 questions exist only after an earlier answer: (1) `remove`, `place`, `forget`; (2) the `first`/`second`
 picks; (3) the other `store` answers; (4) `amend`; (5) `suggestions`, `restyle`; (6) `provenance`. A final
 check on the full build refuses any answer that settles nothing. Any problem exits 2, one line per entry
 (`error: answers: store demo.alpha.ratio: 'map' was not offered`). Refused: a key not in the YAML, a choice
-not offered, a secret default, an answer to a question nobody asked, a key both placed and removed.
+not offered, a secret default, an answer to a question nobody asked, a key both placed and removed, a second
+entry for one target, an unknown key in an entry. The skill never rewrites the user's answers to get past a
+refusal: it shows the error and asks the user.
 
 ## Profile format
 
@@ -221,7 +235,7 @@ decisions:
 # <<< decisions <<<
 ```
 
-`exclude` and `ui_order` are removed (an old profile's `exclude` entries are asked, the other is ignored).
+`exclude` and `ui_order` are removed: an old profile's `exclude` entries are asked, and its `ui_order` is ignored.
 An exclusion is now the user's "removed by you" decision, asked as an `excluded` question, and there is one
 style (rule 8).
 
@@ -231,7 +245,9 @@ markers stays byte-for-byte (PyYAML cannot round-trip comments, so only the bloc
 profile ends with an empty block (`decisions: {}`). A decision on a shared key applies to every role; one on
 a role-component key carries its `role`. On the next run remembered decisions are applied first, so only new
 keys, new suggestions or changed situations are asked. **Never edit the block by hand:** to revisit a
-decision, give a `forget` answer (or a new answer for the same key, which replaces it).
+decision, give a new `remove`, `place` or `amend` answer for the same target (it replaces the remembered
+one); a remembered `store` answer, suggestion, restyle or signature answer is no longer asked, so `forget` it
+first and answer the question when it comes back.
 
 Patterns: a plain pattern is a dotted prefix on a segment boundary (`file.source` matches
 `file.source.x`, not `file.sourcex`); a pattern containing `* ? [` is a glob over the whole key
