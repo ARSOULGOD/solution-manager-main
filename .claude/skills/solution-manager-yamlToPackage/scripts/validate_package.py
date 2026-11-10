@@ -78,6 +78,8 @@ def structural(pkg):
             leaf = re.split(r"[.]", k)[-1].replace("-", "").replace("_", "")
             if PASSWORD_RX.search(leaf) and f.get("type") != "secret":
                 errors.append(f"{ct}/{k}: looks like a password but type is {f.get('type')!r}, not secret")
+            if f.get("type") == "secret" and f.get("secret") is not True:
+                warnings.append(f"{ct}/{k}: type secret without secret: true (the console's project() withholds the value only with secret: true)")
             if f.get("type") == "secret" and f.get("default") not in (None, ""):
                 warnings.append(f"{ct}/{k}: secret field carries a default value (I6: secret values never land in config storage)")
             if f.get("type") == "enum" and not (f.get("options") or f.get("optionsSource")):

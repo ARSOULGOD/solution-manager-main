@@ -11,7 +11,7 @@ MI resolves from its environment at start (I6: no secret value is ever written).
 draft ({key: value}); a secret in it is refused.
 
 roundtrip: compares the rendered defaults with the input YAML, ignoring comments and key order. Allowed
-differences come ONLY from the engine's report.json (excluded, flagged, coerced, withheld secrets, shared
+differences come ONLY from the engine's report.json (removed by you, coerced, withheld secrets, shared
 defaults kept) and the profile (preserved components). Anything else is a bug in the package or the profile.
 With --console-artifact (written by the generated contract test), the console's own rendering is compared
 with this one and any disagreement fails too, so the two renderers cannot drift.
@@ -98,13 +98,19 @@ def flatten_yaml_text(text, list_policy=lambda k: "flag"):
     return {l["key"]: l["value"] for l in leaves}
 
 
+def _load_json(path):
+    with open(path, encoding="utf-8") as fh:
+        return json.load(fh)
+
+
 def load_profile(path):
-    return yaml.load(open(path, encoding="utf-8"), Loader=common.StrictLoader)
+    with open(path, encoding="utf-8") as fh:
+        return yaml.load(fh, Loader=common.StrictLoader)
 
 
 def cmd_render(a):
-    pkg = json.load(open(a.package, encoding="utf-8"))
-    values = json.load(open(a.values, encoding="utf-8")) if a.values else {}
+    pkg = _load_json(a.package)
+    values = _load_json(a.values) if a.values else {}
     only = [c for c in a.components.split(",") if c] if a.components else None
     skip = set(((load_profile(a.profile).get("preserve") or {}).get("components") or [])) if a.profile else set()
     flat, origin = flat_render(pkg, a.role, a.version, values, only=only, skip=skip)
@@ -115,22 +121,24 @@ def cmd_render(a):
             "# the MI's environment at start; no secret value is written here (I6).\n"
             + yaml.safe_dump(nest(flat), sort_keys=False, allow_unicode=True, width=1000))
     if a.out:
-        open(a.out, "w", encoding="utf-8").write(text)
+        with open(a.out, "w", encoding="utf-8") as fh:
+            fh.write(text)
         print(f"wrote {a.out}: {len(flat)} keys, {sum(1 for v in flat.values() if isinstance(v, str) and v.startswith('${SM_SECRET_'))} secret placeholders")
     else:
         print(text)
 
 
 def cmd_roundtrip(a):
-    pkg = json.load(open(a.package, encoding="utf-8"))
+    pkg = _load_json(a.package)
     prof = load_profile(a.profile)
-    rep = json.load(open(a.report, encoding="utf-8"))
+    rep = _load_json(a.report)
     lists = prof.get("lists") or {}
-    src = flatten_yaml_text(open(a.yaml, encoding="utf-8").read(),
+    with open(a.yaml, encoding="utf-8") as fh:
+        yaml_text = fh.read()
+    src = flatten_yaml_text(yaml_text,
                             list_policy=lambda k: common.lookup(lists, k) or "flag")
     rendered, origin = flat_render(pkg, a.role, a.version)
-    excluded = {x["key"]: x["reason"] for x in rep.get("excluded", [])}
-    flagged = {x["key"]: x["reason"] for x in rep.get("flagged", [])}
+    removed = {x["key"]: x["reason"] for x in rep.get("removed", [])}
     coerced = {x["key"]: x["note"] for x in rep.get("coerced", [])}
     withheld = {x["key"] for x in rep.get("secrets_withheld", [])}
     shared = {d["key"]: d for d in rep.get("shared_differences", [])}
@@ -138,12 +146,9 @@ def cmd_roundtrip(a):
     ok, allowed, bad = 0, [], []
 
     for key, yv in src.items():
-        if key in excluded:
-            (bad if key in rendered else allowed).append((key, f"excluded: {excluded[key]}" +
+        if key in removed:
+            (bad if key in rendered else allowed).append((key, f"removed by you: {removed[key]}" +
                                                           (" BUT it is rendered" if key in rendered else "")))
-            continue
-        if key in flagged:
-            allowed.append((key, f"flagged (decision pending): {flagged[key]}"))
             continue
         if key not in rendered:
             bad.append((key, "in the YAML but not rendered from the package"))
@@ -171,7 +176,7 @@ def cmd_roundtrip(a):
 
     drift = []
     if a.console_artifact:
-        art = json.load(open(a.console_artifact, encoding="utf-8"))
+        art = _load_json(a.console_artifact)
         if art.get("version") != a.version:
             drift.append(("<artifact>", f"console artifact is for version {art.get('version')}, not {a.version}"))
         console = flatten_yaml_text(art["yaml"])
@@ -196,7 +201,8 @@ def cmd_roundtrip(a):
     L += ["## Allowed differences (from report.json / the profile)", ""] + ([f"- `{k}`: {r}" for k, r in allowed] or ["- none"])
     text = "\n".join(L) + "\n"
     if a.out:
-        open(a.out, "w", encoding="utf-8").write(text)
+        with open(a.out, "w", encoding="utf-8") as fh:
+            fh.write(text)
     print(text if not a.out else f"{verdict}: wrote {a.out} (unexplained {len(bad)}, drift {len(drift)}, allowed {len(allowed)})")
     sys.exit(0 if verdict == "PASS" else 1)
 
