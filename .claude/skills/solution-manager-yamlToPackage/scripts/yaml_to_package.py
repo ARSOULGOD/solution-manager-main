@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
 """Generic engine: turn one role's YAML into Solution Package fields through a CONFIRMED mapping
-profile, merge them into an existing package, validate, and report.
+profile and merge them into an existing package. Two commands:
 
-    python3 yaml_to_package.py --profile references/profiles/file-mesh.yaml --role source \
+    python3 yaml_to_package.py preview --profile references/profiles/file-mesh.yaml --role source \
         --yaml application-source-file-v2.yml --target-versions 1,2,3 \
-        --package frontend/contracts/packages/file-mesh/package.json --out-dir /tmp/out
+        --package frontend/contracts/packages/file-mesh/package.json --out-dir /tmp/out [--answers answers.yaml]
+    python3 yaml_to_package.py apply   ...the same arguments...
 
 Every YAML key ends up as exactly one of: placed (it becomes a field), open (a question with fixed
 choices) or removed by you (a recorded decision). Answers come from --answers and from the
 profile's decisions block.
 
-Writes to --out-dir: package.json, report.md, report.json and (with --package) package.diff.
-It never writes over --package; copying the result into place is a separate, deliberate step.
+`preview` writes preview.json and preview.md to --out-dir and never a package. `apply` refuses while
+anything is open, then writes package.json, report.md, report.json and (with --package) package.diff.
+Neither ever writes over --package; copying the result into place is a separate, deliberate step.
 
-Exit codes: 0 done (read the report: open questions still need answers), 1 the result fails
-validation, 2 bad input, 3 the profile is a draft, 4 a version decision is needed.
+Exit codes: 0 done (apply) or nothing open (preview), 1 validation failed, 2 bad input (a bad answers
+file included), 3 the profile is a draft, 4 a version decision is needed, 5 questions still open.
 """
 import argparse
 import copy
@@ -31,6 +33,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common  # noqa: E402
 import decisions  # noqa: E402
 import learn_samples  # noqa: E402
+import preview_md  # noqa: E402
 import style  # noqa: E402
 import validate_package  # noqa: E402
 
@@ -75,6 +78,13 @@ def load_profile(path):
     return prof
 
 
+def load_answers(path):
+    try:
+        return decisions.load_answers(path)
+    except (ValueError, yaml.YAMLError, OSError) as e:
+        die(2, f"answers {path}: {e}")
+
+
 def ordered_field(d):
     out = {k: d[k] for k in FIELD_ATTR_ORDER if k in d}
     out.update({k: v for k, v in d.items() if k not in out})
@@ -112,7 +122,8 @@ def compatible(package_type, yaml_type, shared):
 
 
 class Run:
-    def __init__(self, args):
+    def __init__(self, args, answers=None):
+        """answers: the answers to use instead of reading --answers (a dict already loaded and validated)."""
         self.args = args
         self.profile = load_profile(args.profile)
         self.role = args.role
@@ -122,17 +133,17 @@ class Run:
                 self.remembered = decisions.read_block(fh.read())
         except (ValueError, yaml.YAMLError) as e:
             die(2, f"profile {args.profile}: decisions block: {e}")
-        try:
-            self.answers = decisions.load_answers(args.answers)
-        except (ValueError, yaml.YAMLError, OSError) as e:
-            die(2, f"answers {args.answers}: {e}")
+        if answers is not None:
+            self.answers = answers
+        else:
+            self.answers = load_answers(args.answers)
         self.decided = decisions.effective(self.remembered, self.answers, self.role)
         # the three outcomes
         self.placed, self.removed, self.open = [], [], {}
         # bookkeeping
         self.key_count, self.yaml_keys, self.info, self.placements = 0, [], [], {}
         self.mapped, self.coerced, self.withheld = [], [], []
-        self.notes, self.questions, self.shared_diffs, self.ui_diffs = [], [], [], []
+        self.notes, self.shared_diffs, self.ui_diffs = [], [], []
         self.diff_rows, self.touched, self.relocated, self.extra_specs = {}, set(), {}, {}
         self.held_fields = set()
         # package-level items
@@ -773,8 +784,8 @@ class Run:
                 comp["fields"] = keep
                 self.touched.add(comp["type"])
                 if not keep:
-                    self.questions.append(f"shared component {comp['type']} has no fields left after relocation. It "
-                                          "was kept so instances that already select it stay valid; remove it?")
+                    self.notes.append(f"shared component {comp['type']} has no fields left after relocation; it was "
+                                      "kept so instances that already select it stay valid")
 
     def reviewed_ui(self, key, ctype):
         """The reviewed ui of the same key elsewhere: a relocated field first, else a sibling component's copy."""
@@ -847,13 +858,6 @@ class Run:
             self.assign_order(comp, {m["field"]["key"] for m in items if m["field"]["key"] not in existing}
                               if not created else None)
             self.package_only += [(ctype, k) for k in rows["package_only"]]
-            if rows["package_only"]:
-                self.questions.append(f"{ctype}: {len(rows['package_only'])} field(s) exist in the package but not in "
-                                      f"this YAML ({', '.join(rows['package_only'][:5])}...). They were kept. Remove "
-                                      f"them, or drop target versions {self.target} from them?")
-        for ctype in p.get("preserve", {}).get("components", []):
-            if self.find_comp(ctype) is not None:
-                self.notes.append(f"component {ctype} preserved untouched (profile `preserve`)")
 
     def withhold_secrets(self):
         """I6: no secret default survives in the package, in any component, whether or not this YAML feeds it.
@@ -981,12 +985,8 @@ class Run:
         fed = {m["field"]["key"] for m in items}
         missing = [k for k, f in existing.items() if k not in fed and (comp["type"], k) not in self.held_fields
                    and not (f.get("virtual") or f.get("valueFrom") or self.foreign(f))]
+        # every instance of this role renders these from the shared component, yet its YAML does not carry them
         self.package_only += [(comp["type"], k) for k in missing]
-        if missing:
-            # every instance of this role renders these from the shared component, yet its YAML does not carry them
-            self.questions.append(f"shared component {comp['type']} renders {len(missing)} field(s) this {self.role} "
-                                  f"YAML does not carry ({', '.join(missing[:5])}). Every {self.role} instance gets "
-                                  "them. Keep them shared, give them a field role, or move them to a role component?")
         for m in items:
             f, d = existing.get(m["field"]["key"]), m["field"]
             if f is None:   # only a key the user agreed to add reaches here (shared-new was asked)
@@ -1061,6 +1061,33 @@ class Run:
         self.info += [f"in the package, not in this YAML (kept): {c}/{k}" for c, k in self.package_only]
         if self.ui_diffs:
             self.info.append(f"reviewed labels kept: {len(self.ui_diffs)}")
+        self.info = list(dict.fromkeys(self.info))
+        self.note_preserved(late["amendments"])
+
+    def note_preserved(self, amendments):
+        """The profile's `preserve` components: untouched only when nothing changed them."""
+        old = {c["type"]: c for c in (self.old or {}).get("components", [])}
+        for ctype in (self.profile.get("preserve") or {}).get("components", []):
+            comp = self.find_comp(ctype)
+            if comp is None:
+                continue
+            if comp == old.get(ctype):
+                self.notes.append(f"component {ctype} preserved untouched (profile `preserve`)")
+                continue
+            rows = self.diff_rows.get(ctype) or {}
+            fed = bool(rows.get("added") or rows.get("removed")) or any(
+                what != "default (secret withheld)" for ch in rows.get("changed") or [] for what, _, _ in ch["changes"])
+            amended = {self.placements.get(a["key"], (None,))[0] if a.get("key") is not None else a.get("component")
+                       for a in amendments}
+            why = [w for w, hit in (
+                ("this YAML's fields", fed),
+                ("the accepted restyle", self.restyling),
+                ("secret: true added", any(c == ctype for c, _ in self.marked)),
+                ("secret default withheld (I6)", any(n.startswith(f"secret default withheld: {ctype}/")
+                                                     for n in self.notes)),
+                ("your amendments", ctype in amended)) if hit]
+            self.notes.append(f"component {ctype} preserved (profile `preserve`), but this run changes it: "
+                              f"{', '.join(why) or 'see the tables'}")
 
     def suggestible(self):
         """(placed entry, field) for every placed field a suggestion may name: an `index` key's items are not."""
@@ -1163,19 +1190,20 @@ class Run:
         return self.old is not None and body(self.pkg) != body(self.old)
 
     def settle_provenance(self):
+        """A signed package this build changes, or would change through the open restyle, asks the signature
+        question now rather than one round late."""
         prov = self.pkg.get("provenance") or {}
-        if not (prov.get("signature") and self.changed()):
+        if not (prov.get("signature") and (self.changed() or "restyle" in self.open)):
             return
         choice = self.decided["provenance"]
-        if choice is None and getattr(self.args, "provenance", None) == "dev-mode":   # the interim one-shot's flag
-            choice = "dev-mode"
         if choice == "dev-mode":
             self.pkg["provenance"] = {"author": "dev-mode"}
             self.notes.append("provenance set to dev-mode (unsigned) at the user's request")
         elif choice is None:
+            how = "this build changes it" if self.changed() else "an accepted restyle would change it"
             self.ask("provenance", None, None,
-                     "the package is signed and this build changes it, so the signature no longer covers it. Keep "
-                     "the provenance as it is, or switch to dev-mode (unsigned)?", PACKAGE_CHOICES["provenance"],
+                     f"the package is signed and {how}, so the signature would no longer cover it. Keep the "
+                     "provenance as it is, or switch to dev-mode (unsigned)?", PACKAGE_CHOICES["provenance"],
                      {"author": prov.get("author")})
 
     def build_rows(self):
@@ -1247,6 +1275,80 @@ class Run:
         self.validation = validate_package.validate(self.pkg, schema)
         self.balance_ok = self.balanced()
 
+    # ---------------------------------------------------------------- the preview
+    def answer_context(self):
+        """What decisions.validate_answers checks an answers file against: this build's questions and fields."""
+        comps = self.pkg["components"]
+        fields = {k: v[:2] for k, v in self.placements.items()}
+        fields.update({p["key"]: (p["component"], p["field"]) for p in self.placed})
+        return {
+            "yaml_keys": set(self.yaml_keys), "open": self.open, "fields": fields,
+            "package_fields": {(c["type"], f["key"]) for c in comps for f in c.get("fields", [])},
+            "secrets": {(c["type"], f["key"]) for c in comps for f in c.get("fields", []) if f.get("type") == "secret"},
+            "components": {c["type"] for c in comps} | {c["type"] for c in self.profile["components"]},
+            "shared_components": {c["type"] for c in comps if is_shared(c)}
+            | {c["type"] for c in self.profile["components"] if is_shared(c)},
+            "remembered": self.remembered,
+        }
+
+    def ordered_questions(self):
+        """Key questions by YAML line, then suggestions, the restyle and the signature."""
+        items = list(self.open.values())
+        keyed = sorted((q for q in items if q["kind"] in KEY_KINDS), key=lambda q: (q["line"] is None, q["line"] or 0))
+        tail = [q for kind in ("suggest", "restyle", "provenance") for q in items if q["kind"] == kind]
+        rest = [q for q in items if q not in keyed and q not in tail]
+        return keyed + rest + tail
+
+    def profile_changes(self):
+        """The decisions block before and after "create", as unified diff lines (nothing when they agree)."""
+        merge = dict(today=self.today, placements=self.placements, evidence=self.suggestion_evidence, role=self.role)
+        before = decisions.merge(self.remembered, {}, **merge)
+        after = decisions.merge(self.remembered, self.answers, **merge)
+
+        def text(block):
+            if not block:
+                return []
+            return yaml.safe_dump({"decisions": block}, sort_keys=False, allow_unicode=True, width=110).splitlines()
+        return list(difflib.unified_diff(text(before), text(after), fromfile="decisions (profile now)",
+                                         tofile='decisions (saved on "create")', lineterm=""))
+
+    def model(self):
+        """The preview: the content of preview.json. It holds no secret value (I6)."""
+        comps = self.pkg["components"]
+        prof = self.profile["components"]
+        in_pkg = {c["type"] for c in comps}
+        mine = [c for c in comps if not is_shared(c) and c.get("role") == self.role] + \
+               [c for c in prof if c["type"] not in in_pkg and not is_shared(c) and c.get("role") == self.role]
+        shared = [c["type"] for c in comps if is_shared(c)] + \
+                 [c["type"] for c in prof if c["type"] not in in_pkg and is_shared(c)]
+        components = []
+        for c in comps:
+            rows = [r for r in self.rows if r["component"] == c["type"]]
+            if rows:
+                components.append({"type": c["type"], "role": c.get("role", "none"), "shared": is_shared(c),
+                                   "rows": rows})
+        questions = [dict(n=n, **{k: q[k] for k in ("id", "kind", "key", "line", "text", "choices", "context")})
+                     for n, q in enumerate(self.ordered_questions(), 1)]
+        info = list(self.info) + list(self.notes)
+        if not self.validation["ok"]:
+            info += [f"validation would fail: {e}" for e in self.validation["errors"]]
+        if not self.balance_ok:
+            info.append("not every YAML key is exactly one of placed, open or removed: investigate before creating")
+        return {
+            "solution": self.profile["solution"], "role": self.role, "profile": self.args.profile,
+            "yaml": self.args.yaml, "package": self.args.package, "target_versions": self.target,
+            "packageVersion": self.pkg.get("packageVersion"), "appliesTo": self.pkg.get("appliesTo"),
+            "roles": {"all": list(self.profile.get("roles") or []),
+                      "this_role": [{"type": c["type"], "cardinality": c.get("cardinality")} for c in mine],
+                      "shared": shared},
+            "samples": self.samples,
+            "counts": {"keys": self.key_count, "placed": len(self.placed),
+                       "removed": len([r for r in self.removed if r["line"] is not None]),
+                       "open": len(self.open_keys())},
+            "components": components, "questions": questions, "removed": self.removed,
+            "info": list(dict.fromkeys(info)), "profile_changes": self.profile_changes(), "ready": not self.open,
+        }
+
     def write(self):
         os.makedirs(self.args.out_dir, exist_ok=True)
         text = json.dumps(self.pkg, indent=2, ensure_ascii=self.ascii_style()) + "\n"
@@ -1279,7 +1381,7 @@ class Run:
             "removed": self.removed, "open": list(self.open.values()), "info": self.info,
             "coerced": self.coerced,
             "secrets_withheld": self.withheld, "diff": self.diff_rows, "shared_differences": self.shared_diffs,
-            "ui_differences": self.ui_diffs, "notes": self.notes, "questions": self.questions,
+            "ui_differences": self.ui_diffs, "notes": self.notes,
             "validation": self.validation, "authoring": self.pkg.get("authoring"),
         }
 
@@ -1338,15 +1440,12 @@ class Run:
         L += [f"- note: {n}" for n in v["notes"]] + [f"- error: {e}" for e in v["errors"]] + \
              [f"- warning: {w}" for w in v["warnings"]]
         L += ["", "## Notes", ""] + ([f"- {n}" for n in r["notes"] + r["info"]] or ["- none"])
-        q = list(r["questions"])
-        L += ["", "## Other questions", ""] + ([f"{i}. {x}" for i, x in enumerate(q, 1)] or ["none"])
         L += ["", f"authoring: {json.dumps(r['authoring'])}", ""]
         return "\n".join(L)
 
 
-def parser():
+def add_shared(ap, out_dir_required=False):
     """The arguments every command shares."""
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--profile", required=True)
     ap.add_argument("--role", required=True)
     ap.add_argument("--yaml", required=True)
@@ -1357,16 +1456,21 @@ def parser():
     ap.add_argument("--samples", help="folder of sample packages (default: found from the working directory)")
     ap.add_argument("--schema")
     ap.add_argument("--today", default=datetime.date.today().isoformat(), help="YYYY-MM-DD stamped on decisions")
-    ap.add_argument("--out-dir")
+    ap.add_argument("--out-dir", required=out_dir_required)
     return ap
 
 
-def run_build(args):
+def parser():
+    """The shared arguments alone: what build() parses."""
+    return add_shared(argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter))
+
+
+def run_build(args, answers=None):
     for flag, path in (("--profile", args.profile), ("--yaml", args.yaml), ("--package", args.package),
                        ("--answers", args.answers)):
         if path and not os.path.isfile(path):
             die(2, f"{flag} {path}: no such file")
-    run = Run(args)
+    run = Run(args, answers)
     run.check_inputs()
     run.relocate()
     run.classify()
@@ -1381,22 +1485,105 @@ def build(argv):
     return run_build(parser().parse_args(argv))
 
 
-def main():
-    # Interim one-shot, kept until the preview/apply subcommands replace it: it writes the package even
-    # while questions are open, so read report.md before using the result.
-    ap = parser()
-    ap.add_argument("--provenance", choices=["keep", "dev-mode"], default="keep")
-    args = ap.parse_args()
-    if not args.out_dir:
-        die(2, "--out-dir is required")
-    run = run_build(args)
+DUP_PICKS = tuple(CHOICES["dup-key"][:2])   # `first` / `second`: they decide which value the other questions see
+
+
+def answer_stages(answers):
+    """The answers in the order they act on the build. Each stage is validated against a build with the stages
+    before it applied, so an answer to a question an earlier answer raised (a type conflict once a key is placed,
+    a list once the second copy of a key is picked) is valid."""
+    store = answers.get("store")
+    if isinstance(store, list):
+        picks = [e for e in store if isinstance(e, dict) and e.get("as") in DUP_PICKS]
+        rest = [e for e in store if not (isinstance(e, dict) and e.get("as") in DUP_PICKS)]
+    else:
+        picks, rest = None, store
+    stages = [{s: answers[s] for s in ("remove", "place", "forget") if s in answers},
+              {"amend": answers.get("amend"), "store": picks},
+              {"store": rest},
+              {s: answers[s] for s in ("suggestions", "restyle", "provenance") if s in answers}]
+    return [{s: v for s, v in stage.items() if v is not None and v != []} for stage in stages]
+
+
+def validate_answers(args, answers):
+    """Every problem in the answers file, as one message each; [] when it is valid. Input errors come first
+    (exit 2), before the open-questions gate (exit 5)."""
+    given, run = {}, None
+    for stage in answer_stages(answers):
+        if not stage:
+            continue
+        if run is None or run.answers != given:
+            run = run_build(args, copy.deepcopy(given))
+        errors = decisions.validate_answers(stage, run.answer_context())
+        if errors:
+            return errors
+        for section, value in stage.items():
+            given[section] = given[section] + value if isinstance(given.get(section), list) else value
+    return []
+
+
+def summary(model):
+    c = model["counts"]
+    return (f"{model['solution']}/{model['role']}: keys={c['keys']} placed={c['placed']} removed={c['removed']} "
+            f"open={c['open']} questions={len(model['questions'])}")
+
+
+def read_previous(out_dir, model):
+    """The last preview of the same solution and role in out_dir, or None."""
+    try:
+        with open(os.path.join(out_dir, "preview.json"), encoding="utf-8") as fh:
+            previous = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(previous, dict) or (previous.get("solution"), previous.get("role")) != \
+            (model["solution"], model["role"]):
+        return None
+    return previous
+
+
+def preview(run):
+    """Write preview.json and preview.md; never package.json. 0 when nothing is open, 5 otherwise."""
+    out = run.args.out_dir
+    model = json.loads(json.dumps(run.model(), ensure_ascii=False, default=str))   # exactly what preview.json holds
+    previous = read_previous(out, model)
+    os.makedirs(out, exist_ok=True)
+    write_text(os.path.join(out, "preview.json"), json.dumps(model, indent=2, ensure_ascii=False) + "\n")
+    write_text(os.path.join(out, "preview.md"), preview_md.render(model, previous))
+    print(summary(model))
+    return 0 if model["ready"] else 5
+
+
+def apply(run):
+    """Refuse while anything is open (5). Otherwise write the package and the reports (Task 8 adds the profile
+    merge and the read-back gate)."""
+    if run.open:
+        print(f"error: {len(run.open)} question(s) still open; answer them in a preview first:", file=sys.stderr)
+        for q in run.ordered_questions():
+            print(f"open: {q['id']}", file=sys.stderr)
+        return 5
     run.write()
-    c = run.report_json()["counts"]
-    print(f"{run.profile['solution']}/{run.role}: keys={c['keys']} placed={c['placed']} open={c['open']} "
-          f"removed={c['removed']} balanced={c['balanced']} validation={'PASS' if run.validation['ok'] else 'FAIL'}")
-    print(f"wrote {run.args.out_dir}/report.md")
-    sys.exit(0 if run.validation["ok"] else 1)
+    print(summary(run.model()))
+    return 0 if run.validation["ok"] and run.balance_ok else 1
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="command", required=True, metavar="{preview,apply}")
+    for name, text in (("preview", "show every field and the open questions; writes preview.md and preview.json"),
+                       ("apply", "create package.json once nothing is open")):
+        add_shared(sub.add_parser(name, help=text, description=text), out_dir_required=True)
+    args = ap.parse_args(argv)
+    if args.answers and not os.path.isfile(args.answers):
+        die(2, f"--answers {args.answers}: no such file")
+    answers = load_answers(args.answers)
+    errors = validate_answers(args, answers)
+    if errors:
+        for e in errors:
+            print(f"error: answers: {e}", file=sys.stderr)
+        return 2
+    run = run_build(args, answers)
+    return preview(run) if args.command == "preview" else apply(run)
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
