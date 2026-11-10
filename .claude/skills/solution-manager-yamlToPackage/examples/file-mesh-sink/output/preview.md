@@ -159,6 +159,7 @@ None: everything is answered. Create package.json? (yes/no)
 - in the package, not in this YAML (kept): logging/logging.level.com.solace.connector.jms
 - in the package, not in this YAML (kept): logging/logging.level.com.solace.connector.core
 - reviewed labels kept: 16
+- signature: keep (remembered 2026-11-10)
 - component cache preserved untouched (profile `preserve`)
 - defaults were taken from the YAML (profile defaults.role_components: yaml). This conflicts with docs/design/dynamic-ui/design.md section 7.3 (UI-D*, PROPOSED): defaults come from field initializers, never from a sample application.yml. Flagged, not resolved.
 

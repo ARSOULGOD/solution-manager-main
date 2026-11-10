@@ -115,5 +115,6 @@ not offered: the package is already in db-designer style, or new
 - component cache preserved untouched (profile `preserve`)
 - defaults were taken from the YAML (profile defaults.role_components: yaml). This conflicts with docs/design/dynamic-ui/design.md section 7.3 (UI-D*, PROPOSED): defaults come from field initializers, never from a sample application.yml. Flagged, not resolved.
 - package.diff compares content: <scratch>/e2e/source/package.json is formatted differently from the generated package.json, and that formatting change is not shown
+- signature: keep (remembered 2026-11-10)
 
 authoring: {"reviewedRows": 0, "totalRows": 163}

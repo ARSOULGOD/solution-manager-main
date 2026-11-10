@@ -172,7 +172,7 @@
    Evidence (2 of 2 matching sample fields):
    - notifications/notification-template/NAME: required
    - scheduler/job/NAME: required
-6. **restyle** (whole package): restyle the package to db-designer style: new positions on 138 of 156 fields, stock helper text removed from 154, 2 custom kept. Accept or refuse? Refused, every component keeps its own style and new fields follow it.
+6. **restyle** (whole package): restyle the package to db-designer style: new positions on 138 of 156 fields, stock helper text removed from 154, 2 custom kept. Accepting also counts every field it changes as unreviewed: authoring.reviewedRows goes from 163 to 0. Accept or refuse? Refused, every component keeps its own style and new fields follow it.
    Choices: accept · refuse · answer id `restyle`
    Per component (positions changed · stock sentences removed · custom kept):
    - file-source: 49 · 49 · 0
