@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import common  # noqa: E402
 import decisions  # noqa: E402
 import helpers  # noqa: E402
+import yaml_to_package  # noqa: E402
 from helpers import ALPHA, PROFILE, build_demo, fields_by_key, temp_file  # noqa: E402
 
 STORE = {"store": [{"key": "demo.alpha.retries", "as": "index"}, {"key": "demo.alpha.ratio", "as": "string"},
@@ -187,14 +188,16 @@ class BuildValuesTest(unittest.TestCase):
         yml = temp_file("demo:\n  alpha:\n    retries: [1, 2]\n    retries: [3, 4]\n")
         both = build_demo("alpha", yaml_path=yml, answers={"store": [{"key": "demo.alpha.retries", "as": "second"},
                                                                      {"key": "demo.alpha.retries", "as": "index"}]})
-        self.assertEqual(both.open, {})
+        def key_items(run):
+            return {q for q in run.open if run.open[q]["kind"] in yaml_to_package.KEY_KINDS}
+        self.assertEqual(key_items(both), set())
         f = fields_by_key(both.pkg)
         self.assertEqual((f["demo.alpha.retries.0"]["default"], f["demo.alpha.retries.1"]["default"]), (3, 4))
         self.assertTrue(both.balanced())
-        self.assertEqual(set(build_demo("alpha", yaml_path=yml, answers={
-            "store": [{"key": "demo.alpha.retries", "as": "second"}]}).open), {"list:demo.alpha.retries"})
-        self.assertEqual(set(build_demo("alpha", yaml_path=yml, answers={
-            "store": [{"key": "demo.alpha.retries", "as": "index"}]}).open), {"dup-key:demo.alpha.retries"})
+        self.assertEqual(key_items(build_demo("alpha", yaml_path=yml, answers={
+            "store": [{"key": "demo.alpha.retries", "as": "second"}]})), {"list:demo.alpha.retries"})
+        self.assertEqual(key_items(build_demo("alpha", yaml_path=yml, answers={
+            "store": [{"key": "demo.alpha.retries", "as": "index"}]})), {"dup-key:demo.alpha.retries"})
 
     def test_removing_an_index_key_drops_its_item_fields(self):  # fix 3
         pkg = temp_file(json.dumps(build_demo("alpha", answers=STORE).pkg))

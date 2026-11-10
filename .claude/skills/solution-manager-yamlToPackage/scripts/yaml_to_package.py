@@ -30,6 +30,8 @@ import yaml
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common  # noqa: E402
 import decisions  # noqa: E402
+import learn_samples  # noqa: E402
+import style  # noqa: E402
 import validate_package  # noqa: E402
 
 FIELD_ATTR_ORDER = ["key", "type", "default", "ui", "options", "required", "secret", "discriminator", "when",
@@ -49,7 +51,10 @@ CHOICES = {
     "shared-new": ["all-roles", "this-role", "role-component", "remove"],
     "role-exclusive-shared": ["this-role", "role-component", "remove"],
 }
-KEY_KINDS = set(CHOICES)   # the questions about one YAML key (package-level items come later)
+KEY_KINDS = set(CHOICES)   # the questions about one YAML key; suggest, restyle and provenance are package-level
+PACKAGE_CHOICES = {"suggest": ["accept", "reject"], "restyle": ["accept", "refuse"], "provenance": ["keep", "dev-mode"]}
+DB_DESIGNER = ("within-section", "sparse")   # the style of a new package, and of every package after a restyle
+NO_COUNTS = {"order_changed": 0, "stock_removed": 0, "custom_kept": 0}
 # shared-new about a shared field that serves another role only: one component cannot hold two fields with one key
 FOREIGN_FIELD_CHOICES = ["all-roles", "role-component", "remove"]
 # answers that settle a question raised against the target field (store `as`)
@@ -130,14 +135,17 @@ class Run:
         self.notes, self.questions, self.shared_diffs, self.ui_diffs = [], [], [], []
         self.diff_rows, self.touched, self.relocated, self.extra_specs = {}, set(), {}, {}
         self.held_fields = set()
+        # package-level items
+        self.samples, self.styles, self.restyling, self.rows = {}, {}, False, []
+        self.marked, self.package_only, self.suggestion_evidence, self.suggestion_decisions = set(), [], {}, {}
         self.acronyms = common.ACRONYMS | {a.lower() for a in self.profile.get("acronyms", [])}
 
     # ---------------------------------------------------------------- the three outcomes
-    def ask(self, kind, key, line, text, choices, context=None):
+    def ask(self, kind, key, line, text, choices, context=None, qid=None):
         """Record an open question. A key of None makes a package-level item whose id is the kind alone."""
-        if key is None:
+        if qid is None and key is None:
             qid = kind
-        else:
+        elif qid is None:
             qid = f"{kind}:{common.normalise_key(key) if kind == 'spelling' else key}"
         self.open[qid] = {"id": qid, "kind": kind, "key": key, "line": line, "text": text,
                           "choices": list(choices), "context": context or {}}
@@ -198,6 +206,31 @@ class Run:
             self.pkg = {"solution": p["solution"], "packageVersion": self.target, "appliesTo": self.args.applies_to,
                         "provenance": {"author": "dev-mode"}, "authoring": {"reviewedRows": 0, "totalRows": 0},
                         "components": []}
+        self.load_samples()
+        self.detect_styles()
+
+    # ---------------------------------------------------------------- samples and style
+    def load_samples(self):
+        """The sample packages suggestions are learned from; the solution being generated is never one of them."""
+        folder = self.args.samples or learn_samples.find_samples_dir(os.getcwd())
+        self.index = learn_samples.build_index(folder, self.profile["solution"])
+        self.samples = {"dir": folder, "packages": self.index.packages, "fields": len(self.index.fields),
+                        "notes": list(self.index.notes)}
+
+    def detect_styles(self):
+        """Each input component's own style (a profile's ui_order is ignored), and whether a restyle is offered:
+        some component is not numbered within its sections, or carries stock helper sentences."""
+        for comp in (self.old or {}).get("components", []):
+            fields = comp.get("fields") or []
+            self.styles[comp["type"]] = (style.detect_order_style(fields), style.detect_helper_style(fields))
+        self.restyle_needed = any(o not in ("within-section", None) or h == "stock" for o, h in self.styles.values())
+        self.restyling = self.restyle_needed and self.decided["restyle"] == "accepted"
+
+    def style_of(self, ctype):
+        """(order style, helper style) new fields of this component follow."""
+        if self.restyling or ctype not in self.styles:
+            return DB_DESIGNER
+        return self.styles[ctype]
 
     # ---------------------------------------------------------------- classification
     def spec_for(self, ctype):
@@ -513,6 +546,7 @@ class Run:
         elif how == "string":
             field["type"] = "string"
             field.pop("options", None)
+            field.pop("secret", None)
             if field["default"] is not None and not isinstance(field["default"], str):
                 field["default"] = str(field["default"])
         return field
@@ -692,11 +726,15 @@ class Run:
         if (ftype == "secret" or secret_named) and comment and \
                 any(v is not None and str(v) and str(v) in comment for v in values):
             comment = None   # a comment that repeats the secret value never becomes help text (I6)
-        field = {"key": tgt["fkey"], "type": ftype, "default": default,
-                 "ui": {"section": section, "order": None, "label": label,
-                        "helperText": common.helper_text(ftype, label, section, comment)}}
+        helper = style.new_helper(ftype, label, section, comment, self.style_of(tgt["component"])[1])
+        ui = {"section": section, "order": None, "label": label}
+        if helper is not None:
+            ui["helperText"] = helper
+        field = {"key": tgt["fkey"], "type": ftype, "default": default, "ui": ui}
         if options is not None:
             field["options"] = list(options)
+        if ftype == "secret":
+            field["secret"] = True
         return field
 
     # ---------------------------------------------------------------- merge
@@ -807,7 +845,8 @@ class Run:
                 rows["added"].append(k)
             comp["fields"] = out
             self.assign_order(comp, {m["field"]["key"] for m in items if m["field"]["key"] not in existing}
-                              if not created else None, preserve_ui)
+                              if not created else None)
+            self.package_only += [(ctype, k) for k in rows["package_only"]]
             if rows["package_only"]:
                 self.questions.append(f"{ctype}: {len(rows['package_only'])} field(s) exist in the package but not in "
                                       f"this YAML ({', '.join(rows['package_only'][:5])}...). They were kept. Remove "
@@ -916,41 +955,33 @@ class Run:
         elif how == "string":
             f["type"], f["default"] = "string", d["default"]
             f.pop("options", None)
+        if f.get("type") != "secret":
+            f.pop("secret", None)   # mark_secrets() adds the flag back to a field that becomes a secret
         return [(k, before[k], f.get(k)) for k in before if before[k] != f.get(k)]
 
-    def assign_order(self, comp, new_keys, preserve_ui):
-        """new_keys None means the component was created now: number everything."""
-        mode = self.profile.get("ui_order", "section-index")
+    def assign_order(self, comp, new_keys):
+        """Number new fields in the component's own style. new_keys None means the component was created now: it
+        is numbered db-designer style, each field's position inside its section."""
         fields = comp["fields"]
         if new_keys is None:
-            sec_idx = {}
-            for i, f in enumerate(fields):
+            nxt = {}
+            for f in fields:
                 s = f["ui"]["section"]
-                sec_idx.setdefault(s, len(sec_idx))
-                f["ui"]["order"] = i if mode == "running" else sec_idx[s]
+                f["ui"]["order"], nxt[s] = nxt.get(s, 0), nxt.get(s, 0) + 1
             return
-        orders = [f["ui"]["order"] for f in fields if f.get("ui", {}).get("order") is not None]
-        nxt = (max(orders) + 1) if orders else 0
-        sec_first = {}
+        order_style = self.style_of(comp["type"])[0]
+        known = [f for f in fields if f["key"] not in new_keys]
         for f in fields:
-            if f["key"] not in new_keys and f.get("ui", {}).get("order") is not None:
-                sec_first.setdefault(f["ui"]["section"], f["ui"]["order"])
-        for f in fields:
-            if f["key"] not in new_keys:
-                continue
-            if mode == "running":
-                f["ui"]["order"], nxt = nxt, nxt + 1
-            else:
-                s = f["ui"]["section"]
-                if s not in sec_first:
-                    sec_first[s], nxt = nxt, nxt + 1
-                f["ui"]["order"] = sec_first[s]
+            if f["key"] in new_keys:
+                f["ui"]["order"] = style.order_for_new(known, f["ui"]["section"], order_style)
+                known.append(f)
 
     def check_shared(self, comp, items):
         existing = {f["key"]: f for f in comp["fields"]}
         fed = {m["field"]["key"] for m in items}
         missing = [k for k, f in existing.items() if k not in fed and (comp["type"], k) not in self.held_fields
                    and not (f.get("virtual") or f.get("valueFrom") or self.foreign(f))]
+        self.package_only += [(comp["type"], k) for k in missing]
         if missing:
             # every instance of this role renders these from the shared component, yet its YAML does not carry them
             self.questions.append(f"shared component {comp['type']} renders {len(missing)} field(s) this {self.role} "
@@ -962,7 +993,7 @@ class Run:
                 extra = {"role": m["field_role"]} if m.get("field_role") else {}   # scope this-role
                 d = ordered_field(dict(d, version=list(self.target), **extra))
                 comp["fields"].append(d)
-                self.assign_order(comp, {d["key"]}, True)
+                self.assign_order(comp, {d["key"]})
                 self.touched.add(comp["type"])
                 self.diff_rows.setdefault(comp["type"], {"added": [], "changed": [], "package_only": []})["added"].append(d["key"])
                 continue
@@ -985,6 +1016,215 @@ class Run:
                 self.info.append(f"shared default differs (package kept): {comp['type']} {f['key']}: package "
                                  f"{json.dumps(f.get('default'))}, YAML {json.dumps(d['default'])}")
 
+    # ---------------------------------------------------------------- package-level items
+    def field_at(self, ctype, fkey):
+        comp = self.find_comp(ctype) if ctype else None
+        return next((f for f in (comp or {}).get("fields", []) if f["key"] == fkey), None)
+
+    @staticmethod
+    def reorder(f):
+        """Put f's attributes back in the package's order, in place."""
+        out = ordered_field(dict(f))
+        f.clear()
+        f.update(out)
+
+    @staticmethod
+    def has_attribute(f, attribute):
+        return attribute in f if attribute == "required" else attribute in (f.get("ui") or {})
+
+    @staticmethod
+    def set_attribute(f, attribute):
+        if attribute == "required":
+            f["required"] = True
+        else:
+            f.setdefault("ui", {})[attribute] = True
+
+    def package_items(self):
+        """After the merge: the restyle, the secret flag, suggestions and amendments (last), then the questions
+        they leave open and the information lines."""
+        if self.restyling:
+            for comp in self.pkg["components"]:   # every component, the profile's `preserve` ones included
+                style.restyle(comp)
+        for comp in self.pkg["components"]:
+            for key in style.mark_secrets(comp):
+                self.marked.add((comp["type"], key))
+                self.info.append(f"secret: true added: {comp['type']}/{key}")
+        # this run's answers name a YAML key: resolve it to the field it was placed as
+        fields = {p["key"]: (p["component"], p["field"]) for p in self.placed}
+        late = decisions.effective(self.remembered, self.answers, self.role, fields=fields)
+        self.suggestion_decisions = late["suggestions"]
+        pending = self.apply_suggestions()
+        self.apply_amendments(late["amendments"])
+        self.ask_suggestions(pending)
+        self.ask_restyle()
+        self.info += [f"coerced: {c['key']}: {c['note']}" for c in self.coerced]
+        self.info += [f"in the package, not in this YAML (kept): {c}/{k}" for c, k in self.package_only]
+        if self.ui_diffs:
+            self.info.append(f"reviewed labels kept: {len(self.ui_diffs)}")
+
+    def suggestible(self):
+        """(placed entry, field) for every placed field a suggestion may name: an `index` key's items are not."""
+        for p in self.placed:
+            f = self.field_at(p["component"], p["field"]) if p["field"] in p["field_keys"] else None
+            if f is not None:
+                yield p, f
+
+    def apply_suggestions(self):
+        """Accepted suggestions give the field the attribute; returns the undecided ones as (entry, Suggestion)."""
+        decided, pending = self.suggestion_decisions, []
+        for p, f in self.suggestible():
+            for attribute in ("required", "advanced"):
+                if decided.get((p["component"], p["field"], attribute)) == "accept" and \
+                        not self.has_attribute(f, attribute):
+                    self.set_attribute(f, attribute)
+                    self.reorder(f)
+            for sug in learn_samples.suggest(self.index, p["key"].split(".")[-1]):
+                ident = (p["component"], p["field"], sug.attribute)
+                self.suggestion_evidence[ident] = list(sug.evidence)
+                if ident not in decided:
+                    pending.append((p, sug))
+        return pending
+
+    def ask_suggestions(self, pending):
+        """One question per undecided suggestion on a field that (after the amendments) still lacks the attribute."""
+        for p, sug in pending:
+            f = self.field_at(p["component"], p["field"])
+            if f is None or self.has_attribute(f, sug.attribute):
+                continue
+            word = "required" if sug.attribute == "required" else "advanced (hidden until the user expands it)"
+            self.ask("suggest", p["key"], p["line"],
+                     f"{sug.support} of {sug.matched} matching sample fields are {word}. Mark {p['component']}/"
+                     f"{p['field']} {sug.attribute}? Accept or reject?", PACKAGE_CHOICES["suggest"],
+                     {"component": p["component"], "field": p["field"], "attribute": sug.attribute,
+                      "evidence": list(sug.evidence), "support": sug.support, "matched": sug.matched},
+                     qid=f"suggest:{p['component']}/{p['field']}/{sug.attribute}")
+
+    def apply_amendments(self, amendments):
+        """The user's amendments, applied last. `ui.<x>` sets field["ui"][x]; null removes an attribute (a null
+        default stays a null default). A secret field never takes a non-null default (I6)."""
+        for a in amendments:
+            if a.get("key") is not None:
+                place = self.placements.get(a["key"])
+                target, name = (place[:2] if place else None), a["key"]
+            else:
+                target, name = (a.get("component"), a.get("field")), f"{a.get('component')}/{a.get('field')}"
+            f = self.field_at(*target) if target else None
+            setting = a.get("set")
+            if f is None or not isinstance(setting, dict):
+                self.info.append(f"amendment not applied: {name}: no such field in this package")
+                continue
+            secret = setting.get("type", f.get("type")) == "secret"
+            for attribute, value in setting.items():
+                if attribute == "default" and secret:
+                    if value is not None:
+                        self.notes.append(f"amendment refused (I6): {name}: a secret field takes no default")
+                    continue
+                if attribute.startswith("ui."):
+                    ui = f.setdefault("ui", {})
+                    if value is None:
+                        ui.pop(attribute[3:], None)
+                    else:
+                        ui[attribute[3:]] = value
+                elif value is None and attribute != "default":
+                    f.pop(attribute, None)
+                else:
+                    f[attribute] = copy.deepcopy(value)
+            if f.get("type") == "secret":
+                f["default"] = None   # a field made a secret keeps no value (I6)
+                if not f.get("secret"):
+                    f["secret"] = True
+                    self.marked.add((target[0], f["key"]))
+            else:
+                f.pop("secret", None)
+            self.reorder(f)
+
+    def ask_restyle(self):
+        """One block for the whole package; its totals are counted over copies of the input components."""
+        if not self.restyle_needed or self.decided["restyle"] is not None:
+            return
+        per, totals = {}, dict(NO_COUNTS)
+        for comp in self.old["components"]:
+            counts = style.restyle(copy.deepcopy(comp))
+            per[comp["type"]] = counts
+            for k in totals:
+                totals[k] += counts[k]
+        n = sum(len(c.get("fields") or []) for c in self.old["components"])
+        preserved = [c for c in (self.profile.get("preserve") or {}).get("components", []) if c in per]
+        self.ask("restyle", None, None,
+                 f"restyle the package to db-designer style: new positions on {totals['order_changed']} of {n} fields, "
+                 f"stock helper text removed from {totals['stock_removed']}, {totals['custom_kept']} custom kept. "
+                 "Accept or refuse? Refused, every component keeps its own style and new fields follow it.",
+                 PACKAGE_CHOICES["restyle"], {"totals": totals, "components": per, "fields": n, "preserved": preserved})
+
+    def changed(self):
+        """Does the build change the package (its provenance and authoring counts aside)?"""
+        def body(pkg):
+            return {k: v for k, v in pkg.items() if k not in ("provenance", "authoring")}
+        return self.old is not None and body(self.pkg) != body(self.old)
+
+    def settle_provenance(self):
+        prov = self.pkg.get("provenance") or {}
+        if not (prov.get("signature") and self.changed()):
+            return
+        choice = self.decided["provenance"]
+        if choice is None and getattr(self.args, "provenance", None) == "dev-mode":   # the interim one-shot's flag
+            choice = "dev-mode"
+        if choice == "dev-mode":
+            self.pkg["provenance"] = {"author": "dev-mode"}
+            self.notes.append("provenance set to dev-mode (unsigned) at the user's request")
+        elif choice is None:
+            self.ask("provenance", None, None,
+                     "the package is signed and this build changes it, so the signature no longer covers it. Keep "
+                     "the provenance as it is, or switch to dev-mode (unsigned)?", PACKAGE_CHOICES["provenance"],
+                     {"author": prov.get("author")})
+
+    def build_rows(self):
+        """One row per placed field key, for the preview. No row and no note holds a secret value (I6)."""
+        old_fields = {(c["type"], f["key"]): f for c in (self.old or {}).get("components", [])
+                      for f in c.get("fields", [])}
+        yaml_says = {(d["component"], d["key"]): d["yaml"] for d in self.shared_diffs}
+        open_ids = set(self.open)
+        self.rows = []
+        for p in self.placed:
+            ctype = p["component"]
+            comp = self.find_comp(ctype) or {}
+            for fkey in p["field_keys"]:
+                f = self.field_at(ctype, fkey)
+                if f is None:
+                    continue
+                ui, old = f.get("ui") or {}, old_fields.get((ctype, fkey))
+                secret = f.get("type") == "secret"
+                if secret:
+                    shown_default = "withheld (I6)"
+                elif f.get("valueFrom"):
+                    shown_default = "from connection"
+                else:
+                    shown_default = json.dumps(f.get("default"), ensure_ascii=False)
+                notes = []
+                if old is None:
+                    notes.append("new")
+                elif not secret and old.get("type") != "secret" and old.get("default") != f.get("default"):
+                    notes.append("was " + json.dumps(old.get("default"), ensure_ascii=False))
+                if (ctype, fkey) in yaml_says and not secret:
+                    notes.append("YAML says " + json.dumps(yaml_says[(ctype, fkey)], ensure_ascii=False))
+                if f.get("valueFrom"):
+                    notes.append("valueFrom")
+                if (ctype, fkey) in self.marked:
+                    notes.append("secret: true added")
+                suggested = {}
+                for attribute in ("required", "advanced"):
+                    decision = self.suggestion_decisions.get((ctype, fkey, attribute))
+                    if f"suggest:{ctype}/{fkey}/{attribute}" in open_ids:
+                        suggested[attribute] = True   # still a question
+                    elif decision is not None:
+                        suggested[attribute] = decision == "accept"
+                self.rows.append({
+                    "component": ctype, "key": p["key"], "line": p["line"], "field": fkey, "type": f.get("type"),
+                    "default_display": shown_default, "section": ui.get("section"), "order": ui.get("order"),
+                    "shown": "advanced" if ui.get("advanced") else "up front", "required": f.get("required") is True,
+                    "suggested": suggested, "role": f.get("role") or comp.get("role"),
+                    "versions": f.get("version") or comp.get("version"), "notes": notes})
+
     # ---------------------------------------------------------------- finish
     def finish(self):
         # reviewed = every field this run did not add or change, capped at the previous count
@@ -994,13 +1234,8 @@ class Run:
         reviewed = max(0, min(old_reviewed, total - churn)) if self.old else 0
         auth = self.pkg.setdefault("authoring", {})
         auth["reviewedRows"], auth["totalRows"] = reviewed, total
-        prov = self.pkg.get("provenance") or {}
-        if getattr(self.args, "provenance", "keep") == "dev-mode":
-            self.pkg["provenance"] = {"author": "dev-mode"}
-            self.notes.append("provenance set to dev-mode (unsigned) at the user's request")
-        elif prov.get("signature") and churn:
-            self.questions.append("provenance carries a signature over content this run changed, so it no longer "
-                                  "covers the package. Keep it as-is, or re-run with --provenance dev-mode?")
+        self.settle_provenance()
+        self.build_rows()
         if (self.profile.get("defaults") or {}).get("role_components", "yaml") == "yaml" and \
                 any(r["changed"] for r in self.diff_rows.values()):
             self.notes.append("defaults were taken from the YAML (profile defaults.role_components: yaml). This "
@@ -1136,6 +1371,7 @@ def run_build(args):
     run.relocate()
     run.classify()
     run.merge()
+    run.package_items()
     run.finish()
     return run
 

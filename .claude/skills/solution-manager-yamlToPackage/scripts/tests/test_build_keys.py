@@ -7,12 +7,20 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import yaml_to_package  # noqa: E402
 from helpers import PACKAGE, build_demo, empty_dir, fields_by_key, temp_file  # noqa: E402
 
 ALPHA_OPEN = {"no-component:demo.unknown.thing", "excluded:demo.alpha.oldname", "doc2:late", "list:demo.alpha.retries",
               "decimal:demo.alpha.ratio", "empty-map:demo.alpha.extras", "enum-value:demo.alpha.mode",
               "dup-key:demo.alpha.host", "type-conflict:server.port", "shared-new:server.ssl.key-store-password",
-              "spelling:demo.alpha.filename"}
+              "spelling:demo.alpha.filename",
+              # the package-level items (Task 6): 14 questions in all
+              "suggest:alpha-core/demo.alpha.username/required", "restyle", "provenance"}
+
+
+def key_items(run):
+    """The open questions about YAML keys, without the package-level items."""
+    return {qid for qid, q in run.open.items() if q["kind"] in yaml_to_package.KEY_KINDS}
 
 
 def package_with_alpha_field(key):
@@ -98,7 +106,7 @@ class BuildKeysTest(unittest.TestCase):
         yml = temp_file("demo:\n  alpha:\n    username: bob\n---\ndemo:\n  alpha:\n    username: carol\n---\nlate: 1\n")
         run = build_demo("alpha", yaml_path=yml)
         self.assertEqual(run.key_count, 2)
-        self.assertEqual(set(run.open), {"doc2:late"})
+        self.assertEqual(key_items(run), {"doc2:late"})
         self.assertEqual([p["key"] for p in run.placed], ["demo.alpha.username"])
         self.assertTrue(run.balanced())
         gone = build_demo("alpha", yaml_path=yml, answers={"remove": [{"key": "demo.alpha.username", "reason": "x"},
