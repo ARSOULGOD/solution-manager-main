@@ -12,11 +12,13 @@ choices) or removed by you (a recorded decision). Answers come from --answers an
 profile's decisions block.
 
 `preview` writes preview.json and preview.md to --out-dir and never a package. `apply` refuses while
-anything is open, then writes package.json, report.md, report.json and (with --package) package.diff.
-Neither ever writes over --package; copying the result into place is a separate, deliberate step.
+anything is open, then writes package.json, report.md, report.json, profile.yaml (the profile with the
+answers merged into its decisions block) and, with --package, package.diff; then it reads the package back
+(every placed key a field of its component, every removed key gone) and validates it. Neither command ever
+writes over an input; copying the results into place is a separate, deliberate step.
 
-Exit codes: 0 done (apply) or nothing open (preview), 1 validation failed, 2 bad input (a bad answers
-file included), 3 the profile is a draft, 4 a version decision is needed, 5 questions still open.
+Exit codes: 0 done (apply) or nothing open (preview), 1 validation or read-back failed, 2 bad input (a bad
+answers file included), 3 the profile is a draft, 4 a version decision is needed, 5 questions still open.
 """
 import argparse
 import copy
@@ -58,6 +60,10 @@ KEY_KINDS = set(CHOICES)   # the questions about one YAML key; suggest, restyle 
 PACKAGE_CHOICES = {"suggest": ["accept", "reject"], "restyle": ["accept", "refuse"], "provenance": ["keep", "dev-mode"]}
 DB_DESIGNER = ("within-section", "sparse")   # the style of a new package, and of every package after a restyle
 NO_COUNTS = {"order_changed": 0, "stock_removed": 0, "custom_kept": 0}
+MASK = "***"   # what a secret value prints as wherever a default is shown (I6)
+# info lines another part of the report already shows: report.md and report.json leave them out of the notes
+REPORTED_ELSEWHERE = ("coerced: ", "in the package, not in this YAML (kept): ", "reviewed labels kept: ",
+                      "shared default differs (package kept): ")
 NO_SIGNATURE_QUESTION = "provenance: no signature question is asked (the package is unsigned, or this build leaves it " \
                         "unchanged)"
 # shared-new about a shared field that serves another role only: one component cannot hold two fields with one key
@@ -878,7 +884,7 @@ class Run:
                     self.notes.append(f"secret default withheld: {comp['type']}/{f['key']}")
                     rows = self.diff_rows.setdefault(comp["type"], {"added": [], "changed": [], "package_only": []})
                     rows["changed"].append({"key": f["key"],
-                                            "changes": [("default (secret withheld)", "(not shown)", None)]})
+                                            "changes": [("default (secret withheld)", MASK, None)]})
                     self.touched.add(comp["type"])
 
     def drop_removed(self):
@@ -996,6 +1002,9 @@ class Run:
                    and not (f.get("virtual") or f.get("valueFrom") or self.foreign(f))]
         # every instance of this role renders these from the shared component, yet its YAML does not carry them
         self.package_only += [(comp["type"], k) for k in missing]
+        if missing:
+            self.diff_rows.setdefault(comp["type"], {"added": [], "changed": [], "package_only": []})[
+                "package_only"].extend(missing)
         for m in items:
             f, d = existing.get(m["field"]["key"]), m["field"]
             if f is None:   # only a key the user agreed to add reaches here (shared-new was asked)
@@ -1178,16 +1187,21 @@ class Run:
                 f.pop("secret", None)
             self.reorder(f)
 
-    def ask_restyle(self):
-        """One block for the whole package; its totals are counted over copies of the input components."""
-        if not self.restyle_needed or self.decided["restyle"] is not None:
-            return
+    def restyle_counts(self):
+        """(per component, totals): what a restyle changes, counted over copies of the input components."""
         per, totals = {}, dict(NO_COUNTS)
-        for comp in self.old["components"]:
+        for comp in (self.old or {}).get("components", []):
             counts = style.restyle(copy.deepcopy(comp))
             per[comp["type"]] = counts
             for k in totals:
                 totals[k] += counts[k]
+        return per, totals
+
+    def ask_restyle(self):
+        """One block for the whole package; its totals are counted over copies of the input components."""
+        if not self.restyle_needed or self.decided["restyle"] is not None:
+            return
+        per, totals = self.restyle_counts()
         n = sum(len(c.get("fields") or []) for c in self.old["components"])
         preserved = [c for c in (self.profile.get("preserve") or {}).get("components", []) if c in per]
         self.ask("restyle", None, None,
@@ -1269,11 +1283,15 @@ class Run:
 
     # ---------------------------------------------------------------- finish
     def finish(self):
-        # reviewed = every field this run did not add or change, capped at the previous count
+        # reviewed = the fields carried over unchanged (the restyle, the secret flag, suggestions and amendments
+        # count as changes), capped at the previous count; a new package starts at 0
         total = sum(len(c.get("fields", [])) for c in self.pkg["components"])
-        churn = sum(len(r["added"]) + len(r["changed"]) for r in self.diff_rows.values())
+        old_fields = {(c["type"], f["key"]): f for c in (self.old or {}).get("components", [])
+                      for f in c.get("fields", [])}
+        unchanged = sum(1 for c in self.pkg["components"] for f in c.get("fields", [])
+                        if old_fields.get((c["type"], f["key"])) == f)
         old_reviewed = (self.old or {}).get("authoring", {}).get("reviewedRows", 0)
-        reviewed = max(0, min(old_reviewed, total - churn)) if self.old else 0
+        reviewed = min(old_reviewed, unchanged) if self.old else 0
         auth = self.pkg.setdefault("authoring", {})
         auth["reviewedRows"], auth["totalRows"] = reviewed, total
         self.settle_provenance()
@@ -1285,8 +1303,8 @@ class Run:
                               "come from field initializers, never from a sample application.yml. Flagged, not resolved.")
         starts = [x for x in (self.args.package, self.args.out_dir, os.getcwd(), os.path.dirname(os.path.abspath(__file__)))
                   if x]
-        schema = self.args.schema or validate_package.find_schema(*starts)
-        self.validation = validate_package.validate(self.pkg, schema)
+        self.schema = self.args.schema or validate_package.find_schema(*starts)
+        self.validation = validate_package.validate(self.pkg, self.schema)
         self.balance_ok = self.balanced()
 
     # ---------------------------------------------------------------- the preview
@@ -1348,11 +1366,19 @@ class Run:
         rest = [q for q in items if q not in keyed and q not in tail]
         return keyed + rest + tail
 
+    def merged_decisions(self, answers):
+        """The decisions block the remembered one becomes with these answers."""
+        return decisions.merge(self.remembered, answers, today=self.today, placements=self.placements,
+                               evidence=self.suggestion_evidence, role=self.role)
+
+    def profile_text(self):
+        """The profile `apply` writes: the original text byte for byte, then the merged decisions block."""
+        return decisions.write_block(read_text(self.args.profile), self.merged_decisions(self.answers))
+
     def profile_changes(self):
         """The decisions block before and after "create", as unified diff lines (nothing when they agree)."""
-        merge = dict(today=self.today, placements=self.placements, evidence=self.suggestion_evidence, role=self.role)
-        before = decisions.merge(self.remembered, {}, **merge)
-        after = decisions.merge(self.remembered, self.answers, **merge)
+        before = self.merged_decisions({})
+        after = self.merged_decisions(self.answers)
 
         def text(block):
             if not block:
@@ -1398,97 +1424,146 @@ class Run:
             "info": list(dict.fromkeys(info)), "profile_changes": self.profile_changes(), "ready": not self.open,
         }
 
-    def write(self):
-        os.makedirs(self.args.out_dir, exist_ok=True)
-        text = json.dumps(self.pkg, indent=2, ensure_ascii=self.ascii_style()) + "\n"
-        write_text(os.path.join(self.args.out_dir, "package.json"), text)
-        if self.old is not None:
-            old_text = read_text(self.args.package)
-            diff = "".join(difflib.unified_diff(old_text.splitlines(True), text.splitlines(True),
-                                                fromfile=self.args.package, tofile="package.json (generated)", n=2))
-            write_text(os.path.join(self.args.out_dir, "package.diff"), diff)
-        report = self.report_json()
-        write_text(os.path.join(self.args.out_dir, "report.json"),
-                   json.dumps(report, indent=2, ensure_ascii=False, default=str))
-        write_text(os.path.join(self.args.out_dir, "report.md"), self.report_md(report))
-
+    # ---------------------------------------------------------------- apply: the files it writes
     def ascii_style(self):
         if self.args.package:
             return "\\u201c" in read_text(self.args.package)
         return False
 
-    def report_json(self):
+    def package_text(self, pkg=None):
+        """A package as package.json is written: the input package's JSON style (`ensure_ascii` as it uses)."""
+        return json.dumps(self.pkg if pkg is None else pkg, indent=2, ensure_ascii=self.ascii_style()) + "\n"
+
+    def secret_fields(self):
+        """(component, field) of every secret field of the input package or the new one."""
+        return {(c["type"], f["key"]) for pkg in (self.old or {}, self.pkg) for c in pkg.get("components", [])
+                for f in c.get("fields", []) if f.get("type") == "secret" or f.get("secret")}
+
+    def package_diff(self):
+        """The unified diff from the input package to the new one. The input side is a copy whose secret defaults
+        print as *** (I6), written in the same JSON style as package.json."""
+        masked, secrets = copy.deepcopy(self.old), self.secret_fields()
+        for c in masked.get("components", []):
+            for f in c.get("fields", []):
+                if (c["type"], f["key"]) in secrets and f.get("default") not in (None, ""):
+                    f["default"] = MASK
+        if self.package_text(self.old) != read_text(self.args.package):
+            self.notes.append(f"package.diff compares content: {self.args.package} is formatted differently from "
+                              "the generated package.json, and that formatting change is not shown")
+        return "".join(difflib.unified_diff(
+            self.package_text(masked).splitlines(True), self.package_text().splitlines(True),
+            fromfile=f"{self.args.package} (secret defaults shown as {MASK})", tofile="package.json (generated)", n=2))
+
+    def report_json(self, validation=None):
+        """report.json. validation: the gate's result (apply); this build's own validation otherwise. Every
+        default of a secret field prints as *** (I6); nothing is listed twice."""
+        secrets = self.secret_fields()
+        diff = copy.deepcopy(self.diff_rows)
+        for ctype, rows in diff.items():
+            for ch in rows["changed"]:
+                if (ctype, ch["key"]) in secrets:
+                    ch["changes"] = [(what, *(MASK if what.startswith("default") and v not in (None, "") else v
+                                              for v in (old, new))) for what, old, new in ch["changes"]]
+        placed = []
+        for p in self.placed:
+            f = self.field_at(p["component"], p["field_keys"][0]) if p["field_keys"] else None
+            placed.append({"key": p["key"], "line": p["line"], "component": p["component"], "field": p["field"],
+                           "type": (f or {}).get("type"), "shared": p["shared"]})
+        own = {(p["component"], p["field"]) for p in self.placed}
+        restyle = {"offered": self.restyle_needed, "decision": self.decided["restyle"]}
+        if self.restyle_needed:
+            restyle["counts"] = self.restyle_counts()[1]
+        notes = self.notes + [i for i in self.info if not i.startswith(REPORTED_ELSEWHERE)]
         return {
             "solution": self.profile["solution"], "role": self.role, "profile": self.args.profile,
             "yaml": self.args.yaml, "package": self.args.package, "target_versions": self.target,
-            "counts": {"keys": self.key_count, "placed": len(self.placed), "removed": len(self.removed),
+            "counts": {"keys": self.key_count, "placed": len(self.placed),
+                       "removed": len([r for r in self.removed if r["line"] is not None]),
                        "open": len(self.open_keys()), "coerced": len(self.coerced),
                        "secrets_withheld": len(self.withheld), "balanced": self.balance_ok},
-            "placed": [{"key": m["leaf"]["key"], "line": m["leaf"]["line"], "component": m["component"],
-                        "field": m["field"]["key"], "type": m["field"]["type"], "shared": m["shared"]}
-                       for m in self.mapped],
-            "removed": self.removed, "open": list(self.open.values()), "info": self.info,
-            "coerced": self.coerced,
-            "secrets_withheld": self.withheld, "diff": self.diff_rows, "shared_differences": self.shared_diffs,
-            "ui_differences": self.ui_diffs, "notes": self.notes,
-            "validation": self.validation, "authoring": self.pkg.get("authoring"),
+            "placed": placed,
+            "removed": [{k: r[k] for k in ("key", "line", "reason", "role", "component")} for r in self.removed],
+            "coerced": self.coerced, "secrets_withheld": self.withheld, "diff": diff,
+            "shared_differences": self.shared_diffs, "ui_differences": self.ui_diffs,
+            "notes": list(dict.fromkeys(notes)), "validation": validation or self.validation,
+            "authoring": self.pkg.get("authoring"), "restyle": restyle,
+            "suggestions": [{"component": c, "field": f, "attribute": a, "decision": d}
+                            for (c, f, a), d in self.suggestion_decisions.items() if (c, f) in own],
         }
 
-    def report_md(self, r):
-        c = r["counts"]
+    @staticmethod
+    def report_md(r):
+        """report.md: the same data as report.json."""
+        c, none = r["counts"], "(none)"
+
+        def show(value):
+            return json.dumps(value, ensure_ascii=False)
         L = [f"# yamlToPackage report: {r['solution']} / {r['role']}", "",
              f"- Profile: `{r['profile']}`", f"- YAML: `{r['yaml']}`",
              f"- Package: `{r['package'] or '(new package)'}`", f"- Target versions: {r['target_versions']}", "",
              "## Coverage", "",
-             f"{c['keys']} YAML keys: **{c['placed']} placed**, **{c['open']} open**, "
-             f"**{c['removed']} removed by you**. Every key is in exactly one outcome: "
-             f"{'yes' if c['balanced'] else 'NO, investigate'}. "
-             f"{c['coerced']} coerced, {c['secrets_withheld']} secret default(s) withheld.", ""]
-        L += ["### Open (needs an answer)", ""]
-        L += [f"- `{q['id']}` (line {q['line']}): {q['text']} Choices: {', '.join(q['choices'])}"
-              for q in r["open"]] or ["- none"]
-        L += ["", "### Removed by you", ""]
-        L += [f"- `{e['key']}` (line {e['line']}): {e['reason']}" for e in r["removed"]] or ["- none"]
-        L += ["", "### Coerced / assumed", ""]
-        L += [f"- `{x['key']}` (line {x['line']}): {x['note']}" for x in r["coerced"]] or ["- none"]
-        L += ["", "### Secret defaults withheld (I6)", ""]
-        L += [f"- `{x['key']}` (line {x['line']})" for x in r["secrets_withheld"]] or ["- none"]
+             f"{c['keys']} YAML keys → {c['placed']} fields, {c['removed']} removed by you "
+             f"(balanced: {'yes' if c['balanced'] else 'NO'})", "",
+             f"{c['open']} open · {c['coerced']} coerced · {c['secrets_withheld']} secret default(s) withheld (I6)", ""]
         by = {}
-        for m in r["placed"]:
-            by.setdefault(m["component"], []).append(m)
-        L += ["", "### Mapped, by component", "", "| component | fields | shared |", "|---|---|---|"]
-        L += [f"| {k} | {len(v)} | {'yes' if v[0]['shared'] else 'no'} |" for k, v in by.items()]
+        for p in r["placed"]:
+            by.setdefault(p["component"], []).append(p)
+        L += ["### Placed, by component", ""]
+        if by:
+            L += ["| component | keys | shared |", "|---|---|---|"]
+            L += [f"| {k} | {len(v)} | {'yes' if v[0]['shared'] else 'no'} |" for k, v in by.items()]
+        else:
+            L.append(none)
+        L += ["", "### Removed by you", ""]
+        L += [f"- `{e['key']}` (line {e['line']}): {e['reason']}" if e["line"] is not None else
+              f"- `{e['component']}/{e['key']}` (a package field this YAML does not carry): {e['reason']}"
+              for e in r["removed"]] or [none]
+        L += ["", "### Coerced / assumed", ""]
+        L += [f"- `{x['key']}` (line {x['line']}): {x['note']}" for x in r["coerced"]] or [none]
+        L += ["", "### Secret defaults withheld (I6)", ""]
+        L += [f"- `{x['key']}` (line {x['line']})" for x in r["secrets_withheld"]] or [none]
         L += ["", "## Diff against the existing package", ""]
         if not r["package"]:
-            L.append("New package; no diff.")
+            L += ["New package; no diff.", ""]
         for ct, rows in r["diff"].items():
             L += [f"### {ct}", "", f"- added: {len(rows['added'])}" + (f": {', '.join(rows['added'])}" if rows["added"] else "")]
             if rows.get("removed"):
-                L.append(f"- relocated out (profile `relocate`): {len(rows['removed'])}: {', '.join(rows['removed'])}")
+                L.append(f"- removed (by you, or relocated by the profile): {len(rows['removed'])}: "
+                         f"{', '.join(rows['removed'])}")
             L.append(f"- changed: {len(rows['changed'])}")
             for ch in rows["changed"]:
                 for what, old, new in ch["changes"]:
-                    L.append(f"  - `{ch['key']}` {what}: `{json.dumps(old, ensure_ascii=False)}` -> `{json.dumps(new, ensure_ascii=False)}`")
-            L.append(f"- in package, not in YAML (kept): {len(rows['package_only'])}"
+                    L.append(f"  - `{ch['key']}` {what}: `{show(old)}` -> `{show(new)}`")
+            L.append(f"- in the package, not in this YAML (kept): {len(rows['package_only'])}"
                      + (f": {', '.join(rows['package_only'])}" if rows["package_only"] else ""))
             L.append("")
         if r["shared_differences"]:
             L += ["### Shared components: YAML vs package defaults (package kept)", ""]
-            L += [f"- {d['component']} `{d['key']}`: package `{json.dumps(d['package'])}`, YAML `{json.dumps(d['yaml'])}`"
+            L += [f"- {d['component']} `{d['key']}`: package `{show(d['package'])}`, YAML `{show(d['yaml'])}`"
                   + (" (valueFrom)" if d["valueFrom"] else "") for d in r["shared_differences"]]
             L.append("")
         if r["ui_differences"]:
-            L += [f"### Reviewed ui kept where the derived one differs ({len(r['ui_differences'])})", ""]
+            L += [f"### Reviewed labels kept where the derived one differs ({len(r['ui_differences'])})", ""]
             L += [f"- {d['component']} `{d['key']}`: package {d['package']}, derived {d['derived']}"
                   for d in r["ui_differences"][:15]]
             if len(r["ui_differences"]) > 15:
                 L.append(f"- ...and {len(r['ui_differences']) - 15} more in report.json")
             L.append("")
+        L += ["## Your decisions", "", "### Suggestions", ""]
+        L += [f"- {s['component']}/{s['field']} {s['attribute']}: {s['decision']}" for s in r["suggestions"]] or [none]
+        rs = r["restyle"]
+        L += ["", "### Restyle", ""]
+        if rs["offered"]:
+            n = rs["counts"]
+            L.append(f"{rs['decision']}: new positions on {n['order_changed']} field(s), stock helper text removed "
+                     f"from {n['stock_removed']}, {n['custom_kept']} custom kept")
+        else:
+            L.append("not offered: the package is already in db-designer style, or new")
         v = r["validation"]
-        L += ["## Validation", "", f"**{'PASS' if v['ok'] else 'FAIL'}**", ""]
+        L += ["", "## Validation and read-back", "", f"**{'PASS' if v['ok'] else 'FAIL'}**", ""]
         L += [f"- note: {n}" for n in v["notes"]] + [f"- error: {e}" for e in v["errors"]] + \
              [f"- warning: {w}" for w in v["warnings"]]
-        L += ["", "## Notes", ""] + ([f"- {n}" for n in r["notes"] + r["info"]] or ["- none"])
+        L += ["", "## Notes", ""] + ([f"- {n}" for n in r["notes"]] or [none])
         L += ["", f"authoring: {json.dumps(r['authoring'])}", ""]
         return "\n".join(L)
 
@@ -1620,17 +1695,91 @@ def preview(run):
     return 0 if model["ready"] else 5
 
 
+def read_back(package_path, placed, removed):
+    """The no-trim gate: the written package read back. One problem per placed field key missing from its component
+    (every key in `field_keys`), and per removed field key still present. A removed entry is checked by its `field`
+    and every key in its `field_keys` (by its YAML key when it has neither): in its `component`, or, when that is
+    None, in the components of the entry's role and the shared ones, never in another role's component or a shared
+    field that serves another role only (Ruling 12)."""
+    with open(package_path, encoding="utf-8") as fh:
+        pkg = json.load(fh)
+    comps = pkg.get("components") or []
+    by_type = {c.get("type"): c for c in comps}
+
+    def keys(comp):
+        return {f.get("key") for f in (comp or {}).get("fields") or []}
+    problems = []
+    for p in placed:
+        have = keys(by_type.get(p["component"]))
+        problems += [f"missing: {p['component']}/{k}" for k in p.get("field_keys") or [] if k not in have]
+    for r in removed:
+        names = list(dict.fromkeys(([r["field"]] if r.get("field") else []) + list(r.get("field_keys") or []))) \
+            or [r["key"]]
+        if r.get("component") is not None:
+            have = keys(by_type.get(r["component"]))
+            problems += [f"still present: {r['component']}/{k}" for k in names if k in have]
+            continue
+        role = r.get("role")
+        for c in comps:
+            if not (is_shared(c) or c.get("role") == role):
+                continue
+            problems += [f"still present: {c['type']}/{f['key']}" for f in c.get("fields") or []
+                         if f.get("key") in names and f.get("role") in (None, "none", role)]
+    return problems
+
+
+def gate(run, package_path):
+    """The validation of the written package, with the read-back and the balance folded in: report.json's
+    `validation`, and exit 1 unless it is ok."""
+    with open(package_path, encoding="utf-8") as fh:
+        validation = validate_package.validate(json.load(fh), run.schema)
+    problems = read_back(package_path, run.placed, run.removed)
+    errors = list(validation["errors"]) + [f"read-back: {p}" for p in problems]
+    if not run.balance_ok:
+        errors.append("not every YAML key is exactly one of placed, open or removed")
+    notes = list(validation["notes"])
+    if not problems:
+        notes.append(f"read-back: {sum(len(p['field_keys']) for p in run.placed)} placed field(s) present, "
+                     f"{len(run.removed)} removed key(s) absent")
+    return {"ok": not errors, "errors": errors, "warnings": list(validation["warnings"]), "notes": notes}
+
+
+OUTPUTS = {"preview": ("preview.json", "preview.md"),
+           "apply": ("package.json", "package.diff", "report.md", "report.json", "profile.yaml")}
+
+
+def check_outputs(args):
+    """No output may be one of the inputs: the engine never overwrites its YAML, package, profile or answers."""
+    inputs = {os.path.realpath(p) for p in (args.profile, args.yaml, args.package, args.answers) if p}
+    for name in OUTPUTS[args.command]:
+        if os.path.realpath(os.path.join(args.out_dir, name)) in inputs:
+            die(2, f"--out-dir {args.out_dir}: {name} would overwrite an input; choose another --out-dir")
+
+
 def apply(run):
-    """Refuse while anything is open (5). Otherwise write the package and the reports (Task 8 adds the profile
-    merge and the read-back gate)."""
+    """Refuse while anything is open (5). Otherwise write package.json, package.diff (with --package), report.md,
+    report.json and profile.yaml to --out-dir, then read the package back: 1 on a read-back problem or a validation
+    error, else 0."""
     if run.open:
         print(f"error: {len(run.open)} question(s) still open; answer them in a preview first:", file=sys.stderr)
         for q in run.ordered_questions():
             print(f"open: {q['id']}", file=sys.stderr)
         return 5
-    run.write()
+    out = run.args.out_dir
+    os.makedirs(out, exist_ok=True)
+    package_path = os.path.join(out, "package.json")
+    write_text(package_path, run.package_text())
+    if run.old is not None:
+        write_text(os.path.join(out, "package.diff"), run.package_diff())
+    validation = gate(run, package_path)
+    report = run.report_json(validation)
+    write_text(os.path.join(out, "report.json"), json.dumps(report, indent=2, ensure_ascii=False, default=str) + "\n")
+    write_text(os.path.join(out, "report.md"), run.report_md(json.loads(json.dumps(report, default=str))))
+    write_text(os.path.join(out, "profile.yaml"), run.profile_text())
     print(summary(run.model()))
-    return 0 if run.validation["ok"] and run.balance_ok else 1
+    for e in validation["errors"]:
+        print(f"error: {e}", file=sys.stderr)
+    return 0 if validation["ok"] else 1
 
 
 def main(argv=None):
@@ -1640,6 +1789,7 @@ def main(argv=None):
                        ("apply", "create package.json once nothing is open")):
         add_shared(sub.add_parser(name, help=text, description=text), out_dir_required=True)
     args = ap.parse_args(argv)
+    check_outputs(args)
     if args.answers and not os.path.isfile(args.answers):
         die(2, f"--answers {args.answers}: no such file")
     answers = load_answers(args.answers)
