@@ -273,5 +273,18 @@ class ReadBackTest(unittest.TestCase):
                          ["still present: server/s.x"])
 
 
+    def test_a_crlf_profile_keeps_its_bytes(self):  # final review 7
+        work = empty_dir()
+        crlf = work / "profile.yaml"
+        crlf.write_bytes(PROFILE.read_bytes().replace(b"\n", b"\r\n"))
+        out = work / "out"
+        self.assertEqual(run_cli("apply", "alpha", out, answers=ANSWERS_FILE, profile=crlf), 0)
+        merged = (out / "profile.yaml").read_bytes()
+        self.assertTrue(merged.startswith(crlf.read_bytes()))
+        self.assertNotIn(b"\n", merged.replace(b"\r\n", b""))   # one line ending throughout
+        out2 = work / "out2"   # applied again from the merged profile: the same bytes, no growing blank lines
+        self.assertEqual(run_cli("apply", "alpha", out2, profile=out / "profile.yaml"), 0)
+        self.assertEqual((out2 / "profile.yaml").read_bytes(), merged)
+
 if __name__ == "__main__":
     unittest.main()

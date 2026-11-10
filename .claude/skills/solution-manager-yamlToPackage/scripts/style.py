@@ -13,10 +13,17 @@ def _sections(fields):
     return groups
 
 
+def _numeric(order):
+    return isinstance(order, (int, float)) and not isinstance(order, bool)
+
+
 def detect_order_style(fields):
-    """First style that fits: within-section, running, section-index. None for no fields, else mixed."""
+    """First style that fits: within-section, running, section-index. None for no fields, else mixed. A field
+    without a numeric `ui.order` (it is optional) means the component is not consistently numbered: mixed."""
     if not fields:
         return None
+    if any(not _numeric(_ui(f).get("order")) for f in fields):
+        return "mixed"
     groups = _sections(fields)
     if all(o[0] == 0 and all(a <= b for a, b in zip(o, o[1:])) for o in groups.values()):
         return "within-section"
@@ -68,9 +75,9 @@ def new_helper(ftype, label, section, comment, helper_style, secret_value=None):
 
 
 def order_for_new(fields, section, order_style):
-    orders = [_ui(f).get("order") for f in fields if _ui(f).get("order") is not None]
+    orders = [_ui(f).get("order") for f in fields if _numeric(_ui(f).get("order"))]
     in_section = [_ui(f).get("order") for f in fields
-                  if _ui(f).get("section") == section and _ui(f).get("order") is not None]
+                  if _ui(f).get("section") == section and _numeric(_ui(f).get("order"))]
     if order_style == "running":
         return max(orders) + 1 if orders else 0
     if order_style == "section-index":

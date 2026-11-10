@@ -113,8 +113,9 @@ def stored_answers(profile_path, role):
     return out
 
 
-def explain_stored(key, yv, rendered, as_list, other):
-    """(note, extra_keys) when a remembered `stored` answer accounts for the difference, else None."""
+def explain_stored(key, yv, rendered, as_list, other, raw=None):
+    """(note, extra_keys) when a remembered `stored` answer accounts for the difference, else None. raw: the
+    value's text in the YAML (a decimal stored as `string` keeps it, so `1.10` stays `1.10`)."""
     for how in as_list:
         rv = rendered.get(key)
         if how == "index":
@@ -123,7 +124,7 @@ def explain_stored(key, yv, rendered, as_list, other):
             if n and key not in rendered and all(i in rendered for i in items) \
                     and [rendered[i] for i in items] == yv:
                 return f"stored by you as {how}", set(items)
-        elif how == "string" and key in rendered and rv == str(yv):
+        elif how == "string" and key in rendered and rv in ({str(yv)} | ({raw} if isinstance(raw, str) else set())):
             return f"stored by you as {how}", set()
         elif how == "map" and key in rendered and rv is None and yv == {}:
             return f"stored by you as {how}", set()
@@ -177,6 +178,7 @@ def cmd_roundtrip(a):
         yaml_text = fh.read()
     loaded = _load_text(yaml_text, list_policy=lambda k: common.lookup(lists, k) or "flag")
     src = {l["key"]: l["value"] for l in loaded["leaves"]}
+    raw = {l["key"]: l.get("raw") for l in loaded["leaves"]}
     other = {}
     for d in loaded["duplicates"]:
         other.setdefault(d["key"], []).append(d["value"])
@@ -199,7 +201,8 @@ def cmd_roundtrip(a):
             (bad if key in rendered else allowed).append((key, f"removed by you: {removed[key]}" +
                                                           (" BUT it is rendered" if key in rendered else "")))
             continue
-        got = explain_stored(key, yv, rendered, stored[key], other) if key in stored and rendered.get(key) != yv else None
+        got = explain_stored(key, yv, rendered, stored[key], other, raw.get(key)) \
+            if key in stored and rendered.get(key) != yv else None
         if got:
             allowed.append((key, got[0]))
             explained |= got[1]

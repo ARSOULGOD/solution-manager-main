@@ -8,10 +8,11 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import learn_samples  # noqa: E402
 import preview_md  # noqa: E402
 import yaml_to_package  # noqa: E402
-from helpers import (ANSWERS_FILE, ENGINE, PACKAGE, PROFILE, build_demo, empty_dir, run_cli, run_cli_err,  # noqa: E402
-                     run_cli_full, temp_file)
+from helpers import (ANSWERS_FILE, ENGINE, PACKAGE, PROFILE, build_demo, cli_argv, empty_dir, run_cli,  # noqa: E402
+                     run_cli_err, run_cli_full, temp_file)
 
 ALPHA_KEYS = ["server.port", "server.address", "server.ssl.key-store-password", "demo.alpha.host",
               "demo.alpha.username", "demo.alpha.mode", "demo.alpha.retries", "demo.alpha.ratio", "demo.alpha.extras",
@@ -303,6 +304,53 @@ class CarriedFixesTest(unittest.TestCase):
         self.assertEqual(len(model["info"]), len(set(model["info"])))
         self.assertFalse(hasattr(run, "questions"))
 
+
+
+class FinalReviewCliTest(unittest.TestCase):
+    def setUp(self):
+        self.out = empty_dir()
+
+    def test_two_amend_entries_for_one_field_exit_2(self):  # final review 1, Ruling 35
+        answers = dict(ANSWERS, amend=[{"key": "server.port", "set": {"required": True}},
+                                       {"key": "server.port", "set": {"ui.label": "Port"}}])
+        code, err = run_cli_err("preview", "alpha", self.out, answers=answers_file(answers))
+        self.assertEqual(code, 2, err)
+        self.assertIn("amend server.port: a second amend entry for the same field", err)
+        dup_remove = dict(ANSWERS, remove=ANSWERS["remove"] * 2)
+        code, err = run_cli_err("preview", "alpha", self.out, answers=answers_file(dup_remove))
+        self.assertEqual(code, 2, err)
+        self.assertIn("remove demo.alpha.filename: a second remove entry", err)
+
+    def test_an_unknown_key_in_an_answer_entry_exits_2(self):  # final review 11
+        answers = dict(ANSWERS, amend=[{"key": "server.port", "set": {"required": True}, "reasn": "typo"}])
+        code, err = run_cli_err("preview", "alpha", self.out, answers=answers_file(answers))
+        self.assertEqual(code, 2, err)
+        self.assertIn("amend server.port: unknown key(s) reasn", err)
+
+    def test_forget_a_remembered_restyle_from_the_command_line(self):  # final review 4, Ruling 36
+        profile = empty_dir() / "profile.yaml"
+        profile.write_text(yaml_to_package.decisions.write_block(
+            PROFILE.read_text(encoding="utf-8"), {"style": {"restyle": "refused", "date": "2026-01-01"}}),
+            encoding="utf-8")
+        answers = {k: v for k, v in ANSWERS.items() if k != "restyle"}
+        self.assertEqual(run_cli("preview", "alpha", self.out, answers=answers_file(answers), profile=profile), 0)
+        forget = dict(answers, forget=[{"decision": "restyle"}])
+        self.assertEqual(run_cli("preview", "alpha", self.out, answers=answers_file(forget), profile=profile), 5)
+        self.assertIn("restyle", [q["id"] for q in model_of(self.out)["questions"]])
+        code, err = run_cli_err("preview", "alpha", self.out, answers=answers_file(dict(ANSWERS, forget=[
+            {"decision": "restyle"}])))
+        self.assertEqual(code, 2)
+        self.assertIn("forget restyle: nothing remembered under this name", err)
+
+    def test_samples_are_found_from_the_engine_when_the_cwd_has_none(self):  # final review 3
+        expected = learn_samples.find_samples_dir(str(ENGINE.parent))
+        if expected is None:
+            self.skipTest("the skill is not inside a tree with frontend/contracts/packages")
+        argv = cli_argv("preview", "alpha", self.out)
+        i = argv.index("--samples")
+        del argv[i:i + 2]
+        subprocess.run(argv, cwd=empty_dir(), capture_output=True, text=True)
+        self.assertEqual(model_of(self.out)["samples"]["dir"], expected)
 
 if __name__ == "__main__":
     unittest.main()

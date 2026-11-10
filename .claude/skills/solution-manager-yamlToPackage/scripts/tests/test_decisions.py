@@ -169,5 +169,56 @@ class DecisionsTest(unittest.TestCase):
         self.assertEqual(new["removed"][0]["role"], "alpha")
 
 
+    # ---- final review fix wave
+    def test_a_second_entry_for_one_target_is_refused(self):  # final review 1, Ruling 35
+        ctx = dict(CTX, open=dict(CTX["open"], **{
+            "no-component:a.b": {"kind": "no-component", "key": "a.b", "choices": ["place", "remove"]},
+            "suggest:core/a.pw/required": {"kind": "suggest", "key": "a.pw", "choices": ["accept", "reject"]}}))
+        answers = {
+            "remove": [{"key": "a.b", "reason": "r1"}, {"key": "a.b", "reason": "r2"}],
+            "place": [{"key": "a.b", "component": "core"}, {"key": "a.b", "component": "core"}],
+            "suggestions": [{"key": "a.pw", "attribute": "required", "decision": "accept"},
+                            {"key": "a.pw", "attribute": "required", "decision": "reject"}],
+            "amend": [{"key": "a.pw", "set": {"required": True}},
+                      {"component": "core", "field": "a.pw", "set": {"ui.label": "P"}}],
+        }
+        errors = decisions.validate_answers(answers, ctx)
+        self.assertIn("remove a.b: a second remove entry for the same target; give one", errors)
+        self.assertIn("place a.b: a second place entry for the same key; give one", errors)
+        self.assertIn("suggestions a.pw: a second entry for its required suggestion; give one decision", errors)
+        self.assertIn("amend core/a.pw: a second amend entry for the same field; put all of one field's amendments "
+                      "in one `set`", errors)
+        # one entry per target stays valid, and a key may still carry one store answer per question
+        once = {s: v[:1] for s, v in answers.items() if s != "place"}
+        self.assertEqual(decisions.validate_answers(once, ctx), [])
+
+    def test_unknown_keys_in_an_entry_are_refused(self):  # final review 11
+        errors = decisions.validate_answers({
+            "amend": [{"key": "a.b", "set": {"required": True}, "reasn": "typo"}],
+            "store": [{"key": "a.list", "as": "list", "why": "x"}],
+            "forget": [{"key": "a.b", "role": "alpha"}]}, CTX)
+        self.assertIn("amend a.b: unknown key(s) reasn (allowed: key, component, field, set, reason)", errors)
+        self.assertIn("store a.list: unknown key(s) why (allowed: key, as)", errors)
+        self.assertIn("forget a.b: unknown key(s) role (allowed: key, component, field, attribute, decision)",
+                      errors)
+
+    def test_forget_a_remembered_restyle_or_provenance(self):  # final review 4, Ruling 36
+        remembered = {"style": {"restyle": "refused", "date": "2026-01-01"},
+                      "provenance": {"choice": "keep", "date": "2026-01-01"}}
+        answers = {"forget": [{"decision": "restyle"}, {"decision": "provenance"}]}
+        self.assertEqual(decisions.validate_answers(answers, dict(CTX, remembered=remembered)), [])
+        eff = decisions.effective(remembered, answers, "alpha")
+        self.assertEqual((eff["restyle"], eff["provenance"]), (None, None))
+        self.assertEqual(decisions.merge(remembered, answers, today="T", placements={}, evidence={}), {})
+        both = dict(answers, restyle="accept")
+        self.assertEqual(decisions.effective(remembered, both, "alpha")["restyle"], "accepted")
+        self.assertEqual(decisions.merge(remembered, both, today="T", placements={}, evidence={}),
+                         {"style": {"restyle": "accepted", "date": "T"}})
+        self.assertEqual(decisions.validate_answers(answers, CTX),
+                         ["forget restyle: nothing remembered under this name",
+                          "forget provenance: nothing remembered under this name"])
+        self.assertEqual(decisions.validate_answers({"forget": [{"decision": "colour"}]}, CTX),
+                         ["forget colour: decision must be restyle or provenance"])
+
 if __name__ == "__main__":
     unittest.main()

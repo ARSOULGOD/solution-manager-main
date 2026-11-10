@@ -211,5 +211,79 @@ class BuildPackageTest(unittest.TestCase):
             "store": [{"key": "demo.alpha.host", "as": "second"}]}).info)
 
 
+    # ---- final review fix wave
+    def test_a_field_without_ui_order_is_mixed_and_offers_the_restyle(self):  # final review 2
+        pkg = json.loads(helpers.PACKAGE.read_text(encoding="utf-8"))
+        del pkg["components"][1]["fields"][1]["ui"]["order"]   # server.address
+        path = temp_file(json.dumps(pkg))
+        run = build_demo("alpha", package=path)
+        self.assertEqual(run.styles["server"][0], "mixed")
+        self.assertIn("restyle", run.open)
+        self.assertEqual(fields_by_key(build_demo("alpha", package=path, answers={"restyle": "accept"}).pkg)[
+            "server.address"]["ui"]["order"], 1)
+        self.assertNotIn("order", fields_by_key(build_demo("alpha", package=path, answers={"restyle": "refuse"}).pkg)[
+            "server.address"]["ui"])
+
+    def test_a_field_without_ui_order_keeps_none_when_its_ui_is_rebuilt(self):  # final review 2
+        pkg = json.loads(helpers.PACKAGE.read_text(encoding="utf-8"))
+        del pkg["components"][0]["fields"][0]["ui"]["order"]   # demo.alpha.host
+        work = empty_dir()
+        profile = work / "profile.yaml"
+        profile.write_text(PROFILE.read_text(encoding="utf-8").replace("preserve_reviewed_ui: true",
+                                                                         "preserve_reviewed_ui: false"), encoding="utf-8")
+        run = helpers.yaml_to_package.build([
+            "--profile", str(profile), "--role", "alpha", "--yaml", str(helpers.ALPHA), "--target-versions", "1,2",
+            "--today", "2026-11-10", "--samples", str(helpers.SAMPLES), "--package", str(temp_file(json.dumps(pkg))),
+            "--answers", str(temp_file("store: [{key: demo.alpha.host, as: second}]\n"))])
+        self.assertIn("demo.alpha.host", [p["key"] for p in run.placed])
+        ui = fields_by_key(run.pkg)["demo.alpha.host"]["ui"]
+        self.assertNotIn("order", ui)
+        self.assertEqual([e for e in run.validation["errors"] if "order" in e], [])
+
+    def test_secret_flag_on_a_non_secret_type_withholds_its_default(self):  # final review 6 (I6)
+        pkg = json.loads(helpers.PACKAGE.read_text(encoding="utf-8"))
+        for f in pkg["components"][0]["fields"]:   # alpha-core: host, mode, legacy
+            f["secret"] = True
+            if f["key"] == "demo.alpha.legacy":
+                f["default"] = "legacyvalue1"
+        answers = {"store": [{"key": "demo.alpha.host", "as": "second"}, {"key": "demo.alpha.mode", "as": "add-option"}],
+                   "amend": [{"key": "demo.alpha.host", "set": {"ui.label": "Host"}}]}
+        run = build_demo("alpha", package=temp_file(json.dumps(pkg)), answers=answers)
+        f = fields_by_key(run.pkg)
+        for key in ("demo.alpha.host", "demo.alpha.mode", "demo.alpha.legacy"):
+            self.assertEqual((f[key].get("secret"), f[key].get("default")), (True, None), key)
+        text = json.dumps(run.pkg) + json.dumps(run.rows) + " ".join(run.info + run.notes)
+        for value in ("legacyvalue1", "first.example.invalid", "second.example.invalid", "old.example.invalid"):
+            self.assertNotIn(value, text)
+        self.assertIn("secret default withheld: alpha-core/demo.alpha.legacy", run.notes)
+        self.assertEqual({r["default_display"] for r in run.rows if r["field"] == "demo.alpha.host"}, {"withheld (I6)"})
+        ctx = run.answer_context()
+        self.assertIn(("alpha-core", "demo.alpha.host"), ctx["secrets"])
+
+    def test_forgetting_the_restyle_asks_it_again(self):  # final review 4, Ruling 36
+        remembered = {"style": {"restyle": "refused", "date": "2026-01-01"}}
+        self.assertNotIn("restyle", build_demo("alpha", remembered=remembered).open)
+        self.assertIn("restyle", build_demo("alpha", remembered=remembered,
+                                            answers={"forget": [{"decision": "restyle"}]}).open)
+        prov = {"provenance": {"choice": "keep", "date": "2026-01-01"}}
+        self.assertNotIn("provenance", build_demo("alpha", remembered=prov).open)
+        self.assertIn("provenance", build_demo("alpha", remembered=prov,
+                                               answers={"forget": [{"decision": "provenance"}]}).open)
+
+    def test_remembered_package_decisions_are_shown(self):  # final review 8
+        remembered = {"style": {"restyle": "accepted", "date": "2026-01-01"},
+                      "provenance": {"choice": "keep", "date": "2026-01-02"}}
+        run = build_demo("alpha", remembered=remembered)
+        self.assertIn("restyle: accepted (remembered 2026-01-01)", run.info)
+        self.assertIn("signature: keep (remembered 2026-01-02)", run.info)
+        answered = build_demo("alpha", remembered=remembered, answers={"restyle": "refuse", "provenance": "keep"})
+        self.assertFalse([i for i in answered.info if "(remembered" in i], answered.info)
+
+    def test_restyle_question_says_reviewed_rows_reset(self):  # final review 9
+        q = build_demo("alpha").open["restyle"]
+        after = build_demo("alpha", answers={"restyle": "accept"}).pkg["authoring"]["reviewedRows"]
+        self.assertEqual(q["context"]["reviewedRows"], {"package": 6, "accepted": after})
+        self.assertIn(f"authoring.reviewedRows goes from 6 to {after}", q["text"])
+
 if __name__ == "__main__":
     unittest.main()

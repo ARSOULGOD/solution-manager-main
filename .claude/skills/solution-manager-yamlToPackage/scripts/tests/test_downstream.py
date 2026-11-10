@@ -23,10 +23,10 @@ def one_secret_package(flag):
             "components": [{"type": "c", "configPath": "", "version": [1], "fields": [field]}]}
 
 
-def roundtrip(out, report=None, name="rt.md"):
+def roundtrip(out, report=None, name="rt.md", yaml_path=ALPHA):
     done = subprocess.run([sys.executable, str(RENDER), "roundtrip", "--package", str(out / "package.json"),
                            "--profile", str(out / "profile.yaml"), "--role", "alpha", "--version", "2",
-                           "--yaml", str(ALPHA), "--report", str(report or out / "report.json"),
+                           "--yaml", str(yaml_path), "--report", str(report or out / "report.json"),
                            "--out", str(out / name)], capture_output=True)
     return done.returncode, (out / name).read_text()
 
@@ -75,6 +75,17 @@ class DownstreamTests(unittest.TestCase):
         self.assertEqual(len(warn(one_secret_package(flag=False))), 1)
         self.assertEqual(warn(one_secret_package(flag=True)), [])
 
+
+    def test_roundtrip_keeps_a_decimal_stored_as_text(self):  # final review 10
+        yml = empty_dir() / "alpha.yml"
+        yml.write_text(ALPHA.read_text(encoding="utf-8").replace("ratio: 0.5", "ratio: 1.10"), encoding="utf-8")
+        out = empty_dir()
+        self.assertEqual(run_cli("apply", "alpha", out, answers=ANSWERS_FILE, yaml_path=yml), 0)
+        self.assertEqual(json.loads((out / "package.json").read_text())["components"][0]["fields"][0]["key"],
+                         "demo.alpha.host")
+        code, md = roundtrip(out, yaml_path=yml)
+        self.assertEqual(code, 0, md)
+        self.assertIn("`demo.alpha.ratio`: stored by you as string", md)
 
 if __name__ == "__main__":
     unittest.main()

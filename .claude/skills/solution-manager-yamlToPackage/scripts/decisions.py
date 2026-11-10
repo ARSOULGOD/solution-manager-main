@@ -20,6 +20,7 @@ SHARED_KINDS = {"shared-new", "role-exclusive-shared"}
 SCOPES = ("all-roles", "this-role")
 CARDINALITIES = {"exactly-one", "one-of-many", "zero-or-more"}
 KEYED = ("removed", "placed", "stored")
+FORGETTABLE = {"restyle": "style", "provenance": "provenance"}   # forget {decision: <name>}: the block entry it drops
 ORDER = ("removed", "placed", "stored", "suggestions", "amendments", "style", "provenance")
 
 
@@ -47,17 +48,21 @@ def read_block(text):
 
 
 def write_block(text, decisions):
-    block = (BEGIN + "\n"
-             + yaml.safe_dump({"decisions": decisions}, sort_keys=False, allow_unicode=True, width=110)
-             + END + "\n")
+    """text with its decisions block replaced (or appended), in the text's own line ending: everything outside
+    the block stays byte for byte."""
+    nl = "\r\n" if "\r\n" in text else "\n"
+    body = yaml.safe_dump({"decisions": decisions}, sort_keys=False, allow_unicode=True, width=110)
+    block = BEGIN + nl + body.replace("\n", nl) + END + nl
     found = _locate(text)
     if found is not None:
         begin, end = found
         after = end + len(END)
-        if text[after:after + 1] == "\n":
-            after += 1
+        for ending in ("\r\n", "\n"):
+            if text.startswith(ending, after):
+                after += len(ending)
+                break
         return text[:begin] + block + text[after:]
-    sep = "" if (not text or text.endswith("\n")) else "\n"
+    sep = "" if (not text or text.endswith("\n")) else nl
     return text + sep + block
 
 
@@ -85,6 +90,8 @@ def _entries(answers, section):
 def _name(entry):
     if entry.get("key") is not None:
         return str(entry["key"])
+    if entry.get("component") is None and "decision" in entry:
+        return str(entry["decision"])
     return "%s/%s" % (entry.get("component"), entry.get("field"))
 
 
@@ -99,6 +106,15 @@ def _remembered_keys(remembered):
 
 
 LIST_SECTIONS = ("remove", "place", "store", "suggestions", "amend", "forget")
+# the keys an entry of each section may carry; any other key is a typo the engine would silently ignore
+ENTRY_KEYS = {
+    "remove": ("key", "component", "field", "reason"),
+    "place": ("key", "component", "scope", "new"),
+    "store": ("key", "as"),
+    "suggestions": ("key", "attribute", "decision"),
+    "amend": ("key", "component", "field", "set", "reason"),
+    "forget": ("key", "component", "field", "attribute", "decision"),
+}
 
 
 def _shape_errors(answers):
@@ -113,11 +129,47 @@ def _shape_errors(answers):
         for n, item in enumerate(value):
             if not isinstance(item, dict):
                 errors.append("%s item %d: not a mapping" % (section, n))
+                continue
+            unknown = [str(k) for k in item if k not in ENTRY_KEYS[section]]
+            if unknown:
+                errors.append("%s %s: unknown key(s) %s (allowed: %s)"
+                              % (section, _name(item), ", ".join(unknown), ", ".join(ENTRY_KEYS[section])))
+    return errors
+
+
+def _hashable(ident):
+    return tuple(repr(x) for x in ident)
+
+
+def _duplicate_errors(answers, ctx):
+    """A second entry for one target (Ruling 35): merge would keep only one of them, so it is refused."""
+    fields = ctx.get("fields", {})
+
+    def field_of(e):   # a key resolves to the field it is placed as, so key and component+field entries meet
+        if e.get("key") is not None and e["key"] in fields:
+            return ("cf",) + tuple(fields[e["key"]])
+        return _ident(e)
+    rules = (
+        ("remove", _ident, "a second remove entry for the same target; give one"),
+        ("place", lambda e: ("key", e.get("key")), "a second place entry for the same key; give one"),
+        ("suggestions", lambda e: field_of(e) + (e.get("attribute"),),
+         None),
+        ("amend", field_of, "a second amend entry for the same field; put all of one field's amendments in one `set`"),
+    )
+    errors = []
+    for section, ident, text in rules:
+        seen = set()
+        for e in _entries(answers, section):
+            i = _hashable(ident(e))
+            if i in seen:
+                errors.append("%s %s: %s" % (section, _name(e), text or "a second entry for its %s suggestion; give "
+                                             "one decision" % e.get("attribute")))
+            seen.add(i)
     return errors
 
 
 def validate_answers(answers, ctx):
-    errors = _shape_errors(answers)
+    errors = _shape_errors(answers) + _duplicate_errors(answers, ctx)
     open_items = ctx.get("open", {})
     remembered = ctx.get("remembered", {})
 
@@ -223,7 +275,15 @@ def validate_answers(answers, ctx):
             errors.append("provenance provenance: must be keep or dev-mode")
 
     for e in _entries(answers, "forget"):
-        if e.get("key") is not None:
+        if "decision" in e:
+            if e["decision"] not in FORGETTABLE:
+                errors.append("forget %s: decision must be restyle or provenance" % _name(e))
+                continue
+            if e.get("key") is not None or e.get("component") is not None:
+                errors.append("forget %s: a decision entry names no key or component" % _name(e))
+                continue
+            hit = bool(remembered.get(FORGETTABLE[e["decision"]]))
+        elif e.get("key") is not None:
             hit = e["key"] in _remembered_keys(remembered)
         else:
             hit = any((s.get("component"), s.get("field"), s.get("attribute"))
@@ -252,7 +312,7 @@ def _survivors(remembered, answers, new_role):
     replaced_keys = {e["key"] for s in ("remove", "place", "store") for e in _entries(answers, s) if e.get("key") is not None}
     replaced_keys |= {e["key"] for e in _entries(answers, "forget") if e.get("key") is not None}
     replaced_cf = {_ident(e) for e in _entries(answers, "remove") + _entries(answers, "amend") if e.get("key") is None}
-    forgotten_sug = {_sug_ident(e) for e in _entries(answers, "forget") if e.get("key") is None}
+    forgotten_sug = {_sug_ident(e) for e in _entries(answers, "forget") if e.get("key") is None and "decision" not in e}
     amend_idents = {_ident(e) for e in _entries(answers, "amend")}
     out = {}
     for section in KEYED:
@@ -268,6 +328,11 @@ def _survivors(remembered, answers, new_role):
 
 def _applies(entry, role):
     return entry.get("role") is None or entry.get("role") == role
+
+
+def _forgotten(answers):
+    """The block sections a `forget: [{decision: restyle | provenance}]` entry drops."""
+    return {FORGETTABLE[e["decision"]] for e in _entries(answers, "forget") if e.get("decision") in FORGETTABLE}
 
 
 def _restyle_word(value):
@@ -319,8 +384,9 @@ def effective(remembered, answers, role, *, fields=None):
         _add(stored, e["key"], e.get("as"))
     amendments += [copy.deepcopy(e) for e in _entries(answers, "amend")]
 
-    style = (remembered.get("style") or {}).get("restyle")
-    prov = (remembered.get("provenance") or {}).get("choice")
+    forgotten = _forgotten(answers)
+    style = None if "style" in forgotten else (remembered.get("style") or {}).get("restyle")
+    prov = None if "provenance" in forgotten else (remembered.get("provenance") or {}).get("choice")
     if "restyle" in answers:
         style = _restyle_word(answers["restyle"])
     if "provenance" in answers:
@@ -379,10 +445,9 @@ def merge(remembered, answers, *, today, placements, evidence, role=None):
         amends.append(entry)
 
     out = {"removed": removed, "placed": placed, "stored": stored, "suggestions": sugs, "amendments": amends}
-    if remembered.get("style"):
-        out["style"] = copy.deepcopy(remembered["style"])
-    if remembered.get("provenance"):
-        out["provenance"] = copy.deepcopy(remembered["provenance"])
+    for section in ("style", "provenance"):
+        if remembered.get(section) and section not in _forgotten(answers):
+            out[section] = copy.deepcopy(remembered[section])
     if "restyle" in answers:
         out["style"] = {"restyle": _restyle_word(answers["restyle"]), "date": today}
     if "provenance" in answers:

@@ -76,5 +76,15 @@ class StyleTests(unittest.TestCase):
         self.assertTrue(all(f.get("secret") for f in comp["fields"] if f["type"] == "secret"))
 
 
+    def test_a_missing_order_is_mixed_and_tolerated(self):  # final review 2
+        fs = fields(("A", 0), ("A", 1), ("B", 0))
+        del fs[1]["ui"]["order"]
+        self.assertEqual(style.detect_order_style(fs), "mixed")
+        self.assertEqual(style.order_for_new(fs, "A", "mixed"), 1)
+        self.assertEqual(style.order_for_new(fs, "A", "running"), 1)
+        self.assertEqual(style.order_for_new(fs, "A", "section-index"), 0)
+        self.assertEqual(style.restyle({"fields": fs})["order_changed"], 1)
+        self.assertEqual([f["ui"]["order"] for f in fs], [0, 1, 0])
+
 if __name__ == "__main__":
     unittest.main()
