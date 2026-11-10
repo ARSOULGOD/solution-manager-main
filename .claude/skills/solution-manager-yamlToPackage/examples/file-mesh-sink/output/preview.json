@@ -1,0 +1,2231 @@
+{
+  "solution": "file-mesh",
+  "role": "sink",
+  "profile": "<scratch>/e2e/source/profile.yaml",
+  "yaml": ".claude/skills/solution-manager-yamlToPackage/examples/file-mesh-sink/input/application-sink-file-v2.yml",
+  "package": "<scratch>/e2e/source/package.json",
+  "target_versions": [
+    1,
+    2,
+    3
+  ],
+  "packageVersion": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "appliesTo": ">=1.0 <2.0",
+  "roles": {
+    "all": [
+      "source",
+      "sink"
+    ],
+    "this_role": [
+      {
+        "type": "file-sink",
+        "cardinality": "one-of-many"
+      }
+    ],
+    "shared": [
+      "cache",
+      "server",
+      "spring-boot-admin",
+      "spring-cloud-stream",
+      "solace",
+      "application",
+      "logging",
+      "management"
+    ]
+  },
+  "samples": {
+    "dir": "frontend/contracts/packages",
+    "packages": 8,
+    "fields": 103,
+    "notes": []
+  },
+  "counts": {
+    "keys": 102,
+    "placed": 102,
+    "removed": 0,
+    "open": 0
+  },
+  "components": [
+    {
+      "type": "file-sink",
+      "role": "sink",
+      "shared": false,
+      "rows": [
+        {
+          "component": "file-sink",
+          "key": "spring.cloud.stream.bindings.input-0.destination",
+          "line": 29,
+          "field": "spring.cloud.stream.bindings.input-0.destination",
+          "type": "string",
+          "default_display": "\"SOURCE/DEFAULT/Alice/FF/NWFILE/SEP15/1\"",
+          "section": "Input Binding",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": [
+            "new"
+          ]
+        },
+        {
+          "component": "file-sink",
+          "key": "spring.cloud.stream.bindings.input-0.binder",
+          "line": 30,
+          "field": "spring.cloud.stream.bindings.input-0.binder",
+          "type": "enum",
+          "default_display": "\"solace\"",
+          "section": "Input Binding",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": [
+            "new"
+          ]
+        },
+        {
+          "component": "file-sink",
+          "key": "spring.cloud.stream.bindings.output-0.destination",
+          "line": 32,
+          "field": "spring.cloud.stream.bindings.output-0.destination",
+          "type": "string",
+          "default_display": "\"/app/external/file-output\"",
+          "section": "Output Binding",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": [
+            "new"
+          ]
+        },
+        {
+          "component": "file-sink",
+          "key": "spring.cloud.stream.bindings.output-0.binder",
+          "line": 33,
+          "field": "spring.cloud.stream.bindings.output-0.binder",
+          "type": "enum",
+          "default_display": "\"file\"",
+          "section": "Output Binding",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": [
+            "new"
+          ]
+        },
+        {
+          "component": "file-sink",
+          "key": "spring.cloud.stream.solace.default.consumer.queue-name-expression",
+          "line": 37,
+          "field": "spring.cloud.stream.solace.default.consumer.queue-name-expression",
+          "type": "string",
+          "default_display": "\"'fm-file-sink-queue'\"",
+          "section": "Solace Consumer",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": [
+            "new"
+          ]
+        },
+        {
+          "component": "file-sink",
+          "key": "spring.cloud.stream.solace.default.consumer.provision-durable-queue",
+          "line": 38,
+          "field": "spring.cloud.stream.solace.default.consumer.provision-durable-queue",
+          "type": "bool",
+          "default_display": "false",
+          "section": "Solace Consumer",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": [
+            "new"
+          ]
+        },
+        {
+          "component": "file-sink",
+          "key": "spring.cloud.stream.solace.default.consumer.add-destination-as-subscription-to-queue",
+          "line": 39,
+          "field": "spring.cloud.stream.solace.default.consumer.add-destination-as-subscription-to-queue",
+          "type": "bool",
+          "default_display": "false",
+          "section": "Solace Consumer",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": [
+            "new"
+          ]
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.general.adapter_id",
+          "line": 43,
+          "field": "file.sink.general.adapter_id",
+          "type": "string",
+          "default_display": "\"fm-file-sink\"",
+          "section": "General",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": [
+            "was \"SINK_CONN_ID1\""
+          ]
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.general.auto_create_directory",
+          "line": 44,
+          "field": "file.sink.general.auto_create_directory",
+          "type": "int",
+          "default_display": "1",
+          "section": "General",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.general.dest_file_name_type",
+          "line": 45,
+          "field": "file.sink.general.dest_file_name_type",
+          "type": "int",
+          "default_display": "3",
+          "section": "General",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.general.storeBackupStateRemotely",
+          "line": 46,
+          "field": "file.sink.general.storeBackupStateRemotely",
+          "type": "bool",
+          "default_display": "false",
+          "section": "General",
+          "order": 3,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.general.state_backup_path",
+          "line": 47,
+          "field": "file.sink.general.state_backup_path",
+          "type": "string",
+          "default_display": "\"./backup_state.cfg\"",
+          "section": "General",
+          "order": 4,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.general.clear_state_on_eod",
+          "line": 48,
+          "field": "file.sink.general.clear_state_on_eod",
+          "type": "int",
+          "default_display": "0",
+          "section": "General",
+          "order": 5,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.general.eod_time_sec",
+          "line": 49,
+          "field": "file.sink.general.eod_time_sec",
+          "type": "int",
+          "default_display": "-1",
+          "section": "General",
+          "order": 6,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.general.alwaysVerifyData",
+          "line": 50,
+          "field": "file.sink.general.alwaysVerifyData",
+          "type": "bool",
+          "default_display": "true",
+          "section": "General",
+          "order": 7,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.general.alwaysMatchCompleteEvent",
+          "line": 51,
+          "field": "file.sink.general.alwaysMatchCompleteEvent",
+          "type": "bool",
+          "default_display": "true",
+          "section": "General",
+          "order": 8,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.gcs.enabled",
+          "line": 53,
+          "field": "file.sink.gcs.enabled",
+          "type": "int",
+          "default_display": "0",
+          "section": "GCS",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.gcs.projectId",
+          "line": 54,
+          "field": "file.sink.gcs.projectId",
+          "type": "string",
+          "default_display": "\"GCS_PROJECT_ID\"",
+          "section": "GCS",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.gcs.credentialsFilePath",
+          "line": 55,
+          "field": "file.sink.gcs.credentialsFilePath",
+          "type": "string",
+          "default_display": "\"/home/centos/pubsubplus-connector-file-2.2.0/configs/gcs/creds.json\"",
+          "section": "GCS",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.gcs.enableBulkComposeStrategy",
+          "line": 56,
+          "field": "file.sink.gcs.enableBulkComposeStrategy",
+          "type": "bool",
+          "default_display": "true",
+          "section": "GCS",
+          "order": 3,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.gcs.retrySettings.maxAttempts",
+          "line": 58,
+          "field": "file.sink.gcs.retrySettings.maxAttempts",
+          "type": "int",
+          "default_display": "5",
+          "section": "GCS Retry",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.gcs.retrySettings.retryDelayMultiplier",
+          "line": 59,
+          "field": "file.sink.gcs.retrySettings.retryDelayMultiplier",
+          "type": "int",
+          "default_display": "3",
+          "section": "GCS Retry",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.gcs.retrySettings.maxDurationMinutes",
+          "line": 60,
+          "field": "file.sink.gcs.retrySettings.maxDurationMinutes",
+          "type": "int",
+          "default_display": "2",
+          "section": "GCS Retry",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.sftp_settings.enabled",
+          "line": 62,
+          "field": "file.sink.sftp_settings.enabled",
+          "type": "int",
+          "default_display": "0",
+          "section": "SFTP",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.sftp_settings.ip",
+          "line": 63,
+          "field": "file.sink.sftp_settings.ip",
+          "type": "string",
+          "default_display": "\"SFTP_HOST_ADDRESS\"",
+          "section": "SFTP",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.sftp_settings.port",
+          "line": 64,
+          "field": "file.sink.sftp_settings.port",
+          "type": "int",
+          "default_display": "22",
+          "section": "SFTP",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.sftp_settings.user",
+          "line": 65,
+          "field": "file.sink.sftp_settings.user",
+          "type": "string",
+          "default_display": "\"SFTP_USER\"",
+          "section": "SFTP",
+          "order": 3,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.sftp_settings.password",
+          "line": 66,
+          "field": "file.sink.sftp_settings.password",
+          "type": "secret",
+          "default_display": "withheld (I6)",
+          "section": "SFTP",
+          "order": 4,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.sftp_settings.strictHostKeyChecking",
+          "line": 67,
+          "field": "file.sink.sftp_settings.strictHostKeyChecking",
+          "type": "enum",
+          "default_display": "\"no\"",
+          "section": "SFTP",
+          "order": 5,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.ftp_settings.enabled",
+          "line": 69,
+          "field": "file.sink.ftp_settings.enabled",
+          "type": "int",
+          "default_display": "0",
+          "section": "FTP",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.ftp_settings.ip",
+          "line": 70,
+          "field": "file.sink.ftp_settings.ip",
+          "type": "string",
+          "default_display": "\"FTP_HOST_ADDRESS\"",
+          "section": "FTP",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.ftp_settings.port",
+          "line": 71,
+          "field": "file.sink.ftp_settings.port",
+          "type": "int",
+          "default_display": "21",
+          "section": "FTP",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.ftp_settings.user",
+          "line": 72,
+          "field": "file.sink.ftp_settings.user",
+          "type": "string",
+          "default_display": "\"FTP_USER\"",
+          "section": "FTP",
+          "order": 3,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.ftp_settings.password",
+          "line": 73,
+          "field": "file.sink.ftp_settings.password",
+          "type": "secret",
+          "default_display": "withheld (I6)",
+          "section": "FTP",
+          "order": 4,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.ftp_settings.secured",
+          "line": 74,
+          "field": "file.sink.ftp_settings.secured",
+          "type": "bool",
+          "default_display": "true",
+          "section": "FTP",
+          "order": 5,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.file_owner_permissions.copy_source_file_mode_permissions",
+          "line": 76,
+          "field": "file.sink.file_owner_permissions.copy_source_file_mode_permissions",
+          "type": "int",
+          "default_display": "0",
+          "section": "File Owner Permissions",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.file_owner_permissions.copy_source_file_owner",
+          "line": 77,
+          "field": "file.sink.file_owner_permissions.copy_source_file_owner",
+          "type": "int",
+          "default_display": "0",
+          "section": "File Owner Permissions",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.file_owner_permissions.override_username",
+          "line": 78,
+          "field": "file.sink.file_owner_permissions.override_username",
+          "type": "string",
+          "default_display": "\"centos\"",
+          "section": "File Owner Permissions",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.file_owner_permissions.override_group",
+          "line": 79,
+          "field": "file.sink.file_owner_permissions.override_group",
+          "type": "string",
+          "default_display": "\"centos\"",
+          "section": "File Owner Permissions",
+          "order": 3,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.command_center.enabled",
+          "line": 81,
+          "field": "file.sink.command_center.enabled",
+          "type": "int",
+          "default_display": "0",
+          "section": "Command Center",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.command_center.useOutputDestinationSolaceCredentials",
+          "line": 82,
+          "field": "file.sink.command_center.useOutputDestinationSolaceCredentials",
+          "type": "bool",
+          "default_display": "true",
+          "section": "Command Center",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.command_center.solace_base_publish_topic",
+          "line": 83,
+          "field": "file.sink.command_center.solace_base_publish_topic",
+          "type": "string",
+          "default_display": "\"solace/dd/STORE-MANGEMENT/fa-assembler/cc/se/fa/assembler/Frankfurt\"",
+          "section": "Command Center",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.command_center.solace_messaging_mode",
+          "line": 84,
+          "field": "file.sink.command_center.solace_messaging_mode",
+          "type": "enum",
+          "default_display": "\"PERSISTENT\"",
+          "section": "Command Center",
+          "order": 3,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.command_center.heartbeat_enabled",
+          "line": 85,
+          "field": "file.sink.command_center.heartbeat_enabled",
+          "type": "int",
+          "default_display": "0",
+          "section": "Command Center",
+          "order": 4,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.command_center.heartbeat_interval",
+          "line": 86,
+          "field": "file.sink.command_center.heartbeat_interval",
+          "type": "int",
+          "default_display": "3",
+          "section": "Command Center",
+          "order": 5,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.command_center.solace_base_publish_topic_heartbeat",
+          "line": 87,
+          "field": "file.sink.command_center.solace_base_publish_topic_heartbeat",
+          "type": "string",
+          "default_display": "\"solace/dd/STORE-MANGEMENT/fa-assembler/cc/se/fa/assembler/Frankfurt\"",
+          "section": "Command Center",
+          "order": 6,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.command_center.events.fileStart",
+          "line": 89,
+          "field": "file.sink.command_center.events.fileStart",
+          "type": "bool",
+          "default_display": "true",
+          "section": "Command Center Events",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-sink",
+          "key": "file.sink.command_center.events.fileComplete",
+          "line": 90,
+          "field": "file.sink.command_center.events.fileComplete",
+          "type": "bool",
+          "default_display": "true",
+          "section": "Command Center Events",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "sink",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        }
+      ]
+    },
+    {
+      "type": "server",
+      "role": "none",
+      "shared": true,
+      "rows": [
+        {
+          "component": "server",
+          "key": "server.port",
+          "line": 2,
+          "field": "server.port",
+          "type": "int",
+          "default_display": "8094",
+          "section": "Server",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": [
+            "YAML says 8093"
+          ]
+        },
+        {
+          "component": "server",
+          "key": "server.ssl.enabled",
+          "line": 4,
+          "field": "server.ssl.enabled",
+          "type": "bool",
+          "default_display": "true",
+          "section": "SSL",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": [
+            "YAML says false"
+          ]
+        },
+        {
+          "component": "server",
+          "key": "server.ssl.key-store",
+          "line": 5,
+          "field": "server.ssl.key-store",
+          "type": "string",
+          "default_display": "\"file:/home/banala/Music/entityFolders/download_binaries/SOURCE_NOSUBORG_Alice_FF_NWFILE_T3/keystore.p12\"",
+          "section": "SSL",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "server",
+          "key": "server.ssl.key-store-password",
+          "line": 6,
+          "field": "server.ssl.key-store-password",
+          "type": "secret",
+          "default_display": "withheld (I6)",
+          "section": "SSL",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "server",
+          "key": "server.ssl.key-store-type",
+          "line": 7,
+          "field": "server.ssl.key-store-type",
+          "type": "string",
+          "default_display": "\"PKCS12\"",
+          "section": "SSL",
+          "order": 3,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "server",
+          "key": "server.ssl.key-alias",
+          "line": 8,
+          "field": "server.ssl.key-alias",
+          "type": "string",
+          "default_display": "\"myalias\"",
+          "section": "SSL",
+          "order": 4,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        }
+      ]
+    },
+    {
+      "type": "spring-boot-admin",
+      "role": "none",
+      "shared": true,
+      "rows": [
+        {
+          "component": "spring-boot-admin",
+          "key": "spring.boot.admin.client.instance.prefer-ip",
+          "line": 16,
+          "field": "spring.boot.admin.client.instance.prefer-ip",
+          "type": "bool",
+          "default_display": "true",
+          "section": "Instance",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "spring-boot-admin",
+          "key": "spring.boot.admin.client.instance.management-url",
+          "line": 17,
+          "field": "spring.boot.admin.client.instance.management-url",
+          "type": "string",
+          "default_display": "\"http://localIP:${server.port}/actuator\"",
+          "section": "Instance",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "spring-boot-admin",
+          "key": "spring.boot.admin.client.instance.service-url",
+          "line": 18,
+          "field": "spring.boot.admin.client.instance.service-url",
+          "type": "string",
+          "default_display": "\"http://localIP:${server.port}/\"",
+          "section": "Instance",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "spring-boot-admin",
+          "key": "spring.boot.admin.client.enabled",
+          "line": 19,
+          "field": "spring.boot.admin.client.enabled",
+          "type": "bool",
+          "default_display": "true",
+          "section": "Client",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "spring-boot-admin",
+          "key": "spring.boot.admin.client.url",
+          "line": 20,
+          "field": "spring.boot.admin.client.url",
+          "type": "string",
+          "default_display": "\"http://50.17.36.43:9500/admin\"",
+          "section": "Client",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "spring-boot-admin",
+          "key": "spring.boot.admin.client.auto-registration",
+          "line": 21,
+          "field": "spring.boot.admin.client.auto-registration",
+          "type": "bool",
+          "default_display": "true",
+          "section": "Client",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "spring-boot-admin",
+          "key": "spring.boot.admin.client.prefer-ip",
+          "line": 22,
+          "field": "spring.boot.admin.client.prefer-ip",
+          "type": "bool",
+          "default_display": "true",
+          "section": "Client",
+          "order": 3,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "spring-boot-admin",
+          "key": "spring.boot.admin.client.username",
+          "line": 23,
+          "field": "spring.boot.admin.client.username",
+          "type": "string",
+          "default_display": "\"user\"",
+          "section": "Authentication",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "spring-boot-admin",
+          "key": "spring.boot.admin.client.password",
+          "line": 24,
+          "field": "spring.boot.admin.client.password",
+          "type": "secret",
+          "default_display": "withheld (I6)",
+          "section": "Authentication",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        }
+      ]
+    },
+    {
+      "type": "solace",
+      "role": "none",
+      "shared": true,
+      "rows": [
+        {
+          "component": "solace",
+          "key": "solace.connector.security.enabled",
+          "line": 94,
+          "field": "solace.connector.security.enabled",
+          "type": "bool",
+          "default_display": "false",
+          "section": "Security",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "solace",
+          "key": "solace.connector.error.handle",
+          "line": 96,
+          "field": "solace.connector.error.handle",
+          "type": "string",
+          "default_display": "\"stop_all\"",
+          "section": "Error",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "solace",
+          "key": "solace.connector.workflows.0.enabled",
+          "line": 99,
+          "field": "solace.connector.workflows.0.enabled",
+          "type": "bool",
+          "default_display": "true",
+          "section": "Workflow",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "solace",
+          "key": "solace.connector.workflows.0.acknowledgment.publish-async",
+          "line": 101,
+          "field": "solace.connector.workflows.0.acknowledgment.publish-async",
+          "type": "bool",
+          "default_display": "true",
+          "section": "Workflow",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "solace",
+          "key": "solace.connector.management.leader-election.mode",
+          "line": 104,
+          "field": "solace.connector.management.leader-election.mode",
+          "type": "enum",
+          "default_display": "\"standalone\"",
+          "section": "Leader Election",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": [
+            "YAML says \"active_standby\""
+          ]
+        },
+        {
+          "component": "solace",
+          "key": "solace.connector.management.leader-election.fail-over.max-attempts",
+          "line": 106,
+          "field": "solace.connector.management.leader-election.fail-over.max-attempts",
+          "type": "int",
+          "default_display": "3",
+          "section": "Leader Election",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "solace",
+          "key": "solace.connector.management.leader-election.fail-over.back-off-initial-interval",
+          "line": 107,
+          "field": "solace.connector.management.leader-election.fail-over.back-off-initial-interval",
+          "type": "int",
+          "default_display": "1000",
+          "section": "Leader Election",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "solace",
+          "key": "solace.connector.management.leader-election.fail-over.back-off-max-interval",
+          "line": 108,
+          "field": "solace.connector.management.leader-election.fail-over.back-off-max-interval",
+          "type": "int",
+          "default_display": "10000",
+          "section": "Leader Election",
+          "order": 3,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "solace",
+          "key": "solace.connector.management.leader-election.fail-over.back-off-multiplier",
+          "line": 109,
+          "field": "solace.connector.management.leader-election.fail-over.back-off-multiplier",
+          "type": "int",
+          "default_display": "2",
+          "section": "Leader Election",
+          "order": 4,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "solace",
+          "key": "solace.connector.management.queue",
+          "line": 110,
+          "field": "solace.connector.management.queue",
+          "type": "string",
+          "default_display": "\"\"",
+          "section": "Management",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": [
+            "YAML says \"fm-file-sink-management\""
+          ]
+        },
+        {
+          "component": "solace",
+          "key": "solace.connector.management.session.host",
+          "line": 112,
+          "field": "solace.connector.management.session.host",
+          "type": "string",
+          "default_display": "from connection",
+          "section": "Management Session",
+          "order": 1,
+          "shown": "up front",
+          "required": true,
+          "suggested": {
+            "required": true
+          },
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "notes": [
+            "YAML says \"tcp://host.docker.internal:55554\"",
+            "valueFrom"
+          ]
+        },
+        {
+          "component": "solace",
+          "key": "solace.connector.management.session.msg-vpn",
+          "line": 113,
+          "field": "solace.connector.management.session.msg-vpn",
+          "type": "string",
+          "default_display": "from connection",
+          "section": "Management Session",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "notes": [
+            "valueFrom"
+          ]
+        },
+        {
+          "component": "solace",
+          "key": "solace.connector.management.session.client-username",
+          "line": 114,
+          "field": "solace.connector.management.session.client-username",
+          "type": "string",
+          "default_display": "from connection",
+          "section": "Management Session",
+          "order": 3,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "notes": [
+            "valueFrom"
+          ]
+        },
+        {
+          "component": "solace",
+          "key": "solace.connector.management.session.client-password",
+          "line": 115,
+          "field": "solace.connector.management.session.client-password",
+          "type": "secret",
+          "default_display": "withheld (I6)",
+          "section": "Management Session",
+          "order": 4,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "notes": [
+            "valueFrom"
+          ]
+        },
+        {
+          "component": "solace",
+          "key": "solace.java.host",
+          "line": 117,
+          "field": "solace.java.host",
+          "type": "string",
+          "default_display": "from connection",
+          "section": "Java Client",
+          "order": 1,
+          "shown": "up front",
+          "required": true,
+          "suggested": {
+            "required": true
+          },
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "notes": [
+            "YAML says \"tcp://host.docker.internal:55554\"",
+            "valueFrom"
+          ]
+        },
+        {
+          "component": "solace",
+          "key": "solace.java.msg-vpn",
+          "line": 118,
+          "field": "solace.java.msg-vpn",
+          "type": "string",
+          "default_display": "from connection",
+          "section": "Java Client",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "notes": [
+            "valueFrom"
+          ]
+        },
+        {
+          "component": "solace",
+          "key": "solace.java.client-username",
+          "line": 119,
+          "field": "solace.java.client-username",
+          "type": "string",
+          "default_display": "from connection",
+          "section": "Java Client",
+          "order": 3,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "notes": [
+            "valueFrom"
+          ]
+        },
+        {
+          "component": "solace",
+          "key": "solace.java.client-password",
+          "line": 120,
+          "field": "solace.java.client-password",
+          "type": "secret",
+          "default_display": "withheld (I6)",
+          "section": "Java Client",
+          "order": 4,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "notes": [
+            "valueFrom"
+          ]
+        },
+        {
+          "component": "solace",
+          "key": "solace.java.connectRetries",
+          "line": 121,
+          "field": "solace.java.connectRetries",
+          "type": "int",
+          "default_display": "-1",
+          "section": "Java Client",
+          "order": 5,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "solace",
+          "key": "solace.java.reconnectRetries",
+          "line": 122,
+          "field": "solace.java.reconnectRetries",
+          "type": "int",
+          "default_display": "-1",
+          "section": "Java Client",
+          "order": 6,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "role": "none",
+      "shared": true,
+      "rows": [
+        {
+          "component": "application",
+          "key": "spring.application.name",
+          "line": 11,
+          "field": "spring.application.name",
+          "type": "string",
+          "default_display": "\"SOURCE_TEST_V1\"",
+          "section": "Application",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {
+            "required": false
+          },
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": [
+            "YAML says \"fm-file-sink\""
+          ]
+        }
+      ]
+    },
+    {
+      "type": "logging",
+      "role": "none",
+      "shared": true,
+      "rows": [
+        {
+          "component": "logging",
+          "key": "logging.level.root",
+          "line": 125,
+          "field": "logging.level.root",
+          "type": "string",
+          "default_display": "\"INFO\"",
+          "section": "Log Levels",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "logging",
+          "key": "logging.level.com.solace.spring.cloud.stream.binder",
+          "line": 126,
+          "field": "logging.level.com.solace.spring.cloud.stream.binder",
+          "type": "string",
+          "default_display": "\"INFO\"",
+          "section": "Log Levels",
+          "order": 3,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "logging",
+          "key": "logging.level.com.solacecoe.spring.cloud.stream.binders.file",
+          "line": 127,
+          "field": "logging.level.com.solacecoe.spring.cloud.stream.binders.file",
+          "type": "string",
+          "default_display": "\"TRACE\"",
+          "section": "Log Levels",
+          "order": 4,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "logging",
+          "key": "logging.file.name",
+          "line": 129,
+          "field": "logging.file.name",
+          "type": "string",
+          "default_display": "\"myapp.log\"",
+          "section": "File",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {
+            "required": false
+          },
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "logging",
+          "key": "logging.logback.rollingpolicy.file-name-pattern",
+          "line": 132,
+          "field": "logging.logback.rollingpolicy.file-name-pattern",
+          "type": "string",
+          "default_display": "\"${LOG_FILE}.%d{yyyy-MM-dd}.%i.gz\"",
+          "section": "Rolling Policy",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "logging",
+          "key": "logging.logback.rollingpolicy.max-file-size",
+          "line": 133,
+          "field": "logging.logback.rollingpolicy.max-file-size",
+          "type": "string",
+          "default_display": "\"100MB\"",
+          "section": "Rolling Policy",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "logging",
+          "key": "logging.logback.rollingpolicy.max-history",
+          "line": 134,
+          "field": "logging.logback.rollingpolicy.max-history",
+          "type": "int",
+          "default_display": "7",
+          "section": "Rolling Policy",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "logging",
+          "key": "logging.logback.rollingpolicy.total-size-cap",
+          "line": 135,
+          "field": "logging.logback.rollingpolicy.total-size-cap",
+          "type": "string",
+          "default_display": "\"1GB\"",
+          "section": "Rolling Policy",
+          "order": 3,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        }
+      ]
+    },
+    {
+      "type": "management",
+      "role": "none",
+      "shared": true,
+      "rows": [
+        {
+          "component": "management",
+          "key": "management.security.enabled",
+          "line": 138,
+          "field": "management.security.enabled",
+          "type": "bool",
+          "default_display": "false",
+          "section": "Security",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "management",
+          "key": "management.simple.metrics.export.enabled",
+          "line": 142,
+          "field": "management.simple.metrics.export.enabled",
+          "type": "bool",
+          "default_display": "true",
+          "section": "Metrics",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "management",
+          "key": "management.endpoints.web.exposure.include",
+          "line": 146,
+          "field": "management.endpoints.web.exposure.include",
+          "type": "string",
+          "default_display": "\"*\"",
+          "section": "Web Endpoints",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": [
+            "YAML says \"health,info,metrics\""
+          ]
+        },
+        {
+          "component": "management",
+          "key": "management.endpoints.web.cors.allowed-origins",
+          "line": 148,
+          "field": "management.endpoints.web.cors.allowed-origins",
+          "type": "string",
+          "default_display": "\"*\"",
+          "section": "CORS",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "management",
+          "key": "management.endpoints.web.cors.allowed-methods",
+          "line": 149,
+          "field": "management.endpoints.web.cors.allowed-methods",
+          "type": "string",
+          "default_display": "\"*\"",
+          "section": "CORS",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "management",
+          "key": "management.endpoints.web.cors.allowed-headers",
+          "line": 150,
+          "field": "management.endpoints.web.cors.allowed-headers",
+          "type": "string",
+          "default_display": "\"*\"",
+          "section": "CORS",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "management",
+          "key": "management.endpoint.logfile.external-file",
+          "line": 153,
+          "field": "management.endpoint.logfile.external-file",
+          "type": "string",
+          "default_display": "\"myapp.log\"",
+          "section": "Logfile",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "management",
+          "key": "management.endpoint.prometheus.enabled",
+          "line": 155,
+          "field": "management.endpoint.prometheus.enabled",
+          "type": "bool",
+          "default_display": "false",
+          "section": "Prometheus",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "management",
+          "key": "management.endpoint.health.show-details",
+          "line": 157,
+          "field": "management.endpoint.health.show-details",
+          "type": "string",
+          "default_display": "\"ALWAYS\"",
+          "section": "Health",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "management",
+          "key": "management.endpoint.health.status.order",
+          "line": 159,
+          "field": "management.endpoint.health.status.order",
+          "type": "string",
+          "default_display": "\"DOWN,OUT_OF_SERVICE,RECONNECTING,UP,UNKNOWN\"",
+          "section": "Health",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        }
+      ]
+    }
+  ],
+  "questions": [],
+  "removed": [],
+  "info": [
+    "shared default differs (package kept): server server.port: package 8094, YAML 8093",
+    "shared default differs (package kept): server server.ssl.enabled: package true, YAML false",
+    "shared default differs (package kept): application spring.application.name: package \"SOURCE_TEST_V1\", YAML \"fm-file-sink\"",
+    "shared default differs (package kept): solace solace.connector.management.leader-election.mode: package \"standalone\", YAML \"active_standby\"",
+    "shared default differs (package kept): solace solace.connector.management.queue: package \"\", YAML \"fm-file-sink-management\"",
+    "shared default differs (package kept): solace solace.connector.management.session.host: package \"tcp://localhost:55555\", YAML \"tcp://host.docker.internal:55554\"",
+    "shared default differs (package kept): solace solace.java.host: package \"tcp://localhost:55555\", YAML \"tcp://host.docker.internal:55554\"",
+    "shared default differs (package kept): management management.endpoints.web.exposure.include: package \"*\", YAML \"health,info,metrics\"",
+    "coerced: spring.boot.admin.client.instance.prefer-ip: string 'true' coerced to bool",
+    "coerced: spring.boot.admin.client.enabled: string 'true' coerced to bool",
+    "coerced: spring.boot.admin.client.auto-registration: string 'true' coerced to bool",
+    "coerced: spring.boot.admin.client.prefer-ip: string 'true' coerced to bool",
+    "coerced: management.endpoint.health.status.order: list ['DOWN', 'OUT_OF_SERVICE', 'RECONNECTING', 'UP', 'UNKNOWN'] joined with ',' into one string",
+    "in the package, not in this YAML (kept): logging/logging.level.com.solace.connector.jms",
+    "in the package, not in this YAML (kept): logging/logging.level.com.solace.connector.core",
+    "reviewed labels kept: 16",
+    "signature: keep (remembered 2026-11-10)",
+    "component cache preserved untouched (profile `preserve`)",
+    "defaults were taken from the YAML (profile defaults.role_components: yaml). This conflicts with docs/design/dynamic-ui/design.md section 7.3 (UI-D*, PROPOSED): defaults come from field initializers, never from a sample application.yml. Flagged, not resolved."
+  ],
+  "profile_changes": [],
+  "ready": true
+}

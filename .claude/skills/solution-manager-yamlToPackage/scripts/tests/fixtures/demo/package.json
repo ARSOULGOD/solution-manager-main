@@ -1,0 +1,136 @@
+{
+  "solution": "demo",
+  "packageVersion": [
+    1,
+    2
+  ],
+  "appliesTo": ">=1.0 <2.0",
+  "provenance": {
+    "author": "solace",
+    "signature": "test-signature"
+  },
+  "authoring": {
+    "reviewedRows": 6,
+    "totalRows": 6
+  },
+  "components": [
+    {
+      "type": "alpha-core",
+      "cardinality": "one-of-many",
+      "role": "alpha",
+      "configPath": "",
+      "version": [
+        1,
+        2
+      ],
+      "fields": [
+        {
+          "key": "demo.alpha.host",
+          "type": "string",
+          "default": "old.example.invalid",
+          "ui": {
+            "section": "Alpha",
+            "order": 5,
+            "label": "Alpha host",
+            "helperText": "Enter the value for “Alpha host” in the “Alpha” section."
+          },
+          "version": [
+            1,
+            2
+          ]
+        },
+        {
+          "key": "demo.alpha.mode",
+          "type": "enum",
+          "default": "fast",
+          "ui": {
+            "section": "Alpha",
+            "order": 6,
+            "label": "Mode",
+            "helperText": "Select the “Mode” option in the “Alpha” section."
+          },
+          "options": [
+            "fast",
+            "slow"
+          ],
+          "version": [
+            1,
+            2
+          ]
+        },
+        {
+          "key": "demo.alpha.legacy",
+          "type": "string",
+          "default": "keep-me",
+          "ui": {
+            "section": "Legacy",
+            "order": 7,
+            "label": "Legacy",
+            "helperText": "Hand-written help."
+          },
+          "version": [
+            1,
+            2
+          ]
+        }
+      ]
+    },
+    {
+      "type": "server",
+      "cardinality": "zero-or-more",
+      "role": "none",
+      "configPath": "",
+      "version": [
+        1,
+        2
+      ],
+      "fields": [
+        {
+          "key": "server.port",
+          "type": "string",
+          "default": "8094",
+          "ui": {
+            "section": "Server",
+            "order": 0,
+            "label": "Server port",
+            "helperText": "Enter the value for “Server port” in the “Server” section."
+          },
+          "version": [
+            1,
+            2
+          ]
+        },
+        {
+          "key": "server.address",
+          "type": "string",
+          "default": "0.0.0.0",
+          "ui": {
+            "section": "Server",
+            "order": 1,
+            "label": "Server address",
+            "helperText": "Enter the value for “Server address” in the “Server” section."
+          },
+          "version": [
+            1,
+            2
+          ]
+        },
+        {
+          "key": "server.ssl.trust-store-password",
+          "type": "secret",
+          "default": "oldsecret1",
+          "ui": {
+            "section": "SSL",
+            "order": 2,
+            "label": "SSL trust store password",
+            "helperText": "Enter “SSL trust store password” for the “SSL” section. This value is treated as sensitive."
+          },
+          "version": [
+            1,
+            2
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "solution": "demo",
+  "packageVersion": "1.0.0",
+  "appliesTo": {},
+  "ui": {},
+  "components": [
+    {
+      "type": "x",
+      "fields": [
+        {
+          "key": "host",
+          "type": "string",
+          "required": true,
+          "ui": {
+            "section": "General"
+          }
+        }
+      ]
+    }
+  ]
+}

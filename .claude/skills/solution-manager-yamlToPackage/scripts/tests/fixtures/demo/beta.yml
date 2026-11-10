@@ -1,0 +1,9 @@
+server:
+  port: 8081
+demo:
+  beta:
+    host: beta.example.invalid
+  shared:
+    binding: out
+  alpha:
+    leak: 1

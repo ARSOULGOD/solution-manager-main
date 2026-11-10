@@ -1,21 +1,31 @@
 # yamlToPackage report: file-mesh / source
 
-- Profile: `.claude/skills/solution-manager-yamlToPackage/references/profiles/file-mesh.yaml`
+- Profile: `<scratch>/e2e/profile.yaml`
 - YAML: `.claude/skills/solution-manager-yamlToPackage/examples/file-mesh-source/input/application-source-file-v2.yml`
 - Package: `frontend/contracts/packages/file-mesh/package.json`
 - Target versions: [1, 2, 3]
 
 ## Coverage
 
-110 YAML leaves: **109 mapped**, **0 flagged**, **1 excluded**. Every leaf is in exactly one bucket: yes. 6 coerced, 6 secret default(s) withheld.
+110 YAML keys → 109 fields, 1 removed by you (balanced: yes)
 
-### Flagged (needs a decision)
+0 open · 6 coerced · 6 secret default(s) withheld (I6)
 
-- none
+### Placed, by component
 
-### Excluded (by the profile)
+| component | keys | shared |
+|---|---|---|
+| server | 6 | yes |
+| spring-boot-admin | 9 | yes |
+| application | 1 | yes |
+| file-source | 53 | no |
+| solace | 20 | yes |
+| logging | 10 | yes |
+| management | 10 | yes |
 
-- `file.source.command_center.useoutputdestinationsolacecredentials` (line 97): FM-D1: lowercase duplicate of useOutputDestinationSolaceCredentials (string 'true' vs bool true).
+### Removed by you
+
+- `file.source.command_center.useoutputdestinationsolacecredentials` (line 97): case variant; kept useOutputDestinationSolaceCredentials
 
 ### Coerced / assumed
 
@@ -35,65 +45,65 @@
 - `solace.connector.management.session.client-password` (line 122)
 - `solace.java.client-password` (line 127)
 
-### Mapped, by component
-
-| component | fields | shared |
-|---|---|---|
-| server | 6 | yes |
-| spring-boot-admin | 9 | yes |
-| application | 1 | yes |
-| spring-cloud-stream | 4 | yes |
-| file-source | 49 | no |
-| solace | 20 | yes |
-| logging | 10 | yes |
-| management | 10 | yes |
-
 ## Diff against the existing package
+
+### spring-cloud-stream
+
+- added: 0
+- removed (by you, or relocated by the profile): 4: spring.cloud.stream.bindings.input-0.destination, spring.cloud.stream.bindings.input-0.binder, spring.cloud.stream.bindings.output-0.destination, spring.cloud.stream.bindings.output-0.binder
+- changed: 0
+- in the package, not in this YAML (kept): 0
+
+### file-source
+
+- added: 4: spring.cloud.stream.bindings.input-0.destination, spring.cloud.stream.bindings.input-0.binder, spring.cloud.stream.bindings.output-0.destination, spring.cloud.stream.bindings.output-0.binder
+- changed: 3
+  - `file.source.sftp_settings.password` default (secret withheld): `"***"` -> `null`
+  - `file.source.ftp_settings.password` default (secret withheld): `"***"` -> `null`
+  - `file.source.general.adapter_id` default: `"SOURCE_TEST_V1"` -> `"fm-file-source"`
+- in the package, not in this YAML (kept): 0
+
+### file-sink
+
+- added: 0
+- changed: 2
+  - `file.sink.sftp_settings.password` default (secret withheld): `"***"` -> `null`
+  - `file.sink.ftp_settings.password` default (secret withheld): `"***"` -> `null`
+- in the package, not in this YAML (kept): 0
 
 ### server
 
 - added: 0
 - changed: 1
-  - `server.ssl.key-store-password` default (secret withheld): `"changeit"` -> `null`
-- in package, not in YAML (kept): 0
+  - `server.ssl.key-store-password` default (secret withheld): `"***"` -> `null`
+- in the package, not in this YAML (kept): 0
 
 ### spring-boot-admin
 
 - added: 0
 - changed: 1
-  - `spring.boot.admin.client.password` default (secret withheld): `"pass"` -> `null`
-- in package, not in YAML (kept): 0
-
-### file-source
-
-- added: 0
-- changed: 3
-  - `file.source.general.adapter_id` default: `"SOURCE_TEST_V1"` -> `"fm-file-source"`
-  - `file.source.sftp_settings.password` default (secret withheld): `"SFTP_PASSWORD"` -> `null`
-  - `file.source.ftp_settings.password` default (secret withheld): `"FTP_PASSWORD"` -> `null`
-- in package, not in YAML (kept): 0
+  - `spring.boot.admin.client.password` default (secret withheld): `"***"` -> `null`
+- in the package, not in this YAML (kept): 0
 
 ### solace
 
 - added: 0
 - changed: 2
-  - `solace.connector.management.session.client-password` default (secret withheld): `"test"` -> `null`
-  - `solace.java.client-password` default (secret withheld): `"test"` -> `null`
-- in package, not in YAML (kept): 0
+  - `solace.connector.management.session.client-password` default (secret withheld): `"***"` -> `null`
+  - `solace.java.client-password` default (secret withheld): `"***"` -> `null`
+- in the package, not in this YAML (kept): 0
 
 ### Shared components: YAML vs package defaults (package kept)
 
 - server `server.port`: package `8094`, YAML `8092`
 - server `server.ssl.enabled`: package `true`, YAML `false`
 - application `spring.application.name`: package `"SOURCE_TEST_V1"`, YAML `"fm-file-source"`
-- spring-cloud-stream `spring.cloud.stream.bindings.input-0.destination`: package `"/home/banala/Music/entityFolders/updated/SOURCE_TEST_V1/file_paths.cfg"`, YAML `"/app/external/classpath/file_paths.cfg"`
-- spring-cloud-stream `spring.cloud.stream.bindings.output-0.destination`: package `"file/test"`, YAML `"SOURCE/DEFAULT/Alice/FF/NWFILE/SEP15/1"`
 - solace `solace.connector.management.queue`: package `""`, YAML `"fm-file-source-management"`
 - solace `solace.connector.management.session.host`: package `"tcp://localhost:55555"`, YAML `"tcp://host.docker.internal:55554"` (valueFrom)
 - solace `solace.java.host`: package `"tcp://localhost:55555"`, YAML `"tcp://host.docker.internal:55554"` (valueFrom)
 - management `management.endpoints.web.exposure.include`: package `"*"`, YAML `"health,info,metrics"`
 
-### Reviewed ui kept where the derived one differs (19)
+### Reviewed labels kept where the derived one differs (19)
 
 - file-source `file.source.file_to_event.xPath`: package ['File To Event', 'XPath'], derived ['File To Event', 'X path']
 - file-source `file.source.gcs.projectId`: package ['GCS', 'GCS project ID'], derived ['GCS', 'Project ID']
@@ -112,22 +122,48 @@
 - file-source `file.source.command_center.solace_base_publish_topic_heartbeat`: package ['Command Center', 'Heartbeat publish topic'], derived ['Command Center', 'Solace base publish topic heartbeat']
 - ...and 4 more in report.json
 
-## Validation
+## Your decisions
+
+### Suggestions
+
+- application/spring.application.name required: reject
+- solace/solace.connector.management.session.host required: accept
+- solace/solace.java.host required: accept
+- logging/logging.file.name required: reject
+
+### Restyle
+
+accepted: new positions on 138 field(s), stock helper text removed from 154, 2 custom kept
+
+## Validation and read-back
 
 **PASS**
 
-- note: schema: /home/arnav-rinawa/Documents/solution_manager/solution-manager-main-main/contracts/solution-package.schema.json
-- warning: file-sink/file.sink.sftp_settings.password: secret field carries a default value (I6: secret values never land in config storage)
-- warning: file-sink/file.sink.ftp_settings.password: secret field carries a default value (I6: secret values never land in config storage)
+- note: schema: contracts/solution-package.schema.json
+- note: read-back: 109 placed field(s) present, 1 removed key(s) absent
 - warning: latest package version 4 is carried by only 1 of 10 components
 
 ## Notes
 
-- component cache preserved untouched (profile `preserve`)
+- 4 field(s) matching 'spring.cloud.stream.bindings' relocated out of shared component spring-cloud-stream (FM-D11: the bindings run in opposite directions per role, so one shared default cannot fit both)
+- shared component spring-cloud-stream has no fields left after relocation; it was kept so instances that already select it stay valid
+- secret default withheld: file-source/file.source.sftp_settings.password
+- secret default withheld: file-source/file.source.ftp_settings.password
+- secret default withheld: file-sink/file.sink.sftp_settings.password
+- secret default withheld: file-sink/file.sink.ftp_settings.password
+- secret default withheld: server/server.ssl.key-store-password
+- secret default withheld: spring-boot-admin/spring.boot.admin.client.password
+- secret default withheld: solace/solace.connector.management.session.client-password
+- secret default withheld: solace/solace.java.client-password
+- component cache preserved (profile `preserve`), but this run changes it: the accepted restyle
 - defaults were taken from the YAML (profile defaults.role_components: yaml). This conflicts with docs/design/dynamic-ui/design.md section 7.3 (UI-D*, PROPOSED): defaults come from field initializers, never from a sample application.yml. Flagged, not resolved.
+- secret: true added: file-source/file.source.sftp_settings.password
+- secret: true added: file-source/file.source.ftp_settings.password
+- secret: true added: file-sink/file.sink.sftp_settings.password
+- secret: true added: file-sink/file.sink.ftp_settings.password
+- secret: true added: server/server.ssl.key-store-password
+- secret: true added: spring-boot-admin/spring.boot.admin.client.password
+- secret: true added: solace/solace.connector.management.session.client-password
+- secret: true added: solace/solace.java.client-password
 
-## Open questions
-
-1. provenance carries a signature over content this run changed, so it no longer covers the package. Keep it as-is, or re-run with --provenance dev-mode?
-
-authoring: {"reviewedRows": 149, "totalRows": 156}
+authoring: {"reviewedRows": 0, "totalRows": 156}

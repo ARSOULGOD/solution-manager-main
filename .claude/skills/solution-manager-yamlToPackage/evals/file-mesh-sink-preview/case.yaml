@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: file-mesh-sink-preview
+expected_outcome: |
+  The skill runs the sink preview over the package. The three spring.cloud.stream.solace.default.consumer.* keys are placed in file-sink (FM-D2), not flagged. Shared default differences (bindings, server.port, leader-election mode) are listed for information and the package values are kept. file-source fields are not re-derived from the sink YAML; only package-wide changes (the restyle, secret: true, withheld secret defaults) reach file-source, and the reply says so. The run stops at the preview with no package.json.
+context:
+  scaffold_script: place-files.sh

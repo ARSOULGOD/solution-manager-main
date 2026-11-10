@@ -36,7 +36,8 @@ def schema_errors(pkg, schema_path):
         import jsonschema
     except ImportError:
         return None, "jsonschema module not installed: schema check skipped"
-    schema = json.load(open(schema_path, encoding="utf-8"))
+    with open(schema_path, encoding="utf-8") as fh:
+        schema = json.load(fh)
     v = jsonschema.Draft202012Validator(schema)
     return [f"schema: {'/'.join(map(str, e.path)) or '<root>'}: {e.message}"
             for e in sorted(v.iter_errors(pkg), key=lambda e: list(e.path))], None
@@ -77,6 +78,8 @@ def structural(pkg):
             leaf = re.split(r"[.]", k)[-1].replace("-", "").replace("_", "")
             if PASSWORD_RX.search(leaf) and f.get("type") != "secret":
                 errors.append(f"{ct}/{k}: looks like a password but type is {f.get('type')!r}, not secret")
+            if f.get("type") == "secret" and f.get("secret") is not True:
+                warnings.append(f"{ct}/{k}: type secret without secret: true (the console's project() withholds the value only with secret: true)")
             if f.get("type") == "secret" and f.get("default") not in (None, ""):
                 warnings.append(f"{ct}/{k}: secret field carries a default value (I6: secret values never land in config storage)")
             if f.get("type") == "enum" and not (f.get("options") or f.get("optionsSource")):
@@ -145,7 +148,8 @@ def main():
     args = ap.parse_args()
     rc = 0
     for p in args.packages:
-        pkg = json.load(open(p, encoding="utf-8"))
+        with open(p, encoding="utf-8") as fh:
+            pkg = json.load(fh)
         res = validate(pkg, args.schema or find_schema(p, os.getcwd()))
         nf = sum(len(c.get("fields", [])) for c in pkg.get("components", []))
         print(f"{'PASS' if res['ok'] else 'FAIL'} {p}  components={len(pkg.get('components', []))} fields={nf}")

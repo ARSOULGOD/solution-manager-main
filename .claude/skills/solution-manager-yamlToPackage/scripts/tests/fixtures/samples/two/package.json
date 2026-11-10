@@ -1,0 +1,57 @@
+{
+  "solution": "two",
+  "packageVersion": "1.0.0",
+  "appliesTo": {},
+  "ui": {},
+  "components": [
+    {
+      "type": "svc2",
+      "fields": [
+        {
+          "key": "username",
+          "type": "string",
+          "required": true,
+          "ui": {
+            "section": "General"
+          }
+        },
+        {
+          "key": "host",
+          "type": "string",
+          "ui": {
+            "section": "General"
+          }
+        },
+        {
+          "key": "timeout",
+          "type": "string",
+          "ui": {
+            "section": "General"
+          }
+        },
+        {
+          "key": "password",
+          "type": "string",
+          "virtual": true,
+          "required": true,
+          "ui": {
+            "section": "General"
+          }
+        }
+      ]
+    },
+    {
+      "type": "client",
+      "fields": [
+        {
+          "key": "PASSWORD",
+          "type": "string",
+          "required": true,
+          "ui": {
+            "section": "General"
+          }
+        }
+      ]
+    }
+  ]
+}

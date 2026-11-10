@@ -71,8 +71,11 @@ def load_yaml_leaves(path, list_policy=lambda key: "flag", map_leaf=lambda key: 
     map_leaf(key) -> True keeps a mapping as one `map`-typed leaf instead of recursing.
     Path segments are kept as a tuple so a key that itself contains dots
     (`logging.level.com.solace.connector.jms`) still has the right parent.
+    A key written twice in one mapping keeps its first value as the leaf; `duplicates` records the
+    later copy's line and value.
     """
-    text = open(path, encoding="utf-8").read()
+    with open(path, encoding="utf-8") as fh:
+        text = fh.read()
     lines = text.splitlines()
     docs = list(yaml.compose_all(text, Loader=StrictLoader))
     leaves, duplicates = [], []
@@ -102,8 +105,12 @@ def load_yaml_leaves(path, list_policy=lambda key: "flag", map_leaf=lambda key: 
             for k_node, v_node in node.value:
                 k = str(_scalar(k_node))
                 if k in seen:
+                    # the later copy's value, for the `first` / `second` answer; raw and quoted as on a leaf
+                    scalar = isinstance(v_node, yaml.ScalarNode)
                     duplicates.append({"key": ".".join(path_t + (k,)), "line": k_node.start_mark.line + 1,
-                                       "first_line": seen[k]})
+                                       "first_line": seen[k], "value": _scalar(v_node),
+                                       "raw": v_node.value if scalar else None,
+                                       "quoted": scalar and v_node.style in ("'", '"')})
                     continue
                 seen[k] = k_node.start_mark.line + 1
                 walk(v_node, path_t + (k,), k_node, doc_idx)

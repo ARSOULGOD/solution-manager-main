@@ -100,15 +100,18 @@ the user as **not verified**, never as passed.
 ## 2.4 Round-trip
 
 ```bash
-python3 scripts/render_config.py roundtrip --package <out-dir>/package.json --profile <profile> --role <role> \
+python3 scripts/render_config.py roundtrip --package <out-dir>/package.json --profile <out-dir>/profile.yaml --role <role> \
   --version <v> --yaml <role yaml> --report <out-dir>/report.json \
   --console-artifact $T/artifacts/<solution>-<role>.rendered.json --out <work>/roundtrip-<role>.md
 ```
 
 This renders the role's defaults with the console's rules and compares them with the input YAML, ignoring comments
-and key order. Allowed differences come only from `report.json`:
-- excluded, flagged, coerced and withheld leaves;
-- shared defaults kept.
+and key order. Allowed differences come only from `report.json` and the decisions block of the merged profile
+(`<out-dir>/profile.yaml`, or its copy in `references/profiles/`):
+- removed by you, coerced and withheld leaves;
+- shared defaults kept, and package fields not in this YAML (kept);
+- keys stored by your answers (the block's `stored` entries for this role: `index`, `string`, `map`, `join-comma`,
+  `list`, `first`/`second`, `add-option`, `package-type`, `yaml-type`).
 
 It also allows keys from the profile's preserved components. Anything else is a bug in the package or the profile.
 With `--console-artifact`, it also fails if the console's renderer and `render_config.py` disagree on any key.

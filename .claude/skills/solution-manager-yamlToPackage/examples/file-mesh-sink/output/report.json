@@ -1,24 +1,24 @@
 {
   "solution": "file-mesh",
   "role": "sink",
-  "profile": ".claude/skills/solution-manager-yamlToPackage/references/profiles/file-mesh.yaml",
+  "profile": "<scratch>/e2e/source/profile.yaml",
   "yaml": ".claude/skills/solution-manager-yamlToPackage/examples/file-mesh-sink/input/application-sink-file-v2.yml",
-  "package": "frontend/contracts/packages/file-mesh/package.json",
+  "package": "<scratch>/e2e/source/package.json",
   "target_versions": [
     1,
     2,
     3
   ],
   "counts": {
-    "leaves": 102,
-    "mapped": 99,
-    "flagged": 3,
-    "excluded": 0,
+    "keys": 102,
+    "placed": 102,
+    "removed": 0,
+    "open": 0,
     "coerced": 5,
     "secrets_withheld": 6,
     "balanced": true
   },
-  "mapped": [
+  "placed": [
     {
       "key": "server.port",
       "line": 2,
@@ -150,34 +150,58 @@
     {
       "key": "spring.cloud.stream.bindings.input-0.destination",
       "line": 29,
-      "component": "spring-cloud-stream",
+      "component": "file-sink",
       "field": "spring.cloud.stream.bindings.input-0.destination",
       "type": "string",
-      "shared": true
+      "shared": false
     },
     {
       "key": "spring.cloud.stream.bindings.input-0.binder",
       "line": 30,
-      "component": "spring-cloud-stream",
+      "component": "file-sink",
       "field": "spring.cloud.stream.bindings.input-0.binder",
       "type": "enum",
-      "shared": true
+      "shared": false
     },
     {
       "key": "spring.cloud.stream.bindings.output-0.destination",
       "line": 32,
-      "component": "spring-cloud-stream",
+      "component": "file-sink",
       "field": "spring.cloud.stream.bindings.output-0.destination",
       "type": "string",
-      "shared": true
+      "shared": false
     },
     {
       "key": "spring.cloud.stream.bindings.output-0.binder",
       "line": 33,
-      "component": "spring-cloud-stream",
+      "component": "file-sink",
       "field": "spring.cloud.stream.bindings.output-0.binder",
       "type": "enum",
-      "shared": true
+      "shared": false
+    },
+    {
+      "key": "spring.cloud.stream.solace.default.consumer.queue-name-expression",
+      "line": 37,
+      "component": "file-sink",
+      "field": "spring.cloud.stream.solace.default.consumer.queue-name-expression",
+      "type": "string",
+      "shared": false
+    },
+    {
+      "key": "spring.cloud.stream.solace.default.consumer.provision-durable-queue",
+      "line": 38,
+      "component": "file-sink",
+      "field": "spring.cloud.stream.solace.default.consumer.provision-durable-queue",
+      "type": "bool",
+      "shared": false
+    },
+    {
+      "key": "spring.cloud.stream.solace.default.consumer.add-destination-as-subscription-to-queue",
+      "line": 39,
+      "component": "file-sink",
+      "field": "spring.cloud.stream.solace.default.consumer.add-destination-as-subscription-to-queue",
+      "type": "bool",
+      "shared": false
     },
     {
       "key": "file.sink.general.adapter_id",
@@ -812,24 +836,7 @@
       "shared": true
     }
   ],
-  "flagged": [
-    {
-      "key": "spring.cloud.stream.solace.default.consumer.queue-name-expression",
-      "line": 37,
-      "reason": "role-exclusive (FM-D2: the Solace binder consumer defaults appear only in the sink YAML.) but would land in shared component spring-cloud-stream; decide: field role 'sink' in spring-cloud-stream, a new component, or exclude"
-    },
-    {
-      "key": "spring.cloud.stream.solace.default.consumer.provision-durable-queue",
-      "line": 38,
-      "reason": "role-exclusive (FM-D2: the Solace binder consumer defaults appear only in the sink YAML.) but would land in shared component spring-cloud-stream; decide: field role 'sink' in spring-cloud-stream, a new component, or exclude"
-    },
-    {
-      "key": "spring.cloud.stream.solace.default.consumer.add-destination-as-subscription-to-queue",
-      "line": 39,
-      "reason": "role-exclusive (FM-D2: the Solace binder consumer defaults appear only in the sink YAML.) but would land in shared component spring-cloud-stream; decide: field role 'sink' in spring-cloud-stream, a new component, or exclude"
-    }
-  ],
-  "excluded": [],
+  "removed": [],
   "coerced": [
     {
       "key": "spring.boot.admin.client.instance.prefer-ip",
@@ -884,40 +891,16 @@
     }
   ],
   "diff": {
-    "server": {
-      "added": [],
-      "changed": [
-        {
-          "key": "server.ssl.key-store-password",
-          "changes": [
-            [
-              "default (secret withheld)",
-              "changeit",
-              null
-            ]
-          ]
-        }
-      ],
-      "package_only": []
-    },
-    "spring-boot-admin": {
-      "added": [],
-      "changed": [
-        {
-          "key": "spring.boot.admin.client.password",
-          "changes": [
-            [
-              "default (secret withheld)",
-              "pass",
-              null
-            ]
-          ]
-        }
-      ],
-      "package_only": []
-    },
     "file-sink": {
-      "added": [],
+      "added": [
+        "spring.cloud.stream.bindings.input-0.destination",
+        "spring.cloud.stream.bindings.input-0.binder",
+        "spring.cloud.stream.bindings.output-0.destination",
+        "spring.cloud.stream.bindings.output-0.binder",
+        "spring.cloud.stream.solace.default.consumer.queue-name-expression",
+        "spring.cloud.stream.solace.default.consumer.provision-durable-queue",
+        "spring.cloud.stream.solace.default.consumer.add-destination-as-subscription-to-queue"
+      ],
       "changed": [
         {
           "key": "file.sink.general.adapter_id",
@@ -928,55 +911,17 @@
               "fm-file-sink"
             ]
           ]
-        },
-        {
-          "key": "file.sink.sftp_settings.password",
-          "changes": [
-            [
-              "default (secret withheld)",
-              "SFTP_PASSWORD",
-              null
-            ]
-          ]
-        },
-        {
-          "key": "file.sink.ftp_settings.password",
-          "changes": [
-            [
-              "default (secret withheld)",
-              "FTP_PASSWORD",
-              null
-            ]
-          ]
         }
       ],
       "package_only": []
     },
-    "solace": {
+    "logging": {
       "added": [],
-      "changed": [
-        {
-          "key": "solace.connector.management.session.client-password",
-          "changes": [
-            [
-              "default (secret withheld)",
-              "test",
-              null
-            ]
-          ]
-        },
-        {
-          "key": "solace.java.client-password",
-          "changes": [
-            [
-              "default (secret withheld)",
-              "test",
-              null
-            ]
-          ]
-        }
-      ],
-      "package_only": []
+      "changed": [],
+      "package_only": [
+        "logging.level.com.solace.connector.jms",
+        "logging.level.com.solace.connector.core"
+      ]
     }
   },
   "shared_differences": [
@@ -999,34 +944,6 @@
       "key": "spring.application.name",
       "package": "SOURCE_TEST_V1",
       "yaml": "fm-file-sink",
-      "valueFrom": false
-    },
-    {
-      "component": "spring-cloud-stream",
-      "key": "spring.cloud.stream.bindings.input-0.destination",
-      "package": "/home/banala/Music/entityFolders/updated/SOURCE_TEST_V1/file_paths.cfg",
-      "yaml": "SOURCE/DEFAULT/Alice/FF/NWFILE/SEP15/1",
-      "valueFrom": false
-    },
-    {
-      "component": "spring-cloud-stream",
-      "key": "spring.cloud.stream.bindings.input-0.binder",
-      "package": "file",
-      "yaml": "solace",
-      "valueFrom": false
-    },
-    {
-      "component": "spring-cloud-stream",
-      "key": "spring.cloud.stream.bindings.output-0.destination",
-      "package": "file/test",
-      "yaml": "/app/external/file-output",
-      "valueFrom": false
-    },
-    {
-      "component": "spring-cloud-stream",
-      "key": "spring.cloud.stream.bindings.output-0.binder",
-      "package": "solace",
-      "yaml": "file",
       "valueFrom": false
     },
     {
@@ -1261,26 +1178,53 @@
   ],
   "notes": [
     "component cache preserved untouched (profile `preserve`)",
-    "defaults were taken from the YAML (profile defaults.role_components: yaml). This conflicts with docs/design/dynamic-ui/design.md section 7.3 (UI-D*, PROPOSED): defaults come from field initializers, never from a sample application.yml. Flagged, not resolved."
-  ],
-  "questions": [
-    "shared component logging renders 2 field(s) this sink YAML does not carry (logging.level.com.solace.connector.jms, logging.level.com.solace.connector.core). Every sink instance gets them. Keep them shared, give them a field role, or move them to a role component?",
-    "provenance carries a signature over content this run changed, so it no longer covers the package. Keep it as-is, or re-run with --provenance dev-mode?"
+    "defaults were taken from the YAML (profile defaults.role_components: yaml). This conflicts with docs/design/dynamic-ui/design.md section 7.3 (UI-D*, PROPOSED): defaults come from field initializers, never from a sample application.yml. Flagged, not resolved.",
+    "package.diff compares content: <scratch>/e2e/source/package.json is formatted differently from the generated package.json, and that formatting change is not shown",
+    "signature: keep (remembered 2026-11-10)"
   ],
   "validation": {
     "ok": true,
     "errors": [],
     "warnings": [
-      "file-source/file.source.sftp_settings.password: secret field carries a default value (I6: secret values never land in config storage)",
-      "file-source/file.source.ftp_settings.password: secret field carries a default value (I6: secret values never land in config storage)",
       "latest package version 4 is carried by only 1 of 10 components"
     ],
     "notes": [
-      "schema: /home/arnav-rinawa/Documents/solution_manager/solution-manager-main-main/contracts/solution-package.schema.json"
+      "schema: contracts/solution-package.schema.json",
+      "read-back: 102 placed field(s) present, 0 removed key(s) absent"
     ]
   },
   "authoring": {
-    "reviewedRows": 149,
-    "totalRows": 156
-  }
+    "reviewedRows": 0,
+    "totalRows": 163
+  },
+  "restyle": {
+    "offered": false,
+    "decision": "accepted"
+  },
+  "suggestions": [
+    {
+      "component": "application",
+      "field": "spring.application.name",
+      "attribute": "required",
+      "decision": "reject"
+    },
+    {
+      "component": "solace",
+      "field": "solace.connector.management.session.host",
+      "attribute": "required",
+      "decision": "accept"
+    },
+    {
+      "component": "solace",
+      "field": "solace.java.host",
+      "attribute": "required",
+      "decision": "accept"
+    },
+    {
+      "component": "logging",
+      "field": "logging.file.name",
+      "attribute": "required",
+      "decision": "reject"
+    }
+  ]
 }

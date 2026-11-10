@@ -1,0 +1,2447 @@
+{
+  "solution": "file-mesh",
+  "role": "source",
+  "profile": "<scratch>/e2e/profile.yaml",
+  "yaml": ".claude/skills/solution-manager-yamlToPackage/examples/file-mesh-source/input/application-source-file-v2.yml",
+  "package": "frontend/contracts/packages/file-mesh/package.json",
+  "target_versions": [
+    1,
+    2,
+    3
+  ],
+  "packageVersion": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "appliesTo": ">=1.0 <2.0",
+  "roles": {
+    "all": [
+      "source",
+      "sink"
+    ],
+    "this_role": [
+      {
+        "type": "file-source",
+        "cardinality": "one-of-many"
+      }
+    ],
+    "shared": [
+      "cache",
+      "server",
+      "spring-boot-admin",
+      "spring-cloud-stream",
+      "solace",
+      "application",
+      "logging",
+      "management"
+    ]
+  },
+  "samples": {
+    "dir": "frontend/contracts/packages",
+    "packages": 8,
+    "fields": 103,
+    "notes": []
+  },
+  "counts": {
+    "keys": 110,
+    "placed": 109,
+    "removed": 1,
+    "open": 0
+  },
+  "components": [
+    {
+      "type": "file-source",
+      "role": "source",
+      "shared": false,
+      "rows": [
+        {
+          "component": "file-source",
+          "key": "spring.cloud.stream.bindings.input-0.destination",
+          "line": 29,
+          "field": "spring.cloud.stream.bindings.input-0.destination",
+          "type": "string",
+          "default_display": "\"/app/external/classpath/file_paths.cfg\"",
+          "section": "Input Binding",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": [
+            "new"
+          ]
+        },
+        {
+          "component": "file-source",
+          "key": "spring.cloud.stream.bindings.input-0.binder",
+          "line": 30,
+          "field": "spring.cloud.stream.bindings.input-0.binder",
+          "type": "enum",
+          "default_display": "\"file\"",
+          "section": "Input Binding",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": [
+            "new"
+          ]
+        },
+        {
+          "component": "file-source",
+          "key": "spring.cloud.stream.bindings.output-0.destination",
+          "line": 32,
+          "field": "spring.cloud.stream.bindings.output-0.destination",
+          "type": "string",
+          "default_display": "\"SOURCE/DEFAULT/Alice/FF/NWFILE/SEP15/1\"",
+          "section": "Output Binding",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": [
+            "new"
+          ]
+        },
+        {
+          "component": "file-source",
+          "key": "spring.cloud.stream.bindings.output-0.binder",
+          "line": 33,
+          "field": "spring.cloud.stream.bindings.output-0.binder",
+          "type": "enum",
+          "default_display": "\"solace\"",
+          "section": "Output Binding",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": [
+            "new"
+          ]
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.scheduler.restart_time_sec",
+          "line": 37,
+          "field": "file.source.scheduler.restart_time_sec",
+          "type": "int",
+          "default_display": "10",
+          "section": "Scheduler",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.general.adapter_id",
+          "line": 39,
+          "field": "file.source.general.adapter_id",
+          "type": "string",
+          "default_display": "\"fm-file-source\"",
+          "section": "General",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": [
+            "was \"SOURCE_TEST_V1\""
+          ]
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.general.file_type",
+          "line": 40,
+          "field": "file.source.general.file_type",
+          "type": "int",
+          "default_display": "4",
+          "section": "General",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.general.ignoreEmptyFiles",
+          "line": 41,
+          "field": "file.source.general.ignoreEmptyFiles",
+          "type": "bool",
+          "default_display": "false",
+          "section": "General",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.general.state_backup_path",
+          "line": 42,
+          "field": "file.source.general.state_backup_path",
+          "type": "string",
+          "default_display": "\"\"",
+          "section": "General",
+          "order": 3,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.general.copy_file_mode_permissions",
+          "line": 43,
+          "field": "file.source.general.copy_file_mode_permissions",
+          "type": "int",
+          "default_display": "1",
+          "section": "General",
+          "order": 4,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.general.max_file_transfer_size",
+          "line": 44,
+          "field": "file.source.general.max_file_transfer_size",
+          "type": "int",
+          "default_display": "999000",
+          "section": "General",
+          "order": 5,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.general.max_files_allowed",
+          "line": 45,
+          "field": "file.source.general.max_files_allowed",
+          "type": "int",
+          "default_display": "99999",
+          "section": "General",
+          "order": 6,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.general.max_bandwidth_limit",
+          "line": 46,
+          "field": "file.source.general.max_bandwidth_limit",
+          "type": "int",
+          "default_display": "100000000",
+          "section": "General",
+          "order": 7,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.general.clear_state_on_eod",
+          "line": 47,
+          "field": "file.source.general.clear_state_on_eod",
+          "type": "int",
+          "default_display": "1",
+          "section": "General",
+          "order": 8,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.general.eod_time_sec",
+          "line": 48,
+          "field": "file.source.general.eod_time_sec",
+          "type": "int",
+          "default_display": "-1",
+          "section": "General",
+          "order": 9,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.general.multiple_files_flag",
+          "line": 49,
+          "field": "file.source.general.multiple_files_flag",
+          "type": "int",
+          "default_display": "0",
+          "section": "General",
+          "order": 10,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.file_to_event.enabled",
+          "line": 51,
+          "field": "file.source.file_to_event.enabled",
+          "type": "int",
+          "default_display": "0",
+          "section": "File To Event",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.file_to_event.fileFormat",
+          "line": 52,
+          "field": "file.source.file_to_event.fileFormat",
+          "type": "int",
+          "default_display": "4",
+          "section": "File To Event",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.file_to_event.eventDelimiter",
+          "line": 53,
+          "field": "file.source.file_to_event.eventDelimiter",
+          "type": "string",
+          "default_display": "\"|\"",
+          "section": "File To Event",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.file_to_event.jsonPath",
+          "line": 54,
+          "field": "file.source.file_to_event.jsonPath",
+          "type": "string",
+          "default_display": "\"$.Authors[*].Books[*]\"",
+          "section": "File To Event",
+          "order": 3,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.file_to_event.xPath",
+          "line": 55,
+          "field": "file.source.file_to_event.xPath",
+          "type": "string",
+          "default_display": "\"/class/student\"",
+          "section": "File To Event",
+          "order": 4,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.gcs.enabled",
+          "line": 57,
+          "field": "file.source.gcs.enabled",
+          "type": "int",
+          "default_display": "0",
+          "section": "GCS",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.gcs.projectId",
+          "line": 58,
+          "field": "file.source.gcs.projectId",
+          "type": "string",
+          "default_display": "\"GCS_PROJECT_ID\"",
+          "section": "GCS",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.gcs.credentialsFilePath",
+          "line": 59,
+          "field": "file.source.gcs.credentialsFilePath",
+          "type": "string",
+          "default_display": "\"/home/centos/pubsubplus-connector-file-2.2.0/configs/gcs/creds.json\"",
+          "section": "GCS",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.gcs.retrySettings.maxAttempts",
+          "line": 61,
+          "field": "file.source.gcs.retrySettings.maxAttempts",
+          "type": "int",
+          "default_display": "5",
+          "section": "GCS Retry",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.gcs.retrySettings.retryDelayMultiplier",
+          "line": 62,
+          "field": "file.source.gcs.retrySettings.retryDelayMultiplier",
+          "type": "int",
+          "default_display": "3",
+          "section": "GCS Retry",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.gcs.retrySettings.maxDurationMinutes",
+          "line": 63,
+          "field": "file.source.gcs.retrySettings.maxDurationMinutes",
+          "type": "int",
+          "default_display": "2",
+          "section": "GCS Retry",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.sftp_settings.enabled",
+          "line": 65,
+          "field": "file.source.sftp_settings.enabled",
+          "type": "int",
+          "default_display": "0",
+          "section": "SFTP",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.sftp_settings.ip",
+          "line": 66,
+          "field": "file.source.sftp_settings.ip",
+          "type": "string",
+          "default_display": "\"SFTP_HOST_ADDRESS\"",
+          "section": "SFTP",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.sftp_settings.port",
+          "line": 67,
+          "field": "file.source.sftp_settings.port",
+          "type": "int",
+          "default_display": "22",
+          "section": "SFTP",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.sftp_settings.user",
+          "line": 68,
+          "field": "file.source.sftp_settings.user",
+          "type": "string",
+          "default_display": "\"SFTP_USER\"",
+          "section": "SFTP",
+          "order": 3,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.sftp_settings.password",
+          "line": 69,
+          "field": "file.source.sftp_settings.password",
+          "type": "secret",
+          "default_display": "withheld (I6)",
+          "section": "SFTP",
+          "order": 4,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": [
+            "secret: true added"
+          ]
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.sftp_settings.strictHostKeyChecking",
+          "line": 70,
+          "field": "file.source.sftp_settings.strictHostKeyChecking",
+          "type": "enum",
+          "default_display": "\"no\"",
+          "section": "SFTP",
+          "order": 5,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.ftp_settings.enabled",
+          "line": 72,
+          "field": "file.source.ftp_settings.enabled",
+          "type": "int",
+          "default_display": "0",
+          "section": "FTP",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.ftp_settings.ip",
+          "line": 73,
+          "field": "file.source.ftp_settings.ip",
+          "type": "string",
+          "default_display": "\"FTP_HOST_ADDRESS\"",
+          "section": "FTP",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.ftp_settings.port",
+          "line": 74,
+          "field": "file.source.ftp_settings.port",
+          "type": "int",
+          "default_display": "21",
+          "section": "FTP",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.ftp_settings.user",
+          "line": 75,
+          "field": "file.source.ftp_settings.user",
+          "type": "string",
+          "default_display": "\"FTP_USER\"",
+          "section": "FTP",
+          "order": 3,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.ftp_settings.password",
+          "line": 76,
+          "field": "file.source.ftp_settings.password",
+          "type": "secret",
+          "default_display": "withheld (I6)",
+          "section": "FTP",
+          "order": 4,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": [
+            "secret: true added"
+          ]
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.ftp_settings.secured",
+          "line": 77,
+          "field": "file.source.ftp_settings.secured",
+          "type": "bool",
+          "default_display": "true",
+          "section": "FTP",
+          "order": 5,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.directory_wildcard.wildcard_type",
+          "line": 79,
+          "field": "file.source.directory_wildcard.wildcard_type",
+          "type": "int",
+          "default_display": "0",
+          "section": "Directory Wildcard",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.directory_wildcard.config_path",
+          "line": 80,
+          "field": "file.source.directory_wildcard.config_path",
+          "type": "string",
+          "default_display": "\"\"",
+          "section": "Directory Wildcard",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.directory_replication.start_time",
+          "line": 82,
+          "field": "file.source.directory_replication.start_time",
+          "type": "int",
+          "default_display": "-1",
+          "section": "Directory Replication",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.solace_out.lvq",
+          "line": 84,
+          "field": "file.source.solace_out.lvq",
+          "type": "string",
+          "default_display": "\"file.source.lvq\"",
+          "section": "Solace Output",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.solace_out.destination",
+          "line": 85,
+          "field": "file.source.solace_out.destination",
+          "type": "string",
+          "default_display": "\"file/source/lvq\"",
+          "section": "Solace Output",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.command_center.enabled",
+          "line": 87,
+          "field": "file.source.command_center.enabled",
+          "type": "int",
+          "default_display": "1",
+          "section": "Command Center",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.command_center.useOutputDestinationSolaceCredentials",
+          "line": 88,
+          "field": "file.source.command_center.useOutputDestinationSolaceCredentials",
+          "type": "bool",
+          "default_display": "true",
+          "section": "Command Center",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.command_center.heartbeat_enabled",
+          "line": 89,
+          "field": "file.source.command_center.heartbeat_enabled",
+          "type": "int",
+          "default_display": "1",
+          "section": "Command Center",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.command_center.heartbeat_interval",
+          "line": 90,
+          "field": "file.source.command_center.heartbeat_interval",
+          "type": "int",
+          "default_display": "20",
+          "section": "Command Center",
+          "order": 3,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.command_center.solace_base_publish_topic_heartbeat",
+          "line": 91,
+          "field": "file.source.command_center.solace_base_publish_topic_heartbeat",
+          "type": "string",
+          "default_display": "\"scm/dd/FIN/source/cc/se/fa/source/findata\"",
+          "section": "Command Center",
+          "order": 4,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.command_center.solace_base_publish_topic",
+          "line": 92,
+          "field": "file.source.command_center.solace_base_publish_topic",
+          "type": "string",
+          "default_display": "\"scm/dd/FIN/source/cc/se/fa/source/findata\"",
+          "section": "Command Center",
+          "order": 5,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.command_center.solace_messaging_mode",
+          "line": 93,
+          "field": "file.source.command_center.solace_messaging_mode",
+          "type": "enum",
+          "default_display": "\"PERSISTENT\"",
+          "section": "Command Center",
+          "order": 6,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.command_center.events.fileStart",
+          "line": 95,
+          "field": "file.source.command_center.events.fileStart",
+          "type": "bool",
+          "default_display": "true",
+          "section": "Command Center Events",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "file-source",
+          "key": "file.source.command_center.events.fileComplete",
+          "line": 96,
+          "field": "file.source.command_center.events.fileComplete",
+          "type": "bool",
+          "default_display": "true",
+          "section": "Command Center Events",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "source",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        }
+      ]
+    },
+    {
+      "type": "server",
+      "role": "none",
+      "shared": true,
+      "rows": [
+        {
+          "component": "server",
+          "key": "server.port",
+          "line": 2,
+          "field": "server.port",
+          "type": "int",
+          "default_display": "8094",
+          "section": "Server",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": [
+            "YAML says 8092"
+          ]
+        },
+        {
+          "component": "server",
+          "key": "server.ssl.enabled",
+          "line": 4,
+          "field": "server.ssl.enabled",
+          "type": "bool",
+          "default_display": "true",
+          "section": "SSL",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": [
+            "YAML says false"
+          ]
+        },
+        {
+          "component": "server",
+          "key": "server.ssl.key-store",
+          "line": 5,
+          "field": "server.ssl.key-store",
+          "type": "string",
+          "default_display": "\"file:/home/banala/Music/entityFolders/download_binaries/SOURCE_NOSUBORG_Alice_FF_NWFILE_T3/keystore.p12\"",
+          "section": "SSL",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "server",
+          "key": "server.ssl.key-store-password",
+          "line": 6,
+          "field": "server.ssl.key-store-password",
+          "type": "secret",
+          "default_display": "withheld (I6)",
+          "section": "SSL",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": [
+            "secret: true added"
+          ]
+        },
+        {
+          "component": "server",
+          "key": "server.ssl.key-store-type",
+          "line": 7,
+          "field": "server.ssl.key-store-type",
+          "type": "string",
+          "default_display": "\"PKCS12\"",
+          "section": "SSL",
+          "order": 3,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "server",
+          "key": "server.ssl.key-alias",
+          "line": 8,
+          "field": "server.ssl.key-alias",
+          "type": "string",
+          "default_display": "\"myalias\"",
+          "section": "SSL",
+          "order": 4,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        }
+      ]
+    },
+    {
+      "type": "spring-boot-admin",
+      "role": "none",
+      "shared": true,
+      "rows": [
+        {
+          "component": "spring-boot-admin",
+          "key": "spring.boot.admin.client.instance.prefer-ip",
+          "line": 14,
+          "field": "spring.boot.admin.client.instance.prefer-ip",
+          "type": "bool",
+          "default_display": "true",
+          "section": "Instance",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "spring-boot-admin",
+          "key": "spring.boot.admin.client.instance.management-url",
+          "line": 15,
+          "field": "spring.boot.admin.client.instance.management-url",
+          "type": "string",
+          "default_display": "\"http://localIP:${server.port}/actuator\"",
+          "section": "Instance",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "spring-boot-admin",
+          "key": "spring.boot.admin.client.instance.service-url",
+          "line": 16,
+          "field": "spring.boot.admin.client.instance.service-url",
+          "type": "string",
+          "default_display": "\"http://localIP:${server.port}/\"",
+          "section": "Instance",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "spring-boot-admin",
+          "key": "spring.boot.admin.client.enabled",
+          "line": 17,
+          "field": "spring.boot.admin.client.enabled",
+          "type": "bool",
+          "default_display": "true",
+          "section": "Client",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "spring-boot-admin",
+          "key": "spring.boot.admin.client.url",
+          "line": 18,
+          "field": "spring.boot.admin.client.url",
+          "type": "string",
+          "default_display": "\"http://50.17.36.43:9500/admin\"",
+          "section": "Client",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "spring-boot-admin",
+          "key": "spring.boot.admin.client.auto-registration",
+          "line": 19,
+          "field": "spring.boot.admin.client.auto-registration",
+          "type": "bool",
+          "default_display": "true",
+          "section": "Client",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "spring-boot-admin",
+          "key": "spring.boot.admin.client.prefer-ip",
+          "line": 20,
+          "field": "spring.boot.admin.client.prefer-ip",
+          "type": "bool",
+          "default_display": "true",
+          "section": "Client",
+          "order": 3,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "spring-boot-admin",
+          "key": "spring.boot.admin.client.username",
+          "line": 21,
+          "field": "spring.boot.admin.client.username",
+          "type": "string",
+          "default_display": "\"user\"",
+          "section": "Authentication",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "spring-boot-admin",
+          "key": "spring.boot.admin.client.password",
+          "line": 22,
+          "field": "spring.boot.admin.client.password",
+          "type": "secret",
+          "default_display": "withheld (I6)",
+          "section": "Authentication",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": [
+            "secret: true added"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "solace",
+      "role": "none",
+      "shared": true,
+      "rows": [
+        {
+          "component": "solace",
+          "key": "solace.connector.security.enabled",
+          "line": 101,
+          "field": "solace.connector.security.enabled",
+          "type": "bool",
+          "default_display": "false",
+          "section": "Security",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "solace",
+          "key": "solace.connector.error.handle",
+          "line": 103,
+          "field": "solace.connector.error.handle",
+          "type": "string",
+          "default_display": "\"stop_all\"",
+          "section": "Error",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "solace",
+          "key": "solace.connector.workflows.0.enabled",
+          "line": 106,
+          "field": "solace.connector.workflows.0.enabled",
+          "type": "bool",
+          "default_display": "true",
+          "section": "Workflow",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "solace",
+          "key": "solace.connector.workflows.0.acknowledgment.publish-async",
+          "line": 108,
+          "field": "solace.connector.workflows.0.acknowledgment.publish-async",
+          "type": "bool",
+          "default_display": "true",
+          "section": "Workflow",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "solace",
+          "key": "solace.connector.management.leader-election.mode",
+          "line": 111,
+          "field": "solace.connector.management.leader-election.mode",
+          "type": "enum",
+          "default_display": "\"standalone\"",
+          "section": "Leader Election",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "solace",
+          "key": "solace.connector.management.leader-election.fail-over.max-attempts",
+          "line": 113,
+          "field": "solace.connector.management.leader-election.fail-over.max-attempts",
+          "type": "int",
+          "default_display": "3",
+          "section": "Leader Election",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "solace",
+          "key": "solace.connector.management.leader-election.fail-over.back-off-initial-interval",
+          "line": 114,
+          "field": "solace.connector.management.leader-election.fail-over.back-off-initial-interval",
+          "type": "int",
+          "default_display": "1000",
+          "section": "Leader Election",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "solace",
+          "key": "solace.connector.management.leader-election.fail-over.back-off-max-interval",
+          "line": 115,
+          "field": "solace.connector.management.leader-election.fail-over.back-off-max-interval",
+          "type": "int",
+          "default_display": "10000",
+          "section": "Leader Election",
+          "order": 3,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "solace",
+          "key": "solace.connector.management.leader-election.fail-over.back-off-multiplier",
+          "line": 116,
+          "field": "solace.connector.management.leader-election.fail-over.back-off-multiplier",
+          "type": "int",
+          "default_display": "2",
+          "section": "Leader Election",
+          "order": 4,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "solace",
+          "key": "solace.connector.management.queue",
+          "line": 117,
+          "field": "solace.connector.management.queue",
+          "type": "string",
+          "default_display": "\"\"",
+          "section": "Management",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": [
+            "YAML says \"fm-file-source-management\""
+          ]
+        },
+        {
+          "component": "solace",
+          "key": "solace.connector.management.session.host",
+          "line": 119,
+          "field": "solace.connector.management.session.host",
+          "type": "string",
+          "default_display": "from connection",
+          "section": "Management Session",
+          "order": 1,
+          "shown": "up front",
+          "required": true,
+          "suggested": {
+            "required": true
+          },
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "notes": [
+            "YAML says \"tcp://host.docker.internal:55554\"",
+            "valueFrom"
+          ]
+        },
+        {
+          "component": "solace",
+          "key": "solace.connector.management.session.msg-vpn",
+          "line": 120,
+          "field": "solace.connector.management.session.msg-vpn",
+          "type": "string",
+          "default_display": "from connection",
+          "section": "Management Session",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "notes": [
+            "valueFrom"
+          ]
+        },
+        {
+          "component": "solace",
+          "key": "solace.connector.management.session.client-username",
+          "line": 121,
+          "field": "solace.connector.management.session.client-username",
+          "type": "string",
+          "default_display": "from connection",
+          "section": "Management Session",
+          "order": 3,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "notes": [
+            "valueFrom"
+          ]
+        },
+        {
+          "component": "solace",
+          "key": "solace.connector.management.session.client-password",
+          "line": 122,
+          "field": "solace.connector.management.session.client-password",
+          "type": "secret",
+          "default_display": "withheld (I6)",
+          "section": "Management Session",
+          "order": 4,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "notes": [
+            "valueFrom",
+            "secret: true added"
+          ]
+        },
+        {
+          "component": "solace",
+          "key": "solace.java.host",
+          "line": 124,
+          "field": "solace.java.host",
+          "type": "string",
+          "default_display": "from connection",
+          "section": "Java Client",
+          "order": 1,
+          "shown": "up front",
+          "required": true,
+          "suggested": {
+            "required": true
+          },
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "notes": [
+            "YAML says \"tcp://host.docker.internal:55554\"",
+            "valueFrom"
+          ]
+        },
+        {
+          "component": "solace",
+          "key": "solace.java.msg-vpn",
+          "line": 125,
+          "field": "solace.java.msg-vpn",
+          "type": "string",
+          "default_display": "from connection",
+          "section": "Java Client",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "notes": [
+            "valueFrom"
+          ]
+        },
+        {
+          "component": "solace",
+          "key": "solace.java.client-username",
+          "line": 126,
+          "field": "solace.java.client-username",
+          "type": "string",
+          "default_display": "from connection",
+          "section": "Java Client",
+          "order": 3,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "notes": [
+            "valueFrom"
+          ]
+        },
+        {
+          "component": "solace",
+          "key": "solace.java.client-password",
+          "line": 127,
+          "field": "solace.java.client-password",
+          "type": "secret",
+          "default_display": "withheld (I6)",
+          "section": "Java Client",
+          "order": 4,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "notes": [
+            "valueFrom",
+            "secret: true added"
+          ]
+        },
+        {
+          "component": "solace",
+          "key": "solace.java.connectRetries",
+          "line": 128,
+          "field": "solace.java.connectRetries",
+          "type": "int",
+          "default_display": "-1",
+          "section": "Java Client",
+          "order": 5,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "solace",
+          "key": "solace.java.reconnectRetries",
+          "line": 129,
+          "field": "solace.java.reconnectRetries",
+          "type": "int",
+          "default_display": "-1",
+          "section": "Java Client",
+          "order": 6,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "role": "none",
+      "shared": true,
+      "rows": [
+        {
+          "component": "application",
+          "key": "spring.application.name",
+          "line": 24,
+          "field": "spring.application.name",
+          "type": "string",
+          "default_display": "\"SOURCE_TEST_V1\"",
+          "section": "Application",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {
+            "required": false
+          },
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": [
+            "YAML says \"fm-file-source\""
+          ]
+        }
+      ]
+    },
+    {
+      "type": "logging",
+      "role": "none",
+      "shared": true,
+      "rows": [
+        {
+          "component": "logging",
+          "key": "logging.level.root",
+          "line": 132,
+          "field": "logging.level.root",
+          "type": "string",
+          "default_display": "\"INFO\"",
+          "section": "Log Levels",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "logging",
+          "key": "logging.level.com.solace.connector.jms",
+          "line": 133,
+          "field": "logging.level.com.solace.connector.jms",
+          "type": "string",
+          "default_display": "\"INFO\"",
+          "section": "Log Levels",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "logging",
+          "key": "logging.level.com.solace.connector.core",
+          "line": 134,
+          "field": "logging.level.com.solace.connector.core",
+          "type": "string",
+          "default_display": "\"INFO\"",
+          "section": "Log Levels",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "logging",
+          "key": "logging.level.com.solace.spring.cloud.stream.binder",
+          "line": 135,
+          "field": "logging.level.com.solace.spring.cloud.stream.binder",
+          "type": "string",
+          "default_display": "\"INFO\"",
+          "section": "Log Levels",
+          "order": 3,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "logging",
+          "key": "logging.level.com.solacecoe.spring.cloud.stream.binders.file",
+          "line": 136,
+          "field": "logging.level.com.solacecoe.spring.cloud.stream.binders.file",
+          "type": "string",
+          "default_display": "\"TRACE\"",
+          "section": "Log Levels",
+          "order": 4,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "logging",
+          "key": "logging.file.name",
+          "line": 138,
+          "field": "logging.file.name",
+          "type": "string",
+          "default_display": "\"myapp.log\"",
+          "section": "File",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {
+            "required": false
+          },
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "logging",
+          "key": "logging.logback.rollingpolicy.file-name-pattern",
+          "line": 141,
+          "field": "logging.logback.rollingpolicy.file-name-pattern",
+          "type": "string",
+          "default_display": "\"${LOG_FILE}.%d{yyyy-MM-dd}.%i.gz\"",
+          "section": "Rolling Policy",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "logging",
+          "key": "logging.logback.rollingpolicy.max-file-size",
+          "line": 142,
+          "field": "logging.logback.rollingpolicy.max-file-size",
+          "type": "string",
+          "default_display": "\"100MB\"",
+          "section": "Rolling Policy",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "logging",
+          "key": "logging.logback.rollingpolicy.max-history",
+          "line": 143,
+          "field": "logging.logback.rollingpolicy.max-history",
+          "type": "int",
+          "default_display": "7",
+          "section": "Rolling Policy",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "logging",
+          "key": "logging.logback.rollingpolicy.total-size-cap",
+          "line": 144,
+          "field": "logging.logback.rollingpolicy.total-size-cap",
+          "type": "string",
+          "default_display": "\"1GB\"",
+          "section": "Rolling Policy",
+          "order": 3,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        }
+      ]
+    },
+    {
+      "type": "management",
+      "role": "none",
+      "shared": true,
+      "rows": [
+        {
+          "component": "management",
+          "key": "management.security.enabled",
+          "line": 147,
+          "field": "management.security.enabled",
+          "type": "bool",
+          "default_display": "false",
+          "section": "Security",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "management",
+          "key": "management.simple.metrics.export.enabled",
+          "line": 151,
+          "field": "management.simple.metrics.export.enabled",
+          "type": "bool",
+          "default_display": "true",
+          "section": "Metrics",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "management",
+          "key": "management.endpoints.web.exposure.include",
+          "line": 155,
+          "field": "management.endpoints.web.exposure.include",
+          "type": "string",
+          "default_display": "\"*\"",
+          "section": "Web Endpoints",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": [
+            "YAML says \"health,info,metrics\""
+          ]
+        },
+        {
+          "component": "management",
+          "key": "management.endpoints.web.cors.allowed-origins",
+          "line": 157,
+          "field": "management.endpoints.web.cors.allowed-origins",
+          "type": "string",
+          "default_display": "\"*\"",
+          "section": "CORS",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "management",
+          "key": "management.endpoints.web.cors.allowed-methods",
+          "line": 158,
+          "field": "management.endpoints.web.cors.allowed-methods",
+          "type": "string",
+          "default_display": "\"*\"",
+          "section": "CORS",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "management",
+          "key": "management.endpoints.web.cors.allowed-headers",
+          "line": 159,
+          "field": "management.endpoints.web.cors.allowed-headers",
+          "type": "string",
+          "default_display": "\"*\"",
+          "section": "CORS",
+          "order": 2,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "management",
+          "key": "management.endpoint.logfile.external-file",
+          "line": 162,
+          "field": "management.endpoint.logfile.external-file",
+          "type": "string",
+          "default_display": "\"myapp.log\"",
+          "section": "Logfile",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "management",
+          "key": "management.endpoint.prometheus.enabled",
+          "line": 164,
+          "field": "management.endpoint.prometheus.enabled",
+          "type": "bool",
+          "default_display": "false",
+          "section": "Prometheus",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "management",
+          "key": "management.endpoint.health.show-details",
+          "line": 166,
+          "field": "management.endpoint.health.show-details",
+          "type": "string",
+          "default_display": "\"ALWAYS\"",
+          "section": "Health",
+          "order": 0,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        },
+        {
+          "component": "management",
+          "key": "management.endpoint.health.status.order",
+          "line": 169,
+          "field": "management.endpoint.health.status.order",
+          "type": "string",
+          "default_display": "\"DOWN,OUT_OF_SERVICE,RECONNECTING,UP,UNKNOWN\"",
+          "section": "Health",
+          "order": 1,
+          "shown": "up front",
+          "required": false,
+          "suggested": {},
+          "role": "none",
+          "versions": [
+            1,
+            2,
+            3
+          ],
+          "notes": []
+        }
+      ]
+    }
+  ],
+  "questions": [],
+  "removed": [
+    {
+      "key": "file.source.command_center.useoutputdestinationsolacecredentials",
+      "line": 97,
+      "reason": "case variant; kept useOutputDestinationSolaceCredentials",
+      "role": "source",
+      "component": "file-source",
+      "field": "file.source.command_center.useoutputdestinationsolacecredentials",
+      "field_keys": [
+        "file.source.command_center.useoutputdestinationsolacecredentials"
+      ]
+    }
+  ],
+  "info": [
+    "shared default differs (package kept): server server.port: package 8094, YAML 8092",
+    "shared default differs (package kept): server server.ssl.enabled: package true, YAML false",
+    "shared default differs (package kept): application spring.application.name: package \"SOURCE_TEST_V1\", YAML \"fm-file-source\"",
+    "shared default differs (package kept): solace solace.connector.management.queue: package \"\", YAML \"fm-file-source-management\"",
+    "shared default differs (package kept): solace solace.connector.management.session.host: package \"tcp://localhost:55555\", YAML \"tcp://host.docker.internal:55554\"",
+    "shared default differs (package kept): solace solace.java.host: package \"tcp://localhost:55555\", YAML \"tcp://host.docker.internal:55554\"",
+    "shared default differs (package kept): management management.endpoints.web.exposure.include: package \"*\", YAML \"health,info,metrics\"",
+    "secret: true added: file-source/file.source.sftp_settings.password",
+    "secret: true added: file-source/file.source.ftp_settings.password",
+    "secret: true added: file-sink/file.sink.sftp_settings.password",
+    "secret: true added: file-sink/file.sink.ftp_settings.password",
+    "secret: true added: server/server.ssl.key-store-password",
+    "secret: true added: spring-boot-admin/spring.boot.admin.client.password",
+    "secret: true added: solace/solace.connector.management.session.client-password",
+    "secret: true added: solace/solace.java.client-password",
+    "coerced: spring.boot.admin.client.instance.prefer-ip: string 'true' coerced to bool",
+    "coerced: spring.boot.admin.client.enabled: string 'true' coerced to bool",
+    "coerced: spring.boot.admin.client.auto-registration: string 'true' coerced to bool",
+    "coerced: spring.boot.admin.client.prefer-ip: string 'true' coerced to bool",
+    "coerced: file.source.sftp_settings.strictHostKeyChecking: unquoted 'no' kept as a string (a YAML 1.1 reader would make it a bool)",
+    "coerced: management.endpoint.health.status.order: list ['DOWN', 'OUT_OF_SERVICE', 'RECONNECTING', 'UP', 'UNKNOWN'] joined with ',' into one string",
+    "reviewed labels kept: 19",
+    "4 field(s) matching 'spring.cloud.stream.bindings' relocated out of shared component spring-cloud-stream (FM-D11: the bindings run in opposite directions per role, so one shared default cannot fit both)",
+    "shared component spring-cloud-stream has no fields left after relocation; it was kept so instances that already select it stay valid",
+    "secret default withheld: file-source/file.source.sftp_settings.password",
+    "secret default withheld: file-source/file.source.ftp_settings.password",
+    "secret default withheld: file-sink/file.sink.sftp_settings.password",
+    "secret default withheld: file-sink/file.sink.ftp_settings.password",
+    "secret default withheld: server/server.ssl.key-store-password",
+    "secret default withheld: spring-boot-admin/spring.boot.admin.client.password",
+    "secret default withheld: solace/solace.connector.management.session.client-password",
+    "secret default withheld: solace/solace.java.client-password",
+    "component cache preserved (profile `preserve`), but this run changes it: the accepted restyle",
+    "defaults were taken from the YAML (profile defaults.role_components: yaml). This conflicts with docs/design/dynamic-ui/design.md section 7.3 (UI-D*, PROPOSED): defaults come from field initializers, never from a sample application.yml. Flagged, not resolved."
+  ],
+  "profile_changes": [
+    "--- decisions (profile now)",
+    "+++ decisions (saved on \"create\")",
+    "@@ -0,0 +1,43 @@",
+    "+decisions:",
+    "+  removed:",
+    "+  - key: file.source.command_center.useoutputdestinationsolacecredentials",
+    "+    role: source",
+    "+    date: '2026-11-10'",
+    "+    reason: case variant; kept useOutputDestinationSolaceCredentials",
+    "+  suggestions:",
+    "+  - component: application",
+    "+    field: spring.application.name",
+    "+    attribute: required",
+    "+    decision: reject",
+    "+    date: '2026-11-10'",
+    "+    evidence:",
+    "+    - 'notifications/notification-template/NAME: required'",
+    "+    - 'scheduler/job/NAME: required'",
+    "+  - component: solace",
+    "+    field: solace.connector.management.session.host",
+    "+    attribute: required",
+    "+    decision: accept",
+    "+    date: '2026-11-10'",
+    "+    evidence:",
+    "+    - 'cache/cache-engine/solace.host: required'",
+    "+  - component: solace",
+    "+    field: solace.java.host",
+    "+    attribute: required",
+    "+    decision: accept",
+    "+    date: '2026-11-10'",
+    "+    evidence:",
+    "+    - 'cache/cache-engine/solace.host: required'",
+    "+  - component: logging",
+    "+    field: logging.file.name",
+    "+    attribute: required",
+    "+    decision: reject",
+    "+    date: '2026-11-10'",
+    "+    evidence:",
+    "+    - 'notifications/notification-template/NAME: required'",
+    "+    - 'scheduler/job/NAME: required'",
+    "+  style:",
+    "+    restyle: accepted",
+    "+    date: '2026-11-10'",
+    "+  provenance:",
+    "+    choice: keep",
+    "+    date: '2026-11-10'"
+  ],
+  "ready": true
+}
