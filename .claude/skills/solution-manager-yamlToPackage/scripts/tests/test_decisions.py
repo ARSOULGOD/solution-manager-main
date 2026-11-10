@@ -97,6 +97,25 @@ class DecisionsTest(unittest.TestCase):
         self.assertEqual(eff["stored"], {})
         self.assertEqual(eff["restyle"], "accepted")
 
+    def test_a_key_takes_one_store_answer_per_question(self):  # Task 5 review fix 2
+        ctx = dict(CTX, open=dict(CTX["open"], **{"dup-key:a.list": {
+            "id": "dup-key:a.list", "kind": "dup-key", "key": "a.list", "choices": ["first", "second", "remove"]}}))
+        both = {"store": [{"key": "a.list", "as": "second"}, {"key": "a.list", "as": "index"}]}
+        self.assertEqual(decisions.validate_answers(both, ctx), [])
+        clash = {"store": [{"key": "a.list", "as": "index"}, {"key": "a.list", "as": "list"}]}
+        self.assertEqual(decisions.validate_answers(clash, ctx),
+                         ["store a.list: 'index' and 'list' answer the same question (list:a.list); give one"])
+        remembered = {"stored": [{"key": "a.list", "as": "first", "role": "alpha", "date": "d"},
+                                 {"key": "a.list", "as": "list", "role": "alpha", "date": "d"},
+                                 {"key": "o", "as": "map", "role": "alpha", "date": "d"}]}
+        self.assertEqual(decisions.effective(remembered, {}, "alpha")["stored"], {"a.list": ["first", "list"], "o": ["map"]})
+        # same-key answers replace every remembered entry for that key (Ruling 9)
+        self.assertEqual(decisions.effective(remembered, both, "alpha")["stored"],
+                         {"a.list": ["second", "index"], "o": ["map"]})
+        new = decisions.merge(remembered, both, today="2026-11-10", placements={"a.list": ("core", "a.list", "alpha")},
+                              evidence={})
+        self.assertEqual([(e["key"], e["as"]) for e in new["stored"]], [("o", "map"), ("a.list", "second"), ("a.list", "index")])
+
     def test_validate_happy_path_returns_no_errors(self):
         self.assertEqual(decisions.validate_answers({
             "remove": [{"key": "a.b", "reason": "dup"}],

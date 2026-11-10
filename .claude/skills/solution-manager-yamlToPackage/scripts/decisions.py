@@ -17,6 +17,7 @@ AMENDABLE = ("type", "default", "required", "discriminator", "when", "pattern", 
 
 PLACE_KINDS = {"no-component", "wrong-role", "doc2", "excluded", "shared-new", "role-exclusive-shared"}
 SHARED_KINDS = {"shared-new", "role-exclusive-shared"}
+SCOPES = ("all-roles", "this-role")
 CARDINALITIES = {"exactly-one", "one-of-many", "zero-or-more"}
 KEYED = ("removed", "placed", "stored")
 ORDER = ("removed", "placed", "stored", "suggestions", "amendments", "style", "provenance")
@@ -144,13 +145,24 @@ def validate_answers(answers, ctx):
         elif isinstance(e.get("component"), str) and e["component"] and e["component"] not in ctx["components"]:
             errors.append("place %s: component %r is not in the package" % (key, e.get("component")))
         if "scope" in e:
-            if e["scope"] not in ("all-roles", "this-role"):
-                errors.append("place %s: scope must be all-roles or this-role" % key)
-            elif not (kinds & SHARED_KINDS):
+            shared_items = [i for i in open_items.values() if i.get("key") == key and i.get("kind") in SHARED_KINDS]
+            if not shared_items:
                 errors.append("place %s: scope applies only to shared keys" % key)
-            elif e["scope"] == "all-roles" and "shared-new" not in kinds:
-                errors.append("place %s: all-roles was not offered (the key is exclusive to some roles)" % key)
+            elif e["scope"] not in SCOPES or not any(e["scope"] in (i.get("choices") or []) for i in shared_items):
+                errors.append("place %s: scope %r was not offered" % (key, e["scope"]))
+            else:
+                # the shared components: from the caller, else the ones the questions name
+                shared = ctx.get("shared_components")
+                if shared is None:
+                    shared = {(i.get("context") or {}).get("component") for i in shared_items}
+                if isinstance(new, dict):
+                    to_shared = new.get("role") in (None, "none")
+                else:
+                    to_shared = e.get("component") in shared
+                if not to_shared:
+                    errors.append("place %s: scope only applies to a shared component" % key)
 
+    store_as = {}
     for e in _entries(answers, "store"):
         key = e.get("key")
         items = [i for i in open_items.values() if i.get("key") == key]
@@ -158,6 +170,14 @@ def validate_answers(answers, ctx):
             errors.append("store %s: no open question for this key" % key)
         elif not any(e.get("as") in (i.get("choices") or []) for i in items):
             errors.append("store %s: %r was not offered" % (key, e.get("as")))
+        store_as.setdefault(key, []).append(e.get("as"))
+    for key, given in store_as.items():   # several answers per key, one per question
+        for qid, i in open_items.items():
+            if i.get("key") == key:
+                hits = sorted({a for a in given if a != "remove" and a in (i.get("choices") or [])})
+                if len(hits) > 1:
+                    errors.append("store %s: %s answer the same question (%s); give one"
+                                  % (key, " and ".join(repr(h) for h in hits), qid))
 
     for e in _entries(answers, "suggestions"):
         key = e.get("key")
@@ -254,6 +274,13 @@ def _restyle_word(value):
     return {"accept": "accepted", "refuse": "refused"}.get(value, value)
 
 
+def _add(stored, key, value):
+    """stored maps a key to its `as` values: one per question it answers."""
+    values = stored.setdefault(key, [])
+    if value not in values:
+        values.append(value)
+
+
 def effective(remembered, answers, role, *, fields=None):
     fields = fields or {}
     kept = _survivors(remembered, answers, lambda key: role)
@@ -267,7 +294,7 @@ def effective(remembered, answers, role, *, fields=None):
             placed[e["key"]] = {k: e[k] for k in ("component", "scope", "new") if k in e}
     for e in kept["stored"]:
         if _applies(e, role):
-            stored[e["key"]] = e.get("as")
+            _add(stored, e["key"], e.get("as"))
     for section in KEYED:
         for e in kept[section]:
             if e.get("role") == role and e.get("key") is not None and e["key"] not in stale:
@@ -289,7 +316,7 @@ def effective(remembered, answers, role, *, fields=None):
     for e in _entries(answers, "place"):
         placed[e["key"]] = {k: e[k] for k in ("component", "scope", "new") if k in e}
     for e in _entries(answers, "store"):
-        stored[e["key"]] = e.get("as")
+        _add(stored, e["key"], e.get("as"))
     amendments += [copy.deepcopy(e) for e in _entries(answers, "amend")]
 
     style = (remembered.get("style") or {}).get("restyle")
@@ -328,7 +355,11 @@ def merge(remembered, answers, *, today, placements, evidence, role=None):
                 entry[extra] = e[extra]
         entry["date"] = today
         placed.append(entry)
-    for e in _entries(answers, "store"):
+    written = set()
+    for e in _entries(answers, "store"):   # one entry per (key, as)
+        if (e["key"], e["as"]) in written:
+            continue
+        written.add((e["key"], e["as"]))
         stored.append({"key": e["key"], "as": e["as"], "role": role_of(e["key"]), "date": today})
 
     sugs = list(kept["suggestions"])

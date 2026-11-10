@@ -22,6 +22,7 @@ import datetime
 import difflib
 import json
 import os
+import re
 import sys
 
 import yaml
@@ -49,8 +50,8 @@ CHOICES = {
     "role-exclusive-shared": ["this-role", "role-component", "remove"],
 }
 KEY_KINDS = set(CHOICES)   # the questions about one YAML key (package-level items come later)
-# the `place` scopes each shared-component question offers (`role-component` is a scopeless place)
-SCOPES = {"shared-new": ("all-roles", "this-role"), "role-exclusive-shared": ("this-role",)}
+# shared-new about a shared field that serves another role only: one component cannot hold two fields with one key
+FOREIGN_FIELD_CHOICES = ["all-roles", "role-component", "remove"]
 # answers that settle a question raised against the target field (store `as`)
 SETTLES = {"enum-value": ("add-option", "string"), "type-conflict": ("package-type", "yaml-type")}
 
@@ -87,6 +88,13 @@ def write_text(path, text):
 
 def is_shared(spec):
     return bool(spec.get("shared")) or spec.get("role") in (None, "none")
+
+
+def question_choices(kind, context):
+    """The choices a key question offers."""
+    if kind == "shared-new" and (context or {}).get("field_role"):
+        return list(FOREIGN_FIELD_CHOICES)
+    return list(CHOICES[kind])
 
 
 def compatible(package_type, yaml_type, shared):
@@ -260,11 +268,22 @@ class Run:
                                              f"{self.role!r} there, move it to this role's component, or remove it?",
                     {"component": ctype, "roles": list(rex["roles"])}, tgt)
         comp = self.find_comp(ctype)
-        if shared and comp is not None and not any(f["key"] == fkey for f in comp.get("fields", [])):
+        existing = next((f for f in (comp or {}).get("fields", []) if f["key"] == fkey), None)
+        if shared and comp is not None and existing is None:
             return ("shared-new", f"not in shared component {ctype}; adding it affects every role. Add it for "
                                   f"every role, for role {self.role!r} only, move it to this role's component, "
                                   "or remove it?", {"component": ctype}, tgt)
+        if shared and existing is not None and self.foreign(existing):
+            # the field serves another role only, so it is not this run's target
+            return ("shared-new", f"shared component {ctype} has this field for role {existing['role']!r} only, so it "
+                                  f"does not serve {self.role!r}. Make it serve every role (its field role is "
+                                  "dropped), move it to this role's component, or remove it?",
+                    {"component": ctype, "field_role": existing["role"]}, tgt)
         return tgt
+
+    def foreign(self, field):
+        """Does this field carry a field role other than this run's?"""
+        return field.get("role") not in (None, "none", self.role)
 
     def answered(self, leaf, decision):
         """The target a `place` decision names."""
@@ -335,11 +354,17 @@ class Run:
             if key in removed:
                 self.remove(leaf, removed[key])
                 continue
-            how = stored.get(key)   # the `store` answer: one `as` per key
+            hows = stored.get(key) or []   # the `store` answers: one `as` per question
+
+            def answer(choices):
+                """The `as` among this question's own choices, or None."""
+                return next((h for h in hows if h != "remove" and h in choices), None)
+
             dups = duplicates.get(key, [])
             value_leaf = leaf
-            if dups and how in ("first", "second"):
-                if how == "second":   # the last copy written: the lines the question shows
+            pick = answer(CHOICES["dup-key"]) if dups else None
+            if pick:
+                if pick == "second":   # the last copy written: the lines the question shows
                     value_leaf = self.occurrence(leaf, dups[-1])
             else:
                 for d in dups:
@@ -353,36 +378,35 @@ class Run:
                 tgt = nat
             elif tgt is None:
                 kind, text, context, tentative = nat
-                self.ask(kind, key, leaf["line"], text, CHOICES[kind], context)
+                self.ask(kind, key, leaf["line"], text, question_choices(kind, context), context)
                 if tentative:
                     self.note_placement(key, tentative)
             vkind = self.value_kind(value_leaf)
             shape = None
             if vkind:
                 offered = self.value_choices(value_leaf, vkind)
-                if how in offered and how != "remove":
-                    shape = how
-                else:
+                shape = answer(offered)
+                if shape is None:
                     self.ask(vkind, key, leaf["line"], self.VALUE_TEXT[vkind], offered)
             if tgt is None:
                 continue
             self.note_placement(key, tgt)
             base = {"leaf": leaf, "component": tgt["component"], "shared": tgt["shared"], "base": tgt["fkey"],
-                    "field_role": tgt.get("field_role"), "resolution": None}
+                    "field_role": tgt.get("field_role"), "clear_role": tgt.get("clear_role", False), "resolution": None}
             if vkind and shape is None:
                 candidates.append(dict(base, field=None, fkey=tgt["fkey"]))
                 continue
-            built = self.fields_for(value_leaf, tgt, shape)
-            problems = [q for q in (self.check_against_package(v, t, f) for t, f, v in built) if q]
-            resolution = None
-            if problems:
-                if all(how in SETTLES[q[0]] for q in problems):
-                    resolution = (problems[0][0], how)
-                    built = [(t, self.settle_derived(f, how, problems[0][0]), v) for t, f, v in built]
-                else:
-                    kind, text, context = problems[0]
-                    self.ask(kind, key, leaf["line"], text, CHOICES[kind], context)
-            for t, f, _ in built:
+            for t, f, v in self.fields_for(value_leaf, tgt, shape):
+                resolution = None
+                problem = self.check_against_package(v, t, f)
+                if problem:
+                    kind, text, context = problem
+                    settle = answer(SETTLES[kind])
+                    if settle:
+                        resolution = (kind, settle)
+                        f = self.settle_derived(f, settle, kind)
+                    else:
+                        self.ask(kind, key, leaf["line"], text, CHOICES[kind], context)
                 candidates.append(dict(base, field=f, fkey=t["fkey"], resolution=resolution))
         self.remove_package_fields(set(self.yaml_keys))
 
@@ -421,12 +445,15 @@ class Run:
         shared_q = not isinstance(nat, dict) and nat[0] in decisions.SHARED_KINDS
         scope = decision.get("scope")
         if scope is not None:
-            if not shared_q or scope not in SCOPES[nat[0]]:
+            if not shared_q or scope not in question_choices(nat[0], nat[2]):
                 return None
             tgt = self.answered(leaf, decision)
             if not tgt["shared"]:
                 return None
-            return dict(tgt, field_role=self.role) if scope == "this-role" else tgt
+            if scope == "this-role":
+                return dict(tgt, field_role=self.role)
+            # all-roles over a field of another role: the field drops its role and serves every role
+            return dict(tgt, clear_role=bool(nat[2].get("field_role")))
         tgt = self.answered(leaf, decision)
         return None if shared_q and tgt["shared"] else tgt
 
@@ -521,13 +548,15 @@ class Run:
             if spec and fkey is not None and self.own(spec):
                 return self.make_target(ctype, spec, "", fkey)
         nat = self.natural(leaf, honour_exclude=False)
-        tgt = nat if isinstance(nat, dict) else (nat[3] if nat[0] in decisions.SHARED_KINDS else None)
-        if tgt is not None:
-            return tgt
+        if isinstance(nat, dict):
+            return nat
+        if nat[0] in decisions.SHARED_KINDS and not nat[2].get("field_role"):   # never another role's field
+            return nat[3]
         for comp in self.pkg["components"]:
             spec = self.spec_for(comp["type"])
             fkey = self.field_key(key, spec)
-            if fkey is not None and self.own(spec) and any(f["key"] == fkey for f in comp.get("fields", [])):
+            if fkey is not None and self.own(spec) and \
+                    any(f["key"] == fkey and not self.foreign(f) for f in comp.get("fields", [])):
                 return self.make_target(comp["type"], spec, "", fkey)
         return None
 
@@ -539,7 +568,8 @@ class Run:
         self.removed.append({"key": leaf["key"], "line": leaf["line"], "reason": reason,
                              "role": place[2] if place else self.role,
                              "component": place[0] if place else None,
-                             "field": place[1] if place else None})
+                             "field": place[1] if place else None,
+                             "field_keys": [place[1]] if place else []})
 
     def remove_package_fields(self, yaml_keys):
         """A `remove` naming component + field: a package field the YAML does not carry. Not a YAML key, so it is
@@ -562,7 +592,7 @@ class Run:
                 c["type"] == ctype for c in self.profile["components"])) else {}
             self.removed.append({"key": fkey, "line": None, "reason": reason,
                                  "role": None if not spec or is_shared(spec) else spec.get("role"),
-                                 "component": ctype, "field": fkey})
+                                 "component": ctype, "field": fkey, "field_keys": [fkey]})
 
     def ask_spelling(self, candidates):
         groups = {}
@@ -723,6 +753,7 @@ class Run:
         p = self.profile
         explicit = p.get("explicit_versions", True)
         preserve_ui = p.get("preserve_reviewed_ui", True)
+        self.withhold_secrets()
         self.drop_removed()
         by_comp = {}
         for m in self.mapped:
@@ -785,15 +816,34 @@ class Run:
             if self.find_comp(ctype) is not None:
                 self.notes.append(f"component {ctype} preserved untouched (profile `preserve`)")
 
+    def withhold_secrets(self):
+        """I6: no secret default survives in the package, in any component, whether or not this YAML feeds it.
+        The change is recorded without the value."""
+        for comp in self.pkg["components"]:
+            for f in comp.get("fields", []):
+                if f.get("type") == "secret" and f.get("default") not in (None, ""):
+                    f["default"] = None
+                    self.notes.append(f"secret default withheld: {comp['type']}/{f['key']}")
+                    rows = self.diff_rows.setdefault(comp["type"], {"added": [], "changed": [], "package_only": []})
+                    rows["changed"].append({"key": f["key"],
+                                            "changes": [("default (secret withheld)", "(not shown)", None)]})
+                    self.touched.add(comp["type"])
+
     def drop_removed(self):
-        """Removing a key also removes its field when the package already has one."""
+        """Removing a key also removes its field when the package already has one, and the `<field>.<n>` fields an
+        earlier `index` answer made of it. Every dropped field key is listed in the entry's field_keys."""
         for r in self.removed:
             comp = self.find_comp(r["component"]) if r["component"] else None
-            if comp is None or not any(f["key"] == r["field"] for f in comp.get("fields", [])):
+            if comp is None or r["field"] is None:
                 continue
-            comp["fields"] = [f for f in comp["fields"] if f["key"] != r["field"]]
+            item = re.compile(re.escape(r["field"]) + r"\.\d+")
+            gone = [f["key"] for f in comp.get("fields", []) if f["key"] == r["field"] or item.fullmatch(f["key"])]
+            if not gone:
+                continue
+            comp["fields"] = [f for f in comp["fields"] if f["key"] not in gone]
+            r["field_keys"] += [k for k in gone if k not in r["field_keys"]]
             rows = self.diff_rows.setdefault(comp["type"], {"added": [], "changed": [], "package_only": []})
-            rows.setdefault("removed", []).append(r["field"])
+            rows.setdefault("removed", []).extend(gone)
             self.touched.add(comp["type"])
 
     def insert_component(self, comp):
@@ -819,9 +869,7 @@ class Run:
             if f.get("default") != d["default"] and f["type"] != "secret":
                 changes.append(("default (valueFrom field, kept)", f.get("default"), d["default"]))
         elif f["type"] == "secret":
-            if f.get("default") not in (None, ""):
-                new["default"] = None
-                changes.append(("default (secret withheld)", f.get("default"), None))
+            pass   # a secret takes no default: withhold_secrets() already nulled the package's
         elif res is not None:
             changes += self.apply_resolution(new, d, res)   # package-type: the YAML default is not used
             new = ordered_field(new)
@@ -902,7 +950,7 @@ class Run:
         existing = {f["key"]: f for f in comp["fields"]}
         fed = {m["field"]["key"] for m in items}
         missing = [k for k, f in existing.items() if k not in fed and (comp["type"], k) not in self.held_fields
-                   and not (f.get("virtual") or f.get("valueFrom"))]
+                   and not (f.get("virtual") or f.get("valueFrom") or self.foreign(f))]
         if missing:
             # every instance of this role renders these from the shared component, yet its YAML does not carry them
             self.questions.append(f"shared component {comp['type']} renders {len(missing)} field(s) this {self.role} "
@@ -918,23 +966,18 @@ class Run:
                 self.touched.add(comp["type"])
                 self.diff_rows.setdefault(comp["type"], {"added": [], "changed": [], "package_only": []})["added"].append(d["key"])
                 continue
-            if f["type"] == "secret" and f.get("default") not in (None, ""):
-                # I6 outranks "shared components are report-only": a secret value is removed even here.
-                rows = self.diff_rows.setdefault(comp["type"], {"added": [], "changed": [], "package_only": []})
-                rows["changed"].append({"key": f["key"], "changes": [("default (secret withheld)", f["default"], None)]})
-                f["default"] = None
-                self.touched.add(comp["type"])
-                continue
+            changes = []
+            if m.get("clear_role") and f.get("role") not in (None, "none"):
+                changes.append(("role", f.pop("role"), None))   # all-roles: the field now serves every role
             if m.get("resolution"):
-                # the user's answer changes the shared declaration (package-type: nothing changes, nothing to report)
-                changes = self.apply_resolution(f, d, m["resolution"])
-                if changes:
-                    i = comp["fields"].index(f)
-                    comp["fields"][i] = ordered_field(f)
-                    rows = self.diff_rows.setdefault(comp["type"], {"added": [], "changed": [], "package_only": []})
-                    rows["changed"].append({"key": f["key"], "changes": changes})
-                    self.touched.add(comp["type"])
-                continue
+                # the user's answer changes the shared declaration (package-type: nothing changes)
+                changes += self.apply_resolution(f, d, m["resolution"])
+            if changes:
+                comp["fields"][comp["fields"].index(f)] = ordered_field(f)
+                rows = self.diff_rows.setdefault(comp["type"], {"added": [], "changed": [], "package_only": []})
+                rows["changed"].append({"key": f["key"], "changes": changes})
+                self.touched.add(comp["type"])
+            # the YAML default is not applied unless an answer applied it: report a difference
             if f["type"] != "secret" and d["type"] != "secret" and f.get("default") != d["default"]:
                 self.shared_diffs.append({"component": comp["type"], "key": f["key"],
                                           "package": f.get("default"), "yaml": d["default"],

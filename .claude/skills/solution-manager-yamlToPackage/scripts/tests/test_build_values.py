@@ -1,3 +1,4 @@
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -63,9 +64,11 @@ class BuildValuesTest(unittest.TestCase):
         self.assertTrue([c for c in l.coerced if c["key"] == "demo.alpha.retries"])
         self.assertTrue(l.balanced())
 
-    def test_package_type_reports_no_shared_difference(self):
+    def test_package_type_still_reports_the_shared_difference(self):  # review fix 5
         run = build_demo("alpha", answers=STORE)
-        self.assertFalse([i for i in run.info if "server.port" in i])
+        self.assertIn('shared default differs (package kept): server server.port: package "8094", YAML 8080', run.info)
+        yt = build_demo("alpha", answers={"store": [{"key": "server.port", "as": "yaml-type"}]})
+        self.assertFalse([i for i in yt.info if "server.port" in i])   # the YAML default was applied
 
     def test_secret_comment_never_becomes_helper_text(self):  # I6
         f = fields_by_key(build_demo("alpha", answers=STORE).pkg)["server.ssl.key-store-password"]
@@ -119,9 +122,12 @@ class BuildValuesTest(unittest.TestCase):
         yml = temp_file("demo:\n  alpha:\n    api-key: [k1secret, k2secret]\n")
         for how in ("join-comma", "index", "list"):
             run = build_demo("alpha", yaml_path=yml, answers={"store": [{"key": "demo.alpha.api-key", "as": how}]})
-            text = repr(run.pkg) + repr(run.coerced) + repr(run.info) + repr(run.notes)
+            text = repr(run.pkg) + repr(run.coerced) + repr(run.info) + repr(run.notes) + json.dumps(run.open) \
+                + json.dumps(run.report_json(), default=str)
             self.assertNotIn("k1secret", text, how)
             self.assertTrue(run.balanced(), how)
+        asked = build_demo("alpha", yaml_path=yml)   # review fix 7: the open question itself
+        self.assertNotIn("k1secret", json.dumps(asked.open) + json.dumps(asked.report_json(), default=str))
 
     def test_role_exclusive_shared_offers_no_all_roles(self):
         text = PROFILE.read_text(encoding="utf-8") + \
@@ -139,6 +145,81 @@ class BuildValuesTest(unittest.TestCase):
                                                          "scope": "this-role"}]})
             self.assertEqual(fields_by_key(ok.pkg)["server.ssl.key-store-password"]["role"], "alpha")
             self.assertTrue(ok.balanced())
+
+    # ---- review fix round 1
+    def test_a_shared_field_of_another_role_is_not_this_runs_target(self):  # fix 1
+        pkg = temp_file(json.dumps(build_demo("alpha", answers=STORE).pkg))
+        yml = temp_file("server:\n  ssl:\n    key-store-password: betapw\ndemo:\n  beta:\n    host: b\n")
+        key, qid = "server.ssl.key-store-password", "shared-new:server.ssl.key-store-password"
+        asked = build_demo("beta", package=pkg, yaml_path=yml)
+        self.assertEqual(asked.open[qid]["choices"], ["all-roles", "role-component", "remove"])
+        self.assertEqual(asked.open[qid]["context"], {"component": "server", "field_role": "alpha"})
+        self.assertNotIn(key, [p["key"] for p in asked.placed])
+        self.assertTrue(asked.balanced())
+        ctx = {"open": asked.open, "yaml_keys": set(asked.yaml_keys), "components": {"server", "beta-core"}}
+        errors = decisions.validate_answers({"place": [{"key": key, "component": "server", "scope": "this-role"}]}, ctx)
+        self.assertTrue([e for e in errors if "'this-role' was not offered" in e], errors)
+        # a scope the question does not offer leaves it open
+        self.assertIn(qid, build_demo("beta", package=pkg, yaml_path=yml, answers={
+            "place": [{"key": key, "component": "server", "scope": "this-role"}]}).open)
+
+        every = build_demo("beta", package=pkg, yaml_path=yml,
+                           answers={"place": [{"key": key, "component": "server", "scope": "all-roles"}]})
+        f = fields_by_key(every.pkg)[key]
+        self.assertNotIn("role", f)
+        self.assertEqual((f["type"], f["default"]), ("secret", None))
+        self.assertIn((key, "server"), [(p["key"], p["component"]) for p in every.placed])
+        self.assertTrue(every.balanced())
+
+        own = build_demo("beta", package=pkg, yaml_path=yml,
+                         answers={"place": [{"key": key, "component": "beta-core"}]})
+        self.assertIn(key, [g["key"] for g in own.find_comp("beta-core")["fields"]])
+        self.assertEqual([g.get("role") for g in own.find_comp("server")["fields"] if g["key"] == key], ["alpha"])
+
+        gone = build_demo("beta", package=pkg, yaml_path=yml, answers={"remove": [{"key": key, "reason": "alpha's"}]})
+        [r] = gone.removed
+        self.assertEqual((r["component"], r["role"]), (None, "beta"))
+        self.assertEqual([g.get("role") for g in gone.find_comp("server")["fields"] if g["key"] == key], ["alpha"])
+        for run in (asked, every, own, gone):   # I6
+            self.assertNotIn("betapw", json.dumps(run.pkg) + json.dumps(run.report_json(), default=str))
+
+    def test_two_value_questions_on_one_key_both_close(self):  # fix 2
+        yml = temp_file("demo:\n  alpha:\n    retries: [1, 2]\n    retries: [3, 4]\n")
+        both = build_demo("alpha", yaml_path=yml, answers={"store": [{"key": "demo.alpha.retries", "as": "second"},
+                                                                     {"key": "demo.alpha.retries", "as": "index"}]})
+        self.assertEqual(both.open, {})
+        f = fields_by_key(both.pkg)
+        self.assertEqual((f["demo.alpha.retries.0"]["default"], f["demo.alpha.retries.1"]["default"]), (3, 4))
+        self.assertTrue(both.balanced())
+        self.assertEqual(set(build_demo("alpha", yaml_path=yml, answers={
+            "store": [{"key": "demo.alpha.retries", "as": "second"}]}).open), {"list:demo.alpha.retries"})
+        self.assertEqual(set(build_demo("alpha", yaml_path=yml, answers={
+            "store": [{"key": "demo.alpha.retries", "as": "index"}]}).open), {"dup-key:demo.alpha.retries"})
+
+    def test_removing_an_index_key_drops_its_item_fields(self):  # fix 3
+        pkg = temp_file(json.dumps(build_demo("alpha", answers=STORE).pkg))
+        run = build_demo("alpha", package=pkg, answers={"remove": [{"key": "demo.alpha.retries", "reason": "unused"}]})
+        self.assertFalse([k for k in fields_by_key(run.pkg) if k.startswith("demo.alpha.retries")])
+        [r] = [r for r in run.removed if r["key"] == "demo.alpha.retries"]
+        self.assertEqual((r["component"], r["field"]), ("alpha-core", "demo.alpha.retries"))
+        self.assertEqual(r["field_keys"], ["demo.alpha.retries", "demo.alpha.retries.0", "demo.alpha.retries.1",
+                                           "demo.alpha.retries.2"])
+        self.assertTrue(run.balanced())
+
+    def test_a_scope_into_a_component_that_is_not_shared_is_reported(self):  # fix 4
+        run = build_demo("alpha")
+        ctx = {"open": run.open, "yaml_keys": set(run.yaml_keys), "components": {"server", "alpha-core"}}
+        errors = decisions.validate_answers({"place": [{"key": "server.ssl.key-store-password",
+                                                        "component": "alpha-core", "scope": "this-role"}]}, ctx)
+        self.assertEqual(errors, ["place server.ssl.key-store-password: scope only applies to a shared component"])
+        self.assertEqual(decisions.validate_answers({"place": [{"key": "server.ssl.key-store-password",
+                                                                "component": "server", "scope": "this-role"}]}, ctx), [])
+
+    def test_every_secret_default_in_the_package_is_withheld(self):  # fix 6 (I6)
+        run = build_demo("alpha")
+        self.assertIsNone(fields_by_key(run.pkg)["server.ssl.trust-store-password"]["default"])
+        self.assertNotIn("oldsecret1", json.dumps(run.pkg) + json.dumps(run.report_json(), default=str))
+        self.assertIn("secret default withheld: server/server.ssl.trust-store-password", run.notes)
 
     def test_duplicates_carry_their_value(self):
         dup = common.load_yaml_leaves(str(ALPHA))["duplicates"]

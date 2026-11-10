@@ -111,7 +111,8 @@ class BuildKeysTest(unittest.TestCase):
                                                        "reason": "obsolete"}]})
         self.assertNotIn("demo.alpha.legacy", fields_by_key(run.pkg))
         self.assertEqual(run.removed, [{"key": "demo.alpha.legacy", "line": None, "reason": "obsolete", "role": "alpha",
-                                        "component": "alpha-core", "field": "demo.alpha.legacy"}])
+                                        "component": "alpha-core", "field": "demo.alpha.legacy",
+                                        "field_keys": ["demo.alpha.legacy"]}])
         self.assertEqual(run.key_count, 15)
         self.assertTrue(run.balanced())
 
