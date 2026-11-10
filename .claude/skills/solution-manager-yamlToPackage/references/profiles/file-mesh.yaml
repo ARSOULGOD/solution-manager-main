@@ -106,7 +106,7 @@ discrepancies:
     what: "the package numbers ui.order per field, not per section"
     resolution: "superseded 2026-11-10 (plan tooling/002): db-designer numbering once the user accepts the restyle; a refused restyle keeps the detected running style"
   - id: FM-D6
-    what: "the YAMLs carry real-looking password values (changeit, pass, test, SFTP_PASSWORD)"
+    what: "the YAMLs carry real-looking password values in their secret leaves"
     resolution: secret defaults are always withheld (I6); the engine reports each one
   - id: FM-D7
     what: "role YAML defaults (adapter_id fm-file-source) differ from the package (SOURCE_TEST_V1)"
