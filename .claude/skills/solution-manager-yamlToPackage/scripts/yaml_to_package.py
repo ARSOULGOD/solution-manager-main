@@ -49,6 +49,10 @@ CHOICES = {
     "role-exclusive-shared": ["this-role", "role-component", "remove"],
 }
 KEY_KINDS = set(CHOICES)   # the questions about one YAML key (package-level items come later)
+# the `place` scopes each shared-component question offers (`role-component` is a scopeless place)
+SCOPES = {"shared-new": ("all-roles", "this-role"), "role-exclusive-shared": ("this-role",)}
+# answers that settle a question raised against the target field (store `as`)
+SETTLES = {"enum-value": ("add-option", "string"), "type-conflict": ("package-type", "yaml-type")}
 
 
 def die(code, msg):
@@ -317,7 +321,7 @@ class Run:
         self.key_count = len(set(self.yaml_keys))
         if parsed["documents"] > 1:
             self.notes.append(f"YAML has {parsed['documents']} documents; keys from document 2+ are questions")
-        removed, placed = self.decided["removed"], self.decided["placed"]
+        removed, placed, stored = self.decided["removed"], self.decided["placed"], self.decided["stored"]
         duplicates = {}
         for d in parsed["duplicates"]:
             duplicates.setdefault(d["key"], []).append(d)
@@ -331,13 +335,20 @@ class Run:
             if key in removed:
                 self.remove(leaf, removed[key])
                 continue
+            how = stored.get(key)   # the `store` answer: one `as` per key
+            dups = duplicates.get(key, [])
+            value_leaf = leaf
+            if dups and how in ("first", "second"):
+                if how == "second":   # the last copy written: the lines the question shows
+                    value_leaf = self.occurrence(leaf, dups[-1])
+            else:
+                for d in dups:
+                    self.ask("dup-key", key, d["first_line"],
+                             f"written twice in one mapping (lines {d['first_line']} and {d['line']}). Use the first "
+                             "value, the second, or remove it?", CHOICES["dup-key"],
+                             {"lines": [d["first_line"], d["line"]]})
             nat = self.natural(leaf)
-            decision = placed.get(key)
-            tgt = None
-            if decision and "scope" not in decision:   # shared-component scopes are applied later
-                tgt = self.answered(leaf, decision)
-                if not isinstance(nat, dict) and nat[0] in decisions.SHARED_KINDS and tgt["shared"]:
-                    tgt = None   # adding to a shared component needs a scope (all-roles / this-role)
+            tgt = self.placed_target(leaf, nat, placed.get(key))
             if tgt is None and isinstance(nat, dict):
                 tgt = nat
             elif tgt is None:
@@ -345,22 +356,34 @@ class Run:
                 self.ask(kind, key, leaf["line"], text, CHOICES[kind], context)
                 if tentative:
                     self.note_placement(key, tentative)
-            vkind = self.value_kind(leaf)
+            vkind = self.value_kind(value_leaf)
+            shape = None
             if vkind:
-                self.ask(vkind, key, leaf["line"], self.VALUE_TEXT[vkind], CHOICES[vkind])
-            for d in duplicates.get(key, []):
-                self.ask("dup-key", key, d["first_line"],
-                         f"written twice in one mapping (lines {d['first_line']} and {d['line']}). Use the first "
-                         "value, the second, or remove it?", CHOICES["dup-key"],
-                         {"lines": [d["first_line"], d["line"]]})
+                offered = self.value_choices(value_leaf, vkind)
+                if how in offered and how != "remove":
+                    shape = how
+                else:
+                    self.ask(vkind, key, leaf["line"], self.VALUE_TEXT[vkind], offered)
             if tgt is None:
                 continue
             self.note_placement(key, tgt)
-            field = None if vkind else self.derive(leaf, tgt)
-            if field is not None:
-                self.check_against_package(leaf, tgt, field)
-            candidates.append({"leaf": leaf, "component": tgt["component"], "field": field,
-                               "shared": tgt["shared"], "fkey": tgt["fkey"]})
+            base = {"leaf": leaf, "component": tgt["component"], "shared": tgt["shared"], "base": tgt["fkey"],
+                    "field_role": tgt.get("field_role"), "resolution": None}
+            if vkind and shape is None:
+                candidates.append(dict(base, field=None, fkey=tgt["fkey"]))
+                continue
+            built = self.fields_for(value_leaf, tgt, shape)
+            problems = [q for q in (self.check_against_package(v, t, f) for t, f, v in built) if q]
+            resolution = None
+            if problems:
+                if all(how in SETTLES[q[0]] for q in problems):
+                    resolution = (problems[0][0], how)
+                    built = [(t, self.settle_derived(f, how, problems[0][0]), v) for t, f, v in built]
+                else:
+                    kind, text, context = problems[0]
+                    self.ask(kind, key, leaf["line"], text, CHOICES[kind], context)
+            for t, f, _ in built:
+                candidates.append(dict(base, field=f, fkey=t["fkey"], resolution=resolution))
         self.remove_package_fields(set(self.yaml_keys))
 
         self.ask_spelling(candidates)
@@ -368,9 +391,14 @@ class Run:
         # fields an open key would feed: not "in the package but not in this YAML"
         self.held_fields = {self.placements[k][:2] for k in held if k in self.placements}
         self.mapped = [c for c in candidates if c["leaf"]["key"] not in held]
-        self.placed = [{"key": m["leaf"]["key"], "line": m["leaf"]["line"], "component": m["component"],
-                        "field": m["fkey"], "shared": m["shared"], "field_keys": [m["fkey"]]} for m in self.mapped]
-        placed_keys = {m["leaf"]["key"] for m in self.mapped}
+        by_key = {}
+        for m in self.mapped:   # one entry per YAML key; `index` gives it one field per item
+            entry = by_key.setdefault(m["leaf"]["key"], {
+                "key": m["leaf"]["key"], "line": m["leaf"]["line"], "component": m["component"], "field": m["base"],
+                "shared": m["shared"], "field_keys": []})
+            entry["field_keys"].append(m["fkey"])
+        self.placed = list(by_key.values())
+        placed_keys = set(by_key)
         self.coerced = [c for c in self.coerced if c["key"] in placed_keys]
         self.withheld = [w for w in self.withheld if w["key"] in placed_keys]
         present = set(self.yaml_keys)
@@ -379,8 +407,88 @@ class Run:
                 self.info.append(f"remembered decision for {key} (role {self.role}): not in this YAML")
 
     def note_placement(self, key, tgt):
-        role = None if tgt["shared"] else tgt["spec"].get("role")
+        # a field given `role` (scope this-role) belongs to that role even inside a shared component
+        role = tgt.get("field_role") or (None if tgt["shared"] else tgt["spec"].get("role"))
         self.placements[key] = (tgt["component"], tgt["fkey"], role)
+
+    def placed_target(self, leaf, nat, decision):
+        """The target a `place` decision gives the key, or None when it does not settle the key's question.
+
+        A shared-component question (shared-new, role-exclusive-shared) is settled only by a scope that question
+        offers, or by a scopeless place into a component that is not shared (the `role-component` choice)."""
+        if not decision:
+            return None
+        shared_q = not isinstance(nat, dict) and nat[0] in decisions.SHARED_KINDS
+        scope = decision.get("scope")
+        if scope is not None:
+            if not shared_q or scope not in SCOPES[nat[0]]:
+                return None
+            tgt = self.answered(leaf, decision)
+            if not tgt["shared"]:
+                return None
+            return dict(tgt, field_role=self.role) if scope == "this-role" else tgt
+        tgt = self.answered(leaf, decision)
+        return None if shared_q and tgt["shared"] else tgt
+
+    def occurrence(self, leaf, dup):
+        """The leaf as written by a later copy of a duplicated key (the `second` answer)."""
+        value = dup["value"]
+        out = dict(leaf, value=value, raw=dup.get("raw"), quoted=dup.get("quoted", False), first_value=leaf["value"])
+        if isinstance(value, list):
+            policy = common.lookup(self.profile.get("lists") or {}, leaf["key"]) or "flag"
+            if policy == "join-comma" and all(not isinstance(v, (dict, list)) for v in value):
+                out.update(kind="scalar-joined", value=",".join(str(v) for v in value), joined_from=value)
+            else:
+                out.update(kind="list", list_policy=policy)
+        else:
+            out["kind"] = "map" if isinstance(value, dict) else "scalar"
+        return out
+
+    def item_type(self, leaf, item):
+        """The field type one list item would get under `index`, or None."""
+        sub = {"path": leaf["path"] + ("0",), "kind": "scalar", "value": item, "raw": None}
+        return common.infer_type(sub, self.profile.get("secret_patterns") or [])[0]
+
+    def value_choices(self, leaf, vkind):
+        """The choices a value question offers. `join-comma` needs scalar items, `index` items with a field type."""
+        choices = list(CHOICES[vkind])
+        if vkind == "list":
+            items = leaf["value"] or []
+            if any(isinstance(v, (dict, list)) for v in items):
+                choices.remove("join-comma")
+            if not items or any(self.item_type(leaf, v) is None for v in items):
+                choices.remove("index")
+        return choices
+
+    def fields_for(self, leaf, tgt, shape):
+        """[(target, field, YAML value)] for a key: one field, or one per item for `index`."""
+        if shape != "index":
+            return [(tgt, self.derive(leaf, tgt, shape), leaf["value"])]
+        out = []
+        for i, item in enumerate(leaf["value"]):
+            sub = dict(leaf, path=leaf["path"] + (str(i),), key=f"{leaf['key']}.{i}", kind="scalar", value=item,
+                       raw=item if isinstance(item, str) else None, quoted=True)
+            t = dict(tgt, fkey=f"{tgt['fkey']}.{i}")
+            out.append((t, self.derive(sub, t, parent=leaf, suffix=f" {i}"), item))
+        return out
+
+    def settle_derived(self, field, how, kind):
+        """The derived field after an answered enum-value question (type-conflict answers act in the merge)."""
+        if kind != "enum-value":
+            return field
+        field = dict(field)
+        if how == "add-option":
+            opts = list(field.get("options") or [])
+            if field["default"] is not None and field["default"] not in opts:
+                opts.append(field["default"])
+            if field.get("options") is not None:
+                field["options"] = opts
+        elif how == "string":
+            field["type"] = "string"
+            field.pop("options", None)
+            if field["default"] is not None and not isinstance(field["default"], str):
+                field["default"] = str(field["default"])
+        return field
 
     def own(self, spec):
         """Is this a component of this run's role, or a shared one?"""
@@ -469,68 +577,94 @@ class Run:
                      f"{len(keys)} keys of {ctype} differ only in case, '-' or '_' ({', '.join(keys)}). Keep one "
                      "spelling: remove the others?", CHOICES["spelling"], {"keys": keys, "component": ctype})
 
-    def check_against_package(self, leaf, tgt, field):
-        """enum-value and type-conflict: questions only the target component can raise."""
-        key, options = leaf["key"], field.get("options")
-        if options is not None and leaf["value"] is not None and leaf["value"] not in options:
-            self.ask("enum-value", key, leaf["line"], f"value is not one of the profile's enum options {options}. "
-                     "Add it to the options, make the field a string, or remove it?", CHOICES["enum-value"],
-                     {"options": list(options)})
-            return
+    def check_against_package(self, value, tgt, field):
+        """enum-value and type-conflict: questions only the target component can raise. Returns
+        (kind, text, context) or None; the caller asks it unless a `store` answer settles it."""
+        options = field.get("options")
+        if options is not None and value is not None and value not in options:
+            return ("enum-value", f"value is not one of the profile's enum options {options}. Add it to the options, "
+                                  "make the field a string, or remove it?", {"options": list(options)})
         comp = self.find_comp(tgt["component"])
         f = next((g for g in (comp or {}).get("fields", []) if g["key"] == tgt["fkey"]), None)
         if f is None:
-            return
+            return None
         if not compatible(f["type"], field["type"], tgt["shared"]):
-            self.ask("type-conflict", key, leaf["line"], f"the package declares {tgt['component']}/{f['key']} as "
-                     f"{f['type']!r}; the YAML value is {field['type']!r}. Keep the package's type, use the YAML's, "
-                     "or remove it?", CHOICES["type-conflict"],
-                     {"component": tgt["component"], "package_type": f["type"], "yaml_type": field["type"]})
-            return
+            return ("type-conflict", f"the package declares {tgt['component']}/{f['key']} as {f['type']!r}; the YAML "
+                                     f"value is {field['type']!r}. Keep the package's type, use the YAML's, or remove "
+                                     "it?", {"component": tgt["component"], "package_type": f["type"],
+                                             "yaml_type": field["type"]})
         takes_yaml = not tgt["shared"] and \
             (self.profile.get("defaults") or {}).get("role_components", "yaml") == "yaml"
         if takes_yaml and f.get("options") and not f.get("valueFrom") and f["type"] != "secret" \
                 and field["default"] is not None and field["default"] not in f["options"]:
-            self.ask("enum-value", key, leaf["line"], f"value is not one of the package's options {f['options']}. "
-                     "Add it to the options, make the field a string, or remove it?", CHOICES["enum-value"],
-                     {"options": list(f["options"])})
+            return ("enum-value", f"value is not one of the package's options {f['options']}. Add it to the options, "
+                                  "make the field a string, or remove it?", {"options": list(f["options"])})
+        return None
 
-    def derive(self, leaf, tgt):
-        p, key, spec, pattern = self.profile, leaf["key"], tgt["spec"], tgt["pattern"]
-        override = common.lookup(p.get("types") or {}, key)
-        options = common.lookup(p.get("enums") or {}, key)
-        ftype, note, _ = common.infer_type(leaf, p.get("secret_patterns") or [])
+    def derive(self, leaf, tgt, shape=None, parent=None, suffix=""):
+        """The field for a leaf. `shape` is a value question's `store` answer (list, join-comma, map, string);
+        `parent` is the list an `index` item comes from: its key, section and label (plus `suffix`) are used."""
+        p, spec, pattern = self.profile, tgt["spec"], tgt["pattern"]
+        owner = parent or leaf   # the YAML key: notes are filed under it, the ui is derived from it
+        key = owner["key"]
+        patterns = p.get("secret_patterns") or []
+        secret_named = common.is_secret_name(owner["path"][-1], patterns)
+        values = list(owner["value"]) if isinstance(owner["value"], list) else [owner["value"]]
+        values.append(owner.get("first_value"))   # a duplicated key: the comment sits on the first copy
+        if shape == "list":
+            leaf = dict(leaf, list_policy="list")
+        elif shape == "join-comma":
+            leaf = dict(leaf, kind="scalar-joined", joined_from=leaf["value"],
+                        value=",".join(str(v) for v in leaf["value"]))
+        override = common.lookup(p.get("types") or {}, leaf["key"])
+        options = common.lookup(p.get("enums") or {}, leaf["key"])
+        ftype, note, _ = common.infer_type(leaf, patterns)
         if override:
             ftype = override
+        if shape in ("map", "string"):
+            ftype = shape
+        if secret_named and (parent is not None or shape in ("join-comma", "string")):
+            ftype = "secret"   # a value reshaped from a secret-named key stays a secret (I6)
         default = common.coerce_default(ftype, leaf["value"]) if leaf["kind"] != "list" else leaf["value"]
         if leaf["kind"] == "scalar-joined":
             default = leaf["value"]
+        if shape == "string":   # keep the text as written (`1.10` stays "1.10")
+            default = leaf["raw"] if isinstance(leaf.get("raw"), str) else str(leaf["value"])
+        elif shape == "map":
+            default = None
         if options is not None:
             ftype = "enum"
+        if ftype == "secret":
+            note = None   # coercion notes quote the value
         if note:
             self.coerced.append({"key": key, "line": leaf["line"], "note": note})
-        if leaf.get("raw") and leaf["raw"].lower() in common.YAML11_BOOL_WORDS \
+        if ftype != "secret" and leaf.get("raw") and leaf["raw"].lower() in common.YAML11_BOOL_WORDS \
                 and not leaf["quoted"]:
             self.coerced.append({"key": key, "line": leaf["line"],
                                  "note": f"unquoted {leaf['raw']!r} kept as a string (a YAML 1.1 reader would make it a bool)"})
         if ftype in ("list", "map") and default is not None:
             # the schema allows only scalar defaults; the cache reference package leaves these null too
+            shown = "(not shown: secret-named key)" if secret_named else json.dumps(default)
             self.coerced.append({"key": key, "line": leaf["line"],
-                                 "note": f"{ftype} default {json.dumps(default)} not representable as a field default; left null"})
+                                 "note": f"{ftype} default {shown} not representable as a field default; left null"})
             default = None
         if ftype == "secret":
-            if default not in (None, ""):
+            if default not in (None, "") and not any(w["key"] == key for w in self.withheld):
                 self.withheld.append({"key": key, "line": leaf["line"]})
             default = None
 
-        n = common.root_len(pattern, leaf["path"])
-        mid, root = leaf["path"][n:-1], leaf["path"][:n]
+        n = common.root_len(pattern, owner["path"])
+        mid, root = owner["path"][n:-1], owner["path"][:n]
         fallback = spec.get("section_default") or common.title_case(common.split_words(spec["type"]), self.acronyms)
         section = common.lookup(p.get("sections") or {}, key) or common.section_for(mid, root, fallback, self.acronyms)
-        label = common.label_for(leaf["path"][-1], section, self.acronyms)
+        label = common.label_for(owner["path"][-1], section, self.acronyms) + suffix
+        comment = owner["comment"]
+        if (ftype == "secret" or secret_named) and comment and \
+                any(v is not None and str(v) and str(v) in comment for v in values):
+            comment = None   # a comment that repeats the secret value never becomes help text (I6)
         field = {"key": tgt["fkey"], "type": ftype, "default": default,
                  "ui": {"section": section, "order": None, "label": label,
-                        "helperText": common.helper_text(ftype, label, section, leaf["comment"])}}
+                        "helperText": common.helper_text(ftype, label, section, comment)}}
         if options is not None:
             field["options"] = list(options)
         return field
@@ -627,6 +761,8 @@ class Run:
                 if k in existing:
                     continue
                 f = m["field"]
+                if m.get("field_role"):
+                    f["role"] = m["field_role"]
                 if explicit:
                     f["version"] = list(self.target)
                 prior = self.reviewed_ui(k, ctype) if preserve_ui else None
@@ -675,7 +811,8 @@ class Run:
     def merge_field(self, f, m, preserve_ui, ctype):
         new, changes = copy.deepcopy(f), []
         d = m["field"]
-        if d["type"] != f["type"]:   # an incompatible type was asked as a type-conflict question
+        res = m.get("resolution")   # an answered enum-value or type-conflict question
+        if d["type"] != f["type"] and (res is None or res[1] == "package-type"):
             self.notes.append(f"{ctype}/{f['key']}: type {f['type']!r} kept from the package (YAML infers {d['type']!r})")
         policy = (self.profile.get("defaults") or {}).get("role_components", "yaml")
         if f.get("valueFrom"):
@@ -685,12 +822,15 @@ class Run:
             if f.get("default") not in (None, ""):
                 new["default"] = None
                 changes.append(("default (secret withheld)", f.get("default"), None))
+        elif res is not None:
+            changes += self.apply_resolution(new, d, res)   # package-type: the YAML default is not used
+            new = ordered_field(new)
         elif policy == "yaml" and f.get("default") != d["default"]:
             if not (f.get("options") and d["default"] is not None and d["default"] not in f["options"]):
                 # a value outside the options was asked as an enum-value question
                 new["default"] = d["default"]
                 changes.append(("default", f.get("default"), d["default"]))
-        if d.get("options") and f.get("options") and d["options"] != f["options"]:
+        if res is None and d.get("options") and f.get("options") and d["options"] != f["options"]:
             self.notes.append(f"{ctype}/{f['key']}: profile options {d['options']} differ from package {f['options']}; package kept")
         if preserve_ui and f.get("ui"):
             if f["ui"].get("label") != d["ui"]["label"] or f["ui"].get("section") != d["ui"]["section"]:
@@ -707,6 +847,28 @@ class Run:
                 new["version"] = v
                 changes.append(("version", f["version"], v))
         return new, changes
+
+    @staticmethod
+    def apply_resolution(f, d, res):
+        """Apply an answered enum-value or type-conflict question to package field f, in place. Returns the changes
+        as (what, old, new) rows."""
+        _, how = res
+        before = {k: copy.deepcopy(f.get(k)) for k in ("type", "default", "options")}
+        if how == "yaml-type":
+            f["type"], f["default"] = d["type"], d["default"]
+            if d.get("options") is not None:
+                f["options"] = list(d["options"])
+            else:
+                f.pop("options", None)
+        elif how == "add-option":
+            opts = list(f.get("options") or d.get("options") or [])
+            if d["default"] is not None and d["default"] not in opts:
+                opts.append(d["default"])
+            f["options"], f["default"] = opts, d["default"]
+        elif how == "string":
+            f["type"], f["default"] = "string", d["default"]
+            f.pop("options", None)
+        return [(k, before[k], f.get(k)) for k in before if before[k] != f.get(k)]
 
     def assign_order(self, comp, new_keys, preserve_ui):
         """new_keys None means the component was created now: number everything."""
@@ -749,7 +911,8 @@ class Run:
         for m in items:
             f, d = existing.get(m["field"]["key"]), m["field"]
             if f is None:   # only a key the user agreed to add reaches here (shared-new was asked)
-                d = ordered_field(dict(d, version=list(self.target)))
+                extra = {"role": m["field_role"]} if m.get("field_role") else {}   # scope this-role
+                d = ordered_field(dict(d, version=list(self.target), **extra))
                 comp["fields"].append(d)
                 self.assign_order(comp, {d["key"]}, True)
                 self.touched.add(comp["type"])
@@ -762,10 +925,22 @@ class Run:
                 f["default"] = None
                 self.touched.add(comp["type"])
                 continue
-            if f["type"] != "secret" and f.get("default") != d["default"]:
+            if m.get("resolution"):
+                # the user's answer changes the shared declaration (package-type: nothing changes, nothing to report)
+                changes = self.apply_resolution(f, d, m["resolution"])
+                if changes:
+                    i = comp["fields"].index(f)
+                    comp["fields"][i] = ordered_field(f)
+                    rows = self.diff_rows.setdefault(comp["type"], {"added": [], "changed": [], "package_only": []})
+                    rows["changed"].append({"key": f["key"], "changes": changes})
+                    self.touched.add(comp["type"])
+                continue
+            if f["type"] != "secret" and d["type"] != "secret" and f.get("default") != d["default"]:
                 self.shared_diffs.append({"component": comp["type"], "key": f["key"],
                                           "package": f.get("default"), "yaml": d["default"],
                                           "valueFrom": bool(f.get("valueFrom"))})
+                self.info.append(f"shared default differs (package kept): {comp['type']} {f['key']}: package "
+                                 f"{json.dumps(f.get('default'))}, YAML {json.dumps(d['default'])}")
 
     # ---------------------------------------------------------------- finish
     def finish(self):

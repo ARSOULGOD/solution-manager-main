@@ -148,6 +148,8 @@ def validate_answers(answers, ctx):
                 errors.append("place %s: scope must be all-roles or this-role" % key)
             elif not (kinds & SHARED_KINDS):
                 errors.append("place %s: scope applies only to shared keys" % key)
+            elif e["scope"] == "all-roles" and "shared-new" not in kinds:
+                errors.append("place %s: all-roles was not offered (the key is exclusive to some roles)" % key)
 
     for e in _entries(answers, "store"):
         key = e.get("key")
