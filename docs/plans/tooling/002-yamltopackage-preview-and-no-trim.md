@@ -1,6 +1,10 @@
 # solution-manager-yamlToPackage: preview before create, no trimming, sample-learned style
 
-> **Status: APPROVED 2026-11-10, NOT YET EXECUTED.** Brainstormed and approved in chat on 2026-11-10, section by
+> **Status: EXECUTED 2026-11-10** on branch `feat/yamltopackage-preview`. All 13 tasks done, each reviewed, plus a
+> final whole-branch review and a 13-item fix wave; 159 tests pass; Stage 2 passes apart from known console issues. One
+> eval case (sink-preview, grader 03) still fails (see Results, open items). See **Results** at the end.
+>
+> *History:* APPROVED 2026-11-10, NOT YET EXECUTED. Brainstormed and approved in chat on 2026-11-10, section by
 > section. The user approved the written design without changes and skipped the independent adversarial review.
 >
 > **Execution (the user's choices, 2026-11-10):**
@@ -1600,30 +1604,173 @@ work goes to `<scratch>/e2e/` and `<scratch>/base/`. Run commands from the repo 
 
 ### Task 13: Stage 2 regression, then Results
 
-**Files:** Modify this plan's "## Results"; temporary `frontend/contracts/packages/_skill_file-mesh/`, deleted afterwards.
+**Files:** Modify this plan's "## Results
 
-- [ ] **Step 1: Run Stage 2** as in `references/ui-testing.md`, on `<scratch>/e2e/sink/package.json`:
-  - `scripts/run_frontend.sh setup`;
-  - the generated contract test, through `gen_contract_test.py` in `_skill_file-mesh/`;
-  - `run_frontend.sh dev`, then `ui-check` for source and sink;
-  - `render_config.py roundtrip` per role, with the new `report.json`.
+Executed 2026-11-10 on `feat/yamltopackage-preview` (plan commit `16c9483`, merge base `305807d`), one subagent per
+task, a commit per task, an independent review per task, then a final whole-branch review over `305807d..HEAD`. HEAD
+after the fix wave: `b83e18e`. Nothing under `frontend/src`, `backend/` or `contracts/` changed.
 
-  Expected:
-  - the contract test passes, apart from its pinned known defects;
-  - `ui-check` shows sections in `ui.order` and no secret value in the DOM;
-  - the source round-trip passes;
-  - the sink round-trip shows the same two shared `logging.level.*` differences plan 001 found, reported as known.
+### Verdict per task
 
-  Docker or Node failures are reported BLOCKED, never PASS. Delete `_skill_file-mesh/` and stop the dev server
-  afterwards.
-- [ ] **Step 2: Fill in "## Results"** with:
-  - a verdict per task, and the test count;
-  - Task 11's counts and comparison;
-  - Task 12's grader scores;
-  - the Stage 2 table;
-  - deviations from this plan;
-  - the routed findings, to report to the user.
+Test count: **159, all OK**, clean under `python3 -W error::ResourceWarning -m unittest discover -s scripts/tests`
+(143 at the end of Task 10; the final fix wave added 16). Per-task counts the plan states are minimums (Ruling 6).
 
-## Results
+| Task | verdict | commits | fix rounds |
+|---|---|---|---|
+| 1 style module | complete, review clean | `16c9483..88ef914` | 0 |
+| 2 learn from samples | complete | `88ef914..f18dcf9` | 1 (malformed components crashed `build_index`; advanced branch untested) |
+| 3 decisions block and answers file | complete | `f18dcf9..585e106` | 1 (6 findings: new-only place, answered suggestions, silent drops, I6 secret default, cross-role replacement, merge role fallback) |
+| 4 asks instead of dropping keys | complete | `585e106..af70b8d` | 1 (7 findings) |
+| 5 value and shared-component answers | complete | `af70b8d..5fd2652` | 1 (7 findings) |
+| 6 suggestions, restyle, secret flag, amendments | complete | `5fd2652..a886391` | 0 |
+| 7 preview command | complete | `a886391..59c2910` | 1 (5 findings: amend stage, provenance stage, key-amend with no field, `read_previous`, test gaps) |
+| 8 apply command with read-back gate | complete | `59c2910..3b0db60` | 0 |
+| 9 downstream readers | complete | `3b0db60..bf111d1` | 1 (round-trip could not explain `store` answers; Ruling 25) |
+| 10 Stage 1 docs (SKILL.md 299 lines) | complete | `bf111d1..abc7b04` | 0 |
+| 11 File Mesh end to end, examples | complete | `abc7b04..229b763` | 1 (scratch paths in examples; Ruling 29) |
+| 12 eval cases | complete (Step 5 run by the controller, Ruling 4) | `229b763..a42f768` | 0 |
+| 13 Stage 2 regression, Results | Stage 2 done (no repo change); this section | this commit | n/a |
 
-_Added after execution._
+Final whole-branch review and fix wave: `a42f768..b83e18e` (see below).
+
+### Task 11: end to end on File Mesh
+
+Baseline is the old engine at `305807d` (one-shot CLI); new engine run in a scratch tree.
+
+| step | result |
+|---|---|
+| baseline source | 110 leaves, 109 mapped, 1 excluded, validation PASS |
+| baseline sink (chained) | 102 leaves, 102 mapped, validation PASS |
+| source preview | exit 5; keys 110, placed 108, removed 0, open 2; 7 questions (spelling, 4 required suggestions, restyle, provenance) |
+| source with answers | exit 0; keys 110, placed 109, removed 1, open 0; apply exit 0 |
+| sink | preview exit 0; keys 102, placed 102, removed 0, open 0; apply exit 0 |
+| validators | `validate_package.py` PASS (10 components, 163 fields); contracts `validate-package.py --dev-mode` PASS (163 fields, 0 actions, 3 metrics) |
+| secrets | PASS: no secret value in any engine output; only hits are the hand-written FM-D6 note in the profile (see Ruling 32) |
+
+Baseline comparison (old sink output vs new sink output): component types and order identical (10); the 163 field
+keys identical; `ui.order` differs on 147 fields (restyle, expected); `ui.helperText` removed on 161 fields, none
+changed, 2 kept; `secret: true` added on 8 fields; `required: true` added on `solace.java.host` and
+`solace.connector.management.session.host` only; no other field property differs; `authoring.reviewedRows` 145/163
+becomes 0/163 (Task 8's rule: the accepted restyle changes every field).
+
+Two deviations from the plan's expected numbers: the 4th step's "starts with the exact bytes of the input profile"
+is checked up to the decisions marker (**Ruling 27**), and 154 helper-text removals became 161 (**Ruling 28**).
+
+### Task 12: eval grading (three rewritten or new cases)
+
+| case | first run | re-run after the fix wave (Ruling 33) |
+|---|---|---|
+| `file-mesh-source-regenerate` | 7/7 | not re-run |
+| `file-mesh-sink-preview` | 3/4: grader 03 FAIL. The package-wide restyle and `secret: true` touch file-source, which the original grader forbade (conflicted with design section 3; Ruling 31) | 3/4: grader 03 (reworded) still FAIL. The reply does not say package-wide changes reach file-source, although SKILL.md now says it must |
+| `apply-after-answers` | 5/6: grader 05 FAIL. The runner worked from `/tmp`, found no samples (cwd-dependent discovery) and trimmed the user's answers; the hand-written profile's FM-D6 note quoted the YAMLs' password values and was copied into the output | 6/6 (samples fallback and FM-D6 rewording fixed both) |
+
+The three wording-only cases were not re-run (Ruling 30). Negative-only graders pass on an empty run (plan-mandated
+wording; each case has positive graders too).
+
+### Task 13 Step 1: Stage 2 regression
+
+Run on the sink package. Verdict: BLOCKED only for known console issue 2; nothing failed. Full logs are in the
+session scratch, not the repo.
+
+| check | result |
+|---|---|
+| `run_frontend.sh setup` | PASS |
+| generated contract test | PASS: 26 passed, 1 expected fail (`it.fails`, leading-dot `renderedPath`, known issue 1), versions 1-4 |
+| `ui-check` source + sink | BLOCKED (exit 3): 18 PASS, 2 N/A (no `when`), 2 BLOCKED (instances page and version selector: MUI DataGrid unique-id crash, known issue 2). Source 14 sections / 53 fields / 2 masked; sink 11 / 48 / 2; defaults match; no secret value in the DOM |
+| round-trip source (`--version 3`) | PASS (unexplained 0, drift 0, allowed 23) |
+| round-trip sink (`--version 3`) | PASS (unexplained 0, drift 0, allowed 25); the two shared `logging.level.com.solace.connector.{jms,core}` keys are reported as "in the package, not in this YAML (kept)" |
+
+Notes: the first run with `--version 1` (the example in `ui-testing.md`) failed on console drift only, because the
+console artifact is rendered for version 3 (profile `target_versions` 1-3, package has 1-4); a version-argument
+mismatch, not a package defect. Three withheld secrets are 4 characters, below the check's 6-character threshold, so
+they were not searched in the DOM. The temporary `_skill_file-mesh/` folder was deleted and the dev server stopped.
+
+### Final whole-branch review
+
+Verdict: **With fixes** (opus, `305807d..HEAD`). The fix wave (`a42f768..b83e18e`: `5907bc8` engine, `ab60957`
+regenerated examples, `e7a8446` docs, `b83e18e` FM-D6 wording and grader 03) addressed all 13 items; the scoped
+re-review found all 13 ADDRESSED and no new Critical or Important breakage. End-to-end numbers unchanged
+(110/108/0/2, then 109+1; sink 102/102); the committed packages are byte-identical to the examples.
+
+1. Duplicate answer entries for one target (silent last-wins, lost on the next run) are now rejected, exit 2 (Ruling 35).
+2. `detect_order_style` crashed on a field without `ui.order`; now "mixed", and `order_for_new`, `restyle` and the rebuild path tolerate it.
+3. Samples discovery depended on the cwd; now falls back to the engine's own location. SKILL.md: never alter the user's answers.
+4. A remembered restyle or provenance decision could not be revisited; `forget: [{decision: ...}]` added (Ruling 36).
+5. Four doc inaccuracies fixed (`forget` coverage, "replaces" for store and suggestions, refused-restyle helper-text exception, `ui_order` named).
+6. I6: `secret: true` on a non-secret type now has its default withheld (one predicate with `secret_fields()`); amendments no longer strip `secret: true`.
+7. Profiles are read and written with `newline=""`, so CRLF profiles keep the hand-written part byte-identical.
+8. Remembered package-level decisions now print info lines.
+9. The restyle question says accepting it resets `authoring.reviewedRows`.
+10. The round-trip compares a decimal stored as `string` against the YAML text, not `str(yv)` (test with `1.10`).
+11. Unknown keys inside an answer entry are rejected, exit 2.
+12. FM-D6 in `references/profiles/file-mesh.yaml` names no values (Ruling 32).
+13. Sink-preview grader 03 reworded and SKILL.md told to say when package-wide changes reach other components (Ruling 31, revised).
+
+### Deviations from this plan (rulings taken during execution)
+
+Rulings were made by the controller on the user's behalf; each records its cost if wrong in the ledger.
+
+| # | ruling | why |
+|---|---|---|
+| 1 | `detect_order_style` "within-section" = in every section the first order is 0 and orders are non-decreasing | reconciles the plan's prose with its Task 1 test |
+| 2 | Commit after every task with the plan's messages | the user asked; overrides "no commits unless asked" |
+| 3 | Input errors (exit 2) are checked before the open-questions gate (exit 5) | Task 8's test requires it |
+| 4 | Task 12 Step 5 (eval runs) done by the controller after Task 12's commit | implementers may not spawn subagents |
+| 5 | Restyle totals computed over the input package's components, before merge | the only reading that gives the tests' 4/5/1 and 138/154/2 |
+| 6 | Plan's per-task test totals are minimums | review fix rounds add tests |
+| 7 | A `place` answer always needs `component`; with `new` it is the new component's type | a new component needs a type name |
+| 8 | `decisions.effective` gains `fields`; `decisions.merge` gains `role` | the brief's signatures could not satisfy the spec |
+| 9 | An answer replaces a remembered entry for the same key only if roles are None or equal | all-roles vs this-role overrides |
+| 10 | `amend` default on a secret: non-null refused, null allowed | I6 forbids values, not clearing |
+| 11 | A scopeless `place` into a shared component leaves a shared-kind question open | stops role-exclusive keys landing in shared components |
+| 12 | `Run.removed` component/field = the claiming role or shared component; read-back checks None entries only against that role plus shared | otherwise a sink read-back fails on the source component's copy |
+| 13 | A key in YAML document 1 and in a later document has one outcome; document 1 governs | "exactly one of" outcomes |
+| 14 | Removing a package-only field is applied in Task 4 | no other task owned it |
+| 15 | A non-leaf mapping written twice is bad input, exit 2 | silently reading one copy would drop keys |
+| 16 | A shared field carrying another role's `role` raises `shared-new` | else another role's value lands in a field it never renders |
+| 17 | A key may carry several `store` answers, one per question | dup-key + list keys were unanswerable |
+| 18 | List choices narrowed by item type | the alternatives produce invalid packages |
+| 19 | The build nulls every existing secret default, package-only fields included | I6; corrects a wrong pre-flight claim |
+| 20 | Decimal `string` keeps the YAML text; `this-role` placements record the run's role | spec wording ("keeping the text") |
+| 21 | With restyle refused, a new component gets db-designer style | it has no style to detect |
+| 22 | A field "has the attribute" when the key is present (explicit `false` suppresses the suggestion) | an explicit false is a reviewed decision |
+| 23 | Answers validated in stages against successive builds; every answer must still settle something | an answer to a question another answer raises is otherwise impossible |
+| 24 | `apply` does not require an existing `preview.json` | Task 8's tests call apply directly; the exit-5 gate holds the flow |
+| 25 | The round-trip explains `store` answers from the merged profile's decisions block | otherwise any run with a store answer fails Stage 2 |
+| 26 | The Task 10 Step 7 `ui_order` grep also hits an accurate engine docstring; kept | accurate text |
+| 27 | Task 11 prefix check is up to the decisions marker | the real profile now carries an empty decisions block that apply regenerates |
+| 28 | Helper-text removals 154 becomes 161 on the sink comparison | 7 net-new fields got stock text from the old engine; the new style has none |
+| 29 | Committed examples use `<scratch>` and repo-relative paths | absolute `/tmp` paths are unfollowable and leak the home directory |
+| 30 | Only the three rewritten or new eval cases are run | the other three are wording-only |
+| 31 | (revised; supersedes the earlier fixture switch) Keep the sink-preview case on the canonical package and reword grader 03 to the spec's guarantee | the earlier switch would create a state the real flow never produces |
+| 32 | FM-D6's note in the File Mesh profile names no values | I6: the profile is copied into every merged profile |
+| 33 | The two failed eval cases are re-run once after the fix wave | measure the fix |
+| 34 | Results written after the final review and fix wave | records the final state |
+| 35 | A second answer entry for one target is rejected | loud beats a silent merge rule |
+| 36 | `forget` gains `{decision: restyle|provenance}` | no hand-editing rule otherwise leaves no way out |
+
+Plan defect (Task 10): Step 4 says to state that `--update-shared` is gone, while Step 7's grep forbids that string.
+The implementer followed the grep.
+
+### Open items and routed findings for the user
+
+Parked residuals (no second fix wave):
+
+- **I6, enum on a `secret: true` field (Minor).** An explicit add-option answer can append the YAML value to `options`
+  (`yaml_to_package.py:682-684`; the gate at `:696` shows the fix, one line). The covering test omits `medium` from its
+  forbidden values. Needs four unusual conditions.
+- **I6, `derive` (Minor).** A profile enum can override the secret type on a secret-named key. Needs an odd profile.
+- **Placeholder secret values in a committed example.** `examples/file-mesh-stage2/report.sink-on-source.md:59-60`
+  prints the placeholder defaults `SFTP_PASSWORD` / `FTP_PASSWORD` (commit `814d4ae`, before this plan; the same
+  placeholders sit in the canonical frontend package). Outside this plan's range; recommend masking before a PR to `main`.
+- **Sink-preview reply gap.** The reply under-reports package-wide changes (restyle, `secret: true`, withheld
+  defaults) reaching file-source; grader 03 still fails. SKILL.md has the rule, the runner does not follow it reliably.
+
+Other notes from the fix wave: the restyle question quotes the canonical package's `reviewedRows` count (163 to 0);
+`secret: true` is not amendable; deferred minors (unclosed `open()` calls in four helper scripts, `ask()` overwriting
+an item with the same id, `yaml_to_package.py` about 1800 lines, `classify` length, `examples/file-mesh-stage3/*`
+embedding `/tmp` paths from plan 001) are recorded in the execution ledger only.
+
+Routed, not designed here (unchanged, still routed): the `secret` difference between the two `project()` copies goes
+to the frontend owners; the newer `file-mesh` files in the user's samples folder reach the repo through the frontend;
+plan 001's open item on the `DECISIONS.md` note on defaults versus `dynamic-ui/design.md` section 7.3 is still open.
