@@ -68,12 +68,22 @@ def build_index(samples_dir, exclude_solution):
             solution = pkg.get("solution")
             if solution == exclude_solution:
                 continue
+            if not isinstance(solution, str):
+                solution = name
             packages += 1
             for comp in comps:
                 if not isinstance(comp, dict):
+                    notes.append(f"skipped {rel}: component is not an object")
                     continue
                 ctype = comp.get("type")
-                for f in comp.get("fields") or []:
+                if not isinstance(ctype, str):
+                    notes.append(f"skipped {rel}: component without a string type")
+                    continue
+                cfields = comp.get("fields")
+                if not isinstance(cfields, list):
+                    notes.append(f"skipped {rel}: component {ctype} has no fields list")
+                    continue
+                for f in cfields:
                     if not isinstance(f, dict) or f.get("virtual"):
                         continue
                     key = f.get("key")

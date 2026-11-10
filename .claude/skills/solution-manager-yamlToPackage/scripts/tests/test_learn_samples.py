@@ -1,3 +1,4 @@
+import json
 import sys
 import tempfile
 import unittest
@@ -58,6 +59,53 @@ class LearnSamplesTest(unittest.TestCase):
         ix = learn_samples.build_index(None, "demo")
         self.assertEqual((ix.packages, ix.fields), (0, ()))
         self.assertIn("no samples found; no suggestions", ix.notes)
+
+    def _tmp_samples(self, packages):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        for name, pkg in packages.items():
+            d = Path(tmp.name) / name
+            d.mkdir()
+            (d / "package.json").write_text(json.dumps(pkg))
+        return tmp.name
+
+    def test_malformed_components_are_noted_not_fatal(self):
+        good = {"type": "ok", "fields": [{"key": "A", "required": True}]}
+        d = self._tmp_samples({"bad": {"solution": "bad", "components": [
+            5, {"type": ["x"], "fields": []}, {"type": "t", "fields": 5},
+            {"type": "u", "fields": [7, {"key": 3}]}, good]},
+            "nosol": {"components": [good]}})
+        ix = learn_samples.build_index(d, "none")
+        notes = " ".join(ix.notes)
+        for frag in ("not an object", "string type", "component t has no fields list"):
+            self.assertIn(frag, notes)
+        self.assertIn("skipped bad/package.json", notes)
+        self.assertEqual([f.ref for f in ix.fields], ["bad/ok/A"])
+        self.assertEqual(ix.packages, 2)
+
+    def test_advanced_majority_and_tie(self):
+        def pkg(sol, adv):
+            ui = {"advanced": True} if adv else {}
+            return {"solution": sol, "components": [
+                {"type": "c", "fields": [{"key": "retry", "ui": ui}]}]}
+        d = self._tmp_samples({"a": pkg("a", True), "b": pkg("b", True), "c": pkg("c", False)})
+        # same (type, key) dedups; use distinct component types instead
+        for n in "abc":
+            p = Path(d) / n / "package.json"
+            data = json.loads(p.read_text())
+            data["components"][0]["type"] = "c" + n
+            p.write_text(json.dumps(data))
+        [s] = learn_samples.suggest(learn_samples.build_index(d, "none"), "retry")
+        self.assertEqual((s.attribute, s.support, s.matched), ("advanced", 2, 3))
+        self.assertEqual(s.evidence, ("a/ca/retry: advanced", "b/cb/retry: advanced",
+                                      "c/cc/retry: up front"))
+        tie = self._tmp_samples({"a": pkg("a", True), "b": pkg("b", False)})
+        for n in "ab":
+            p = Path(tie) / n / "package.json"
+            data = json.loads(p.read_text())
+            data["components"][0]["type"] = "c" + n
+            p.write_text(json.dumps(data))
+        self.assertEqual(learn_samples.suggest(learn_samples.build_index(tie, "none"), "retry"), [])
 
 
 if __name__ == "__main__":
