@@ -12,8 +12,6 @@ roles: [source, sink]
 
 # Variation points ------------------------------------------------------------------------
 key_style: full-dotted       # keys are the whole YAML path; configPath is "" so nothing is prefixed twice
-ui_order: running            # File Mesh numbers ui.order per field (0,1,2... / 5,6,7...), not per section.
-                             # New profiles default to section-index.
 preserve_reviewed_ui: true   # a field already in the package keeps its reviewed label/section/order/helperText
 explicit_versions: true      # write version[] on every field, as the shipped package does
 
@@ -77,10 +75,6 @@ sections:                    # only where the generic "nearest parent" rule read
   spring.cloud.stream.bindings.output-0: Output Binding
   spring.cloud.stream.solace.default.consumer: Solace Consumer
 
-exclude:
-  - match: file.source.command_center.useoutputdestinationsolacecredentials
-    reason: "FM-D1: lowercase duplicate of useOutputDestinationSolaceCredentials (string 'true' vs bool true)."
-
 # Non-YAML content the engine must carry over untouched on every run.
 preserve:
   components: [cache]
@@ -98,7 +92,7 @@ defaults:
 discrepancies:
   - id: FM-D1
     what: "source YAML has both useOutputDestinationSolaceCredentials: true and the lowercase useoutputdestinationsolacecredentials: 'true'"
-    resolution: exclude the lowercase key (see exclude)
+    resolution: "superseded 2026-11-10 (plan tooling/002): no longer excluded; the preview asks which spelling to keep, and the answer is recorded under decisions.removed"
   - id: FM-D2
     what: "spring.cloud.stream.solace.default.consumer.* (3 leaves) exists only in the sink YAML and in no package component"
     resolution: "decided 2026-11-10 by the user: role-specific. They map to the file-sink role component (its match)"
@@ -110,7 +104,7 @@ discrepancies:
     resolution: lists policy join-comma
   - id: FM-D5
     what: "the package numbers ui.order per field, not per section"
-    resolution: ui_order running, so regenerated components match the shared ones
+    resolution: "superseded 2026-11-10 (plan tooling/002): db-designer numbering once the user accepts the restyle; a refused restyle keeps the detected running style"
   - id: FM-D6
     what: "the YAMLs carry real-looking password values (changeit, pass, test, SFTP_PASSWORD)"
     resolution: secret defaults are always withheld (I6); the engine reports each one
@@ -150,3 +144,6 @@ smoke_test:
     - {id: published, kind: expect_log, role: source, pattern: "published {file}", timeout_s: 30}
     - {id: delivered, kind: expect_file, role: sink, dir_from: spring.cloud.stream.bindings.output-0.destination,
        same_checksum: true, timeout_s: 60}
+# >>> decisions: written by the skill from your preview answers; do not edit by hand >>>
+decisions: {}
+# <<< decisions <<<
