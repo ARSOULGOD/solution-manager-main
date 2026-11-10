@@ -33,6 +33,23 @@ def package_with(change):
     return path
 
 
+def add_thing(pkg):
+    """alpha-core gains a boolean demo.unknown.thing: placing the YAML's integer there is a type conflict."""
+    pkg["components"][0]["fields"].append({"key": "demo.unknown.thing", "type": "boolean", "default": False,
+                                           "ui": {"section": "Alpha", "order": 8, "label": "Thing"},
+                                           "version": [1, 2]})
+
+
+def unchanged_but_for_the_restyle(pkg):
+    """The demo package with its secret already settled: a YAML that matches it changes nothing but the style."""
+    for f in pkg["components"][1]["fields"]:
+        if f["type"] == "secret":
+            f["default"], f["secret"] = None, True
+
+
+MATCHING_YAML = "demo:\n  alpha:\n    host: old.example.invalid\n    mode: fast\n"
+
+
 def model_of(out):
     return json.loads((out / "preview.json").read_text(encoding="utf-8"))
 
@@ -86,6 +103,14 @@ class CliPreviewTest(unittest.TestCase):
             text = (out / name).read_text()
             self.assertNotIn("hunter2pass", text)
             self.assertNotIn("oldsecret1", text)
+        # also with nothing answered, and on the console
+        for answers in (None, ANSWERS_FILE):
+            fresh = empty_dir()
+            _, stdout, stderr = run_cli_full("preview", "alpha", fresh, answers=answers)
+            texts = [stdout, stderr] + [(fresh / name).read_text() for name in ("preview.md", "preview.json")]
+            for text in texts:
+                self.assertNotIn("hunter2pass", text)
+                self.assertNotIn("oldsecret1", text)
 
     def test_no_subcommand_is_a_usage_error(self):
         self.assertEqual(subprocess.run([sys.executable, str(ENGINE), "--profile", "x"], capture_output=True).returncode, 2)
@@ -128,13 +153,18 @@ class CliPreviewTest(unittest.TestCase):
         self.assertTrue(any(line.startswith("+") and "restyle: accepted" in line for line in changes))
 
     def test_changes_list_rows_and_new_questions(self):
-        run_cli("preview", "alpha", self.out)
-        run_cli("preview", "alpha", self.out, answers=answers_file(
-            {"suggestions": [{"key": "demo.alpha.username", "attribute": "required", "decision": "accept"}]}))
+        package = package_with(add_thing)
+        run_cli("preview", "alpha", self.out, package=package)
+        run_cli("preview", "alpha", self.out, package=package, answers=answers_file(
+            {"place": [{"key": "demo.unknown.thing", "component": "alpha-core"}],
+             "suggestions": [{"key": "demo.alpha.username", "attribute": "required", "decision": "accept"}]}))
         md = (self.out / "preview.md").read_text()
         changes = md.split("\n## demo / alpha: PREVIEW")[0]
         self.assertIn("alpha-core/demo.alpha.username: required no → yes", changes)
-        self.assertIn("suggest:alpha-core/demo.alpha.username/required", changes)
+        resolved, new = changes.split("New questions")
+        self.assertIn("suggest:alpha-core/demo.alpha.username/required", resolved)
+        self.assertIn("no-component:demo.unknown.thing", resolved)
+        self.assertIn("type-conflict:demo.unknown.thing", new)   # raised by the place answer
         self.assertNotIn("doc2:late", changes)
 
     def test_a_previous_preview_of_another_role_is_not_compared(self):
@@ -143,10 +173,6 @@ class CliPreviewTest(unittest.TestCase):
         self.assertTrue((self.out / "preview.md").read_text().startswith("## demo / alpha: PREVIEW"))
 
     def test_an_answer_to_a_question_an_earlier_answer_raised_is_valid(self):
-        def add_thing(pkg):
-            pkg["components"][0]["fields"].append({"key": "demo.unknown.thing", "type": "boolean", "default": False,
-                                                   "ui": {"section": "Alpha", "order": 8, "label": "Thing"},
-                                                   "version": [1, 2]})
         package = package_with(add_thing)
         run_cli("preview", "alpha", self.out, package=package,
                 answers=answers_file({"place": [{"key": "demo.unknown.thing", "component": "alpha-core"}]}))
@@ -176,13 +202,68 @@ class CliPreviewTest(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn("restyle", err)
 
+    # ---- review fixes: stages and the final check
+    def test_an_amendment_may_name_a_field_a_store_answer_creates(self):
+        answers = dict(ANSWERS, amend=[{"component": "alpha-core", "field": "demo.alpha.retries.1",
+                                        "set": {"ui.label": "Second retry"}}])
+        self.assertEqual(run_cli_err("preview", "alpha", self.out, answers=answers_file(answers)), (0, ""))
+        self.assertEqual(run_cli("apply", "alpha", self.out, answers=answers_file(answers)), 0)
+        pkg = json.loads((self.out / "package.json").read_text(encoding="utf-8"))
+        field = next(f for c in pkg["components"] for f in c["fields"] if f["key"] == "demo.alpha.retries.1")
+        self.assertEqual(field["ui"]["label"], "Second retry")
+
+    def test_a_provenance_answer_with_no_signature_question_is_refused(self):
+        package = package_with(unchanged_but_for_the_restyle)
+        code, err = run_cli_err("preview", "alpha", self.out, package=package, yaml_path=temp_file(MATCHING_YAML),
+                                answers=answers_file({"restyle": "refuse", "provenance": "dev-mode"}))
+        self.assertEqual(code, 2)
+        self.assertIn("provenance: no signature question is asked", err)
+        self.assertFalse((self.out / "preview.json").exists())
+        code, err = run_cli_err("preview", "alpha", self.out, package=package, yaml_path=temp_file(MATCHING_YAML),
+                                answers=answers_file({"restyle": "accept", "provenance": "dev-mode"}))
+        self.assertEqual((code, err), (0, ""))
+
+    def test_an_amendment_of_a_key_with_no_field_is_refused(self):
+        answers = dict(ANSWERS, amend=[{"key": "demo.alpha.retries", "set": {"ui.label": "Retries"}}])
+        code, err = run_cli_err("preview", "alpha", self.out, answers=answers_file(answers))
+        self.assertEqual(code, 2)
+        self.assertIn("amend demo.alpha.retries: no field to amend", err)
+
+    def test_an_answer_another_answer_overrides_is_refused(self):
+        answers = dict(ANSWERS, remove=ANSWERS["remove"] + [{"key": "demo.unknown.thing", "reason": "not needed"}])
+        code, err = run_cli_err("preview", "alpha", self.out, answers=answers_file(answers))
+        self.assertEqual(code, 2)
+        self.assertIn("place demo.unknown.thing: the key is also removed", err)
+
+    def test_a_store_answer_to_a_question_this_build_does_not_raise_is_refused(self):
+        """`package-type` settles a type conflict only while alpha-core declares the field; without it, exit 2."""
+        package = package_with(add_thing)
+        answers = {"place": [{"key": "demo.unknown.thing", "component": "alpha-core"}],
+                   "store": [{"key": "demo.unknown.thing", "as": "package-type"}]}
+        self.assertEqual(run_cli_err("preview", "alpha", self.out, package=package,
+                                     answers=answers_file(answers))[0], 5)
+        code, err = run_cli_err("preview", "alpha", self.out, answers=answers_file(answers))
+        self.assertEqual(code, 2)
+        self.assertIn("store demo.unknown.thing", err)
+
+    def test_a_preview_json_of_another_shape_is_not_compared(self):
+        (self.out / "preview.json").write_text(json.dumps({"solution": "demo", "role": "alpha",
+                                                           "components": [{"x": 1}], "questions": "?"}))
+        code, err = run_cli_err("preview", "alpha", self.out)
+        self.assertEqual((code, err), (5, ""))
+        self.assertTrue((self.out / "preview.md").read_text().startswith("## demo / alpha: PREVIEW"))
+        self.assertTrue(any("not a preview this engine wrote" in x for x in model_of(self.out)["info"]))
+        (self.out / "preview.json").write_text("[1, 2]")
+        self.assertEqual(run_cli("preview", "alpha", self.out), 5)
+
     def test_render_is_pure_and_shows_suggestion_evidence(self):
         run_cli("preview", "alpha", self.out)
         model = model_of(self.out)
         md = preview_md.render(model, None)
         self.assertEqual(md, (self.out / "preview.md").read_text())
         self.assertIn("two/svc2/username: required", md)
-        self.assertIn("no → suggested yes (Q12)", md)
+        n = next(q["n"] for q in model["questions"] if q["id"] == "suggest:alpha-core/demo.alpha.username/required")
+        self.assertIn(f"no → suggested yes (Q{n})", md)
         self.assertIn("withheld (I6)", preview_md.render(model_of_answered(self.out), None))
 
 
@@ -194,13 +275,8 @@ def model_of_answered(out):
 class CarriedFixesTest(unittest.TestCase):
     def test_signature_question_asked_with_the_open_restyle(self):
         """A package this YAML leaves unchanged would change only through the restyle: ask the signature now."""
-        def settle(pkg):
-            server = pkg["components"][1]
-            for f in server["fields"]:
-                if f["type"] == "secret":
-                    f["default"], f["secret"] = None, True
-        package = package_with(settle)
-        yaml_path = temp_file("demo:\n  alpha:\n    host: old.example.invalid\n    mode: fast\n")
+        package = package_with(unchanged_but_for_the_restyle)
+        yaml_path = temp_file(MATCHING_YAML)
         run = build_demo("alpha", package=package, yaml_path=yaml_path)
         self.assertFalse(run.changed())
         self.assertIn("restyle", run.open)

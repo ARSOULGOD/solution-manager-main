@@ -58,6 +58,8 @@ KEY_KINDS = set(CHOICES)   # the questions about one YAML key; suggest, restyle 
 PACKAGE_CHOICES = {"suggest": ["accept", "reject"], "restyle": ["accept", "refuse"], "provenance": ["keep", "dev-mode"]}
 DB_DESIGNER = ("within-section", "sparse")   # the style of a new package, and of every package after a restyle
 NO_COUNTS = {"order_changed": 0, "stock_removed": 0, "custom_kept": 0}
+NO_SIGNATURE_QUESTION = "provenance: no signature question is asked (the package is unsigned, or this build leaves it " \
+                        "unchanged)"
 # shared-new about a shared field that serves another role only: one component cannot hold two fields with one key
 FOREIGN_FIELD_CHOICES = ["all-roles", "role-component", "remove"]
 # answers that settle a question raised against the target field (store `as`)
@@ -146,6 +148,8 @@ class Run:
         self.notes, self.shared_diffs, self.ui_diffs = [], [], []
         self.diff_rows, self.touched, self.relocated, self.extra_specs = {}, set(), {}, {}
         self.held_fields = set()
+        # what this build's answers settled: (key, as) per store answer used, keys a place answer placed
+        self.used_store, self.used_place, self.provenance_asked = set(), set(), False
         # package-level items
         self.samples, self.styles, self.restyling, self.rows = {}, {}, False, []
         self.marked, self.package_only, self.suggestion_evidence, self.suggestion_decisions = set(), [], {}, {}
@@ -402,7 +406,10 @@ class Run:
 
             def answer(choices):
                 """The `as` among this question's own choices, or None."""
-                return next((h for h in hows if h != "remove" and h in choices), None)
+                found = next((h for h in hows if h != "remove" and h in choices), None)
+                if found:
+                    self.used_store.add((key, found))
+                return found
 
             dups = duplicates.get(key, [])
             value_leaf = leaf
@@ -418,6 +425,8 @@ class Run:
                              {"lines": [d["first_line"], d["line"]]})
             nat = self.natural(leaf)
             tgt = self.placed_target(leaf, nat, placed.get(key))
+            if tgt is not None:
+                self.used_place.add(key)
             if tgt is None and isinstance(nat, dict):
                 tgt = nat
             elif tgt is None:
@@ -1126,16 +1135,20 @@ class Run:
                       "evidence": list(sug.evidence), "support": sug.support, "matched": sug.matched},
                      qid=f"suggest:{p['component']}/{p['field']}/{sug.attribute}")
 
+    def amend_target(self, a):
+        """(component, field), name and the field an amendment names; the field is None when there is none."""
+        if a.get("key") is not None:
+            place = self.placements.get(a["key"])
+            target, name = (place[:2] if place else None), a["key"]
+        else:
+            target, name = (a.get("component"), a.get("field")), f"{a.get('component')}/{a.get('field')}"
+        return target, name, (self.field_at(*target) if target else None)
+
     def apply_amendments(self, amendments):
         """The user's amendments, applied last. `ui.<x>` sets field["ui"][x]; null removes an attribute (a null
         default stays a null default). A secret field never takes a non-null default (I6)."""
         for a in amendments:
-            if a.get("key") is not None:
-                place = self.placements.get(a["key"])
-                target, name = (place[:2] if place else None), a["key"]
-            else:
-                target, name = (a.get("component"), a.get("field")), f"{a.get('component')}/{a.get('field')}"
-            f = self.field_at(*target) if target else None
+            target, name, f = self.amend_target(a)
             setting = a.get("set")
             if f is None or not isinstance(setting, dict):
                 self.info.append(f"amendment not applied: {name}: no such field in this package")
@@ -1195,6 +1208,7 @@ class Run:
         prov = self.pkg.get("provenance") or {}
         if not (prov.get("signature") and (self.changed() or "restyle" in self.open)):
             return
+        self.provenance_asked = True
         choice = self.decided["provenance"]
         if choice == "dev-mode":
             self.pkg["provenance"] = {"author": "dev-mode"}
@@ -1276,6 +1290,41 @@ class Run:
         self.balance_ok = self.balanced()
 
     # ---------------------------------------------------------------- the preview
+    def unsettled_answers(self):
+        """Every answer of this build's answers file that settles nothing in it, one message each (exit 2): the
+        final check after the staged validation, since a later answer can take away what an earlier one named."""
+        errors, a = [], self.answers
+        removed_keys = {r["key"] for r in self.removed if r["line"] is not None}
+        removed_fields = {(r["component"], r["field"]) for r in self.removed if r["line"] is None}
+        for e in a.get("remove") or []:
+            if e.get("key") is not None and e["key"] not in removed_keys or \
+                    e.get("key") is None and (e.get("component"), e.get("field")) not in removed_fields:
+                name = e["key"] if e.get("key") is not None else f"{e.get('component')}/{e.get('field')}"
+                errors.append(f"remove {name}: removes nothing in this build")
+        for e in a.get("place") or []:
+            if e["key"] in removed_keys:
+                errors.append(f"place {e['key']}: the key is also removed by a remove answer; give one of the two")
+            elif e["key"] not in self.used_place:
+                errors.append(f"place {e['key']}: settles no question in this build")
+        for e in a.get("store") or []:
+            if (e["key"], e["as"]) not in self.used_store:
+                errors.append(f"store {e['key']}: {e['as']!r} settles no question in this build")
+        for e in a.get("amend") or []:
+            _, name, f = self.amend_target(e)
+            if f is None:
+                errors.append(f"amend {name}: no field to amend in this build (a key stored as one field per item "
+                              "is amended by component and field)")
+        placed = {p["key"]: (p["component"], p["field"]) for p in self.placed}
+        for e in a.get("suggestions") or []:
+            target = placed.get(e["key"])
+            if target is None or (target[0], target[1], e["attribute"]) not in self.suggestion_evidence:
+                errors.append(f"suggestions {e['key']}: no {e['attribute']} suggestion in this build")
+        if "restyle" in a and not self.restyle_needed:
+            errors.append("restyle: no restyle is offered in this build")
+        if "provenance" in a and not self.provenance_asked:
+            errors.append(NO_SIGNATURE_QUESTION)
+        return errors
+
     def answer_context(self):
         """What decisions.validate_answers checks an answers file against: this build's questions and fields."""
         comps = self.pkg["components"]
@@ -1488,10 +1537,18 @@ def build(argv):
 DUP_PICKS = tuple(CHOICES["dup-key"][:2])   # `first` / `second`: they decide which value the other questions see
 
 
+# Why the stages fall where they do: each one is checked against a build with every stage before it applied,
+# and a stage holds only answers that a later stage's questions can depend on, never the other way round.
+#   1. remove / place / forget decide where a key goes (or that it goes nowhere): the questions a target raises
+#      (type-conflict, enum-value, shared scope) exist only after them.
+#   2. the dup-key picks (`first` / `second`) decide which value the value questions see (a list only in copy 2).
+#   3. the other `store` answers shape the field: `index` makes the `<key>.<n>` fields an amendment can name.
+#   4. amend comes after every key-level answer, so it can name any field they create.
+#   5. suggestions and restyle look at the fields amend leaves (an amended `required` takes a suggestion away).
+#   6. provenance last: whether the signed package changes depends on the restyle and on everything before it.
+# After the last stage, Run.unsettled_answers() checks the final build: an answer that settles nothing is an error.
 def answer_stages(answers):
-    """The answers in the order they act on the build. Each stage is validated against a build with the stages
-    before it applied, so an answer to a question an earlier answer raised (a type conflict once a key is placed,
-    a list once the second copy of a key is picked) is valid."""
+    """The answers in the order they act on the build, one dict per stage (see the comment above)."""
     store = answers.get("store")
     if isinstance(store, list):
         picks = [e for e in store if isinstance(e, dict) and e.get("as") in DUP_PICKS]
@@ -1499,27 +1556,32 @@ def answer_stages(answers):
     else:
         picks, rest = None, store
     stages = [{s: answers[s] for s in ("remove", "place", "forget") if s in answers},
-              {"amend": answers.get("amend"), "store": picks},
+              {"store": picks},
               {"store": rest},
-              {s: answers[s] for s in ("suggestions", "restyle", "provenance") if s in answers}]
+              {"amend": answers.get("amend")},
+              {s: answers[s] for s in ("suggestions", "restyle") if s in answers},
+              {s: answers[s] for s in ("provenance",) if s in answers}]
     return [{s: v for s, v in stage.items() if v is not None and v != []} for stage in stages]
 
 
 def validate_answers(args, answers):
-    """Every problem in the answers file, as one message each; [] when it is valid. Input errors come first
-    (exit 2), before the open-questions gate (exit 5)."""
+    """Every problem in the answers file, as one message each, and the final build ([] and the run when the
+    answers are valid). Input errors come first (exit 2), before the open-questions gate (exit 5)."""
     given, run = {}, None
     for stage in answer_stages(answers):
         if not stage:
             continue
         if run is None or run.answers != given:
             run = run_build(args, copy.deepcopy(given))
+        if "provenance" in stage and "provenance" not in run.open:
+            return [NO_SIGNATURE_QUESTION], None
         errors = decisions.validate_answers(stage, run.answer_context())
         if errors:
-            return errors
+            return errors, None
         for section, value in stage.items():
             given[section] = given[section] + value if isinstance(given.get(section), list) else value
-    return []
+    run = run_build(args, answers)
+    return run.unsettled_answers(), run
 
 
 def summary(model):
@@ -1529,23 +1591,28 @@ def summary(model):
 
 
 def read_previous(out_dir, model):
-    """The last preview of the same solution and role in out_dir, or None."""
+    """(the last preview of the same solution and role in out_dir, or None; an info line when one was ignored)."""
+    path = os.path.join(out_dir, "preview.json")
+    if not os.path.exists(path):
+        return None, None
     try:
-        with open(os.path.join(out_dir, "preview.json"), encoding="utf-8") as fh:
+        with open(path, encoding="utf-8") as fh:
             previous = json.load(fh)
-    except (OSError, ValueError):
-        return None
-    if not isinstance(previous, dict) or (previous.get("solution"), previous.get("role")) != \
-            (model["solution"], model["role"]):
-        return None
-    return previous
+        if (previous.get("solution"), previous.get("role")) != (model["solution"], model["role"]):
+            return None, None   # another run's scratch folder: nothing to compare
+        preview_md.changes(model, previous)   # the shape a comparison reads
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, IndexError):
+        return None, f"the earlier {path} is not a preview this engine wrote; it was not compared, and is replaced"
+    return previous, None
 
 
 def preview(run):
     """Write preview.json and preview.md; never package.json. 0 when nothing is open, 5 otherwise."""
     out = run.args.out_dir
     model = json.loads(json.dumps(run.model(), ensure_ascii=False, default=str))   # exactly what preview.json holds
-    previous = read_previous(out, model)
+    previous, note = read_previous(out, model)
+    if note:
+        model["info"].append(note)
     os.makedirs(out, exist_ok=True)
     write_text(os.path.join(out, "preview.json"), json.dumps(model, indent=2, ensure_ascii=False) + "\n")
     write_text(os.path.join(out, "preview.md"), preview_md.render(model, previous))
@@ -1576,12 +1643,11 @@ def main(argv=None):
     if args.answers and not os.path.isfile(args.answers):
         die(2, f"--answers {args.answers}: no such file")
     answers = load_answers(args.answers)
-    errors = validate_answers(args, answers)
+    errors, run = validate_answers(args, answers)
     if errors:
         for e in errors:
             print(f"error: answers: {e}", file=sys.stderr)
         return 2
-    run = run_build(args, answers)
     return preview(run) if args.command == "preview" else apply(run)
 
 
