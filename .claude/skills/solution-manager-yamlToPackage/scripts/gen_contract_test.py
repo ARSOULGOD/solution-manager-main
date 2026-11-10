@@ -57,8 +57,11 @@ def build_expectations(pkg, prof):
                 continue
             full = f"{c['configPath']}.{f['key']}" if c.get("configPath") and specs.get(c["type"], {}).get(
                 "key_style", prof.get("key_style")) == "relative-to-configPath" else f["key"]
+            own = common.best_match(role_patterns.get(c["type"], []), full)
             for t, pats in role_patterns.items():
-                if t != c["type"] and common.best_match(pats, full):
+                other = common.best_match(pats, full)
+                # a prefix several role components claim (one copy per role) is in place in each of them
+                if t != c["type"] and other and not (own and len(own) >= len(other)):
                     misplaced.append([c["type"], f["key"], t])
     exclusive = []
     for rex in prof.get("role_exclusive") or []:

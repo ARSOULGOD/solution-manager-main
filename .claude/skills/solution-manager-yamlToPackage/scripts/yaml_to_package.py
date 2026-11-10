@@ -129,7 +129,9 @@ class Run:
             if hit is None:
                 self.flag(leaf, "no profile component matches this path")
                 continue
-            ctype = next(t for pat, t in all_patterns if pat == hit)
+            # several role components may claim the same prefix (one copy per role): the run's own role wins
+            cands = [t for pat, t in all_patterns if pat == hit]
+            ctype = next((t for t in cands if self.comp_spec(t).get("role") == self.role), cands[0])
             spec = self.comp_spec(ctype)
             shared = spec.get("shared") or spec.get("role") in (None, "none")
             if not shared and spec.get("role") != self.role:
@@ -221,14 +223,52 @@ class Run:
         comp["fields"] = []
         return comp
 
+    def relocate(self):
+        """Profile `relocate`: take fields out of a shared component because the profile now gives them to the
+        role components. Runs on every role (idempotent); the removed declarations are kept so the role copies
+        can reuse their reviewed ui."""
+        self.relocated = {}
+        for rule in self.profile.get("relocate") or []:
+            comp = self.find_comp(rule["from"])
+            if comp is None:
+                continue
+            keep = []
+            for f in comp["fields"]:
+                if common.matches(rule["match"], f["key"]):
+                    self.relocated[f["key"]] = f
+                    rows = self.diff_rows.setdefault(comp["type"], {"added": [], "changed": [], "package_only": []})
+                    rows.setdefault("removed", []).append(f["key"])
+                else:
+                    keep.append(f)
+            if len(keep) != len(comp["fields"]):
+                self.notes.append(f"{len(comp['fields']) - len(keep)} field(s) matching {rule['match']!r} relocated "
+                                  f"out of shared component {comp['type']} ({rule.get('reason', 'profile relocate')})")
+                comp["fields"] = keep
+                self.touched.add(comp["type"])
+                if not keep:
+                    self.questions.append(f"shared component {comp['type']} has no fields left after relocation. It "
+                                          "was kept so instances that already select it stay valid; remove it?")
+
+    def reviewed_ui(self, key, ctype):
+        """The reviewed ui of the same key elsewhere: a relocated field first, else a sibling component's copy."""
+        if key in self.relocated:
+            return self.relocated[key].get("ui")
+        for c in self.pkg["components"]:
+            if c["type"] != ctype:
+                g = next((g for g in c.get("fields", []) if g["key"] == key), None)
+                if g is not None and g.get("ui"):
+                    return g["ui"]
+        return None
+
     def merge(self):
         p = self.profile
         explicit = p.get("explicit_versions", True)
         preserve_ui = p.get("preserve_reviewed_ui", True)
+        self.touched = set()
+        self.relocate()
         by_comp = {}
         for m in self.mapped:
             by_comp.setdefault(m["component"], []).append(m)
-        self.touched = set()
         for ctype, items in by_comp.items():
             spec = self.comp_spec(ctype)
             shared = items[0]["shared"]
@@ -265,6 +305,10 @@ class Run:
                 f = m["field"]
                 if explicit:
                     f["version"] = list(self.target)
+                prior = self.reviewed_ui(k, ctype) if preserve_ui else None
+                if prior:
+                    f["ui"] = dict(f["ui"], **prior)
+                    f["ui"]["order"] = None   # renumbered below, in this component's sequence
                 # insert after the last field of the same section, else at the end
                 idx = max((i for i, g in enumerate(out) if (g.get("ui") or {}).get("section") == f["ui"]["section"]),
                           default=len(out) - 1)
@@ -492,6 +536,8 @@ class Run:
             L.append("New package; no diff.")
         for ct, rows in r["diff"].items():
             L += [f"### {ct}", "", f"- added: {len(rows['added'])}" + (f": {', '.join(rows['added'])}" if rows["added"] else "")]
+            if rows.get("removed"):
+                L.append(f"- relocated out (profile `relocate`): {len(rows['removed'])}: {', '.join(rows['removed'])}")
             L.append(f"- changed: {len(rows['changed'])}")
             for ch in rows["changed"]:
                 for what, old, new in ch["changes"]:

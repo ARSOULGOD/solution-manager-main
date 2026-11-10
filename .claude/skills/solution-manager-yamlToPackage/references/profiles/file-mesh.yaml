@@ -24,13 +24,13 @@ components:
     cardinality: one-of-many
     configPath: ""
     loggerPrefix: com.solace.solutions.filemesh.source
-    match: [file.source]
+    match: [file.source, spring.cloud.stream.bindings]   # FM-D11: bindings are per role
   - type: file-sink
     role: sink
     cardinality: one-of-many
     configPath: ""
     loggerPrefix: com.solace.solutions.filemesh.sink
-    match: [file.sink]
+    match: [file.sink, spring.cloud.stream.bindings, spring.cloud.stream.solace.default.consumer]   # FM-D11, FM-D2
 
   # Shared components (role none). Both role YAMLs carry them; the first run creates them, later
   # runs only verify and report, so a second role never duplicates or silently rewrites them.
@@ -49,6 +49,12 @@ role_exclusive:
   - match: spring.cloud.stream.solace.default.consumer
     roles: [sink]
     reason: "FM-D2: the Solace binder consumer defaults appear only in the sink YAML."
+
+# Fields an earlier package kept in a shared component, now owned by the role components (see their match).
+relocate:
+  - match: spring.cloud.stream.bindings
+    from: spring-cloud-stream
+    reason: "FM-D11: the bindings run in opposite directions per role, so one shared default cannot fit both"
 
 lists:
   management.endpoint.health.status.order: join-comma   # FM-D4
@@ -95,7 +101,7 @@ discrepancies:
     resolution: exclude the lowercase key (see exclude)
   - id: FM-D2
     what: "spring.cloud.stream.solace.default.consumer.* (3 leaves) exists only in the sink YAML and in no package component"
-    resolution: flagged on every run until the owner decides; candidate is spring-cloud-stream with field role sink
+    resolution: "decided 2026-11-10 by the user: role-specific. They map to the file-sink role component (its match)"
   - id: FM-D3
     what: "spring.boot.admin.client.* booleans are quoted strings ('true')"
     resolution: coerced to bool by the engine and reported
@@ -124,7 +130,9 @@ discrepancies:
     what: "the 'shared' spring-cloud-stream bindings run in opposite directions per role (source: input file -> output solace;
       sink: input solace -> output file), and server.port / solace management queue / leader-election mode differ too.
       The package's single shared copy carries the source values"
-    resolution: reported on every sink run as shared default differences; open question whether these belong in the role components
+    resolution: "bindings decided 2026-11-10 by the user: role-specific. Each role component carries its own copy of
+      spring.cloud.stream.bindings (match), and `relocate` removes the shared copy. server.port, the solace management
+      queue and leader-election mode are still reported as shared default differences (open)"
 
 # Stage 3 functional smoke test (scripts/smoke_test.py). UNCONFIRMED: the runner refuses it without
 # --accept-unconfirmed, and the report says so. The assumption below needs the owner's confirmation.

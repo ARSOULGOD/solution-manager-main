@@ -71,6 +71,11 @@ cardinality, enum options, exclusions and known discrepancies. If you are tempte
 - **Shared components** (`shared: true` or role `none`): the first run that meets one creates it. Later
   runs only verify. Default differences are reported; new leaves are FLAGGED until the user agrees and
   re-runs with `--update-shared`. Secret defaults are still withheld.
+- **Relocation** (profile `relocate`): fields matching the pattern are removed from the named shared
+  component on every run, and the role components whose `match` claims them carry their own copy. A
+  relocated field keeps its reviewed `ui` (label, section, helper text) in its new home; so does a field
+  whose key already exists in a sibling role component. When several components claim the same prefix,
+  the component of the run's own role wins.
 - The engine never overwrites `--package`. It writes `package.json`, `package.diff`, `report.md` and
   `report.json` to `--out-dir`.
 
@@ -107,6 +112,7 @@ secret_patterns: [<regex>]         # extra secret leaf names
 acronyms: [lvq]                    # extra upper-case words for labels
 sections: {<pattern>: <Section Title>}   # where the generic section rule reads badly
 exclude: [{match: <pattern>, reason: "..."}]
+relocate: [{match: <pattern>, from: <shared component>, reason: "..."}]   # move fields out of a shared component
 preserve: {components: [...], fields: [...], metrics: [...]}   # documentation of non-YAML content
 defaults: {role_components: yaml | package, shared_components: package}
 discrepancies: [{id, what, resolution}]  # every known YAML-vs-package mismatch, with its resolution
