@@ -135,6 +135,14 @@
 
 accepted: new positions on 138 field(s), stock helper text removed from 154, 2 custom kept
 
+## Other components (not re-derived from this YAML)
+
+This YAML feeds none of their fields. Only these package-wide changes reach them:
+
+- `file-sink` (role sink): restyle accepted: new positions on 41 fields, stock helper text removed from 41 fields; secret: true added and default withheld (I6): file.sink.ftp_settings.password, file.sink.sftp_settings.password
+- `cache` (shared): restyle accepted: stock helper text removed from 4 fields
+- `spring-cloud-stream` (shared): fields moved out (relocated by the profile, or removed by you): spring.cloud.stream.bindings.input-0.destination, spring.cloud.stream.bindings.input-0.binder, spring.cloud.stream.bindings.output-0.destination, spring.cloud.stream.bindings.output-0.binder
+
 ## Validation and read-back
 
 **PASS**

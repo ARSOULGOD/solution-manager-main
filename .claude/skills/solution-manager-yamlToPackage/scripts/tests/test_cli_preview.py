@@ -48,6 +48,17 @@ def unchanged_but_for_the_restyle(pkg):
             f["default"], f["secret"] = None, True
 
 
+ALPHA_TOKEN = "alphaTok3nValue"
+
+
+def add_alpha_token(pkg):
+    """alpha-core gains a secret with a default and no `secret: true`: a beta run, which feeds no alpha-core field,
+    still marks it secret and withholds the default (both package-wide)."""
+    pkg["components"][0]["fields"].append({"key": "demo.alpha.token", "type": "secret", "default": ALPHA_TOKEN,
+                                           "ui": {"section": "Alpha", "order": 9, "label": "Token"},
+                                           "version": [1, 2]})
+
+
 MATCHING_YAML = "demo:\n  alpha:\n    host: old.example.invalid\n    mode: fast\n"
 
 
@@ -123,7 +134,7 @@ class CliPreviewTest(unittest.TestCase):
         self.assertEqual(stdout.strip(), "demo/alpha: keys=15 placed=3 removed=0 open=12 questions=14")
         model = model_of(self.out)
         self.assertEqual(list(model), ["solution", "role", "profile", "yaml", "package", "target_versions",
-                                       "packageVersion", "appliesTo", "roles", "samples", "counts", "components",
+                                       "packageVersion", "appliesTo", "roles", "samples", "counts", "components", "outside",
                                        "questions", "removed", "info", "profile_changes", "ready"])
         self.assertEqual(model["roles"], {"all": ["alpha", "beta"],
                                           "this_role": [{"type": "alpha-core", "cardinality": "one-of-many"}],
@@ -296,6 +307,60 @@ class CarriedFixesTest(unittest.TestCase):
         self.assertEqual(len(notes), 1)
         self.assertNotIn("untouched", notes[0])
         self.assertIn("secret", notes[0])
+
+    # ---- the components this YAML does not feed (the sink-preview gap: package-wide changes reach them)
+    def test_other_components_name_the_package_wide_changes_that_reach_them(self):
+        package, out = package_with(add_alpha_token), empty_dir()
+        code = run_cli("preview", "beta", out, package=package)
+        self.assertEqual(code, 5)
+        model = model_of(out)
+        # server is fed (beta.yml's server.port, still open), so only the other role's component is listed
+        self.assertEqual([e["component"] for e in model["outside"]], ["alpha-core"])
+        alpha = model["outside"][0]
+        self.assertEqual((alpha["role"], alpha["shared"]), ("alpha", False))
+        self.assertEqual(alpha["restyle"]["state"], "open")
+        self.assertGreater(alpha["restyle"]["order_changed"] + alpha["restyle"]["stock_removed"], 0)
+        self.assertEqual(alpha["secret_marked"], ["demo.alpha.token"])
+        self.assertEqual(alpha["secret_withheld"], ["demo.alpha.token"])
+        text = (out / "preview.md").read_text(encoding="utf-8")
+        section = text[text.index("### Other components (not re-derived from this YAML)"):
+                       text.index("### Questions")]
+        restyle_q = next(q["n"] for q in model["questions"] if q["id"] == "restyle")
+        self.assertIn(f"- `alpha-core` (role alpha): restyle if you accept it (Q{restyle_q})", section)
+        self.assertIn("secret: true added and default withheld (I6): demo.alpha.token", section)
+        for name in ("preview.md", "preview.json"):
+            self.assertNotIn(ALPHA_TOKEN, (out / name).read_text(encoding="utf-8"))
+
+    def test_a_refused_restyle_does_not_reach_other_components(self):
+        package, out = package_with(add_alpha_token), empty_dir()
+        run_cli("preview", "beta", out, package=package, answers=answers_file({"restyle": "refuse"}))
+        alpha = model_of(out)["outside"][0]
+        self.assertIsNone(alpha["restyle"])
+        self.assertEqual(alpha["secret_withheld"], ["demo.alpha.token"])
+
+    def test_report_lists_the_other_components(self):
+        run = build_demo("beta", package=package_with(add_alpha_token))
+        report = json.loads(json.dumps(run.report_json(), default=str))
+        self.assertEqual([e["component"] for e in report["outside"]], ["alpha-core"])
+        text = run.report_md(report)
+        self.assertIn("## Other components (not re-derived from this YAML)", text)
+        self.assertIn("- `alpha-core` (role alpha):", text)
+        self.assertNotIn(ALPHA_TOKEN, text + json.dumps(report))
+
+    def test_other_components_section_wording(self):
+        entry = {"component": "c", "role": "none", "shared": True, "secret_marked": [], "secret_withheld": [],
+                 "restyle": {"state": "accepted", "order_changed": 0, "stock_removed": 4}, "fields_removed": []}
+        lines = preview_md.outside_lines([entry], {})
+        self.assertIn("- `c` (shared): restyle accepted: stock helper text removed from 4 fields", lines)
+        self.assertIn("Only these package-wide changes reach them:", preview_md.outside_lines([entry], {})[0])
+        quiet = dict(entry, restyle=None)
+        lines = preview_md.outside_lines([quiet], {})
+        self.assertIn("No package-wide change reaches them either:", lines[0])
+        self.assertIn("- `c` (shared): unchanged", lines)
+        self.assertEqual(preview_md.outside_lines([], {})[0],
+                         "None: this YAML feeds every component of the package.")
+        # a preview.json written before the section existed renders without it
+        self.assertEqual(preview_md.outside({"questions": []}), [])
 
     def test_no_duplicate_lines_in_info(self):
         run = build_demo("alpha", answers=ANSWERS)

@@ -75,8 +75,8 @@ profile you used. Then loop **preview → answers → preview** until nothing is
    ```
    With no existing package, drop `--package` and pass `--applies-to "<range>"`.
 2. **Show it.** The first time, show the whole `preview.md` (see "Output of every run"). A re-run starts
-   with `## Changes since the last preview`: show those changes plus the still-open `### Questions`, not
-   the whole table again.
+   with `## Changes since the last preview`: show those changes, the `### Other components` section and the
+   still-open `### Questions`, not the whole table again.
 3. **Answers.** The user answers the numbered questions by number, and may amend anything (label, section,
    position, advanced, required, type, options, `when`, `pattern`, `min`/`max`, helper text) or remove a key
    with a reason. **You write their replies into `<out-dir>/answers.yaml`** (format below; full rules in
@@ -208,13 +208,17 @@ without the first run's changes or decisions. Say which base you used. If the ea
 - the header (YAML, package, roles, versions, samples, and `Keys: n → placed · removed by you · open`);
 - one table per component with every field: key and line, type, default (secrets `withheld (I6)`), section
   and position, shown, required, notes;
+- `### Other components (not re-derived from this YAML)`: every component this YAML feeds no field of (another
+  role's, or a shared one it does not reach), with the package-wide changes that reach it anyway (the restyle,
+  `secret: true`, withheld secret defaults, fields the profile relocated out), or "unchanged";
 - `### Questions (answer by number)`, each with its choices, and every suggestion with its evidence;
 - `### For your information` (shared defaults that differ, coerced values, `secret: true` added, package
   fields not in this YAML) and `### Profile changes saved on "create"`.
 
-After that, show `## Changes since the last preview` and the still-open questions. Link `preview.md`.
-When a package-wide change (the restyle, `secret: true`, withheld secret defaults) reaches components other
-than this role's, say so in the reply and name those components; nothing else of theirs is re-derived.
+After that, show `## Changes since the last preview`, the `### Other components` section and the still-open
+questions. Link `preview.md`. **Never leave the `### Other components` section out of a reply**, however short: it
+is the only place that says a change reaches another role's component (a sink run restyles `file-source` and
+withholds its secret defaults), and that nothing else of theirs is re-derived from this YAML.
 
 **(b) The `apply` report**, once:
 
@@ -226,6 +230,8 @@ Package: <out-dir>/package.json · report: <out-dir>/report.md · diff: <out-dir
 **Coverage:** <n> YAML keys → <p> fields, <r> removed by you (balanced: yes) · read-back: PASS · <c> coerced · <s> secrets withheld
 
 **Changes:** <component>: +<added> / ~<changed> / <package-only> kept … · restyle <accepted|refused>
+
+**Other components (not re-derived):** <component>: <package-wide changes, from report.md's section, or "unchanged"> …
 
 **Your decisions:** <removed keys with reasons> · suggestions <accepted>/<rejected> · provenance <keep|dev-mode>
 ```

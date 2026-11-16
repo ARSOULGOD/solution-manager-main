@@ -399,6 +399,7 @@ class Run:
                        f"{d['first_line']} and {d['line']}); the keys under the second copy would be lost; merge "
                        "the two blocks into one and run again.")
         self.yaml_keys = [leaf["key"] for leaf in leaves]
+        self.leaves = leaves
         self.key_count = len(set(self.yaml_keys))
         if parsed["documents"] > 1:
             self.notes.append(f"YAML has {parsed['documents']} documents; keys from document 2+ are questions")
@@ -1070,6 +1071,9 @@ class Run:
     def package_items(self):
         """After the merge: the restyle, the secret flag, suggestions and amendments (last), then the questions
         they leave open and the information lines."""
+        # each component as the merge leaves it (relocation included), before the restyle: what a restyle would
+        # change in a component this YAML does not feed is counted on this, not on the input package
+        self.before_restyle = {c["type"]: copy.deepcopy(c) for c in self.pkg["components"]}
         if self.restyling:
             for comp in self.pkg["components"]:   # every component, the profile's `preserve` ones included
                 style.restyle(comp)
@@ -1116,6 +1120,39 @@ class Run:
                 ("your amendments", ctype in amended)) if hit]
             self.notes.append(f"component {ctype} preserved (profile `preserve`), but this run changes it: "
                               f"{', '.join(why) or 'see the tables'}")
+
+    def outside_components(self):
+        """Every package component this YAML feeds no field of (another role's, or a shared one it does not reach),
+        with each change that reaches it anyway: the restyle (open or accepted), `secret: true` added, a withheld
+        secret default (I6), and fields the profile or the user moved out. Nothing else of theirs is re-derived
+        from this YAML. Field keys only, never a value (I6)."""
+        fed = {r["component"] for r in self.rows}
+        held = self.open_keys()
+        for leaf in self.leaves:   # a key still open counts for the component the profile would place it in
+            if leaf["key"] in held:
+                found = self.natural(leaf)
+                target = found if isinstance(found, dict) else found[3]
+                if target:
+                    fed.add(target["component"])
+        state = "open" if "restyle" in self.open else "accepted" if self.restyling else None
+        out = []
+        for comp in self.pkg["components"]:
+            ctype = comp["type"]
+            if ctype in fed:
+                continue
+            counts = style.restyle(copy.deepcopy(self.before_restyle[ctype])) if state else {}
+            restyle = None
+            if state and (counts.get("order_changed") or counts.get("stock_removed")):
+                restyle = {"state": state, "order_changed": counts["order_changed"],
+                           "stock_removed": counts["stock_removed"]}
+            prefix = f"secret default withheld: {ctype}/"
+            out.append({
+                "component": ctype, "role": comp.get("role", "none"), "shared": is_shared(comp), "restyle": restyle,
+                "secret_marked": sorted(k for c, k in self.marked if c == ctype),
+                "secret_withheld": sorted(n[len(prefix):] for n in self.notes if n.startswith(prefix)),
+                "fields_removed": list((self.diff_rows.get(ctype) or {}).get("removed") or []),
+            })
+        return out
 
     def suggestible(self):
         """(placed entry, field) for every placed field a suggestion may name: an `index` key's items are not."""
@@ -1453,7 +1490,8 @@ class Run:
             "counts": {"keys": self.key_count, "placed": len(self.placed),
                        "removed": len([r for r in self.removed if r["line"] is not None]),
                        "open": len(self.open_keys())},
-            "components": components, "questions": questions, "removed": self.removed,
+            "components": components, "outside": self.outside_components(), "questions": questions,
+            "removed": self.removed,
             "info": list(dict.fromkeys(info)), "profile_changes": self.profile_changes(), "ready": not self.open,
         }
 
@@ -1519,7 +1557,7 @@ class Run:
             "coerced": self.coerced, "secrets_withheld": self.withheld, "diff": diff,
             "shared_differences": self.shared_diffs, "ui_differences": self.ui_diffs,
             "notes": list(dict.fromkeys(notes)), "validation": validation or self.validation,
-            "authoring": self.pkg.get("authoring"), "restyle": restyle,
+            "authoring": self.pkg.get("authoring"), "restyle": restyle, "outside": self.outside_components(),
             "suggestions": [{"component": c, "field": f, "attribute": a, "decision": d}
                             for (c, f, a), d in self.suggestion_decisions.items() if (c, f) in own],
         }
@@ -1592,8 +1630,10 @@ class Run:
                      f"from {n['stock_removed']}, {n['custom_kept']} custom kept")
         else:
             L.append("not offered: the package is already in db-designer style, or new")
+        L += ["", "## Other components (not re-derived from this YAML)", ""]
+        L += preview_md.outside_lines(r.get("outside") or [], {})
         v = r["validation"]
-        L += ["", "## Validation and read-back", "", f"**{'PASS' if v['ok'] else 'FAIL'}**", ""]
+        L += ["## Validation and read-back", "", f"**{'PASS' if v['ok'] else 'FAIL'}**", ""]
         L += [f"- note: {n}" for n in v["notes"]] + [f"- error: {e}" for e in v["errors"]] + \
              [f"- warning: {w}" for w in v["warnings"]]
         L += ["", "## Notes", ""] + ([f"- {n}" for n in r["notes"]] or [none])

@@ -1201,6 +1201,35 @@
     "offered": false,
     "decision": "accepted"
   },
+  "outside": [
+    {
+      "component": "file-source",
+      "role": "source",
+      "shared": false,
+      "restyle": null,
+      "secret_marked": [],
+      "secret_withheld": [],
+      "fields_removed": []
+    },
+    {
+      "component": "cache",
+      "role": "none",
+      "shared": true,
+      "restyle": null,
+      "secret_marked": [],
+      "secret_withheld": [],
+      "fields_removed": []
+    },
+    {
+      "component": "spring-cloud-stream",
+      "role": "none",
+      "shared": true,
+      "restyle": null,
+      "secret_marked": [],
+      "secret_withheld": [],
+      "fields_removed": []
+    }
+  ],
   "suggestions": [
     {
       "component": "application",

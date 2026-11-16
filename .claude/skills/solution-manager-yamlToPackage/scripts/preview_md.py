@@ -142,6 +142,52 @@ def table(model, comp):
     return L + [""]
 
 
+def outside(model):
+    """The components this YAML feeds no field of, and the package-wide changes that reach them anyway. Absent from
+    a preview.json written before this section existed: then nothing is shown."""
+    entries = model.get("outside")
+    if entries is None:
+        return []
+    return ["### Other components (not re-derived from this YAML)", ""] + outside_lines(entries, qnum(model))
+
+
+def outside_lines(entries, n):
+    """The body of the "Other components" section, shared by preview.md and report.md. n: question numbers by id
+    (an open restyle names its question)."""
+    if not entries:
+        return ["None: this YAML feeds every component of the package.", ""]
+    reached = any(e.get("restyle") or e["secret_marked"] or e["secret_withheld"] or e["fields_removed"]
+                  for e in entries)
+    L = ["This YAML feeds none of their fields. " + ("Only these package-wide changes reach them:" if reached else
+                                                     "No package-wide change reaches them either:"), ""]
+    for e in entries:
+        kind = "shared" if e["shared"] else f"role {e['role']}"
+        changes = []
+        rs = e.get("restyle")
+        if rs:
+            how = f"if you accept it (Q{n['restyle']})" if rs["state"] == "open" and "restyle" in n else rs["state"]
+            parts = [text for count, text in (
+                (rs["order_changed"], f"new positions on {plural(rs['order_changed'], 'field')}"),
+                (rs["stock_removed"], f"stock helper text removed from {plural(rs['stock_removed'], 'field')}"))
+                if count]
+            changes.append(f"restyle {how}: {', '.join(parts)}")
+        withheld = set(e["secret_withheld"])
+        both = [k for k in e["secret_marked"] if k in withheld]
+        marked_only = [k for k in e["secret_marked"] if k not in withheld]
+        withheld_only = [k for k in e["secret_withheld"] if k not in set(e["secret_marked"])]
+        if both:
+            changes.append(f"secret: true added and default withheld (I6): {', '.join(both)}")
+        if marked_only:
+            changes.append(f"secret: true added: {', '.join(marked_only)}")
+        if withheld_only:
+            changes.append(f"secret default withheld (I6): {', '.join(withheld_only)}")
+        if e["fields_removed"]:
+            changes.append(f"fields moved out (relocated by the profile, or removed by you): "
+                           f"{', '.join(e['fields_removed'])}")
+        L.append(f"- `{e['component']}` ({kind}): " + ("; ".join(changes) if changes else "unchanged"))
+    return L + [""]
+
+
 def question(q):
     where = f"`{q['key']}`" if q["key"] is not None else "(whole package)"
     if q.get("line") is not None:
@@ -194,6 +240,7 @@ def body(model):
     L = header(model) + [""]
     for comp in model["components"]:
         L += table(model, comp)
+    L += outside(model)
     L += ["### Questions (answer by number)", ""]
     for q in model["questions"]:
         L += question(q)

@@ -150,6 +150,14 @@
 | `management.endpoint.health.show-details` (L166) | string | "ALWAYS" | Health · 8 | up front | no |  |
 | `management.endpoint.health.status.order` (L169) | string | "DOWN,OUT_OF_SERVICE,RECONNECTING,UP,UNKNOWN" | Health · 9 | up front | no |  |
 
+### Other components (not re-derived from this YAML)
+
+This YAML feeds none of their fields. Only these package-wide changes reach them:
+
+- `file-sink` (role sink): restyle if you accept it (Q6): new positions on 41 fields, stock helper text removed from 41 fields; secret: true added and default withheld (I6): file.sink.ftp_settings.password, file.sink.sftp_settings.password
+- `cache` (shared): restyle if you accept it (Q6): stock helper text removed from 4 fields
+- `spring-cloud-stream` (shared): fields moved out (relocated by the profile, or removed by you): spring.cloud.stream.bindings.input-0.destination, spring.cloud.stream.bindings.input-0.binder, spring.cloud.stream.bindings.output-0.destination, spring.cloud.stream.bindings.output-0.binder
+
 ### Questions (answer by number)
 
 1. **spelling** `file.source.command_center.useOutputDestinationSolaceCredentials` (L88): 2 keys of file-source differ only in case, '-' or '_' (file.source.command_center.useOutputDestinationSolaceCredentials, file.source.command_center.useoutputdestinationsolacecredentials). Keep one spelling: remove the others?

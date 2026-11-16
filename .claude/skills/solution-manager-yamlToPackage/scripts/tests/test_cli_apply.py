@@ -19,7 +19,7 @@ SECRETS = ("hunter2pass", "oldsecret1")
 OUTPUTS = ("package.json", "package.diff", "report.md", "report.json", "profile.yaml")
 REPORT_KEYS = ["solution", "role", "profile", "yaml", "package", "target_versions", "counts", "placed", "removed",
                "coerced", "secrets_withheld", "diff", "shared_differences", "ui_differences", "notes", "validation",
-               "authoring", "restyle", "suggestions"]
+               "authoring", "restyle", "outside", "suggestions"]
 
 
 def with_changes(answers_path, drop_store=None, add_remove=None):

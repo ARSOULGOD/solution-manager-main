@@ -182,6 +182,14 @@ Nothing is open.
 | `management.endpoint.health.show-details` (L166) | string | "ALWAYS" | Health · 0 | up front | no |  |
 | `management.endpoint.health.status.order` (L169) | string | "DOWN,OUT_OF_SERVICE,RECONNECTING,UP,UNKNOWN" | Health · 1 | up front | no |  |
 
+### Other components (not re-derived from this YAML)
+
+This YAML feeds none of their fields. Only these package-wide changes reach them:
+
+- `file-sink` (role sink): restyle accepted: new positions on 41 fields, stock helper text removed from 41 fields; secret: true added and default withheld (I6): file.sink.ftp_settings.password, file.sink.sftp_settings.password
+- `cache` (shared): restyle accepted: stock helper text removed from 4 fields
+- `spring-cloud-stream` (shared): fields moved out (relocated by the profile, or removed by you): spring.cloud.stream.bindings.input-0.destination, spring.cloud.stream.bindings.input-0.binder, spring.cloud.stream.bindings.output-0.destination, spring.cloud.stream.bindings.output-0.binder
+
 ### Questions (answer by number)
 
 None: everything is answered. Create package.json? (yes/no)

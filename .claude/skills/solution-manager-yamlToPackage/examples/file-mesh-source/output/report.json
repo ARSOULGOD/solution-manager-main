@@ -1424,6 +1424,54 @@
       "custom_kept": 2
     }
   },
+  "outside": [
+    {
+      "component": "file-sink",
+      "role": "sink",
+      "shared": false,
+      "restyle": {
+        "state": "accepted",
+        "order_changed": 41,
+        "stock_removed": 41
+      },
+      "secret_marked": [
+        "file.sink.ftp_settings.password",
+        "file.sink.sftp_settings.password"
+      ],
+      "secret_withheld": [
+        "file.sink.ftp_settings.password",
+        "file.sink.sftp_settings.password"
+      ],
+      "fields_removed": []
+    },
+    {
+      "component": "cache",
+      "role": "none",
+      "shared": true,
+      "restyle": {
+        "state": "accepted",
+        "order_changed": 0,
+        "stock_removed": 4
+      },
+      "secret_marked": [],
+      "secret_withheld": [],
+      "fields_removed": []
+    },
+    {
+      "component": "spring-cloud-stream",
+      "role": "none",
+      "shared": true,
+      "restyle": null,
+      "secret_marked": [],
+      "secret_withheld": [],
+      "fields_removed": [
+        "spring.cloud.stream.bindings.input-0.destination",
+        "spring.cloud.stream.bindings.input-0.binder",
+        "spring.cloud.stream.bindings.output-0.destination",
+        "spring.cloud.stream.bindings.output-0.binder"
+      ]
+    }
+  ],
   "suggestions": [
     {
       "component": "application",

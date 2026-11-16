@@ -102,6 +102,14 @@
 
 not offered: the package is already in db-designer style, or new
 
+## Other components (not re-derived from this YAML)
+
+This YAML feeds none of their fields. No package-wide change reaches them either:
+
+- `file-source` (role source): unchanged
+- `cache` (shared): unchanged
+- `spring-cloud-stream` (shared): unchanged
+
 ## Validation and read-back
 
 **PASS**

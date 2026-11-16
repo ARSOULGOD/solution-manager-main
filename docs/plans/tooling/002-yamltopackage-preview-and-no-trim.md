@@ -1765,6 +1765,15 @@ Parked residuals (no second fix wave):
   placeholders sit in the canonical frontend package). Outside this plan's range; recommend masking before a PR to `main`.
 - **Sink-preview reply gap.** The reply under-reports package-wide changes (restyle, `secret: true`, withheld
   defaults) reaching file-source; grader 03 still fails. SKILL.md has the rule, the runner does not follow it reliably.
+  **Engine fix, 2026-11-16 (eval not re-run):** the gap was a prose rule with nothing in the preview to point at, so
+  each reply had to assemble it from the restyle question and scattered info lines. The engine now writes it:
+  `### Other components (not re-derived from this YAML)` in `preview.md` (and `## …` in `report.md`; key `outside`
+  in `preview.json` / `report.json`) lists every component the YAML feeds no field of, placed or still open, with the
+  restyle (open, with its question number, or accepted; counted after relocation), `secret: true` added, withheld
+  secret defaults and relocated fields, or "unchanged". SKILL.md requires the section in every reply and in the apply
+  report. On the eval's inputs it reads: `file-source` (role source): restyle if you accept it: new positions on 49
+  fields, stock helper text removed from 49; `secret: true` added and default withheld on its two passwords. Engine
+  suite 159 → 163 OK; examples regenerated, packages byte-identical, only the new section added.
 
 Other notes from the fix wave: the restyle question quotes the canonical package's `reviewedRows` count (163 to 0);
 `secret: true` is not amendable; deferred minors (unclosed `open()` calls in four helper scripts, `ask()` overwriting

@@ -95,11 +95,10 @@ Verified on File Mesh:
   - The browser check passes 18 checks. 2 are blocked by a known console crash (a MUI DataGrid id issue in the console,
     not the package).
   - Both config round-trips pass.
-- **Evals with the skill:** 7/7 and 6/6 on the source and apply cases, 3/4 on the sink preview case.
+- **Evals with the skill:** 7/7 and 6/6 on the source and apply cases, 3/4 on the sink preview case (grader 03, the reply not naming package-wide changes to `file-source`; the engine
+  now writes them as a preview section, 2026-11-16, and the case has not been re-run since).
 
 Known open items:
-- **Sink preview reply.** On the sink role, the skill's reply does not yet say clearly that package-wide changes (the
-  restyle and `secret: true`) also reach the source component. The preview file itself shows it.
 - **Rare secret edge case.** A field marked `secret: true` on a non-secret type that also has a profile enum can still
   get its YAML value added to its option list. This happens only if the user explicitly answers "add option".
 - **Thin suggestions for File Mesh.** Learning from the current samples yields 4 `required` suggestions and no

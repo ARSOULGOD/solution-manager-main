@@ -144,6 +144,14 @@
 | `management.endpoint.health.show-details` (L157) | string | "ALWAYS" | Health · 0 | up front | no |  |
 | `management.endpoint.health.status.order` (L159) | string | "DOWN,OUT_OF_SERVICE,RECONNECTING,UP,UNKNOWN" | Health · 1 | up front | no |  |
 
+### Other components (not re-derived from this YAML)
+
+This YAML feeds none of their fields. No package-wide change reaches them either:
+
+- `file-source` (role source): unchanged
+- `cache` (shared): unchanged
+- `spring-cloud-stream` (shared): unchanged
+
 ### Questions (answer by number)
 
 None: everything is answered. Create package.json? (yes/no)
