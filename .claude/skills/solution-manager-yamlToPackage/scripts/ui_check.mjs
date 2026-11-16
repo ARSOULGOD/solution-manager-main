@@ -68,7 +68,14 @@ function expected(componentTypes, version) {
 async function checkDesigner(page, role, inst) {
   const detail = await page.evaluate(async (id) => (await fetch(`/api/dp/instances/${id}`)).json(), inst.instanceId ?? inst.id);
   const version = detail.declaredPackageVersion ?? pkg.packageVersion[pkg.packageVersion.length - 1];
-  const exp = expected(inst.componentTypes, version);
+  // The instance's bound components: the real API states them on the Designer response
+  // (`viewModel.components[].type`, what the console's configRepository reads), not on the
+  // instance row. The old dev row carried `componentTypes`; kept as a fallback.
+  const designer = await page.evaluate(
+    async (id) => { const r = await fetch(`/api/dp/instances/${id}/designer`); return r.ok ? r.json() : null; },
+    inst.instanceId ?? inst.id);
+  const bound = designer?.viewModel?.components?.map((c) => c.type);
+  const exp = expected(bound?.length ? bound : inst.componentTypes, version);
   const tag = `${role} (instance ${inst.instanceId ?? inst.id}, v${version}, components ${exp.comps.map((c) => c.type).join('+')})`;
   const allFields = page.getByRole('button', { name: /all fields/i });
   if (await allFields.count()) await allFields.first().click();
@@ -178,8 +185,29 @@ try {
   const inv = await page.locator('main').innerText();
   if (/failed to load/i.test(inv)) {
     record('instances page renders', 'BLOCKED', `console error: ${inv.replace(/\s+/g, ' ').slice(0, 400)}`, shot);
+    record('version selector offers every package version', 'BLOCKED',
+      'the selector lives in the Declare-instance dialog on the instances page, which does not render (see above)');
   } else {
     record('instances page renders', 'PASS', inv.replace(/\s+/g, ' ').slice(0, 200), shot);
+    // version selector: the Declare-instance dialog's "Package version" options must be exactly
+    // the package's versions (read, never submitted: nothing is declared)
+    const vname = 'version selector offers every package version';
+    try {
+      await page.getByRole('button', { name: /declare instance/i }).first().click();
+      const dialog = page.getByRole('dialog');
+      await dialog.waitFor({ timeout: 5000 });
+      await dialog.getByRole('combobox', { name: /package version/i }).click();
+      const offered = (await page.getByRole('option').allInnerTexts()).map((t) => t.trim()).filter(Boolean);
+      const vshot = join(out, '03b-declare-versions.png');
+      await page.screenshot({ path: vshot, fullPage: true });
+      await page.keyboard.press('Escape');
+      await page.keyboard.press('Escape');
+      const want = pkg.packageVersion.map(String);
+      const same = offered.length === want.length && want.every((v) => offered.includes(v));
+      record(vname, same ? 'PASS' : 'FAIL', `offered [${offered.join(', ')}], package [${want.join(', ')}]`, vshot);
+    } catch (e) {
+      record(vname, 'BLOCKED', `could not read the Declare-instance dialog: ${String(e).slice(0, 200)}`);
+    }
   }
 
   // Designer per role: find an instance of the solution via the dev API, open its Designer, wait for sections
@@ -211,8 +239,6 @@ try {
     await checkDesigner(page, role, inst);
     await scanSecrets(page, `Designer ${role}`);
   }
-  record('version selector offers every package version', 'BLOCKED',
-    'the selector lives in the Declare-instance dialog on the instances page, which does not render (see above)');
   const skipped = secrets.filter((s) => typeof s === 'string' && s.length < 6);
   if (secrets.length) {
     if (!checks.some((c) => c.name.startsWith('no secret value') && c.status === 'FAIL'))

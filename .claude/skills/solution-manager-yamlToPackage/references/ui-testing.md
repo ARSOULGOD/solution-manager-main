@@ -86,12 +86,12 @@ It records PASS / FAIL / BLOCKED / N/A for each of these, with one screenshot pe
 | catalog card | card for the solution, latest version marked |
 | instances page | `/solutions/<solution>/instances` renders |
 | Designer per role | an instance of the role from `GET /api/dp/solutions/<solution>/instances`; Designer route renders |
-| sections in `ui.order` | "All fields" headings and per-section counts equal the package's, for that instance's components and version |
+| sections in `ui.order` | "All fields" headings and per-section counts equal the package's, for that instance's components (from its Designer response, `viewModel.components`) and version |
 | labels, helper text | every non-predicated field's label and helperText present |
 | secrets masked | count of `input[type=password]` equals the secret fields |
 | `when` show/hide | N/A when the rendered components have none; otherwise covered by the contract test |
 | defaults | "YAML view" → "Copy YAML" → parsed; every non-secret default equals the package's |
-| version selector | in the Declare-instance dialog |
+| version selector | Declare-instance dialog: the "Package version" options equal the package's versions (read only, never submitted) |
 | no secret in the DOM | page HTML searched for each withheld value (≥ 6 chars) |
 
 Exit codes: 0 PASS, 1 FAIL, 3 BLOCKED (nothing failed, but something could not be checked). Read BLOCKED rows to
@@ -139,14 +139,26 @@ Each was found by this skill and is reported, not fixed:
    `${configPath}.${key}`, so `configPath: ""` gives `.key`. The canonical engine
    (`contracts/view-models/src/project.ts`, `renderedPathFor`) does not. The YAML renderer hides it, because
    `setAtPath` drops empty segments. The generated test pins it with `it.fails`.
-2. **The instances grid crashes for a loaded package.** "MUI X: … rows to have a unique `id`". The dev fixture
-   handlers still serve the pre-plan-008 row shape. The repo's own `src/app/dev/devPackageFlow.test.ts` and
-   `devPackageScreens.test.tsx` fail on the same path (5 tests). This blocks the instances page and the
-   Declare-instance dialog with its version selector.
+2. **The dev-session declare flow is not migrated to the real API (instances grid FIXED 2026-11-16).** The grid
+   crash ("MUI X: … rows to have a unique `id`") is fixed: the dev list and get-by-id routes in
+   `src/app/dev/devPackageHandlers.ts` returned the raw fixture `InstanceRow` (`id`, no `instanceId`); both now
+   serve the real `Instance` through the shared `shared/testdoubles/data/wireInstance.ts`. Still open: the dev
+   declare route answers the old `POST /dp/solutions/{id}/instances`, while the console posts to
+   `POST /dp/environments/{id}/instances`, so a declaration made in the dialog is not kept for the session, and
+   most of `devPackageFlow.test.ts` still asserts the old shapes. `ui-check` only reads the dialog's version
+   options; it never submits it.
 3. **The File Mesh hand-written `package.test.ts` is red** against its own package (4 failures). It assumes
    `configPath: file.source`, while the package now uses `configPath: ""`.
-4. **The baked File Mesh dev instances only partly cover a role.** `fm-source-1` and `fm-sink-1` select only the
-   role component plus `spring-cloud-stream`, at package version 1. The other shared components and the later
-   versions are verified by the contract test (`project()`), not in the browser.
-5. **Cold compile.** The first visit to a Designer route on the dev server can take more than 4 s, so the check
+4. **The baked File Mesh dev instances render package version 1 only.** `fm-source-1` and `fm-sink-1` select their
+   role component plus every shared (`role: none`) component (fixed 2026-11-16; they used to select only
+   `spring-cloud-stream`, which hid the server, Spring Boot Admin, Solace, application, logging and management
+   fields). They stay at package version 1, so `cache` (versions 2-3) and the later versions are verified by the
+   contract test (`project()`), not in the browser.
+5. **Connection-bound fields show package defaults, not the broker's values.** The File Mesh dev instances select
+   their scope's broker (`conn-b-acme-financial-trading-prod`) from the OLD fixture connection store, which clears
+   the required Broker selectors. The Designer resolves `valueFrom` fields from `GET /cp/connections`, which serves
+   a SEPARATE real-shape store (UUID ids, 3 rows, no Trading broker; `shared/testdoubles/handlers/cp.ts`), so the
+   selection is never found and host / VPN / username fall back to the package defaults. The "defaults" check
+   passes for that reason; it does not prove binding resolution.
+6. **Cold compile.** The first visit to a Designer route on the dev server can take more than 4 s, so the check
    waits up to `--designer-timeout` (20 s) before calling it BLOCKED.
