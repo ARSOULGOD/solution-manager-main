@@ -25,13 +25,30 @@ function selectionFor(instanceId: string): readonly string[] {
   );
 }
 
+// Every shared (`role: none`) component the package declares at version 1, in
+// package order. `cache` is shared too but declares versions 2-3 only, so the
+// v1 fixture instances do not render it.
+const SHARED_AT_V1 = [
+  'server',
+  'spring-boot-admin',
+  'spring-cloud-stream',
+  'solace',
+  'application',
+  'logging',
+  'management',
+];
+
 describe('File Mesh fixture instances (FE-D55)', () => {
-  it('a source instance renders only its own components, never the sink', () => {
-    expect(selectionFor('fm-source-1')).toEqual(['file-source', 'spring-cloud-stream']);
+  it('a source instance renders its role component and every shared one, never the sink', () => {
+    const selection = selectionFor('fm-source-1');
+    expect(selection).toEqual(['file-source', ...SHARED_AT_V1]);
+    expect(selection).not.toContain('file-sink');
   });
 
-  it('a sink instance renders only its own components, never the source', () => {
-    expect(selectionFor('fm-sink-1')).toEqual(['file-sink', 'spring-cloud-stream']);
+  it('a sink instance renders its role component and every shared one, never the source', () => {
+    const selection = selectionFor('fm-sink-1');
+    expect(selection).toEqual(['file-sink', ...SHARED_AT_V1]);
+    expect(selection).not.toContain('file-source');
   });
 
   it('an unbound cache instance still renders every declared component (the fallback, FE-149)', () => {
