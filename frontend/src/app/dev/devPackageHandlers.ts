@@ -42,6 +42,7 @@ import {
   withInstanceCounts,
   type SolutionPackageSummary,
 } from '@shared/testdoubles/data/solutions';
+import { toRealInstance } from '@shared/testdoubles/data/wireInstance';
 import { buildWireDesigner } from '@shared/testdoubles/data/wireViewModel';
 import { getConnectionRows } from '@shared/testdoubles/handlers/cp';
 
@@ -176,8 +177,12 @@ export const devPackageHandlers = [
     return HttpResponse.json({ solutions });
   }),
   http.get('*/dp/solutions/:solutionId/instances', ({ params }) => {
-    const items = allInstances().filter((i) => i.solutionId === params['solutionId']);
-    return HttpResponse.json({ items, total: items.length });
+    // The real `InstanceList` envelope (`items` only, `OR-55`), each row in the real `Instance`
+    // shape: the grid keys rows on `instanceId`, which a raw `InstanceRow` does not carry.
+    const items = allInstances()
+      .filter((i) => i.solutionId === params['solutionId'])
+      .map(toRealInstance);
+    return HttpResponse.json({ items });
   }),
 
   /**
@@ -241,7 +246,7 @@ export const devPackageHandlers = [
       return new HttpResponse(null, { status: 404 });
     }
     const found = devPackageStore.instanceById(instanceId) ?? devDeclaredInstances.byId(instanceId);
-    return found === undefined ? undefined : HttpResponse.json(found);
+    return found === undefined ? undefined : HttpResponse.json(toRealInstance(found));
   }),
   /**
    * Plan 008 Tasks 1/2 follow-up: the real console.yaml `Designer` envelope

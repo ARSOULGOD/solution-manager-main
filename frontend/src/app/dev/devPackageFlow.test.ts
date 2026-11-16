@@ -171,10 +171,24 @@ describe('instance lookup', () => {
   it('lists the synthesized instance under the package solution id', async () => {
     devPackageStore.register(pkg);
 
-    const page = await instances.list('widget-mesh', {});
+    const items = await instances.list('widget-mesh', {});
 
-    expect(page.total).toBe(1);
-    expect(page.items[0]?.id).toBe('widget-mesh-dev-01');
+    // The real `console.yaml` `Instance` shape (plan 007), never the fixture's `InstanceRow`.
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ instanceId: 'widget-mesh-dev-01', solutionId: 'widget-mesh' });
+  });
+
+  it('gives every listed fixture instance its own instanceId, the grid row id', async () => {
+    devPackageStore.register(pkg);
+
+    // `InstancesPage` keys DataGrid rows on `instanceId`. A row without one made MUI throw
+    // "requires all rows to have a unique `id`" and took the whole page down.
+    for (const solutionId of ['file-mesh', 'cache']) {
+      const ids = (await instances.list(solutionId, {})).map((instance) => instance.instanceId);
+      expect(ids.length).toBeGreaterThan(0);
+      expect(ids.every((id) => typeof id === 'string' && id.length > 0)).toBe(true);
+      expect(new Set(ids).size).toBe(ids.length);
+    }
   });
 
   it('fetches that instance by id', async () => {
@@ -182,8 +196,8 @@ describe('instance lookup', () => {
 
     const instance = await instances.get('widget-mesh-dev-01');
 
-    expect(instance.solutionId).toBe('widget-mesh');
-    expect(instance.version.state).toBe('unverified');
+    expect(instance).toMatchObject({ instanceId: 'widget-mesh-dev-01', solutionId: 'widget-mesh' });
+    expect(instance.placements.length).toBeGreaterThan(0);
   });
 
   it('leaves every id it does not own to the default handlers', async () => {

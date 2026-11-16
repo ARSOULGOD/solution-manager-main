@@ -13,44 +13,15 @@ import type { HealthKey } from '@shared/vocab';
 
 import { readDeclareInput } from '../data/declaredInstance';
 import { ROLLOUT_REPLICAS } from '../data/designer';
-import { nodeId } from '../data/hierarchy';
 import { CACHE_INSTANCES, FILE_MESH_INSTANCES } from '../data/instances';
 import { draftValuesFor, observedStateFor, packageForSolution } from '../data/packages';
+import { toRealInstance } from '../data/wireInstance';
 import { buildWireDesigner } from '../data/wireViewModel';
 
 const ALL_INSTANCES = [...CACHE_INSTANCES, ...FILE_MESH_INSTANCES] as const;
 
 function findInstance(id: string) {
   return ALL_INSTANCES.find((i) => i.id === id);
-}
-
-/**
- * The real-contract-shaped view of a fixture row (integration plan 007,
- * 2026-10-09), for the `listInstances`/`getInstance`/`declareInstance`
- * handlers only — every OTHER handler in this file (designer, apply,
- * health, config-ladder, log-levels) keys off `findInstance`'s row
- * directly and is untouched; this is additive, not a fixture migration.
- * `environmentId` is `hierarchy.ts`'s own deterministic `nodeId(org,
- * subOrg, env)`, so `HierarchyRepository.environmentPath()` (which
- * traverses the real `/cp/hierarchy/*` handlers) resolves it back to the
- * same names a test asserts against.
- */
-function toRealInstance(row: (typeof ALL_INSTANCES)[number]): Instance {
-  return {
-    stateVersion: 1,
-    instanceId: row.id,
-    name: row.name,
-    solutionId: row.solutionId,
-    environmentId: nodeId(row.org, row.subOrg, row.env),
-    declaredPackageVersion: row.packageVersion,
-    acquisition: { mode: 'direct-http' },
-    placements: row.replicas.map((replica, index) => ({
-      placementId: `${row.id}-placement-${String(index)}`,
-      targetId: `${row.id}-target`,
-      containerName: replica.name,
-      probeStrength: 'readiness',
-    })),
-  };
 }
 
 // The inverse of `governance/healthRollup.ts`'s `HEALTH_STATE_VOCAB` —
