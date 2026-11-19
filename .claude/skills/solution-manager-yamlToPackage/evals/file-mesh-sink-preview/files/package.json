@@ -1,0 +1,2783 @@
+{
+  "solution": "file-mesh",
+  "packageVersion": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "appliesTo": ">=1.0 <2.0",
+  "provenance": {
+    "author": "solace",
+    "signature": "3af9\u2026c210"
+  },
+  "authoring": {
+    "reviewedRows": 163,
+    "totalRows": 163
+  },
+  "components": [
+    {
+      "type": "file-source",
+      "cardinality": "one-of-many",
+      "role": "source",
+      "configPath": "",
+      "loggerPrefix": "com.solace.solutions.filemesh.source",
+      "fields": [
+        {
+          "key": "file.source.scheduler.restart_time_sec",
+          "type": "int",
+          "default": 10,
+          "ui": {
+            "section": "Scheduler",
+            "order": 5,
+            "label": "Restart time (seconds)",
+            "helperText": "Enter the numeric value for \u201cRestart time (seconds)\u201d in the \u201cScheduler\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.general.adapter_id",
+          "type": "string",
+          "default": "SOURCE_TEST_V1",
+          "ui": {
+            "section": "General",
+            "order": 6,
+            "label": "Adapter ID",
+            "helperText": "Enter the value for \u201cAdapter ID\u201d in the \u201cGeneral\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.general.file_type",
+          "type": "int",
+          "default": 4,
+          "ui": {
+            "section": "General",
+            "order": 7,
+            "label": "File type",
+            "helperText": "Enter the numeric value for \u201cFile type\u201d in the \u201cGeneral\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.general.ignoreEmptyFiles",
+          "type": "bool",
+          "default": false,
+          "ui": {
+            "section": "General",
+            "order": 8,
+            "label": "Ignore empty files",
+            "helperText": "Turn \u201cIgnore empty files\u201d on or off in the \u201cGeneral\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.general.state_backup_path",
+          "type": "string",
+          "default": "",
+          "ui": {
+            "section": "General",
+            "order": 9,
+            "label": "State backup path",
+            "helperText": "Enter the value for \u201cState backup path\u201d in the \u201cGeneral\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.general.copy_file_mode_permissions",
+          "type": "int",
+          "default": 1,
+          "ui": {
+            "section": "General",
+            "order": 10,
+            "label": "Copy file mode permissions",
+            "helperText": "Enter the numeric value for \u201cCopy file mode permissions\u201d in the \u201cGeneral\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.general.max_file_transfer_size",
+          "type": "int",
+          "default": 999000,
+          "ui": {
+            "section": "General",
+            "order": 11,
+            "label": "Max file transfer size",
+            "helperText": "Enter the numeric value for \u201cMax file transfer size\u201d in the \u201cGeneral\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.general.max_files_allowed",
+          "type": "int",
+          "default": 99999,
+          "ui": {
+            "section": "General",
+            "order": 12,
+            "label": "Max files allowed",
+            "helperText": "Enter the numeric value for \u201cMax files allowed\u201d in the \u201cGeneral\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.general.max_bandwidth_limit",
+          "type": "int",
+          "default": 100000000,
+          "ui": {
+            "section": "General",
+            "order": 13,
+            "label": "Max bandwidth limit",
+            "helperText": "Enter the numeric value for \u201cMax bandwidth limit\u201d in the \u201cGeneral\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.general.clear_state_on_eod",
+          "type": "int",
+          "default": 1,
+          "ui": {
+            "section": "General",
+            "order": 14,
+            "label": "Clear state on EOD",
+            "helperText": "Enter the numeric value for \u201cClear state on EOD\u201d in the \u201cGeneral\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.general.eod_time_sec",
+          "type": "int",
+          "default": -1,
+          "ui": {
+            "section": "General",
+            "order": 15,
+            "label": "EOD time (seconds)",
+            "helperText": "Enter the numeric value for \u201cEOD time (seconds)\u201d in the \u201cGeneral\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.general.multiple_files_flag",
+          "type": "int",
+          "default": 0,
+          "ui": {
+            "section": "General",
+            "order": 16,
+            "label": "Multiple files flag",
+            "helperText": "Enter the numeric value for \u201cMultiple files flag\u201d in the \u201cGeneral\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.file_to_event.enabled",
+          "type": "int",
+          "default": 0,
+          "ui": {
+            "section": "File To Event",
+            "order": 17,
+            "label": "File to event enabled",
+            "helperText": "Enter the numeric value for \u201cFile to event enabled\u201d in the \u201cFile To Event\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.file_to_event.fileFormat",
+          "type": "int",
+          "default": 4,
+          "ui": {
+            "section": "File To Event",
+            "order": 18,
+            "label": "File format",
+            "helperText": "Enter the numeric value for \u201cFile format\u201d in the \u201cFile To Event\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.file_to_event.eventDelimiter",
+          "type": "string",
+          "default": "|",
+          "ui": {
+            "section": "File To Event",
+            "order": 19,
+            "label": "Event delimiter",
+            "helperText": "Enter the value for \u201cEvent delimiter\u201d in the \u201cFile To Event\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.file_to_event.jsonPath",
+          "type": "string",
+          "default": "$.Authors[*].Books[*]",
+          "ui": {
+            "section": "File To Event",
+            "order": 20,
+            "label": "JSON path",
+            "helperText": "Enter the value for \u201cJSON path\u201d in the \u201cFile To Event\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.file_to_event.xPath",
+          "type": "string",
+          "default": "/class/student",
+          "ui": {
+            "section": "File To Event",
+            "order": 21,
+            "label": "XPath",
+            "helperText": "Enter the value for \u201cXPath\u201d in the \u201cFile To Event\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.gcs.enabled",
+          "type": "int",
+          "default": 0,
+          "ui": {
+            "section": "GCS",
+            "order": 22,
+            "label": "GCS enabled",
+            "helperText": "Enter the numeric value for \u201cGCS enabled\u201d in the \u201cGCS\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.gcs.projectId",
+          "type": "string",
+          "default": "GCS_PROJECT_ID",
+          "ui": {
+            "section": "GCS",
+            "order": 23,
+            "label": "GCS project ID",
+            "helperText": "Enter the value for \u201cGCS project ID\u201d in the \u201cGCS\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.gcs.credentialsFilePath",
+          "type": "string",
+          "default": "/home/centos/pubsubplus-connector-file-2.2.0/configs/gcs/creds.json",
+          "ui": {
+            "section": "GCS",
+            "order": 24,
+            "label": "GCS credentials file path",
+            "helperText": "Enter the value for \u201cGCS credentials file path\u201d in the \u201cGCS\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.gcs.retrySettings.maxAttempts",
+          "type": "int",
+          "default": 5,
+          "ui": {
+            "section": "GCS Retry",
+            "order": 25,
+            "label": "GCS max attempts",
+            "helperText": "Enter the numeric value for \u201cGCS max attempts\u201d in the \u201cGCS Retry\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.gcs.retrySettings.retryDelayMultiplier",
+          "type": "int",
+          "default": 3,
+          "ui": {
+            "section": "GCS Retry",
+            "order": 26,
+            "label": "GCS retry delay multiplier",
+            "helperText": "Enter the numeric value for \u201cGCS retry delay multiplier\u201d in the \u201cGCS Retry\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.gcs.retrySettings.maxDurationMinutes",
+          "type": "int",
+          "default": 2,
+          "ui": {
+            "section": "GCS Retry",
+            "order": 27,
+            "label": "GCS max duration (minutes)",
+            "helperText": "Enter the numeric value for \u201cGCS max duration (minutes)\u201d in the \u201cGCS Retry\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.sftp_settings.enabled",
+          "type": "int",
+          "default": 0,
+          "ui": {
+            "section": "SFTP",
+            "order": 28,
+            "label": "SFTP enabled",
+            "helperText": "Enter the numeric value for \u201cSFTP enabled\u201d in the \u201cSFTP\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.sftp_settings.ip",
+          "type": "string",
+          "default": "SFTP_HOST_ADDRESS",
+          "ui": {
+            "section": "SFTP",
+            "order": 29,
+            "label": "SFTP host",
+            "helperText": "Enter the value for \u201cSFTP host\u201d in the \u201cSFTP\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.sftp_settings.port",
+          "type": "int",
+          "default": 22,
+          "ui": {
+            "section": "SFTP",
+            "order": 30,
+            "label": "SFTP port",
+            "helperText": "Enter the numeric value for \u201cSFTP port\u201d in the \u201cSFTP\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.sftp_settings.user",
+          "type": "string",
+          "default": "SFTP_USER",
+          "ui": {
+            "section": "SFTP",
+            "order": 31,
+            "label": "SFTP user",
+            "helperText": "Enter the value for \u201cSFTP user\u201d in the \u201cSFTP\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.sftp_settings.password",
+          "type": "secret",
+          "default": "SFTP_PASSWORD",
+          "ui": {
+            "section": "SFTP",
+            "order": 32,
+            "label": "SFTP password",
+            "helperText": "Enter \u201cSFTP password\u201d for the \u201cSFTP\u201d section. This value is treated as sensitive."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.sftp_settings.strictHostKeyChecking",
+          "type": "enum",
+          "options": [
+            "yes",
+            "no"
+          ],
+          "default": "no",
+          "ui": {
+            "section": "SFTP",
+            "order": 33,
+            "label": "Strict host key checking",
+            "helperText": "Select the \u201cStrict host key checking\u201d option in the \u201cSFTP\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.ftp_settings.enabled",
+          "type": "int",
+          "default": 0,
+          "ui": {
+            "section": "FTP",
+            "order": 34,
+            "label": "FTP enabled",
+            "helperText": "Enter the numeric value for \u201cFTP enabled\u201d in the \u201cFTP\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.ftp_settings.ip",
+          "type": "string",
+          "default": "FTP_HOST_ADDRESS",
+          "ui": {
+            "section": "FTP",
+            "order": 35,
+            "label": "FTP host",
+            "helperText": "Enter the value for \u201cFTP host\u201d in the \u201cFTP\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.ftp_settings.port",
+          "type": "int",
+          "default": 21,
+          "ui": {
+            "section": "FTP",
+            "order": 36,
+            "label": "FTP port",
+            "helperText": "Enter the numeric value for \u201cFTP port\u201d in the \u201cFTP\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.ftp_settings.user",
+          "type": "string",
+          "default": "FTP_USER",
+          "ui": {
+            "section": "FTP",
+            "order": 37,
+            "label": "FTP user",
+            "helperText": "Enter the value for \u201cFTP user\u201d in the \u201cFTP\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.ftp_settings.password",
+          "type": "secret",
+          "default": "FTP_PASSWORD",
+          "ui": {
+            "section": "FTP",
+            "order": 38,
+            "label": "FTP password",
+            "helperText": "Enter \u201cFTP password\u201d for the \u201cFTP\u201d section. This value is treated as sensitive."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.ftp_settings.secured",
+          "type": "bool",
+          "default": true,
+          "ui": {
+            "section": "FTP",
+            "order": 39,
+            "label": "FTP secured",
+            "helperText": "Turn \u201cFTP secured\u201d on or off in the \u201cFTP\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.directory_wildcard.wildcard_type",
+          "type": "int",
+          "default": 0,
+          "ui": {
+            "section": "Directory Wildcard",
+            "order": 40,
+            "label": "Wildcard type",
+            "helperText": "Enter the numeric value for \u201cWildcard type\u201d in the \u201cDirectory Wildcard\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.directory_wildcard.config_path",
+          "type": "string",
+          "default": "",
+          "ui": {
+            "section": "Directory Wildcard",
+            "order": 41,
+            "label": "Wildcard config path",
+            "helperText": "Enter the value for \u201cWildcard config path\u201d in the \u201cDirectory Wildcard\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.directory_replication.start_time",
+          "type": "int",
+          "default": -1,
+          "ui": {
+            "section": "Directory Replication",
+            "order": 42,
+            "label": "Replication start time",
+            "helperText": "Enter the numeric value for \u201cReplication start time\u201d in the \u201cDirectory Replication\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.solace_out.lvq",
+          "type": "string",
+          "default": "file.source.lvq",
+          "ui": {
+            "section": "Solace Output",
+            "order": 43,
+            "label": "LVQ",
+            "helperText": "Enter the value for \u201cLVQ\u201d in the \u201cSolace Output\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.solace_out.destination",
+          "type": "string",
+          "default": "file/source/lvq",
+          "ui": {
+            "section": "Solace Output",
+            "order": 44,
+            "label": "Destination",
+            "helperText": "Enter the value for \u201cDestination\u201d in the \u201cSolace Output\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.command_center.enabled",
+          "type": "int",
+          "default": 1,
+          "ui": {
+            "section": "Command Center",
+            "order": 45,
+            "label": "Command Center enabled",
+            "helperText": "Enter the numeric value for \u201cCommand Center enabled\u201d in the \u201cCommand Center\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.command_center.useOutputDestinationSolaceCredentials",
+          "type": "bool",
+          "default": true,
+          "ui": {
+            "section": "Command Center",
+            "order": 46,
+            "label": "Use output destination Solace credentials",
+            "helperText": "Turn \u201cUse output destination Solace credentials\u201d on or off in the \u201cCommand Center\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.command_center.heartbeat_enabled",
+          "type": "int",
+          "default": 1,
+          "ui": {
+            "section": "Command Center",
+            "order": 47,
+            "label": "Heartbeat enabled",
+            "helperText": "Enter the numeric value for \u201cHeartbeat enabled\u201d in the \u201cCommand Center\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.command_center.heartbeat_interval",
+          "type": "int",
+          "default": 20,
+          "ui": {
+            "section": "Command Center",
+            "order": 48,
+            "label": "Heartbeat interval",
+            "helperText": "Enter the numeric value for \u201cHeartbeat interval\u201d in the \u201cCommand Center\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.command_center.solace_base_publish_topic_heartbeat",
+          "type": "string",
+          "default": "scm/dd/FIN/source/cc/se/fa/source/findata",
+          "ui": {
+            "section": "Command Center",
+            "order": 49,
+            "label": "Heartbeat publish topic",
+            "helperText": "Enter the value for \u201cHeartbeat publish topic\u201d in the \u201cCommand Center\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.command_center.solace_base_publish_topic",
+          "type": "string",
+          "default": "scm/dd/FIN/source/cc/se/fa/source/findata",
+          "ui": {
+            "section": "Command Center",
+            "order": 50,
+            "label": "Publish topic",
+            "helperText": "Enter the value for \u201cPublish topic\u201d in the \u201cCommand Center\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.command_center.solace_messaging_mode",
+          "type": "enum",
+          "options": [
+            "DIRECT",
+            "PERSISTENT",
+            "NON-PERSISTENT"
+          ],
+          "default": "PERSISTENT",
+          "ui": {
+            "section": "Command Center",
+            "order": 51,
+            "label": "Messaging mode",
+            "helperText": "Select the \u201cMessaging mode\u201d option in the \u201cCommand Center\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.command_center.events.fileStart",
+          "type": "bool",
+          "default": true,
+          "ui": {
+            "section": "Command Center Events",
+            "order": 52,
+            "label": "File start event",
+            "helperText": "Turn \u201cFile start event\u201d on or off in the \u201cCommand Center Events\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.source.command_center.events.fileComplete",
+          "type": "bool",
+          "default": true,
+          "ui": {
+            "section": "Command Center Events",
+            "order": 53,
+            "label": "File complete event",
+            "helperText": "Turn \u201cFile complete event\u201d on or off in the \u201cCommand Center Events\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "metrics": [
+        {
+          "name": "files.processed",
+          "metricType": "counter",
+          "unit": "files",
+          "source": {
+            "kind": "http_json",
+            "path": "/actuator/metrics/files",
+            "port": 8081,
+            "pointer": "/measurements/0/value",
+            "onUnavailable": "degrade"
+          },
+          "layer": "package-baseline"
+        },
+        {
+          "name": "files.failed",
+          "metricType": "counter",
+          "unit": "files",
+          "source": {
+            "kind": "http_json",
+            "path": "/actuator/metrics/files",
+            "port": 8081,
+            "pointer": "/measurements/0/value",
+            "onUnavailable": "degrade"
+          },
+          "layer": "package-baseline"
+        },
+        {
+          "name": "files.pending",
+          "metricType": "gauge",
+          "unit": "files",
+          "source": {
+            "kind": "http_json",
+            "path": "/actuator/metrics/files",
+            "port": 8081,
+            "pointer": "/measurements/0/value",
+            "onUnavailable": "degrade"
+          },
+          "layer": "package-baseline"
+        }
+      ],
+      "version": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "type": "file-sink",
+      "cardinality": "one-of-many",
+      "role": "sink",
+      "configPath": "",
+      "loggerPrefix": "com.solace.solutions.filemesh.sink",
+      "fields": [
+        {
+          "key": "file.sink.general.adapter_id",
+          "type": "string",
+          "default": "SINK_CONN_ID1",
+          "ui": {
+            "section": "General",
+            "order": 4,
+            "label": "Adapter ID",
+            "helperText": "Enter the value for \u201cAdapter ID\u201d in the \u201cGeneral\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.general.auto_create_directory",
+          "type": "int",
+          "default": 1,
+          "ui": {
+            "section": "General",
+            "order": 5,
+            "label": "Auto create directory",
+            "helperText": "Enter the numeric value for \u201cAuto create directory\u201d in the \u201cGeneral\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.general.dest_file_name_type",
+          "type": "int",
+          "default": 3,
+          "ui": {
+            "section": "General",
+            "order": 6,
+            "label": "Destination file name type",
+            "helperText": "Enter the numeric value for \u201cDestination file name type\u201d in the \u201cGeneral\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.general.storeBackupStateRemotely",
+          "type": "bool",
+          "default": false,
+          "ui": {
+            "section": "General",
+            "order": 7,
+            "label": "Store backup state remotely",
+            "helperText": "Turn \u201cStore backup state remotely\u201d on or off in the \u201cGeneral\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.general.state_backup_path",
+          "type": "string",
+          "default": "./backup_state.cfg",
+          "ui": {
+            "section": "General",
+            "order": 8,
+            "label": "State backup path",
+            "helperText": "Enter the value for \u201cState backup path\u201d in the \u201cGeneral\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.general.clear_state_on_eod",
+          "type": "int",
+          "default": 0,
+          "ui": {
+            "section": "General",
+            "order": 9,
+            "label": "Clear state on EOD",
+            "helperText": "Enter the numeric value for \u201cClear state on EOD\u201d in the \u201cGeneral\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.general.eod_time_sec",
+          "type": "int",
+          "default": -1,
+          "ui": {
+            "section": "General",
+            "order": 10,
+            "label": "EOD time (seconds)",
+            "helperText": "Enter the numeric value for \u201cEOD time (seconds)\u201d in the \u201cGeneral\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.general.alwaysVerifyData",
+          "type": "bool",
+          "default": true,
+          "ui": {
+            "section": "General",
+            "order": 11,
+            "label": "Always verify data",
+            "helperText": "Turn \u201cAlways verify data\u201d on or off in the \u201cGeneral\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.general.alwaysMatchCompleteEvent",
+          "type": "bool",
+          "default": true,
+          "ui": {
+            "section": "General",
+            "order": 12,
+            "label": "Always match complete event",
+            "helperText": "Turn \u201cAlways match complete event\u201d on or off in the \u201cGeneral\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.gcs.enabled",
+          "type": "int",
+          "default": 0,
+          "ui": {
+            "section": "GCS",
+            "order": 13,
+            "label": "GCS enabled",
+            "helperText": "Enter the numeric value for \u201cGCS enabled\u201d in the \u201cGCS\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.gcs.projectId",
+          "type": "string",
+          "default": "GCS_PROJECT_ID",
+          "ui": {
+            "section": "GCS",
+            "order": 14,
+            "label": "GCS project ID",
+            "helperText": "Enter the value for \u201cGCS project ID\u201d in the \u201cGCS\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.gcs.credentialsFilePath",
+          "type": "string",
+          "default": "/home/centos/pubsubplus-connector-file-2.2.0/configs/gcs/creds.json",
+          "ui": {
+            "section": "GCS",
+            "order": 15,
+            "label": "GCS credentials file path",
+            "helperText": "Enter the value for \u201cGCS credentials file path\u201d in the \u201cGCS\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.gcs.enableBulkComposeStrategy",
+          "type": "bool",
+          "default": true,
+          "ui": {
+            "section": "GCS",
+            "order": 16,
+            "label": "GCS bulk compose strategy",
+            "helperText": "Turn \u201cGCS bulk compose strategy\u201d on or off in the \u201cGCS\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.gcs.retrySettings.maxAttempts",
+          "type": "int",
+          "default": 5,
+          "ui": {
+            "section": "GCS Retry",
+            "order": 17,
+            "label": "GCS max attempts",
+            "helperText": "Enter the numeric value for \u201cGCS max attempts\u201d in the \u201cGCS Retry\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.gcs.retrySettings.retryDelayMultiplier",
+          "type": "int",
+          "default": 3,
+          "ui": {
+            "section": "GCS Retry",
+            "order": 18,
+            "label": "GCS retry delay multiplier",
+            "helperText": "Enter the numeric value for \u201cGCS retry delay multiplier\u201d in the \u201cGCS Retry\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.gcs.retrySettings.maxDurationMinutes",
+          "type": "int",
+          "default": 2,
+          "ui": {
+            "section": "GCS Retry",
+            "order": 19,
+            "label": "GCS max duration (minutes)",
+            "helperText": "Enter the numeric value for \u201cGCS max duration (minutes)\u201d in the \u201cGCS Retry\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.sftp_settings.enabled",
+          "type": "int",
+          "default": 0,
+          "ui": {
+            "section": "SFTP",
+            "order": 20,
+            "label": "SFTP enabled",
+            "helperText": "Enter the numeric value for \u201cSFTP enabled\u201d in the \u201cSFTP\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.sftp_settings.ip",
+          "type": "string",
+          "default": "SFTP_HOST_ADDRESS",
+          "ui": {
+            "section": "SFTP",
+            "order": 21,
+            "label": "SFTP host",
+            "helperText": "Enter the value for \u201cSFTP host\u201d in the \u201cSFTP\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.sftp_settings.port",
+          "type": "int",
+          "default": 22,
+          "ui": {
+            "section": "SFTP",
+            "order": 22,
+            "label": "SFTP port",
+            "helperText": "Enter the numeric value for \u201cSFTP port\u201d in the \u201cSFTP\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.sftp_settings.user",
+          "type": "string",
+          "default": "SFTP_USER",
+          "ui": {
+            "section": "SFTP",
+            "order": 23,
+            "label": "SFTP user",
+            "helperText": "Enter the value for \u201cSFTP user\u201d in the \u201cSFTP\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.sftp_settings.password",
+          "type": "secret",
+          "default": "SFTP_PASSWORD",
+          "ui": {
+            "section": "SFTP",
+            "order": 24,
+            "label": "SFTP password",
+            "helperText": "Enter \u201cSFTP password\u201d for the \u201cSFTP\u201d section. This value is treated as sensitive."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.sftp_settings.strictHostKeyChecking",
+          "type": "enum",
+          "options": [
+            "yes",
+            "no"
+          ],
+          "default": "no",
+          "ui": {
+            "section": "SFTP",
+            "order": 25,
+            "label": "Strict host key checking",
+            "helperText": "Select the \u201cStrict host key checking\u201d option in the \u201cSFTP\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.ftp_settings.enabled",
+          "type": "int",
+          "default": 0,
+          "ui": {
+            "section": "FTP",
+            "order": 26,
+            "label": "FTP enabled",
+            "helperText": "Enter the numeric value for \u201cFTP enabled\u201d in the \u201cFTP\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.ftp_settings.ip",
+          "type": "string",
+          "default": "FTP_HOST_ADDRESS",
+          "ui": {
+            "section": "FTP",
+            "order": 27,
+            "label": "FTP host",
+            "helperText": "Enter the value for \u201cFTP host\u201d in the \u201cFTP\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.ftp_settings.port",
+          "type": "int",
+          "default": 21,
+          "ui": {
+            "section": "FTP",
+            "order": 28,
+            "label": "FTP port",
+            "helperText": "Enter the numeric value for \u201cFTP port\u201d in the \u201cFTP\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.ftp_settings.user",
+          "type": "string",
+          "default": "FTP_USER",
+          "ui": {
+            "section": "FTP",
+            "order": 29,
+            "label": "FTP user",
+            "helperText": "Enter the value for \u201cFTP user\u201d in the \u201cFTP\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.ftp_settings.password",
+          "type": "secret",
+          "default": "FTP_PASSWORD",
+          "ui": {
+            "section": "FTP",
+            "order": 30,
+            "label": "FTP password",
+            "helperText": "Enter \u201cFTP password\u201d for the \u201cFTP\u201d section. This value is treated as sensitive."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.ftp_settings.secured",
+          "type": "bool",
+          "default": true,
+          "ui": {
+            "section": "FTP",
+            "order": 31,
+            "label": "FTP secured",
+            "helperText": "Turn \u201cFTP secured\u201d on or off in the \u201cFTP\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.file_owner_permissions.copy_source_file_mode_permissions",
+          "type": "int",
+          "default": 0,
+          "ui": {
+            "section": "File Owner Permissions",
+            "order": 32,
+            "label": "Copy source file mode permissions",
+            "helperText": "Enter the numeric value for \u201cCopy source file mode permissions\u201d in the \u201cFile Owner Permissions\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.file_owner_permissions.copy_source_file_owner",
+          "type": "int",
+          "default": 0,
+          "ui": {
+            "section": "File Owner Permissions",
+            "order": 33,
+            "label": "Copy source file owner",
+            "helperText": "Enter the numeric value for \u201cCopy source file owner\u201d in the \u201cFile Owner Permissions\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.file_owner_permissions.override_username",
+          "type": "string",
+          "default": "centos",
+          "ui": {
+            "section": "File Owner Permissions",
+            "order": 34,
+            "label": "Override username",
+            "helperText": "Enter the value for \u201cOverride username\u201d in the \u201cFile Owner Permissions\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.file_owner_permissions.override_group",
+          "type": "string",
+          "default": "centos",
+          "ui": {
+            "section": "File Owner Permissions",
+            "order": 35,
+            "label": "Override group",
+            "helperText": "Enter the value for \u201cOverride group\u201d in the \u201cFile Owner Permissions\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.command_center.enabled",
+          "type": "int",
+          "default": 0,
+          "ui": {
+            "section": "Command Center",
+            "order": 36,
+            "label": "Command Center enabled",
+            "helperText": "Enter the numeric value for \u201cCommand Center enabled\u201d in the \u201cCommand Center\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.command_center.useOutputDestinationSolaceCredentials",
+          "type": "bool",
+          "default": true,
+          "ui": {
+            "section": "Command Center",
+            "order": 37,
+            "label": "Use output destination Solace credentials",
+            "helperText": "Turn \u201cUse output destination Solace credentials\u201d on or off in the \u201cCommand Center\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.command_center.solace_base_publish_topic",
+          "type": "string",
+          "default": "solace/dd/STORE-MANGEMENT/fa-assembler/cc/se/fa/assembler/Frankfurt",
+          "ui": {
+            "section": "Command Center",
+            "order": 38,
+            "label": "Publish topic",
+            "helperText": "Enter the value for \u201cPublish topic\u201d in the \u201cCommand Center\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.command_center.solace_messaging_mode",
+          "type": "enum",
+          "options": [
+            "DIRECT",
+            "PERSISTENT",
+            "NON-PERSISTENT"
+          ],
+          "default": "PERSISTENT",
+          "ui": {
+            "section": "Command Center",
+            "order": 39,
+            "label": "Messaging mode",
+            "helperText": "Select the \u201cMessaging mode\u201d option in the \u201cCommand Center\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.command_center.heartbeat_enabled",
+          "type": "int",
+          "default": 0,
+          "ui": {
+            "section": "Command Center",
+            "order": 40,
+            "label": "Heartbeat enabled",
+            "helperText": "Enter the numeric value for \u201cHeartbeat enabled\u201d in the \u201cCommand Center\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.command_center.heartbeat_interval",
+          "type": "int",
+          "default": 3,
+          "ui": {
+            "section": "Command Center",
+            "order": 41,
+            "label": "Heartbeat interval",
+            "helperText": "Enter the numeric value for \u201cHeartbeat interval\u201d in the \u201cCommand Center\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.command_center.solace_base_publish_topic_heartbeat",
+          "type": "string",
+          "default": "solace/dd/STORE-MANGEMENT/fa-assembler/cc/se/fa/assembler/Frankfurt",
+          "ui": {
+            "section": "Command Center",
+            "order": 42,
+            "label": "Heartbeat publish topic",
+            "helperText": "Enter the value for \u201cHeartbeat publish topic\u201d in the \u201cCommand Center\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.command_center.events.fileStart",
+          "type": "bool",
+          "default": true,
+          "ui": {
+            "section": "Command Center Events",
+            "order": 43,
+            "label": "File start event",
+            "helperText": "Turn \u201cFile start event\u201d on or off in the \u201cCommand Center Events\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "file.sink.command_center.events.fileComplete",
+          "type": "bool",
+          "default": true,
+          "ui": {
+            "section": "Command Center Events",
+            "order": 44,
+            "label": "File complete event",
+            "helperText": "Turn \u201cFile complete event\u201d on or off in the \u201cCommand Center Events\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "metrics": [],
+      "version": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "type": "cache",
+      "cardinality": "zero-or-more",
+      "role": "none",
+      "configPath": "cache",
+      "loggerPrefix": "com.solace.solutions.cache",
+      "fields": [
+        {
+          "key": "CACHE_ENABLED",
+          "type": "bool",
+          "default": true,
+          "ui": {
+            "section": "Cache",
+            "order": 0,
+            "label": "Enable cache",
+            "helperText": "Turn \u201cEnable cache\u201d on or off in the \u201cCache\u201d section."
+          },
+          "version": [
+            2,
+            3
+          ]
+        },
+        {
+          "key": "CACHE_PROVIDER",
+          "type": "enum",
+          "options": [
+            "memory",
+            "redis"
+          ],
+          "default": "memory",
+          "required": true,
+          "ui": {
+            "section": "Cache",
+            "order": 1,
+            "label": "Cache provider",
+            "helperText": "Select the \u201cCache provider\u201d option in the \u201cCache\u201d section."
+          },
+          "version": [
+            2,
+            3
+          ]
+        },
+        {
+          "key": "CACHE_TTL",
+          "type": "duration",
+          "default": "5m",
+          "required": true,
+          "ui": {
+            "section": "Cache",
+            "order": 2,
+            "label": "Cache TTL",
+            "helperText": "Enter the duration for \u201cCache TTL\u201d in the \u201cCache\u201d section."
+          },
+          "version": [
+            2,
+            3
+          ]
+        },
+        {
+          "key": "REDIS_URL",
+          "type": "string",
+          "required": true,
+          "when": {
+            "CACHE_PROVIDER": "redis"
+          },
+          "ui": {
+            "section": "Cache",
+            "order": 3,
+            "label": "Redis URL",
+            "helperText": "Enter the value for \u201cRedis URL\u201d in the \u201cCache\u201d section."
+          },
+          "version": [
+            3
+          ]
+        }
+      ],
+      "version": [
+        2,
+        3
+      ]
+    },
+    {
+      "type": "server",
+      "cardinality": "zero-or-more",
+      "role": "none",
+      "configPath": "",
+      "fields": [
+        {
+          "key": "server.port",
+          "type": "int",
+          "default": 8094,
+          "ui": {
+            "section": "Server",
+            "order": 0,
+            "label": "Server port",
+            "helperText": "Enter the numeric value for \u201cServer port\u201d in the \u201cServer\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "server.ssl.enabled",
+          "type": "bool",
+          "default": true,
+          "ui": {
+            "section": "SSL",
+            "order": 1,
+            "label": "SSL enabled",
+            "helperText": "Turn \u201cSSL enabled\u201d on or off in the \u201cSSL\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "server.ssl.key-store",
+          "type": "string",
+          "default": "file:/home/banala/Music/entityFolders/download_binaries/SOURCE_NOSUBORG_Alice_FF_NWFILE_T3/keystore.p12",
+          "ui": {
+            "section": "SSL",
+            "order": 2,
+            "label": "SSL key store",
+            "helperText": "Enter the value for \u201cSSL key store\u201d in the \u201cSSL\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "server.ssl.key-store-password",
+          "type": "secret",
+          "default": "changeit",
+          "ui": {
+            "section": "SSL",
+            "order": 3,
+            "label": "SSL key store password",
+            "helperText": "Enter \u201cSSL key store password\u201d for the \u201cSSL\u201d section. This value is treated as sensitive."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "server.ssl.key-store-type",
+          "type": "string",
+          "default": "PKCS12",
+          "ui": {
+            "section": "SSL",
+            "order": 4,
+            "label": "SSL key store type",
+            "helperText": "Enter the value for \u201cSSL key store type\u201d in the \u201cSSL\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "server.ssl.key-alias",
+          "type": "string",
+          "default": "myalias",
+          "ui": {
+            "section": "SSL",
+            "order": 5,
+            "label": "SSL key alias",
+            "helperText": "Enter the value for \u201cSSL key alias\u201d in the \u201cSSL\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "version": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "type": "spring-boot-admin",
+      "cardinality": "zero-or-more",
+      "role": "none",
+      "configPath": "",
+      "fields": [
+        {
+          "key": "spring.boot.admin.client.instance.prefer-ip",
+          "type": "bool",
+          "default": true,
+          "ui": {
+            "section": "Instance",
+            "order": 0,
+            "label": "Prefer IP",
+            "helperText": "Turn \u201cPrefer IP\u201d on or off in the \u201cInstance\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "spring.boot.admin.client.instance.management-url",
+          "type": "string",
+          "default": "http://localIP:${server.port}/actuator",
+          "ui": {
+            "section": "Instance",
+            "order": 1,
+            "label": "Management URL",
+            "helperText": "Enter the value for \u201cManagement URL\u201d in the \u201cInstance\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "spring.boot.admin.client.instance.service-url",
+          "type": "string",
+          "default": "http://localIP:${server.port}/",
+          "ui": {
+            "section": "Instance",
+            "order": 2,
+            "label": "Service URL",
+            "helperText": "Enter the value for \u201cService URL\u201d in the \u201cInstance\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "spring.boot.admin.client.enabled",
+          "type": "bool",
+          "default": true,
+          "ui": {
+            "section": "Client",
+            "order": 3,
+            "label": "Admin client enabled",
+            "helperText": "Turn \u201cAdmin client enabled\u201d on or off in the \u201cClient\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "spring.boot.admin.client.url",
+          "type": "string",
+          "default": "http://50.17.36.43:9500/admin",
+          "ui": {
+            "section": "Client",
+            "order": 4,
+            "label": "Admin server URL",
+            "helperText": "Enter the value for \u201cAdmin server URL\u201d in the \u201cClient\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "spring.boot.admin.client.auto-registration",
+          "type": "bool",
+          "default": true,
+          "ui": {
+            "section": "Client",
+            "order": 5,
+            "label": "Auto registration",
+            "helperText": "Turn \u201cAuto registration\u201d on or off in the \u201cClient\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "spring.boot.admin.client.prefer-ip",
+          "type": "bool",
+          "default": true,
+          "ui": {
+            "section": "Client",
+            "order": 6,
+            "label": "Prefer IP",
+            "helperText": "Turn \u201cPrefer IP\u201d on or off in the \u201cClient\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "spring.boot.admin.client.username",
+          "type": "string",
+          "default": "user",
+          "ui": {
+            "section": "Authentication",
+            "order": 7,
+            "label": "Admin username",
+            "helperText": "Enter the value for \u201cAdmin username\u201d in the \u201cAuthentication\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "spring.boot.admin.client.password",
+          "type": "secret",
+          "default": "pass",
+          "ui": {
+            "section": "Authentication",
+            "order": 8,
+            "label": "Admin password",
+            "helperText": "Enter \u201cAdmin password\u201d for the \u201cAuthentication\u201d section. This value is treated as sensitive."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "version": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "type": "spring-cloud-stream",
+      "cardinality": "zero-or-more",
+      "role": "none",
+      "configPath": "",
+      "fields": [
+        {
+          "key": "spring.cloud.stream.bindings.input-0.destination",
+          "type": "string",
+          "default": "/home/banala/Music/entityFolders/updated/SOURCE_TEST_V1/file_paths.cfg",
+          "ui": {
+            "section": "Input Binding",
+            "order": 0,
+            "label": "Input destination",
+            "helperText": "Enter the value for \u201cInput destination\u201d in the \u201cInput Binding\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "spring.cloud.stream.bindings.input-0.binder",
+          "type": "enum",
+          "options": [
+            "file",
+            "solace"
+          ],
+          "default": "file",
+          "ui": {
+            "section": "Input Binding",
+            "order": 1,
+            "label": "Input binder",
+            "helperText": "Select the \u201cInput binder\u201d option in the \u201cInput Binding\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "spring.cloud.stream.bindings.output-0.destination",
+          "type": "string",
+          "default": "file/test",
+          "ui": {
+            "section": "Output Binding",
+            "order": 2,
+            "label": "Output destination",
+            "helperText": "Enter the value for \u201cOutput destination\u201d in the \u201cOutput Binding\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "spring.cloud.stream.bindings.output-0.binder",
+          "type": "enum",
+          "options": [
+            "file",
+            "solace"
+          ],
+          "default": "solace",
+          "ui": {
+            "section": "Output Binding",
+            "order": 3,
+            "label": "Output binder",
+            "helperText": "Select the \u201cOutput binder\u201d option in the \u201cOutput Binding\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "version": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "type": "solace",
+      "cardinality": "zero-or-more",
+      "role": "none",
+      "configPath": "",
+      "loggerPrefix": "com.solace",
+      "fields": [
+        {
+          "key": "solace.connector.security.enabled",
+          "type": "bool",
+          "default": false,
+          "ui": {
+            "section": "Security",
+            "order": 0,
+            "label": "Connector security enabled",
+            "helperText": "Turn \u201cConnector security enabled\u201d on or off in the \u201cSecurity\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "solace.connector.error.handle",
+          "type": "string",
+          "default": "stop_all",
+          "ui": {
+            "section": "Error",
+            "order": 1,
+            "label": "Error handling",
+            "helperText": "Enter the value for \u201cError handling\u201d in the \u201cError\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "solace.connector.workflows.0.enabled",
+          "type": "bool",
+          "default": true,
+          "ui": {
+            "section": "Workflow",
+            "order": 2,
+            "label": "Workflow enabled",
+            "helperText": "Turn \u201cWorkflow enabled\u201d on or off in the \u201cWorkflow\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "solace.connector.workflows.0.acknowledgment.publish-async",
+          "type": "bool",
+          "default": true,
+          "ui": {
+            "section": "Workflow",
+            "order": 3,
+            "label": "Publish asynchronously",
+            "helperText": "Turn \u201cPublish asynchronously\u201d on or off in the \u201cWorkflow\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "solace.connector.management.leader-election.mode",
+          "type": "enum",
+          "options": [
+            "standalone",
+            "active_active",
+            "active_standby"
+          ],
+          "default": "standalone",
+          "ui": {
+            "section": "Leader Election",
+            "order": 4,
+            "label": "Leader election mode",
+            "helperText": "Select the \u201cLeader election mode\u201d option in the \u201cLeader Election\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "solace.connector.management.leader-election.fail-over.max-attempts",
+          "type": "int",
+          "default": 3,
+          "ui": {
+            "section": "Leader Election",
+            "order": 5,
+            "label": "Failover max attempts",
+            "helperText": "Enter the numeric value for \u201cFailover max attempts\u201d in the \u201cLeader Election\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "solace.connector.management.leader-election.fail-over.back-off-initial-interval",
+          "type": "int",
+          "default": 1000,
+          "ui": {
+            "section": "Leader Election",
+            "order": 6,
+            "label": "Initial backoff interval",
+            "helperText": "Enter the numeric value for \u201cInitial backoff interval\u201d in the \u201cLeader Election\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "solace.connector.management.leader-election.fail-over.back-off-max-interval",
+          "type": "int",
+          "default": 10000,
+          "ui": {
+            "section": "Leader Election",
+            "order": 7,
+            "label": "Maximum backoff interval",
+            "helperText": "Enter the numeric value for \u201cMaximum backoff interval\u201d in the \u201cLeader Election\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "solace.connector.management.leader-election.fail-over.back-off-multiplier",
+          "type": "int",
+          "default": 2,
+          "ui": {
+            "section": "Leader Election",
+            "order": 8,
+            "label": "Backoff multiplier",
+            "helperText": "Enter the numeric value for \u201cBackoff multiplier\u201d in the \u201cLeader Election\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "solace.connector.management.queue",
+          "type": "string",
+          "default": "",
+          "ui": {
+            "section": "Management",
+            "order": 9,
+            "label": "Management queue",
+            "helperText": "Enter the value for \u201cManagement queue\u201d in the \u201cManagement\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "solaceManagementBroker",
+          "type": "enum",
+          "virtual": true,
+          "required": true,
+          "optionsSource": {
+            "kind": "sm-catalog",
+            "entity": "connection",
+            "connectionType": "solace-broker"
+          },
+          "ui": {
+            "section": "Management Session",
+            "order": 10,
+            "label": "Broker",
+            "helperText": "Selects the Connection Object that populates the management-session fields below (UI-D28).",
+            "promoteToDeclare": true
+          },
+          "version": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        {
+          "key": "solace.connector.management.session.host",
+          "type": "string",
+          "default": "tcp://localhost:55555",
+          "valueFrom": {
+            "ref": "solaceManagementBroker",
+            "attribute": "host"
+          },
+          "ui": {
+            "section": "Management Session",
+            "order": 10,
+            "label": "Management host",
+            "helperText": "Enter the value for \u201cManagement host\u201d in the \u201cManagement Session\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        {
+          "key": "solace.connector.management.session.msg-vpn",
+          "type": "string",
+          "default": "default",
+          "valueFrom": {
+            "ref": "solaceManagementBroker",
+            "attribute": "vpn"
+          },
+          "ui": {
+            "section": "Management Session",
+            "order": 11,
+            "label": "Management Message VPN",
+            "helperText": "Enter the value for \u201cManagement Message VPN\u201d in the \u201cManagement Session\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        {
+          "key": "solace.connector.management.session.client-username",
+          "type": "string",
+          "default": "test",
+          "valueFrom": {
+            "ref": "solaceManagementBroker",
+            "attribute": "username"
+          },
+          "ui": {
+            "section": "Management Session",
+            "order": 12,
+            "label": "Management client username",
+            "helperText": "Enter the value for \u201cManagement client username\u201d in the \u201cManagement Session\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        {
+          "key": "solace.connector.management.session.client-password",
+          "type": "secret",
+          "default": "test",
+          "valueFrom": {
+            "ref": "solaceManagementBroker",
+            "attribute": "password"
+          },
+          "ui": {
+            "section": "Management Session",
+            "order": 13,
+            "label": "Management client password",
+            "helperText": "Enter \u201cManagement client password\u201d for the \u201cManagement Session\u201d section. This value is treated as sensitive."
+          },
+          "version": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        {
+          "key": "solaceDataBroker",
+          "type": "enum",
+          "virtual": true,
+          "required": true,
+          "optionsSource": {
+            "kind": "sm-catalog",
+            "entity": "connection",
+            "connectionType": "solace-broker"
+          },
+          "ui": {
+            "section": "Java Client",
+            "order": 14,
+            "label": "Broker",
+            "helperText": "Selects the Connection Object that populates the Java client fields below (UI-D28).",
+            "promoteToDeclare": true
+          },
+          "version": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        {
+          "key": "solace.java.host",
+          "type": "string",
+          "default": "tcp://localhost:55555",
+          "valueFrom": {
+            "ref": "solaceDataBroker",
+            "attribute": "host"
+          },
+          "ui": {
+            "section": "Java Client",
+            "order": 14,
+            "label": "Solace Java host",
+            "helperText": "Enter the value for \u201cSolace Java host\u201d in the \u201cJava Client\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        {
+          "key": "solace.java.msg-vpn",
+          "type": "string",
+          "default": "default",
+          "valueFrom": {
+            "ref": "solaceDataBroker",
+            "attribute": "vpn"
+          },
+          "ui": {
+            "section": "Java Client",
+            "order": 15,
+            "label": "Solace Java Message VPN",
+            "helperText": "Enter the value for \u201cSolace Java Message VPN\u201d in the \u201cJava Client\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        {
+          "key": "solace.java.client-username",
+          "type": "string",
+          "default": "test",
+          "valueFrom": {
+            "ref": "solaceDataBroker",
+            "attribute": "username"
+          },
+          "ui": {
+            "section": "Java Client",
+            "order": 16,
+            "label": "Solace Java client username",
+            "helperText": "Enter the value for \u201cSolace Java client username\u201d in the \u201cJava Client\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        {
+          "key": "solace.java.client-password",
+          "type": "secret",
+          "default": "test",
+          "valueFrom": {
+            "ref": "solaceDataBroker",
+            "attribute": "password"
+          },
+          "ui": {
+            "section": "Java Client",
+            "order": 17,
+            "label": "Solace Java client password",
+            "helperText": "Enter \u201cSolace Java client password\u201d for the \u201cJava Client\u201d section. This value is treated as sensitive."
+          },
+          "version": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        {
+          "key": "solace.java.connectRetries",
+          "type": "int",
+          "default": -1,
+          "ui": {
+            "section": "Java Client",
+            "order": 18,
+            "label": "Connect retries",
+            "helperText": "Enter the numeric value for \u201cConnect retries\u201d in the \u201cJava Client\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "solace.java.reconnectRetries",
+          "type": "int",
+          "default": -1,
+          "ui": {
+            "section": "Java Client",
+            "order": 19,
+            "label": "Reconnect retries",
+            "helperText": "Enter the numeric value for \u201cReconnect retries\u201d in the \u201cJava Client\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "version": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "type": "application",
+      "cardinality": "zero-or-more",
+      "role": "none",
+      "configPath": "",
+      "fields": [
+        {
+          "key": "spring.application.name",
+          "type": "string",
+          "default": "SOURCE_TEST_V1",
+          "ui": {
+            "section": "Application",
+            "order": 0,
+            "label": "Application name",
+            "helperText": "Enter the value for \u201cApplication name\u201d in the \u201cApplication\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "version": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "type": "logging",
+      "cardinality": "zero-or-more",
+      "role": "none",
+      "configPath": "",
+      "fields": [
+        {
+          "key": "logging.level.root",
+          "type": "string",
+          "default": "INFO",
+          "ui": {
+            "section": "Log Levels",
+            "order": 0,
+            "label": "Root log level",
+            "helperText": "Enter the value for \u201cRoot log level\u201d in the \u201cLog Levels\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "logging.level.com.solace.connector.jms",
+          "type": "string",
+          "default": "INFO",
+          "ui": {
+            "section": "Log Levels",
+            "order": 1,
+            "label": "Solace JMS log level",
+            "helperText": "Enter the value for \u201cSolace JMS log level\u201d in the \u201cLog Levels\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "logging.level.com.solace.connector.core",
+          "type": "string",
+          "default": "INFO",
+          "ui": {
+            "section": "Log Levels",
+            "order": 2,
+            "label": "Connector core log level",
+            "helperText": "Enter the value for \u201cConnector core log level\u201d in the \u201cLog Levels\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "logging.level.com.solace.spring.cloud.stream.binder",
+          "type": "string",
+          "default": "INFO",
+          "ui": {
+            "section": "Log Levels",
+            "order": 3,
+            "label": "Solace binder log level",
+            "helperText": "Enter the value for \u201cSolace binder log level\u201d in the \u201cLog Levels\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "logging.level.com.solacecoe.spring.cloud.stream.binders.file",
+          "type": "string",
+          "default": "TRACE",
+          "ui": {
+            "section": "Log Levels",
+            "order": 4,
+            "label": "File binder log level",
+            "helperText": "Enter the value for \u201cFile binder log level\u201d in the \u201cLog Levels\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "logging.file.name",
+          "type": "string",
+          "default": "myapp.log",
+          "ui": {
+            "section": "File",
+            "order": 5,
+            "label": "Log file name",
+            "helperText": "Enter the value for \u201cLog file name\u201d in the \u201cFile\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "logging.logback.rollingpolicy.file-name-pattern",
+          "type": "string",
+          "default": "${LOG_FILE}.%d{yyyy-MM-dd}.%i.gz",
+          "ui": {
+            "section": "Rolling Policy",
+            "order": 6,
+            "label": "Rolling file name pattern",
+            "helperText": "Enter the value for \u201cRolling file name pattern\u201d in the \u201cRolling Policy\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "logging.logback.rollingpolicy.max-file-size",
+          "type": "string",
+          "default": "100MB",
+          "ui": {
+            "section": "Rolling Policy",
+            "order": 7,
+            "label": "Maximum log file size",
+            "helperText": "Enter the value for \u201cMaximum log file size\u201d in the \u201cRolling Policy\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "logging.logback.rollingpolicy.max-history",
+          "type": "int",
+          "default": 7,
+          "ui": {
+            "section": "Rolling Policy",
+            "order": 8,
+            "label": "Maximum history",
+            "helperText": "Enter the numeric value for \u201cMaximum history\u201d in the \u201cRolling Policy\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "logging.logback.rollingpolicy.total-size-cap",
+          "type": "string",
+          "default": "1GB",
+          "ui": {
+            "section": "Rolling Policy",
+            "order": 9,
+            "label": "Total size cap",
+            "helperText": "Enter the value for \u201cTotal size cap\u201d in the \u201cRolling Policy\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "version": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "type": "management",
+      "cardinality": "zero-or-more",
+      "role": "none",
+      "configPath": "",
+      "fields": [
+        {
+          "key": "management.security.enabled",
+          "type": "bool",
+          "default": false,
+          "ui": {
+            "section": "Security",
+            "order": 0,
+            "label": "Management security enabled",
+            "helperText": "Turn \u201cManagement security enabled\u201d on or off in the \u201cSecurity\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "management.simple.metrics.export.enabled",
+          "type": "bool",
+          "default": true,
+          "ui": {
+            "section": "Metrics",
+            "order": 1,
+            "label": "Simple metrics export enabled",
+            "helperText": "Turn \u201cSimple metrics export enabled\u201d on or off in the \u201cMetrics\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "management.endpoints.web.exposure.include",
+          "type": "string",
+          "default": "*",
+          "ui": {
+            "section": "Web Endpoints",
+            "order": 2,
+            "label": "Exposed web endpoints",
+            "helperText": "Enter the value for \u201cExposed web endpoints\u201d in the \u201cWeb Endpoints\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "management.endpoints.web.cors.allowed-origins",
+          "type": "string",
+          "default": "*",
+          "ui": {
+            "section": "CORS",
+            "order": 3,
+            "label": "Allowed CORS origins",
+            "helperText": "Enter the value for \u201cAllowed CORS origins\u201d in the \u201cCORS\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "management.endpoints.web.cors.allowed-methods",
+          "type": "string",
+          "default": "*",
+          "ui": {
+            "section": "CORS",
+            "order": 4,
+            "label": "Allowed CORS methods",
+            "helperText": "Enter the value for \u201cAllowed CORS methods\u201d in the \u201cCORS\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "management.endpoints.web.cors.allowed-headers",
+          "type": "string",
+          "default": "*",
+          "ui": {
+            "section": "CORS",
+            "order": 5,
+            "label": "Allowed CORS headers",
+            "helperText": "Enter the value for \u201cAllowed CORS headers\u201d in the \u201cCORS\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "management.endpoint.logfile.external-file",
+          "type": "string",
+          "default": "myapp.log",
+          "ui": {
+            "section": "Logfile",
+            "order": 6,
+            "label": "External log file",
+            "helperText": "Enter the value for \u201cExternal log file\u201d in the \u201cLogfile\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "management.endpoint.prometheus.enabled",
+          "type": "bool",
+          "default": false,
+          "ui": {
+            "section": "Prometheus",
+            "order": 7,
+            "label": "Prometheus enabled",
+            "helperText": "Turn \u201cPrometheus enabled\u201d on or off in the \u201cPrometheus\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "management.endpoint.health.show-details",
+          "type": "string",
+          "default": "ALWAYS",
+          "ui": {
+            "section": "Health",
+            "order": 8,
+            "label": "Health details",
+            "helperText": "Enter the value for \u201cHealth details\u201d in the \u201cHealth\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "key": "management.endpoint.health.status.order",
+          "type": "string",
+          "default": "DOWN,OUT_OF_SERVICE,RECONNECTING,UP,UNKNOWN",
+          "ui": {
+            "section": "Health",
+            "order": 9,
+            "label": "Health status order",
+            "helperText": "Enter the value for \u201cHealth status order\u201d in the \u201cHealth\u201d section."
+          },
+          "version": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "version": [
+        1,
+        2,
+        3
+      ]
+    }
+  ]
+}

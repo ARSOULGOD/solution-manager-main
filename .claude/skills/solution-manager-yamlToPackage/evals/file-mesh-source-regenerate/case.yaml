@@ -1,6 +1,6 @@
 schema_version: "1.1"
 name: file-mesh-source-regenerate
 expected_outcome: |
-  The skill uses the existing file-mesh profile, maps 109 of 110 leaves, excludes the lowercase useoutputdestinationsolacecredentials duplicate, changes only adapter_id's default in file-source and withholds secret defaults, keeps file-sink and all other content, validates PASS, and reports coverage, diff and open questions without overwriting the input package.
+  The skill uses the existing file-mesh profile and runs the preview only. It reports 110 keys, 108 placed and 2 open, and asks 7 numbered questions: the FM-D1 spelling question (useOutputDestinationSolaceCredentials vs useoutputdestinationsolacecredentials, keep either), four required suggestions (solace.java.host, solace.connector.management.session.host, spring.application.name, logging.file.name) each with evidence naming a sample field, the restyle block (138 / 154 / 2) and the signature question. It shows adapter_id's default change, withholds secret defaults, lists coerced values for information, creates no package.json, and leaves the input package unmodified.
 context:
   scaffold_script: place-files.sh

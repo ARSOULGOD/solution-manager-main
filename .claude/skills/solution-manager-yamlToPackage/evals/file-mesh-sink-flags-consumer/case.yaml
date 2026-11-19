@@ -1,6 +1,0 @@
-schema_version: "1.1"
-name: file-mesh-sink-flags-consumer
-expected_outcome: |
-  The skill maps 99 of 102 sink leaves and flags the three spring.cloud.stream.solace.default.consumer.* leaves as sink-only with no home in the shared spring-cloud-stream component, asking the user to decide. It reports that the shared bindings, server.port and leader-election mode differ from the package but keeps the package values.
-context:
-  scaffold_script: place-files.sh

@@ -67,13 +67,19 @@ export function observedStateFor(instance: InstanceRow): ObservedState {
  * where every Cache instance's Designer read the same baked
  * `CACHE_VIEW_MODEL` regardless of which instance was open. A solution with
  * no baked draft (File Mesh, and any dev-dropped package) starts empty —
- * exactly the reading `viewModelFor.ts` documented and this supersedes.
+ * exactly the reading `viewModelFor.ts` documented and this supersedes —
+ * except for the instance's own recorded connection SELECTIONS (`UI-D27`),
+ * seeded the same way `devPackageHandlers.ts` seeds a declared instance's.
  */
 export function draftValuesFor(instance: InstanceRow): DraftValues {
   if (instance.solutionId === 'cache') {
     return { 'cache-engine': CACHE_DRAFT };
   }
-  return {};
+  const pkg = packageForSolution(instance.solutionId);
+  if (pkg === undefined || instance.connections === undefined) {
+    return {};
+  }
+  return connectionSelectorValues(pkg, instance.connections);
 }
 
 /**

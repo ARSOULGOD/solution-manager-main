@@ -42,6 +42,7 @@ is a reading aid. If they disagree, the schema wins. Say so in the report.
 | `key` | config property path relative to `configPath`. Never a display label |
 | `type` | `string` · `int` · `bool` · `enum` · `secret` · `duration` · `list` · `map` · `table` · `yaml` |
 | `default` | string, number, bool or null. **Always null for a secret** (I6) |
+| `secret` | `secret: true` always comes with `type: secret`; the skill adds it to every secret field (the validator warns when it is missing) |
 | `ui` | `{section, order, label, helperText}` (+ optional `readOnly`) |
 | `version` | subset of the component's effective versions |
 | `options` | enum values. Exactly one of `options` / `optionsSource` for an enum |
@@ -55,9 +56,20 @@ is a reading aid. If they disagree, the schema wins. Say so in the report.
 | `yamlSubtree` | `type: yaml` only |
 | `role` | optional per-field role inside a shared component |
 
-### helperText wording (from the references)
+### helperText wording
 
-| type | pattern |
+**The skill writes the YAML comment alone**, and only when the YAML line has a comment of four or more
+words; otherwise the field has no `helperText` (as in db-designer and the other hand-written samples). A
+comment that repeats a secret value is never used (I6). **One exception:** when the user refuses the restyle,
+a new field in a component whose every helper text starts with its stock sentence follows that component's
+style: it gets the stock sentence below, plus the comment as a second sentence when it has four or more words.
+
+The stock sentences below are what older packages carry (File Mesh, generated before plan tooling/002, with
+the comment appended as a second sentence). They are what the restyle removes: a helper text that exactly
+equals the stock sentence for the field's current label, section and type is dropped, and anything else is
+kept.
+
+| type | stock sentence |
 |---|---|
 | string | Enter the value for “{label}” in the “{section}” section. |
 | int | Enter the numeric value for “{label}” in the “{section}” section. |
@@ -66,15 +78,18 @@ is a reading aid. If they disagree, the schema wins. Say so in the report.
 | secret | Enter “{label}” for the “{section}” section. This value is treated as sensitive. |
 | duration | Enter the duration for “{label}” in the “{section}” section. |
 
-A descriptive YAML comment (four or more words) is appended as a second sentence.
-
 ### ui.order
 
 `project()` (frontend/contracts/view-model/project.ts) places a section by the `ui.order` of the
-**first field it sees in that section**, and orders fields within a section by declaration order.
-Cache, db-designer and the other hand-authored packages write the **section index** on every field.
-File Mesh writes a **running per-field counter**. Both render the same; the profile's `ui_order` picks
-one per solution.
+**first field it sees in that section**, and orders fields within a section by declaration order. The
+packages number it three ways, and all three render the same:
+- **db-designer and the other hand-written samples** (notifications, orders, payments, reporting, scheduler,
+  search) number by **position within the section**: 0, 1, 2… restarting in every section;
+- **cache** writes the **section index** on every field of the section;
+- **File Mesh** writes a **running counter** across the component.
+
+**The skill writes the db-designer style.** An existing package in another style gets the restyle question;
+refused, each component keeps its detected style and new fields follow it.
 
 ## What varies between solutions (variation points)
 
@@ -86,7 +101,7 @@ Each row is something the engine must NOT assume. It comes from the profile.
 | configPath | `""` (role and Spring components); `cache` for its env-style cache component | `cache-engine` | `db-connector` | = component type |
 | roles | `source`, `sink` (one-of-many) + 8 shared `none` components | none (role absent) | `none` | `none` |
 | cardinality | one-of-many (roles), zero-or-more (shared) | exactly-one | exactly-one | exactly-one, one-of-many, zero-or-more |
-| ui.order | running counter | section index | section index | section index |
+| ui.order | running counter | section index | position within section | position within section |
 | predicates | none (generated, flat) | `when`, `discriminator`, `virtual`, `valueFrom` | `when`, `discriminator`, `pattern`, `min`/`max`, `table` | mixed |
 | metrics/actions | metrics on role components | both | both | both |
 | version scoping | component + field `version[]`, v4 only on `solace` | `[6, 7]` with v6-only and v7-only fields | `[1]` | components at `[1,2]` and `[1,2,3]`/`[2,3]` |

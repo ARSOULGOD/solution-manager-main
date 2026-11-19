@@ -1,0 +1,15 @@
+# Demo profile for the engine tests. These comments must survive a decisions merge byte-for-byte.
+solution: demo
+status: confirmed
+roles: [alpha, beta]
+key_style: full-dotted
+preserve_reviewed_ui: true
+explicit_versions: true
+components:
+  - {type: alpha-core, role: alpha, cardinality: one-of-many, configPath: "", match: [demo.alpha, demo.shared]}
+  - {type: beta-core, role: beta, cardinality: one-of-many, configPath: "", match: [demo.beta, demo.shared]}
+  - {type: server, role: none, shared: true, cardinality: zero-or-more, configPath: "", match: [server]}
+enums: {demo.alpha.mode: [fast, slow]}
+exclude:
+  - {match: demo.alpha.oldname, reason: "legacy duplicate"}
+defaults: {role_components: yaml, shared_components: package}

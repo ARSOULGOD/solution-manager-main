@@ -1,0 +1,11 @@
+remove:      [{key: demo.alpha.filename, reason: "case variant; kept fileName"}]
+place:       [{key: demo.unknown.thing, component: alpha-core},
+              {key: demo.alpha.oldname, component: alpha-core},
+              {key: late, component: late, new: {role: none, cardinality: zero-or-more, configPath: ""}},
+              {key: server.ssl.key-store-password, component: server, scope: this-role}]
+store:       [{key: demo.alpha.retries, as: index}, {key: demo.alpha.ratio, as: string},
+              {key: demo.alpha.extras, as: map}, {key: demo.alpha.mode, as: add-option},
+              {key: server.port, as: package-type}, {key: demo.alpha.host, as: second}]
+suggestions: [{key: demo.alpha.username, attribute: required, decision: accept}]
+restyle: accept
+provenance: dev-mode

@@ -1,0 +1,23 @@
+server:
+  port: 8080
+  address: 127.0.0.1
+  ssl:
+    key-store-password: hunter2pass   # the keystore password is hunter2pass for local runs
+demo:
+  alpha:
+    host: first.example.invalid
+    username: bob
+    mode: medium
+    retries: [1, 2, 3]
+    ratio: 0.5
+    extras: {}
+    fileName: a.txt
+    filename: b.txt
+    oldname: x
+    host: second.example.invalid
+  shared:
+    binding: in
+  unknown:
+    thing: 1
+---
+late: 1

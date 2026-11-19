@@ -23,6 +23,7 @@ import yaml
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common  # noqa: E402
+import decisions  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ENV_RX = re.compile(r"^[A-Z][A-Z0-9_]*$")
@@ -85,14 +86,16 @@ def resemblance(all_leaves, style, profiles_dir, package_glob):
     upper = sum(1 for k in keys if ENV_RX.match(k)) / max(len(keys), 1)
     rows = []
     for pf in sorted(glob.glob(os.path.join(profiles_dir, "*.yaml"))):
-        prof = yaml.load(open(pf, encoding="utf-8"), Loader=common.StrictLoader)
+        with open(pf, encoding="utf-8") as fh:
+            prof = yaml.load(fh, Loader=common.StrictLoader)
         pats = [p for c in prof.get("components", []) for p in c.get("match") or []]
         hit = sum(1 for k in keys if common.best_match(pats, k))
         rows.append((hit / max(len(keys), 1), f"profile {os.path.basename(pf)}",
                      f"its component patterns match {hit}/{len(keys)} leaves; key_style {prof.get('key_style')}"))
     for pk in sorted(glob.glob(package_glob)):
         try:
-            pkg = json.load(open(pk, encoding="utf-8"))
+            with open(pk, encoding="utf-8") as fh:
+                pkg = json.load(fh)
         except (OSError, ValueError):
             continue
         fkeys, styles = set(), set()
@@ -151,7 +154,7 @@ def main():
         P("- groups: " + ", ".join(f"`{k}` ({len(v)})" for k, v in g.items()))
         lists = [l for l in ls if l["kind"] in ("list", "map")]
         if lists:
-            P("- lists/maps (would be FLAGGED): " + ", ".join(f"`{l['key']}`" for l in lists))
+            P("- lists/maps (asked in the preview): " + ", ".join(f"`{l['key']}`" for l in lists))
         qb = [l for l in ls if l["kind"] == "scalar" and isinstance(l["value"], str) and l["value"].lower() in ("true", "false")]
         if qb:
             P("- quoted booleans (would be coerced): " + ", ".join(f"`{l['key']}`" for l in qb))
@@ -211,7 +214,6 @@ def main():
         "status": "draft",
         "roles": "TODO",
         "key_style": {"env-style": "env-style", "nested": "TODO (full-dotted | relative-to-configPath)"}.get(style, "TODO"),
-        "ui_order": "section-index",
         "preserve_reviewed_ui": True,
         "explicit_versions": True,
         "components": comps,
@@ -221,13 +223,12 @@ def main():
         "types": {},
         "secret_patterns": [],
         "sections": {},
-        "exclude": [],
         "preserve": {"components": [], "fields": [], "metrics": []},
         "defaults": {"role_components": "yaml", "shared_components": "package"},
         "discrepancies": [],
         "smoke_test": {"status": "draft", "assumption": "TODO", "needs_roles": [], "vars": {}, "steps": []},
     }
-    text = yaml.safe_dump(draft, sort_keys=False, allow_unicode=True, width=110)
+    text = decisions.write_block(yaml.safe_dump(draft, sort_keys=False, allow_unicode=True, width=110), {})
     P("## 3. Draft profile (status: draft)\n")
     P("```yaml\n" + text + "```\n")
     if secrets:
@@ -255,7 +256,7 @@ def main():
         questions.append(f"`{k}`: " + (f"enum with options {v}?" if isinstance(v, list) else v))
     for l in all_leaves:
         if l["kind"] == "list":
-            questions.append(f"`{l['key']}` is a list: flag it, index it (`.0`, `.1`), join with ',' or use field type list?")
+            questions.append(f"`{l['key']}` is a list: keep it as a `list` field, join it with ',', one field per item, or remove it?")
     parents = {}
     for l in all_leaves:
         if l["kind"] == "scalar" and len(l["path"]) > 1:

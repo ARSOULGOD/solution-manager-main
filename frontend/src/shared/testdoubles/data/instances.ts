@@ -322,12 +322,45 @@ export const CACHE_INSTANCES: readonly InstanceRow[] = [
 // and is not the place to grow a second solution's fixtures. Consumers that
 // want "every instance across every solution" merge this in explicitly —
 // `devPackageHandlers.ts`'s `allInstances()` is the one that does.
+//
+// Each instance binds its role component plus EVERY shared (`role: none`)
+// component of the File Mesh package. Binding only `spring-cloud-stream` hid
+// the server, Spring Boot Admin, Solace, application, logging and management
+// settings the role's application.yml also carries. The package's own version
+// filter still applies (`cache` declares versions 2-3, so a v1 instance does
+// not render it).
+const FILE_MESH_SHARED_COMPONENTS = [
+  'cache',
+  'server',
+  'spring-boot-admin',
+  'spring-cloud-stream',
+  'solace',
+  'application',
+  'logging',
+  'management',
+] as const;
+
+// Both instances are Acme Financial / Trading / PROD, so each selects that
+// scope's own broker for the package's two connection selectors (`UI-D27`).
+// A broker from another scope (e.g. Payments' `conn-7`) is never offered to
+// this instance (`connectionsForInstance`, `I5`). The id is the one
+// `HIERARCHY_BROKERS` generates for the scope.
+const TRADING_PROD_BROKER = 'conn-b-acme-financial-trading-prod';
+const FILE_MESH_BROKER_SELECTION = {
+  connections: {
+    solaceManagementBroker: TRADING_PROD_BROKER,
+    solaceDataBroker: TRADING_PROD_BROKER,
+  },
+  appliedConnectionRevisions: { [TRADING_PROD_BROKER]: 1 },
+} as const;
+
 export const FILE_MESH_INSTANCES: readonly InstanceRow[] = [
   {
     id: 'fm-source-1',
     name: 'Frankfurt feed (source)',
     solutionId: 'file-mesh',
-    componentTypes: ['file-source', 'spring-cloud-stream'],
+    componentTypes: ['file-source', ...FILE_MESH_SHARED_COMPONENTS],
+    ...FILE_MESH_BROKER_SELECTION,
     packageVersion: 1,
     env: 'PROD',
     org: 'Acme Financial',
@@ -344,7 +377,8 @@ export const FILE_MESH_INSTANCES: readonly InstanceRow[] = [
     id: 'fm-sink-1',
     name: 'Frankfurt archive (sink)',
     solutionId: 'file-mesh',
-    componentTypes: ['file-sink', 'spring-cloud-stream'],
+    componentTypes: ['file-sink', ...FILE_MESH_SHARED_COMPONENTS],
+    ...FILE_MESH_BROKER_SELECTION,
     packageVersion: 1,
     env: 'PROD',
     org: 'Acme Financial',

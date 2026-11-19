@@ -1,0 +1,11 @@
+# EXAMPLE answers used to exercise the skill (plan tooling/002); not the user's decisions.
+remove:
+  - key: file.source.command_center.useoutputdestinationsolacecredentials
+    reason: "case variant; kept useOutputDestinationSolaceCredentials"
+suggestions:
+  - {key: spring.application.name, attribute: required, decision: reject}
+  - {key: solace.connector.management.session.host, attribute: required, decision: accept}
+  - {key: solace.java.host, attribute: required, decision: accept}
+  - {key: logging.file.name, attribute: required, decision: reject}
+restyle: accept
+provenance: keep

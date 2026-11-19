@@ -12,7 +12,9 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { connectionSelectorValues, packageForSolution } from './packages';
+import { connectionsForInstance, DEV_CONNECTIONS } from './connections';
+import { FILE_MESH_INSTANCES } from './instances';
+import { connectionSelectorValues, draftValuesFor, packageForSolution } from './packages';
 
 describe('packageForSolution', () => {
   it('exposes authored labels on the engine dialect, not the canonical nesting', () => {
@@ -57,4 +59,24 @@ describe('connectionSelectorValues (UI-D27)', () => {
     const pkg = packageForSolution('cache')!;
     expect(connectionSelectorValues(pkg, {})).toEqual({});
   });
+});
+
+describe('File Mesh fixture instances: broker selection (UI-D27)', () => {
+  it.each(FILE_MESH_INSTANCES.map((instance) => [instance.id, instance] as const))(
+    '%s selects an active Solace broker of its own scope, seeded into the solace component',
+    (_id, instance) => {
+      const selected = Object.values(instance.connections ?? {});
+      expect(selected.length).toBeGreaterThan(0);
+      const inScope = connectionsForInstance(
+        DEV_CONNECTIONS.filter((row) => row.status === 'active'),
+        { org: instance.org, subOrg: instance.subOrg, env: instance.env },
+      );
+      for (const id of selected) {
+        const row = inScope.find((candidate) => candidate.id === id);
+        expect(row?.connectionType, `${id} is an active in-scope broker`).toBe('solace-broker');
+        expect(instance.appliedConnectionRevisions?.[id]).toBe(row?.revision);
+      }
+      expect(draftValuesFor(instance)['solace']).toEqual(instance.connections);
+    },
+  );
 });

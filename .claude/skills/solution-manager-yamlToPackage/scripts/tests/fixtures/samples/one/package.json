@@ -1,0 +1,65 @@
+{
+  "solution": "one",
+  "packageVersion": "1.0.0",
+  "appliesTo": {},
+  "ui": {},
+  "components": [
+    {
+      "type": "svc",
+      "fields": [
+        {
+          "key": "USERNAME",
+          "type": "string",
+          "required": true,
+          "ui": {
+            "section": "General"
+          }
+        },
+        {
+          "key": "HOST",
+          "type": "string",
+          "required": true,
+          "ui": {
+            "section": "General"
+          }
+        },
+        {
+          "key": "TIMEOUT",
+          "type": "string",
+          "ui": {
+            "section": "General",
+            "advanced": true
+          }
+        },
+        {
+          "key": "REDIS_URL",
+          "type": "string",
+          "required": true,
+          "when": {
+            "CACHE_PROVIDER": "redis"
+          },
+          "ui": {
+            "section": "General"
+          }
+        }
+      ]
+    },
+    {
+      "type": "client",
+      "fields": [
+        {
+          "key": "PASSWORD",
+          "type": "secret",
+          "secret": true,
+          "required": false,
+          "when": {
+            "AUTH_MODE": "basic"
+          },
+          "ui": {
+            "section": "General"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: apply-after-answers
+expected_outcome: |
+  Given answers.yaml for the file mesh source preview, the skill applies it and creates package.json in a scratch folder. The report shows 110 keys = 109 fields + 1 removed by the user. The decisions block is written with the date and the hand-written profile text is unchanged. The input package is not overwritten, no secret value appears in any output, and the skill asks before copying over the canonical package.
+context:
+  scaffold_script: place-files.sh
