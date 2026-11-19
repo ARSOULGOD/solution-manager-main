@@ -1,0 +1,32 @@
+# Stand-in SSH+Docker target for the local logs / file-read demo. NOT the real Cache engine:
+# a Python container that prints timestamped log lines, reads application.yml, and answers the
+# metrics URLs. See docs/runbooks/backend/run-local-logs-and-file-demo.md.
+# Requires DOCKER_GID and DEMO_UID in the environment (the runbook sets them).
+name: sm-standin
+services:
+  sshd:
+    build:
+      context: ./sshd
+      args:
+        DOCKER_GID: ${DOCKER_GID:?set DOCKER_GID}
+        DEMO_UID: ${DEMO_UID:?set DEMO_UID}
+    container_name: sm-standin-sshd
+    ports: ["127.0.0.1:2222:22"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./config/cache-1:/srv/config/cache-1
+      - ./authorized_keys:/home/demo/.ssh/authorized_keys:ro
+  cache:
+    build: ./app
+    container_name: sm-standin-cache
+    # Shares sshd's network namespace so the fixed `curl 127.0.0.1:8081` metric commands work, and
+    # so restarting this container does not break the SSH session's network.
+    network_mode: "service:sshd"
+    volumes:
+      - ./config/cache-1:/app/external/spring/config
+    healthcheck:
+      test: ["CMD","bash","-c","exec 3<>/dev/tcp/127.0.0.1/8081"]
+      interval: 3s
+      timeout: 2s
+      retries: 20
+      start_period: 5s
