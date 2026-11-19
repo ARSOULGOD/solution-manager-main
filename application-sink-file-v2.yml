@@ -1,0 +1,165 @@
+server:
+  port: 8093
+  ssl:
+    enabled: false
+    key-store: file:/home/banala/Music/entityFolders/download_binaries/SOURCE_NOSUBORG_Alice_FF_NWFILE_T3/keystore.p12
+    key-store-password: changeit      # or your password
+    key-store-type: PKCS12
+    key-alias: myalias
+spring:
+  application:
+    name: fm-file-sink
+  boot:
+    admin:
+      client:
+        instance:
+          prefer-ip: 'true'
+          management-url: 'http://localIP:${server.port}/actuator'
+          service-url: 'http://localIP:${server.port}/'
+        enabled: 'true'
+        url: 'http://50.17.36.43:9500/admin'
+        auto-registration: 'true'
+        prefer-ip: 'true'
+        username: user
+        password: pass
+  cloud:
+    stream:
+      bindings:
+        input-0:
+          destination: SOURCE/DEFAULT/Alice/FF/NWFILE/SEP15/1
+          binder: solace
+        output-0:
+          destination: /app/external/file-output
+          binder: file
+      solace:
+        default:
+          consumer:
+            queue-name-expression: "'fm-file-sink-queue'"
+            provision-durable-queue: false
+            add-destination-as-subscription-to-queue: false
+file:
+  sink:
+    general:
+      adapter_id: fm-file-sink
+      auto_create_directory: 1
+      dest_file_name_type: 3
+      storeBackupStateRemotely: false
+      state_backup_path: ./backup_state.cfg
+      clear_state_on_eod: 0
+      eod_time_sec: -1
+      alwaysVerifyData: true
+      alwaysMatchCompleteEvent: true
+    gcs:
+      enabled: 0
+      projectId: GCS_PROJECT_ID
+      credentialsFilePath: /home/centos/pubsubplus-connector-file-2.2.0/configs/gcs/creds.json
+      enableBulkComposeStrategy: true
+      retrySettings:
+        maxAttempts: 5
+        retryDelayMultiplier: 3
+        maxDurationMinutes: 2
+    sftp_settings:
+      enabled: 0
+      ip: SFTP_HOST_ADDRESS
+      port: 22
+      user: SFTP_USER
+      password: SFTP_PASSWORD
+      strictHostKeyChecking: 'no'
+    ftp_settings:
+      enabled: 0
+      ip: FTP_HOST_ADDRESS
+      port: 21
+      user: FTP_USER
+      password: FTP_PASSWORD
+      secured: true
+    file_owner_permissions:
+      copy_source_file_mode_permissions: 0
+      copy_source_file_owner: 0
+      override_username: centos
+      override_group: centos
+    command_center:
+      enabled: 0
+      useOutputDestinationSolaceCredentials: true
+      solace_base_publish_topic: solace/dd/STORE-MANGEMENT/fa-assembler/cc/se/fa/assembler/Frankfurt
+      solace_messaging_mode: PERSISTENT
+      heartbeat_enabled: 0
+      heartbeat_interval: 3
+      solace_base_publish_topic_heartbeat: solace/dd/STORE-MANGEMENT/fa-assembler/cc/se/fa/assembler/Frankfurt
+      events:
+        fileStart: true
+        fileComplete: true
+solace:
+  connector:
+    security:
+      enabled: false
+    error:
+      handle: stop_all
+    workflows:
+      '0':
+        enabled: true
+        acknowledgment:
+          publish-async: true
+    management:
+      leader-election:
+        mode: active_standby
+        fail-over:
+          max-attempts: 3
+          back-off-initial-interval: 1000
+          back-off-max-interval: 10000
+          back-off-multiplier: 2
+      queue: fm-file-sink-management
+      session:
+        host: 'tcp://host.docker.internal:55554'
+        msg-vpn: default
+        client-username: test
+        client-password: test
+  java:
+    host: 'tcp://host.docker.internal:55554'
+    msg-vpn: default
+    client-username: test
+    client-password: test
+    connectRetries: -1
+    reconnectRetries: -1
+logging:
+  level:
+    root: INFO
+    com.solace.spring.cloud.stream.binder: INFO
+    com.solacecoe.spring.cloud.stream.binders.file: TRACE
+  file:
+    name: myapp.log
+  logback:
+    rollingpolicy:
+      file-name-pattern: '${LOG_FILE}.%d{yyyy-MM-dd}.%i.gz'
+      max-file-size: 100MB
+      max-history: 7
+      total-size-cap: 1GB
+management:
+  security:
+    enabled: false
+  simple:
+    metrics:
+      export:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: 'health,info,metrics'
+      cors:
+        allowed-origins: "*"
+        allowed-methods: "*"
+        allowed-headers: "*"
+  endpoint:
+    logfile:
+      external-file: myapp.log
+    prometheus:
+      enabled: false
+    health:
+      show-details: ALWAYS
+      status:
+        order:
+          - DOWN
+          - OUT_OF_SERVICE
+          - RECONNECTING
+          - UP
+          - UNKNOWN
+
